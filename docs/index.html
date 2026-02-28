@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="MDDB - High-performance, version-controlled markdown database with dual protocol support (HTTP/JSON + gRPC/Protobuf). Lightweight, embedded, and optimized for content management systems.">
+    <meta name="description" content="MDDB - High-performance markdown database with vector search, full-text search, webhooks, TTL, and dual protocol support (HTTP/JSON + gRPC/Protobuf). Perfect for CMS, RAG pipelines, and knowledge bases.">
     <meta name="keywords" content="markdown database, document database, version control, gRPC, protobuf, embedded database, content management, CMS, BoltDB, Go">
     <meta name="author" content="MDDB Team">
     <meta name="robots" content="index, follow">
@@ -12,14 +12,14 @@
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://tradik.github.io/mddb/">
     <meta property="og:title" content="MDDB - Markdown Database">
-    <meta property="og:description" content="High-performance, version-controlled markdown database with dual protocol support">
+    <meta property="og:description" content="High-performance markdown database with vector search, full-text search, webhooks, and dual protocol support">
     <meta property="og:image" content="https://tradik.github.io/mddb/og-image.png">
     
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:url" content="https://tradik.github.io/mddb/">
     <meta property="twitter:title" content="MDDB - Markdown Database">
-    <meta property="twitter:description" content="High-performance, version-controlled markdown database with dual protocol support">
+    <meta property="twitter:description" content="High-performance markdown database with vector search, full-text search, webhooks, and dual protocol support">
     <meta property="twitter:image" content="https://tradik.github.io/mddb/og-image.png">
     
     <title>MDDB - High-Performance Markdown Database</title>
@@ -43,17 +43,21 @@
         "priceCurrency": "USD"
       },
       "description": "High-performance, version-controlled markdown database with dual protocol support (HTTP/JSON + gRPC/Protobuf)",
-      "softwareVersion": "2.1.0",
+      "softwareVersion": "2.3.0",
       "featureList": [
         "Markdown-native database",
         "Dual protocol support (HTTP/JSON + gRPC/Protobuf)",
         "Full revision history",
+        "Vector/semantic search (OpenAI, Ollama, Voyage AI)",
+        "Full-text search with inverted index",
+        "Document TTL with auto-expiry",
+        "Webhooks with retry logic",
+        "Import from URL with frontmatter parsing",
         "Model Context Protocol (MCP) server",
         "Multi-language support",
-        "Template variables",
-        "Rich metadata indexing"
+        "PHP and Python client libraries"
       ],
-      "datePublished": "2025-01-09",
+      "datePublished": "2026-02-28",
       "author": {
         "@type": "Organization",
         "name": "MDDB Team"
@@ -95,15 +99,15 @@
         <div class="container">
             <div class="hero-content">
                 <h1>High-Performance Markdown Database</h1>
-                <p class="hero-subtitle">Version-controlled, embedded database designed for markdown documents with dual protocol support</p>
+                <p class="hero-subtitle">Version-controlled, embedded database with vector search, full-text search, webhooks, TTL, and dual protocol support</p>
                 <div class="hero-badges">
-                    <span class="badge">v2.1.0</span>
-                    <span class="badge">Go 1.25+</span>
+                    <span class="badge">v2.3.0</span>
+                    <span class="badge">Go 1.26+</span>
                     <span class="badge">BSD-3-Clause</span>
                     <span class="badge">Docker Ready</span>
                 </div>
                 <div class="hero-actions">
-                    <a href="#download" class="btn btn-primary">Download v2.1.0</a>
+                    <a href="#download" class="btn btn-primary">Download v2.3.0</a>
                     <a href="https://github.com/tradik/mddb" class="btn btn-secondary" target="_blank" rel="noopener">View on GitHub</a>
                 </div>
                 <div class="hero-quick-start">
@@ -145,8 +149,28 @@
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">🔍</div>
-                    <h3>Rich Metadata</h3>
-                    <p>Fast searches using indexed metadata tags and filters</p>
+                    <h3>Vector Search</h3>
+                    <p>Semantic similarity search with auto-generated embeddings (OpenAI, Ollama, Voyage AI)</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📖</div>
+                    <h3>Full-Text Search</h3>
+                    <p>Built-in inverted index with TF scoring and stop word filtering</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔔</div>
+                    <h3>Webhooks</h3>
+                    <p>HTTP callbacks on document events with exponential backoff retry</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⏱️</div>
+                    <h3>Document TTL</h3>
+                    <p>Auto-expiring documents with background cleanup, like Redis</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🌐</div>
+                    <h3>Import from URL</h3>
+                    <p>Fetch markdown from any URL with frontmatter parsing</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">⚡</div>
@@ -205,7 +229,7 @@ make docker-up
                 </div>
                 <div class="tab-pane" id="binary">
                     <pre><code># Download binary
-wget https://github.com/tradik/mddb/releases/download/v2.1.0/mddbd-linux-amd64
+wget https://github.com/tradik/mddb/releases/download/v2.3.0/mddbd-linux-amd64
 chmod +x mddbd-linux-amd64
 
 # Run server
@@ -235,57 +259,58 @@ make build
             <div class="download-grid">
                 <div class="download-card">
                     <h3>Latest Release</h3>
-                    <div class="version">v2.1.0</div>
-                    <p class="release-date">Released: January 9, 2025</p>
+                    <div class="version">v2.3.0</div>
+                    <p class="release-date">Released: February 28, 2026</p>
                     <div class="download-links">
-                        <a href="https://github.com/tradik/mddb/releases/download/v2.1.0/mddbd-linux-amd64" class="download-link">
+                        <a href="https://github.com/tradik/mddb/releases/download/v2.3.0/mddbd-linux-amd64" class="download-link">
                             <span class="platform">Linux AMD64</span>
                             <span class="size">~8MB</span>
                         </a>
-                        <a href="https://github.com/tradik/mddb/releases/download/v2.1.0/mddbd-linux-arm64" class="download-link">
+                        <a href="https://github.com/tradik/mddb/releases/download/v2.3.0/mddbd-linux-arm64" class="download-link">
                             <span class="platform">Linux ARM64</span>
                             <span class="size">~8MB</span>
                         </a>
-                        <a href="https://github.com/tradik/mddb/releases/download/v2.1.0/mddbd-darwin-amd64" class="download-link">
+                        <a href="https://github.com/tradik/mddb/releases/download/v2.3.0/mddbd-darwin-amd64" class="download-link">
                             <span class="platform">macOS AMD64</span>
                             <span class="size">~8MB</span>
                         </a>
-                        <a href="https://github.com/tradik/mddb/releases/download/v2.1.0/mddbd-darwin-arm64" class="download-link">
+                        <a href="https://github.com/tradik/mddb/releases/download/v2.3.0/mddbd-darwin-arm64" class="download-link">
                             <span class="platform">macOS ARM64</span>
                             <span class="size">~8MB</span>
                         </a>
-                        <a href="https://github.com/tradik/mddb/releases/download/v2.1.0/mddbd-freebsd-amd64" class="download-link">
+                        <a href="https://github.com/tradik/mddb/releases/download/v2.3.0/mddbd-freebsd-amd64" class="download-link">
                             <span class="platform">FreeBSD AMD64</span>
                             <span class="size">~8MB</span>
                         </a>
                     </div>
                     <div class="package-links">
-                        <a href="https://github.com/tradik/mddb/releases/download/v2.1.0/mddb_2.1.0_amd64.deb" class="package-link">
+                        <a href="https://github.com/tradik/mddb/releases/download/v2.3.0/mddb_2.3.0_amd64.deb" class="package-link">
                             📦 Debian/Ubuntu (.deb)
                         </a>
-                        <a href="https://github.com/tradik/mddb/releases/download/v2.1.0/mddb-2.1.0-1.x86_64.rpm" class="package-link">
+                        <a href="https://github.com/tradik/mddb/releases/download/v2.3.0/mddb-2.3.0-1.x86_64.rpm" class="package-link">
                             📦 RedHat/CentOS (.rpm)
                         </a>
                     </div>
                 </div>
                 <div class="download-card">
                     <h3>Docker Image</h3>
-                    <div class="version">tradik/mddb:2.1.0</div>
+                    <div class="version">tradik/mddb:2.3.0</div>
                     <p class="release-date">Alpine-based (~15MB)</p>
                     <pre><code>docker pull tradik/mddb:latest
-docker pull tradik/mddb:2.1.0</code></pre>
+docker pull tradik/mddb:2.3.0</code></pre>
                     <a href="https://hub.docker.com/r/tradik/mddb" class="btn btn-secondary" target="_blank" rel="noopener">View on Docker Hub</a>
                 </div>
             </div>
             <div class="release-notes">
-                <h3>What's New in v2.1.0</h3>
+                <h3>What's New in v2.3.0</h3>
                 <ul>
-                    <li>🤖 <strong>MCP Server</strong> - Model Context Protocol for Windsurf & Claude Desktop</li>
-                    <li>✨ Health check endpoints (<code>/health</code>, <code>/v1/health</code>)</li>
-                    <li>📖 Complete OpenAPI/Swagger documentation</li>
-                    <li>🐳 Comprehensive health check guide for Docker/Kubernetes</li>
-                    <li>📝 Interactive Swagger UI</li>
-                    <li>🔧 Improved documentation and examples</li>
+                    <li>⏱️ <strong>Document TTL</strong> - Auto-expiring documents with background cleanup</li>
+                    <li>📖 <strong>Full-Text Search</strong> - Built-in inverted index with TF scoring</li>
+                    <li>🔔 <strong>Webhooks</strong> - HTTP callbacks on doc events with retry logic</li>
+                    <li>🌐 <strong>Import from URL</strong> - Fetch markdown with frontmatter parsing</li>
+                    <li>🚀 <strong>Go 1.26</strong> - Upgraded runtime and all dependencies</li>
+                    <li>🐘 <strong>PHP & Python Clients</strong> - Zero-dependency single-file clients</li>
+                    <li>🔍 <strong>RAG Examples</strong> - Vector search + LLM pipeline documentation</li>
                 </ul>
                 <a href="https://github.com/tradik/mddb/blob/main/CHANGELOG.md" target="_blank" rel="noopener">View Full Changelog →</a>
             </div>
@@ -354,39 +379,71 @@ docker pull tradik/mddb:2.1.0</code></pre>
             <h2>Code Examples</h2>
             <div class="example-tabs">
                 <button class="example-tab active" data-example="add">Add Document</button>
-                <button class="example-tab" data-example="get">Get Document</button>
-                <button class="example-tab" data-example="search">Search</button>
+                <button class="example-tab" data-example="vector">Vector Search</button>
+                <button class="example-tab" data-example="fts">Full-Text Search</button>
+                <button class="example-tab" data-example="search">Metadata Search</button>
+                <button class="example-tab" data-example="python">Python</button>
+                <button class="example-tab" data-example="php">PHP</button>
                 <button class="example-tab" data-example="mcp">MCP Setup</button>
-                <button class="example-tab" data-example="health">Health Check</button>
             </div>
             <div class="example-content">
                 <div class="example-pane active" id="add">
-                    <pre><code>curl -X POST http://localhost:11023/v1/add \
+                    <pre><code># Add document with TTL (expires in 1 hour)
+curl -X POST http://localhost:11023/v1/add \
   -H "Content-Type: application/json" \
   -d '{
     "collection": "blog",
     "key": "hello-world",
     "lang": "en_US",
+    "ttl": 3600,
     "meta": {
       "category": ["tutorial"],
-      "author": ["John Doe"],
-      "tags": ["markdown", "database"]
+      "author": ["John Doe"]
     },
     "contentMd": "# Hello World\n\nWelcome to MDDB!"
-  }'</code></pre>
+  }'
+
+# Import directly from URL
+curl -X POST http://localhost:11023/v1/import-url \
+  -d '{"collection":"docs", "url":"https://example.com/guide.md", "lang":"en_US"}'</code></pre>
                 </div>
-                <div class="example-pane" id="get">
-                    <pre><code>curl -X POST http://localhost:11023/v1/get \
+                <div class="example-pane" id="vector">
+                    <pre><code># Semantic search - finds docs by meaning, not exact keywords
+curl -X POST http://localhost:11023/v1/vector-search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "kb",
+    "query": "how do I cancel my subscription?",
+    "topK": 5,
+    "threshold": 0.7,
+    "includeContent": true
+  }'
+
+# Filter by metadata during vector search
+curl -X POST http://localhost:11023/v1/vector-search \
+  -d '{"collection":"kb", "query":"refund", "topK":3, "filterMeta":{"category":["billing"]}}'
+
+# Re-index embeddings after changing provider
+curl -X POST http://localhost:11023/v1/vector-reindex \
+  -d '{"collection": "kb", "force": true}'</code></pre>
+                </div>
+                <div class="example-pane" id="fts">
+                    <pre><code># Full-text search with TF scoring
+curl -X POST http://localhost:11023/v1/fts \
   -H "Content-Type: application/json" \
   -d '{
     "collection": "blog",
-    "key": "hello-world",
-    "lang": "en_US",
-    "env": {
-      "siteName": "My Blog",
-      "year": "2025"
-    }
-  }'</code></pre>
+    "query": "markdown database tutorial",
+    "limit": 10
+  }'
+
+# Register webhook for document changes
+curl -X POST http://localhost:11023/v1/webhooks \
+  -d '{"url":"https://your-app.com/hook", "events":["doc.added","doc.updated"]}'
+
+# Set TTL on existing document (0 = remove)
+curl -X POST http://localhost:11023/v1/set-ttl \
+  -d '{"collection":"cache", "key":"temp", "lang":"en", "ttl":7200}'</code></pre>
                 </div>
                 <div class="example-pane" id="search">
                     <pre><code>curl -X POST http://localhost:11023/v1/search \
@@ -401,13 +458,56 @@ docker pull tradik/mddb:2.1.0</code></pre>
     "limit": 10
   }'</code></pre>
                 </div>
+                <div class="example-pane" id="python">
+                    <pre><code>from mddb import MDDB
+
+db = MDDB.connect('localhost:11023', 'write').collection('kb')
+
+# Add document
+db.add('faq', 'en_US', {'category': ['billing']}, '# Billing FAQ\n\nCancel in Settings.')
+
+# Vector search (RAG pipeline step 1)
+results = db.vector_search('how to cancel?', top_k=3, include_content=True)
+
+# Full-text search
+results = db.fts_search('billing refund', limit=10)
+
+# Webhooks
+db.register_webhook('https://app.com/hook', ['doc.added'], 'kb')
+
+# Import from URL
+db.import_url('https://example.com/docs.md', 'en_US')
+
+# TTL
+db.set_ttl('temp-key', 'en', 3600)  # expires in 1h</code></pre>
+                </div>
+                <div class="example-pane" id="php">
+                    <pre><code>&lt;?php
+require_once 'mddb.php';
+
+$db = mddb::connect('localhost:11023', 'write');
+
+// Add document
+$db->collection('blog')->add('hello', 'en_US', ['category' => ['tutorial']], '# Hello');
+
+// Vector search
+$results = $db->collection('kb')->vectorSearch('cancel subscription', 5, 0.7, true);
+
+// Full-text search
+$results = $db->collection('blog')->ftsSearch('database tutorial', 10);
+
+// Webhooks
+$db->registerWebhook('https://app.com/hook', ['doc.added', 'doc.updated']);
+
+// Import from URL
+$db->collection('docs')->importUrl('https://example.com/post.md', 'en_US');
+
+// TTL
+$db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
+                </div>
                 <div class="example-pane" id="mcp">
-                    <pre><code># Option 1: Docker (Easiest - No Build Required) ⭐
-
-# Prerequisites: MDDB server running on localhost:11023 and localhost:11024
-# (See Quick Start section above to start MDDB)
-
-# Configure Windsurf (~/.windsurf/mcp.json)
+                    <pre><code># Docker (Easiest) - for Windsurf / Claude Desktop
+# Configure ~/.windsurf/mcp.json:
 {
   "mcpServers": {
     "mddb": {
@@ -416,46 +516,18 @@ docker pull tradik/mddb:2.1.0</code></pre>
         "run", "-i", "--rm", "--network", "host",
         "-e", "MDDB_GRPC_ADDRESS=localhost:11024",
         "-e", "MDDB_REST_BASE_URL=http://localhost:11023",
-        "tradik/mddb:mcp"
+        "tradik/mddb:mcp-2.3.0"
       ]
     }
   }
 }
 
-# Restart Windsurf - Done!
-# MCP will automatically pull tradik/mddb:mcp on first use
-
-# ---
-
-# Option 2: Local Binary (For Development)
-
-# 1. Build MCP stdio binary
-cd services/mddb-mcp
-make build-stdio
-
-# 2. Configure Windsurf (~/.windsurf/mcp.json)
-{
-  "mcpServers": {
-    "mddb": {
-      "command": "/full/path/to/mddb-mcp-stdio",
-      "env": {
-        "MDDB_GRPC_ADDRESS": "localhost:11024",
-        "MDDB_REST_BASE_URL": "http://localhost:11023"
-      }
-    }
-  }
-}
-
-# 3. Restart Windsurf IDE</code></pre>
-                </div>
-                <div class="example-pane" id="health">
-                    <pre><code>curl http://localhost:11023/health
-
-# Response:
-{
-  "status": "healthy",
-  "mode": "wr"
-}</code></pre>
+# MCP provides 20+ tools including:
+# - add_document, get_document, search, delete
+# - vector_search, full_text_search
+# - import_url, set_ttl
+# - register_webhook, list_webhooks, delete_webhook
+# - export, backup, restore, stats</code></pre>
                 </div>
             </div>
         </div>
@@ -467,24 +539,28 @@ make build-stdio
             <h2>Use Cases</h2>
             <div class="use-cases-grid">
                 <div class="use-case">
+                    <h3>🤖 RAG / AI Pipelines</h3>
+                    <p>Semantic vector search + LLM integration via MCP. Build knowledge bases for AI assistants</p>
+                </div>
+                <div class="use-case">
                     <h3>📝 Content Management</h3>
-                    <p>Perfect for blogs, documentation sites, and knowledge bases with version control</p>
+                    <p>Blogs, docs, and knowledge bases with version control, webhooks, and TTL</p>
+                </div>
+                <div class="use-case">
+                    <h3>🔔 Event-Driven Apps</h3>
+                    <p>Webhooks trigger HTTP callbacks on doc changes for real-time sync and notifications</p>
                 </div>
                 <div class="use-case">
                     <h3>🌐 Multi-language Sites</h3>
                     <p>Store and manage content in multiple languages with the same document key</p>
                 </div>
                 <div class="use-case">
+                    <h3>⏱️ Cache / Temporary Data</h3>
+                    <p>Document TTL with auto-expiry for session data, cache layers, and temporary content</p>
+                </div>
+                <div class="use-case">
                     <h3>📚 Documentation Platforms</h3>
-                    <p>Build documentation systems with full revision history and metadata search</p>
-                </div>
-                <div class="use-case">
-                    <h3>🔄 API Backend</h3>
-                    <p>Lightweight backend for mobile apps and SPAs with markdown content</p>
-                </div>
-                <div class="use-case">
-                    <h3>🤖 LLM Integration</h3>
-                    <p>Connect to Windsurf, Claude Desktop, and other MCP-compatible AI tools</p>
+                    <p>Import from URLs, full-text search, revision history, and rich metadata</p>
                 </div>
             </div>
         </div>
@@ -527,7 +603,7 @@ make build-stdio
                 <div class="footer-section">
                     <h4>MDDB</h4>
                     <p>High-performance markdown database</p>
-                    <p class="footer-version">Version 2.1.0</p>
+                    <p class="footer-version">Version 2.3.0</p>
                 </div>
                 <div class="footer-section">
                     <h4>Documentation</h4>
@@ -556,7 +632,7 @@ make build-stdio
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2025 MDDB Team. Licensed under BSD-3-Clause.</p>
+                <p>&copy; 2026 MDDB Team. Licensed under BSD-3-Clause.</p>
             </div>
         </div>
     </footer>
