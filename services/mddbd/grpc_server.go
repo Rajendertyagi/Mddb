@@ -91,6 +91,11 @@ func (g *GRPCServer) Add(ctx context.Context, req *proto.AddRequest) (*proto.Doc
 		meta[k] = v.Values
 	}
 
+	// Schema validation (opt-in)
+	if err := g.server.SchemaManager.Validate(req.Collection, meta); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
 	now := time.Now().Unix()
 	docID := genID(req.Collection, req.Key, req.Lang)
 
@@ -1044,4 +1049,84 @@ func (g *GRPCServer) DeleteWebhook(ctx context.Context, req *proto.DeleteWebhook
 	}
 
 	return &proto.DeleteWebhookResponse{Status: "deleted", Id: req.Id}, nil
+}
+
+// SetSchema implements the SetSchema RPC
+func (g *GRPCServer) SetSchema(ctx context.Context, req *proto.SetSchemaRequest) (*proto.SetSchemaResponse, error) {
+	if g.server.Mode == ModeRead {
+		return nil, status.Error(codes.PermissionDenied, "read-only mode")
+	}
+	if req.Collection == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing collection")
+	}
+	if req.Schema == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing schema")
+	}
+	if err := g.server.SchemaManager.Set(req.Collection, req.Schema); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	return &proto.SetSchemaResponse{Status: "ok"}, nil
+}
+
+// GetSchema implements the GetSchema RPC
+func (g *GRPCServer) GetSchema(ctx context.Context, req *proto.GetSchemaRequest) (*proto.GetSchemaResponse, error) {
+	if req.Collection == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing collection")
+	}
+	raw, found := g.server.SchemaManager.Get(req.Collection)
+	return &proto.GetSchemaResponse{
+		Collection: req.Collection,
+		Schema:     raw,
+		Enabled:    found,
+	}, nil
+}
+
+// DeleteSchema implements the DeleteSchema RPC
+func (g *GRPCServer) DeleteSchema(ctx context.Context, req *proto.DeleteSchemaRequest) (*proto.DeleteSchemaResponse, error) {
+	if g.server.Mode == ModeRead {
+		return nil, status.Error(codes.PermissionDenied, "read-only mode")
+	}
+	if req.Collection == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing collection")
+	}
+	if err := g.server.SchemaManager.Delete(req.Collection); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &proto.DeleteSchemaResponse{Status: "ok"}, nil
+}
+
+// ListSchemas implements the ListSchemas RPC
+func (g *GRPCServer) ListSchemas(ctx context.Context, req *proto.ListSchemasRequest) (*proto.ListSchemasResponse, error) {
+	schemas := g.server.SchemaManager.List()
+	var result []*proto.SchemaInfo
+	for col, raw := range schemas {
+		result = append(result, &proto.SchemaInfo{
+			Collection: col,
+			Schema:     raw,
+		})
+	}
+	return &proto.ListSchemasResponse{Schemas: result}, nil
+}
+
+// ValidateDocument implements the ValidateDocument RPC
+func (g *GRPCServer) ValidateDocument(ctx context.Context, req *proto.ValidateDocumentRequest) (*proto.ValidateDocumentResponse, error) {
+	if req.Collection == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing collection")
+	}
+	meta := make(map[string][]string)
+	for k, v := range req.Meta {
+		meta[k] = v.Values
+	}
+	err := g.server.SchemaManager.Validate(req.Collection, meta)
+	if err != nil {
+		parts := strings.SplitAfter(err.Error(), ": ")
+		var errMsgs []string
+		if len(parts) > 1 {
+			errMsgs = strings.Split(parts[len(parts)-1], "; ")
+		} else {
+			errMsgs = []string{err.Error()}
+		}
+		return &proto.ValidateDocumentResponse{Valid: false, Errors: errMsgs}, nil
+	}
+	return &proto.ValidateDocumentResponse{Valid: true}, nil
 }

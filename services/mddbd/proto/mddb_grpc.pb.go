@@ -19,26 +19,31 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	MDDB_Add_FullMethodName             = "/mddb.MDDB/Add"
-	MDDB_AddBatch_FullMethodName        = "/mddb.MDDB/AddBatch"
-	MDDB_DeleteBatch_FullMethodName     = "/mddb.MDDB/DeleteBatch"
-	MDDB_UpdateBatch_FullMethodName     = "/mddb.MDDB/UpdateBatch"
-	MDDB_Get_FullMethodName             = "/mddb.MDDB/Get"
-	MDDB_Search_FullMethodName          = "/mddb.MDDB/Search"
-	MDDB_Export_FullMethodName          = "/mddb.MDDB/Export"
-	MDDB_Backup_FullMethodName          = "/mddb.MDDB/Backup"
-	MDDB_Restore_FullMethodName         = "/mddb.MDDB/Restore"
-	MDDB_Truncate_FullMethodName        = "/mddb.MDDB/Truncate"
-	MDDB_Stats_FullMethodName           = "/mddb.MDDB/Stats"
-	MDDB_VectorSearch_FullMethodName    = "/mddb.MDDB/VectorSearch"
-	MDDB_VectorReindex_FullMethodName   = "/mddb.MDDB/VectorReindex"
-	MDDB_VectorStats_FullMethodName     = "/mddb.MDDB/VectorStats"
-	MDDB_ImportURL_FullMethodName       = "/mddb.MDDB/ImportURL"
-	MDDB_SetTTL_FullMethodName          = "/mddb.MDDB/SetTTL"
-	MDDB_FTS_FullMethodName             = "/mddb.MDDB/FTS"
-	MDDB_RegisterWebhook_FullMethodName = "/mddb.MDDB/RegisterWebhook"
-	MDDB_ListWebhooks_FullMethodName    = "/mddb.MDDB/ListWebhooks"
-	MDDB_DeleteWebhook_FullMethodName   = "/mddb.MDDB/DeleteWebhook"
+	MDDB_Add_FullMethodName              = "/mddb.MDDB/Add"
+	MDDB_AddBatch_FullMethodName         = "/mddb.MDDB/AddBatch"
+	MDDB_DeleteBatch_FullMethodName      = "/mddb.MDDB/DeleteBatch"
+	MDDB_UpdateBatch_FullMethodName      = "/mddb.MDDB/UpdateBatch"
+	MDDB_Get_FullMethodName              = "/mddb.MDDB/Get"
+	MDDB_Search_FullMethodName           = "/mddb.MDDB/Search"
+	MDDB_Export_FullMethodName           = "/mddb.MDDB/Export"
+	MDDB_Backup_FullMethodName           = "/mddb.MDDB/Backup"
+	MDDB_Restore_FullMethodName          = "/mddb.MDDB/Restore"
+	MDDB_Truncate_FullMethodName         = "/mddb.MDDB/Truncate"
+	MDDB_Stats_FullMethodName            = "/mddb.MDDB/Stats"
+	MDDB_VectorSearch_FullMethodName     = "/mddb.MDDB/VectorSearch"
+	MDDB_VectorReindex_FullMethodName    = "/mddb.MDDB/VectorReindex"
+	MDDB_VectorStats_FullMethodName      = "/mddb.MDDB/VectorStats"
+	MDDB_ImportURL_FullMethodName        = "/mddb.MDDB/ImportURL"
+	MDDB_SetTTL_FullMethodName           = "/mddb.MDDB/SetTTL"
+	MDDB_FTS_FullMethodName              = "/mddb.MDDB/FTS"
+	MDDB_RegisterWebhook_FullMethodName  = "/mddb.MDDB/RegisterWebhook"
+	MDDB_ListWebhooks_FullMethodName     = "/mddb.MDDB/ListWebhooks"
+	MDDB_DeleteWebhook_FullMethodName    = "/mddb.MDDB/DeleteWebhook"
+	MDDB_SetSchema_FullMethodName        = "/mddb.MDDB/SetSchema"
+	MDDB_GetSchema_FullMethodName        = "/mddb.MDDB/GetSchema"
+	MDDB_DeleteSchema_FullMethodName     = "/mddb.MDDB/DeleteSchema"
+	MDDB_ListSchemas_FullMethodName      = "/mddb.MDDB/ListSchemas"
+	MDDB_ValidateDocument_FullMethodName = "/mddb.MDDB/ValidateDocument"
 )
 
 // MDDBClient is the client API for MDDB service.
@@ -87,6 +92,16 @@ type MDDBClient interface {
 	ListWebhooks(ctx context.Context, in *ListWebhooksRequest, opts ...grpc.CallOption) (*ListWebhooksResponse, error)
 	// Delete a webhook
 	DeleteWebhook(ctx context.Context, in *DeleteWebhookRequest, opts ...grpc.CallOption) (*DeleteWebhookResponse, error)
+	// Set JSON Schema for a collection's metadata validation
+	SetSchema(ctx context.Context, in *SetSchemaRequest, opts ...grpc.CallOption) (*SetSchemaResponse, error)
+	// Get JSON Schema for a collection
+	GetSchema(ctx context.Context, in *GetSchemaRequest, opts ...grpc.CallOption) (*GetSchemaResponse, error)
+	// Delete JSON Schema for a collection (disables validation)
+	DeleteSchema(ctx context.Context, in *DeleteSchemaRequest, opts ...grpc.CallOption) (*DeleteSchemaResponse, error)
+	// List all collection schemas
+	ListSchemas(ctx context.Context, in *ListSchemasRequest, opts ...grpc.CallOption) (*ListSchemasResponse, error)
+	// Validate document metadata against collection schema
+	ValidateDocument(ctx context.Context, in *ValidateDocumentRequest, opts ...grpc.CallOption) (*ValidateDocumentResponse, error)
 }
 
 type mDDBClient struct {
@@ -306,6 +321,56 @@ func (c *mDDBClient) DeleteWebhook(ctx context.Context, in *DeleteWebhookRequest
 	return out, nil
 }
 
+func (c *mDDBClient) SetSchema(ctx context.Context, in *SetSchemaRequest, opts ...grpc.CallOption) (*SetSchemaResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetSchemaResponse)
+	err := c.cc.Invoke(ctx, MDDB_SetSchema_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) GetSchema(ctx context.Context, in *GetSchemaRequest, opts ...grpc.CallOption) (*GetSchemaResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetSchemaResponse)
+	err := c.cc.Invoke(ctx, MDDB_GetSchema_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) DeleteSchema(ctx context.Context, in *DeleteSchemaRequest, opts ...grpc.CallOption) (*DeleteSchemaResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteSchemaResponse)
+	err := c.cc.Invoke(ctx, MDDB_DeleteSchema_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) ListSchemas(ctx context.Context, in *ListSchemasRequest, opts ...grpc.CallOption) (*ListSchemasResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListSchemasResponse)
+	err := c.cc.Invoke(ctx, MDDB_ListSchemas_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) ValidateDocument(ctx context.Context, in *ValidateDocumentRequest, opts ...grpc.CallOption) (*ValidateDocumentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ValidateDocumentResponse)
+	err := c.cc.Invoke(ctx, MDDB_ValidateDocument_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MDDBServer is the server API for MDDB service.
 // All implementations must embed UnimplementedMDDBServer
 // for forward compatibility.
@@ -352,6 +417,16 @@ type MDDBServer interface {
 	ListWebhooks(context.Context, *ListWebhooksRequest) (*ListWebhooksResponse, error)
 	// Delete a webhook
 	DeleteWebhook(context.Context, *DeleteWebhookRequest) (*DeleteWebhookResponse, error)
+	// Set JSON Schema for a collection's metadata validation
+	SetSchema(context.Context, *SetSchemaRequest) (*SetSchemaResponse, error)
+	// Get JSON Schema for a collection
+	GetSchema(context.Context, *GetSchemaRequest) (*GetSchemaResponse, error)
+	// Delete JSON Schema for a collection (disables validation)
+	DeleteSchema(context.Context, *DeleteSchemaRequest) (*DeleteSchemaResponse, error)
+	// List all collection schemas
+	ListSchemas(context.Context, *ListSchemasRequest) (*ListSchemasResponse, error)
+	// Validate document metadata against collection schema
+	ValidateDocument(context.Context, *ValidateDocumentRequest) (*ValidateDocumentResponse, error)
 	mustEmbedUnimplementedMDDBServer()
 }
 
@@ -421,6 +496,21 @@ func (UnimplementedMDDBServer) ListWebhooks(context.Context, *ListWebhooksReques
 }
 func (UnimplementedMDDBServer) DeleteWebhook(context.Context, *DeleteWebhookRequest) (*DeleteWebhookResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteWebhook not implemented")
+}
+func (UnimplementedMDDBServer) SetSchema(context.Context, *SetSchemaRequest) (*SetSchemaResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetSchema not implemented")
+}
+func (UnimplementedMDDBServer) GetSchema(context.Context, *GetSchemaRequest) (*GetSchemaResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSchema not implemented")
+}
+func (UnimplementedMDDBServer) DeleteSchema(context.Context, *DeleteSchemaRequest) (*DeleteSchemaResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteSchema not implemented")
+}
+func (UnimplementedMDDBServer) ListSchemas(context.Context, *ListSchemasRequest) (*ListSchemasResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListSchemas not implemented")
+}
+func (UnimplementedMDDBServer) ValidateDocument(context.Context, *ValidateDocumentRequest) (*ValidateDocumentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ValidateDocument not implemented")
 }
 func (UnimplementedMDDBServer) mustEmbedUnimplementedMDDBServer() {}
 func (UnimplementedMDDBServer) testEmbeddedByValue()              {}
@@ -796,6 +886,96 @@ func _MDDB_DeleteWebhook_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MDDB_SetSchema_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetSchemaRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).SetSchema(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_SetSchema_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).SetSchema(ctx, req.(*SetSchemaRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_GetSchema_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSchemaRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).GetSchema(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_GetSchema_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).GetSchema(ctx, req.(*GetSchemaRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_DeleteSchema_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteSchemaRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).DeleteSchema(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_DeleteSchema_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).DeleteSchema(ctx, req.(*DeleteSchemaRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_ListSchemas_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListSchemasRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).ListSchemas(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_ListSchemas_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).ListSchemas(ctx, req.(*ListSchemasRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_ValidateDocument_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ValidateDocumentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).ValidateDocument(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_ValidateDocument_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).ValidateDocument(ctx, req.(*ValidateDocumentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MDDB_ServiceDesc is the grpc.ServiceDesc for MDDB service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -878,6 +1058,26 @@ var MDDB_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteWebhook",
 			Handler:    _MDDB_DeleteWebhook_Handler,
+		},
+		{
+			MethodName: "SetSchema",
+			Handler:    _MDDB_SetSchema_Handler,
+		},
+		{
+			MethodName: "GetSchema",
+			Handler:    _MDDB_GetSchema_Handler,
+		},
+		{
+			MethodName: "DeleteSchema",
+			Handler:    _MDDB_DeleteSchema_Handler,
+		},
+		{
+			MethodName: "ListSchemas",
+			Handler:    _MDDB_ListSchemas_Handler,
+		},
+		{
+			MethodName: "ValidateDocument",
+			Handler:    _MDDB_ValidateDocument_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

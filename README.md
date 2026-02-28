@@ -210,6 +210,7 @@ See [Performance Tests](test/README.md) for detailed benchmarks.
 - **Vector Search** - Semantic similarity search with auto-generated embeddings (OpenAI, Ollama, Voyage AI)
 - **Full-Text Search** - Built-in inverted index with TF scoring and stop word filtering
 - **Document TTL** - Time-to-live with automatic cleanup (0 = permanent, >0 = seconds until expiry)
+- **Schema Validation** - Per-collection JSON Schema validation for metadata (opt-in, disabled by default)
 - **Webhooks** - HTTP callbacks on `doc.added`, `doc.updated`, `doc.deleted` events with 3x retry
 - **Import from URL** - Fetch markdown from URLs with automatic frontmatter parsing and key derivation
 - **Multi-language** - Store same document in multiple languages
@@ -956,7 +957,7 @@ mddb-cli fts kb --query="cancel subscription" --limit=5
 ### Planned Features
 - **Authentication** - Built-in API key and JWT support
 - **Authorization** - Collection-level access control
-- **Schema Validation** - JSON Schema validation for metadata
+- ~~**Schema Validation** - JSON Schema validation for metadata~~ (Implemented in v2.3.1)
 - **Streaming Export** - Memory-efficient ZIP export
 - **GraphQL API** - GraphQL endpoint alongside REST
 - **Replication** - Built-in replication support
@@ -1016,14 +1017,9 @@ make generate-proto
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. **Regenerate proto code** if you modify `proto/mddb.proto`
-6. Update documentation
-7. Submit a pull request
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+
+For security vulnerabilities, please see our [Security Policy](SECURITY.md).
 
 See [CHANGELOG.md](CHANGELOG.md) for version history.
 

@@ -307,3 +307,39 @@ type RegisterWebhookRequest struct {
 type DeleteWebhookRequest struct {
 	ID string `json:"id"`
 }
+
+// SetSchemaRequest represents request to set a collection schema.
+type SetSchemaRequest struct {
+	Collection string `json:"collection"`
+	Schema     string `json:"schema"`
+}
+
+// SchemaResponse represents a schema get response.
+type SchemaResponse struct {
+	Collection string `json:"collection"`
+	Schema     string `json:"schema"`
+	Enabled    bool   `json:"enabled"`
+}
+
+// SchemaInfo represents a schema in a list.
+type SchemaInfo struct {
+	Collection string `json:"collection"`
+	Schema     string `json:"schema"`
+}
+
+// ListSchemasResponse represents list schemas result.
+type ListSchemasResponse struct {
+	Schemas []SchemaInfo `json:"schemas"`
+}
+
+// ValidateRequest represents request to validate document metadata.
+type ValidateRequest struct {
+	Collection string              `json:"collection"`
+	Meta       map[string][]string `json:"meta"`
+}
+
+// ValidateResponse represents validation result.
+type ValidateResponse struct {
+	Valid  bool     `json:"valid"`
+	Errors []string `json:"errors"`
+}

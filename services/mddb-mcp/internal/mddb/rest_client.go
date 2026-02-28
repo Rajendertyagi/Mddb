@@ -242,6 +242,40 @@ func (c *RESTClient) DeleteWebhook(ctx context.Context, req *DeleteWebhookReques
 	return c.post(ctx, "/v1/webhooks/delete", req, &result)
 }
 
+func (c *RESTClient) SetSchema(ctx context.Context, req *SetSchemaRequest) error {
+	var result map[string]interface{}
+	return c.post(ctx, "/v1/schema/set", req, &result)
+}
+
+func (c *RESTClient) GetSchema(ctx context.Context, collection string) (*SchemaResponse, error) {
+	var resp SchemaResponse
+	if err := c.post(ctx, "/v1/schema/get", map[string]string{"collection": collection}, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *RESTClient) DeleteSchema(ctx context.Context, collection string) error {
+	var result map[string]interface{}
+	return c.post(ctx, "/v1/schema/delete", map[string]string{"collection": collection}, &result)
+}
+
+func (c *RESTClient) ListSchemas(ctx context.Context) (*ListSchemasResponse, error) {
+	var resp ListSchemasResponse
+	if err := c.post(ctx, "/v1/schema/list", map[string]string{}, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *RESTClient) ValidateDocument(ctx context.Context, req *ValidateRequest) (*ValidateResponse, error) {
+	var resp ValidateResponse
+	if err := c.post(ctx, "/v1/validate", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 func (c *RESTClient) Close() error {
 	return nil
 }

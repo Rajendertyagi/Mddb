@@ -130,6 +130,49 @@ class mddb {
     return $this->post('/webhooks/delete', ['id' => $id]);
   }
 
+  public function setSchema(array $schema) {
+    if ($this->mode === 'read') throw new Exception("read-only client");
+    return $this->post('/schema/set', [
+      'collection' => $this->collection,
+      'schema' => $schema,
+    ]);
+  }
+
+  public function getSchema() {
+    return $this->post('/schema/get', [
+      'collection' => $this->collection,
+    ]);
+  }
+
+  public function deleteSchema() {
+    if ($this->mode === 'read') throw new Exception("read-only client");
+    return $this->post('/schema/delete', [
+      'collection' => $this->collection,
+    ]);
+  }
+
+  public static function listSchemas(string $addr) {
+    $base = "http://$addr/v1";
+    $ch = curl_init($base . '/schema/list');
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([]));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    $res = curl_exec($ch);
+    if ($res === false) throw new Exception(curl_error($ch));
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($code >= 400) throw new Exception($res);
+    return json_decode($res);
+  }
+
+  public function validate(array $meta) {
+    return $this->post('/validate', [
+      'collection' => $this->collection,
+      'meta' => $meta,
+    ]);
+  }
+
   private function httpGet(string $path) {
     $ch = curl_init($this->base . $path);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);

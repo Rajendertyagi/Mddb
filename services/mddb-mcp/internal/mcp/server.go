@@ -299,6 +299,59 @@ func (s *Server) handleTools(w http.ResponseWriter, r *http.Request) {
 				"required": []string{"id"},
 			},
 		},
+		{
+			Name:        "set_schema",
+			Description: "Set JSON Schema for collection metadata validation. Documents added to this collection will be validated against the schema.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection name"},
+					"schema":     map[string]interface{}{"type": "string", "description": "JSON Schema as a string"},
+				},
+				"required": []string{"collection", "schema"},
+			},
+		},
+		{
+			Name:        "get_schema",
+			Description: "Get JSON Schema for a collection.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection name"},
+				},
+				"required": []string{"collection"},
+			},
+		},
+		{
+			Name:        "delete_schema",
+			Description: "Delete/disable schema validation for a collection.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection name"},
+				},
+				"required": []string{"collection"},
+			},
+		},
+		{
+			Name:        "list_schemas",
+			Description: "List all collection schemas.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+			},
+		},
+		{
+			Name:        "validate_document",
+			Description: "Validate document metadata against collection schema without adding the document.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection name"},
+					"meta":       map[string]interface{}{"type": "object", "description": "Document metadata to validate"},
+				},
+				"required": []string{"collection", "meta"},
+			},
+		},
 	}
 
 	w.Header().Set("Content-Type", "application/json")

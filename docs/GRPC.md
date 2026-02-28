@@ -11,6 +11,7 @@ MDDB provides a high-performance gRPC API alongside the HTTP/JSON API. The gRPC 
 - [Getting Started](#getting-started)
 - [Service Definition](#service-definition)
 - [Client Examples](#client-examples)
+- [Schema Validation RPCs](#schema-validation-rpcs)
 - [Performance Comparison](#performance-comparison)
 - [Best Practices](#best-practices)
 
@@ -93,6 +94,13 @@ service MDDB {
   rpc Restore(RestoreRequest) returns (RestoreResponse);
   rpc Truncate(TruncateRequest) returns (TruncateResponse);
   rpc Stats(StatsRequest) returns (StatsResponse);
+
+  // Schema Validation
+  rpc SetSchema(SetSchemaRequest) returns (SetSchemaResponse);
+  rpc GetSchema(GetSchemaRequest) returns (GetSchemaResponse);
+  rpc DeleteSchema(DeleteSchemaRequest) returns (DeleteSchemaResponse);
+  rpc ListSchemas(ListSchemasRequest) returns (ListSchemasResponse);
+  rpc ValidateDocument(ValidateDocumentRequest) returns (ValidateDocumentResponse);
 }
 ```
 
@@ -324,6 +332,174 @@ client.Stats({}, (err, stats) => {
   console.log(`Total documents: ${stats.total_documents}`);
 });
 ```
+
+## Schema Validation RPCs
+
+Schema validation enforces structure on document metadata per collection. See the [Schema Validation Guide](SCHEMA-VALIDATION.md) for full details.
+
+### Message Types
+
+#### SchemaPropertyRule
+
+```protobuf
+message SchemaPropertyRule {
+  string type = 1;
+  repeated string enum_values = 2;
+  string pattern = 3;
+  int32 min_items = 4;
+  int32 max_items = 5;
+}
+```
+
+#### Schema
+
+```protobuf
+message Schema {
+  repeated string required = 1;
+  map<string, SchemaPropertyRule> properties = 2;
+}
+```
+
+#### SetSchemaRequest / SetSchemaResponse
+
+```protobuf
+message SetSchemaRequest {
+  string collection = 1;
+  Schema schema = 2;
+}
+
+message SetSchemaResponse {
+  string status = 1;
+}
+```
+
+#### GetSchemaRequest / GetSchemaResponse
+
+```protobuf
+message GetSchemaRequest {
+  string collection = 1;
+}
+
+message GetSchemaResponse {
+  string collection = 1;
+  Schema schema = 2;
+}
+```
+
+#### DeleteSchemaRequest / DeleteSchemaResponse
+
+```protobuf
+message DeleteSchemaRequest {
+  string collection = 1;
+}
+
+message DeleteSchemaResponse {
+  string status = 1;
+}
+```
+
+#### ListSchemasRequest / ListSchemasResponse
+
+```protobuf
+message ListSchemasRequest {}
+
+message ListSchemasResponse {
+  repeated CollectionSchema schemas = 1;
+}
+
+message CollectionSchema {
+  string collection = 1;
+  Schema schema = 2;
+}
+```
+
+#### ValidateDocumentRequest / ValidateDocumentResponse
+
+```protobuf
+message ValidateDocumentRequest {
+  string collection = 1;
+  map<string, MetaValues> meta = 2;
+}
+
+message ValidateDocumentResponse {
+  bool valid = 1;
+  repeated string errors = 2;
+}
+```
+
+### grpcurl Examples
+
+```bash
+# Set a schema for a collection
+grpcurl -plaintext -d '{
+  "collection": "blog",
+  "schema": {
+    "required": ["category", "author"],
+    "properties": {
+      "category": {"type": "string", "enum_values": ["blog", "tutorial", "news"]},
+      "author": {"type": "string"}
+    }
+  }
+}' localhost:11024 mddb.MDDB/SetSchema
+
+# Get schema for a collection
+grpcurl -plaintext -d '{"collection": "blog"}' \
+  localhost:11024 mddb.MDDB/GetSchema
+
+# Delete schema
+grpcurl -plaintext -d '{"collection": "blog"}' \
+  localhost:11024 mddb.MDDB/DeleteSchema
+
+# List all schemas
+grpcurl -plaintext -d '{}' \
+  localhost:11024 mddb.MDDB/ListSchemas
+
+# Validate metadata against schema
+grpcurl -plaintext -d '{
+  "collection": "blog",
+  "meta": {
+    "category": {"values": ["blog"]},
+    "author": {"values": ["John Doe"]}
+  }
+}' localhost:11024 mddb.MDDB/ValidateDocument
+```
+
+### Go Client Example
+
+```go
+// Set a schema
+_, err := client.SetSchema(ctx, &pb.SetSchemaRequest{
+    Collection: "blog",
+    Schema: &pb.Schema{
+        Required: []string{"category", "author"},
+        Properties: map[string]*pb.SchemaPropertyRule{
+            "category": {
+                Type:       "string",
+                EnumValues: []string{"blog", "tutorial", "news"},
+            },
+            "author": {
+                Type: "string",
+            },
+        },
+    },
+})
+
+// Validate a document before adding
+resp, err := client.ValidateDocument(ctx, &pb.ValidateDocumentRequest{
+    Collection: "blog",
+    Meta: map[string]*pb.MetaValues{
+        "category": {Values: []string{"blog"}},
+        "author":   {Values: []string{"Jane Doe"}},
+    },
+})
+if resp.Valid {
+    log.Println("Metadata is valid")
+} else {
+    log.Printf("Validation errors: %v", resp.Errors)
+}
+```
+
+---
 
 ## Performance Comparison
 

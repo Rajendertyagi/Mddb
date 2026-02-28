@@ -261,6 +261,51 @@ func (c *FallbackClient) DeleteWebhook(ctx context.Context, req *DeleteWebhookRe
 	return err
 }
 
+func (c *FallbackClient) SetSchema(ctx context.Context, req *SetSchemaRequest) error {
+	err := c.primary.SetSchema(ctx, req)
+	if err != nil && c.secondary != nil {
+		log.Printf("primary set schema failed: %v, trying secondary", err)
+		return c.secondary.SetSchema(ctx, req)
+	}
+	return err
+}
+
+func (c *FallbackClient) GetSchema(ctx context.Context, collection string) (*SchemaResponse, error) {
+	resp, err := c.primary.GetSchema(ctx, collection)
+	if err != nil && c.secondary != nil {
+		log.Printf("primary get schema failed: %v, trying secondary", err)
+		return c.secondary.GetSchema(ctx, collection)
+	}
+	return resp, err
+}
+
+func (c *FallbackClient) DeleteSchema(ctx context.Context, collection string) error {
+	err := c.primary.DeleteSchema(ctx, collection)
+	if err != nil && c.secondary != nil {
+		log.Printf("primary delete schema failed: %v, trying secondary", err)
+		return c.secondary.DeleteSchema(ctx, collection)
+	}
+	return err
+}
+
+func (c *FallbackClient) ListSchemas(ctx context.Context) (*ListSchemasResponse, error) {
+	resp, err := c.primary.ListSchemas(ctx)
+	if err != nil && c.secondary != nil {
+		log.Printf("primary list schemas failed: %v, trying secondary", err)
+		return c.secondary.ListSchemas(ctx)
+	}
+	return resp, err
+}
+
+func (c *FallbackClient) ValidateDocument(ctx context.Context, req *ValidateRequest) (*ValidateResponse, error) {
+	resp, err := c.primary.ValidateDocument(ctx, req)
+	if err != nil && c.secondary != nil {
+		log.Printf("primary validate document failed: %v, trying secondary", err)
+		return c.secondary.ValidateDocument(ctx, req)
+	}
+	return resp, err
+}
+
 func (c *FallbackClient) Close() error {
 	var errs []error
 	if c.primary != nil {

@@ -47,6 +47,16 @@ func (s *Server) callTool(ctx context.Context, name string, args map[string]inte
 		return s.toolListWebhooks(ctx, args)
 	case "delete_webhook":
 		return s.toolDeleteWebhook(ctx, args)
+	case "set_schema":
+		return s.toolSetSchema(ctx, args)
+	case "get_schema":
+		return s.toolGetSchema(ctx, args)
+	case "delete_schema":
+		return s.toolDeleteSchema(ctx, args)
+	case "list_schemas":
+		return s.toolListSchemas(ctx, args)
+	case "validate_document":
+		return s.toolValidateDocument(ctx, args)
 	default:
 		return "", fmt.Errorf("unknown tool: %s", name)
 	}
@@ -398,6 +408,71 @@ func (s *Server) toolDeleteWebhook(ctx context.Context, args map[string]interfac
 	}
 
 	return fmt.Sprintf("Webhook deleted: %s", req.ID), nil
+}
+
+// toolSetSchema sets a JSON Schema for a collection.
+func (s *Server) toolSetSchema(ctx context.Context, args map[string]interface{}) (string, error) {
+	req := &mddb.SetSchemaRequest{
+		Collection: getString(args, "collection"),
+		Schema:     getString(args, "schema"),
+	}
+
+	if err := s.client.SetSchema(ctx, req); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("Schema set for collection: %s", req.Collection), nil
+}
+
+// toolGetSchema gets the JSON Schema for a collection.
+func (s *Server) toolGetSchema(ctx context.Context, args map[string]interface{}) (string, error) {
+	collection := getString(args, "collection")
+
+	resp, err := s.client.GetSchema(ctx, collection)
+	if err != nil {
+		return "", err
+	}
+
+	data, _ := json.MarshalIndent(resp, "", "  ")
+	return string(data), nil
+}
+
+// toolDeleteSchema deletes schema validation for a collection.
+func (s *Server) toolDeleteSchema(ctx context.Context, args map[string]interface{}) (string, error) {
+	collection := getString(args, "collection")
+
+	if err := s.client.DeleteSchema(ctx, collection); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("Schema deleted for collection: %s", collection), nil
+}
+
+// toolListSchemas lists all collection schemas.
+func (s *Server) toolListSchemas(ctx context.Context, args map[string]interface{}) (string, error) {
+	resp, err := s.client.ListSchemas(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	data, _ := json.MarshalIndent(resp, "", "  ")
+	return string(data), nil
+}
+
+// toolValidateDocument validates document metadata against collection schema.
+func (s *Server) toolValidateDocument(ctx context.Context, args map[string]interface{}) (string, error) {
+	req := &mddb.ValidateRequest{
+		Collection: getString(args, "collection"),
+		Meta:       getMetaMap(args, "meta"),
+	}
+
+	resp, err := s.client.ValidateDocument(ctx, req)
+	if err != nil {
+		return "", err
+	}
+
+	data, _ := json.MarshalIndent(resp, "", "  ")
+	return string(data), nil
 }
 
 func getMetaMap(m map[string]interface{}, key string) map[string][]string {

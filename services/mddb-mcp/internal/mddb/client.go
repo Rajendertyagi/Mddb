@@ -76,6 +76,21 @@ type Client interface {
 	// DeleteWebhook deletes a webhook by ID.
 	DeleteWebhook(ctx context.Context, req *DeleteWebhookRequest) error
 
+	// SetSchema sets a JSON Schema for a collection's metadata validation.
+	SetSchema(ctx context.Context, req *SetSchemaRequest) error
+
+	// GetSchema gets the JSON Schema for a collection.
+	GetSchema(ctx context.Context, collection string) (*SchemaResponse, error)
+
+	// DeleteSchema removes the JSON Schema for a collection.
+	DeleteSchema(ctx context.Context, collection string) error
+
+	// ListSchemas lists all collection schemas.
+	ListSchemas(ctx context.Context) (*ListSchemasResponse, error)
+
+	// ValidateDocument validates document metadata against collection schema.
+	ValidateDocument(ctx context.Context, req *ValidateRequest) (*ValidateResponse, error)
+
 	// Close closes connection to server.
 	Close() error
 }

@@ -17,6 +17,11 @@
   - [POST /v1/restore](#post-v1restore)
   - [POST /v1/truncate](#post-v1truncate)
   - [GET /v1/stats](#get-v1stats)
+  - [POST /v1/schema/set](#post-v1schemaset)
+  - [POST /v1/schema/get](#post-v1schemaget)
+  - [POST /v1/schema/delete](#post-v1schemadelete)
+  - [POST /v1/schema/list](#post-v1schemalist)
+  - [POST /v1/validate](#post-v1validate)
 - [Data Models](#data-models)
 - [Error Handling](#error-handling)
 
@@ -690,6 +695,212 @@ mddb-cli stats
 - Check collection sizes before operations
 - Verify indexing status
 - Performance monitoring and capacity planning
+
+---
+
+### POST /v1/schema/set
+
+Set or update the validation schema for a collection. Schema validation is opt-in per collection. See the [Schema Validation Guide](SCHEMA-VALIDATION.md) for full details on supported rules.
+
+**Request Body**:
+```json
+{
+  "collection": "blog",
+  "schema": {
+    "required": ["category", "author"],
+    "properties": {
+      "category": { "type": "string", "enum": ["blog", "tutorial", "news"] },
+      "author":   { "type": "string" },
+      "tags":     { "type": "string", "minItems": 1, "maxItems": 5 }
+    }
+  }
+}
+```
+
+**Response**:
+```json
+{
+  "status": "ok"
+}
+```
+
+**cURL Example**:
+```bash
+curl -X POST http://localhost:11023/v1/schema/set \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "blog",
+    "schema": {
+      "required": ["category"],
+      "properties": {
+        "category": { "type": "string", "enum": ["blog", "tutorial"] }
+      }
+    }
+  }'
+```
+
+---
+
+### POST /v1/schema/get
+
+Retrieve the current validation schema for a collection.
+
+**Request Body**:
+```json
+{
+  "collection": "blog"
+}
+```
+
+**Response** (schema exists):
+```json
+{
+  "collection": "blog",
+  "schema": {
+    "required": ["category", "author"],
+    "properties": {
+      "category": { "type": "string", "enum": ["blog", "tutorial", "news"] },
+      "author":   { "type": "string" },
+      "tags":     { "type": "string", "minItems": 1, "maxItems": 5 }
+    }
+  }
+}
+```
+
+**Response** (no schema):
+```json
+{
+  "collection": "blog",
+  "schema": null
+}
+```
+
+**cURL Example**:
+```bash
+curl -X POST http://localhost:11023/v1/schema/get \
+  -H 'Content-Type: application/json' \
+  -d '{"collection": "blog"}'
+```
+
+---
+
+### POST /v1/schema/delete
+
+Delete the validation schema for a collection, disabling validation. Existing documents are not affected.
+
+**Request Body**:
+```json
+{
+  "collection": "blog"
+}
+```
+
+**Response**:
+```json
+{
+  "status": "ok"
+}
+```
+
+**cURL Example**:
+```bash
+curl -X POST http://localhost:11023/v1/schema/delete \
+  -H 'Content-Type: application/json' \
+  -d '{"collection": "blog"}'
+```
+
+---
+
+### POST /v1/schema/list
+
+List all collections that have a validation schema defined.
+
+**Request Body**: Empty or `{}`.
+
+**Response**:
+```json
+{
+  "schemas": [
+    {
+      "collection": "blog",
+      "schema": {
+        "required": ["category", "author"],
+        "properties": {
+          "category": { "type": "string", "enum": ["blog", "tutorial", "news"] },
+          "author":   { "type": "string" }
+        }
+      }
+    },
+    {
+      "collection": "products",
+      "schema": {
+        "required": ["price", "sku"],
+        "properties": {
+          "price": { "type": "number" },
+          "sku":   { "type": "string", "pattern": "^SKU-[0-9]+$" }
+        }
+      }
+    }
+  ]
+}
+```
+
+**cURL Example**:
+```bash
+curl -X POST http://localhost:11023/v1/schema/list \
+  -H 'Content-Type: application/json' \
+  -d '{}'
+```
+
+---
+
+### POST /v1/validate
+
+Validate a document's metadata against the collection schema without persisting anything. Useful for dry-run checks.
+
+**Request Body**:
+```json
+{
+  "collection": "blog",
+  "meta": {
+    "category": ["blog"],
+    "author": ["Jane Doe"],
+    "tags": ["golang", "tutorial"]
+  }
+}
+```
+
+**Response** (valid):
+```json
+{
+  "valid": true,
+  "errors": []
+}
+```
+
+**Response** (invalid):
+```json
+{
+  "valid": false,
+  "errors": [
+    "value \"pending\" for key \"status\" is not in allowed enum values [draft, published, archived]",
+    "key \"tags\" has 6 values, exceeds maxItems 5"
+  ]
+}
+```
+
+**cURL Example**:
+```bash
+curl -X POST http://localhost:11023/v1/validate \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "blog",
+    "meta": {
+      "category": ["blog"],
+      "author": ["Jane Doe"]
+    }
+  }'
+```
 
 ---
 

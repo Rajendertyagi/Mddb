@@ -65,6 +65,21 @@ service MDDB {
 
   // Delete a webhook
   rpc DeleteWebhook(DeleteWebhookRequest) returns (DeleteWebhookResponse);
+
+  // Set JSON Schema for a collection's metadata validation
+  rpc SetSchema(SetSchemaRequest) returns (SetSchemaResponse);
+
+  // Get JSON Schema for a collection
+  rpc GetSchema(GetSchemaRequest) returns (GetSchemaResponse);
+
+  // Delete JSON Schema for a collection (disables validation)
+  rpc DeleteSchema(DeleteSchemaRequest) returns (DeleteSchemaResponse);
+
+  // List all collection schemas
+  rpc ListSchemas(ListSchemasRequest) returns (ListSchemasResponse);
+
+  // Validate document metadata against collection schema
+  rpc ValidateDocument(ValidateDocumentRequest) returns (ValidateDocumentResponse);
 }
 
 // Document represents a markdown document
@@ -383,4 +398,54 @@ message DeleteWebhookRequest {
 message DeleteWebhookResponse {
   string status = 1;
   string id = 2;
+}
+
+// --- Schema Validation ---
+
+message SetSchemaRequest {
+  string collection = 1;
+  string schema = 2;  // JSON Schema string
+}
+
+message SetSchemaResponse {
+  string status = 1;
+}
+
+message GetSchemaRequest {
+  string collection = 1;
+}
+
+message GetSchemaResponse {
+  string collection = 1;
+  string schema = 2;
+  bool enabled = 3;
+}
+
+message DeleteSchemaRequest {
+  string collection = 1;
+}
+
+message DeleteSchemaResponse {
+  string status = 1;
+}
+
+message ListSchemasRequest {}
+
+message ListSchemasResponse {
+  repeated SchemaInfo schemas = 1;
+}
+
+message SchemaInfo {
+  string collection = 1;
+  string schema = 2;
+}
+
+message ValidateDocumentRequest {
+  string collection = 1;
+  map<string, MetaValues> meta = 2;
+}
+
+message ValidateDocumentResponse {
+  bool valid = 1;
+  repeated string errors = 2;
 }

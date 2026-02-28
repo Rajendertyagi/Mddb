@@ -577,11 +577,146 @@ func (c *MDDBClient) Add(collection, key, lang string, meta map[string][]string,
 // Usage
 func main() {
     client := &MDDBClient{BaseURL: "http://localhost:11023"}
-    
+
     doc, _ := client.Add("blog", "hello", "en_US",
         map[string][]string{"category": {"blog"}},
         "# Hello World")
-    
+
     fmt.Println(doc)
 }
+```
+
+## Schema Validation
+
+Schema validation enforces structure on document metadata per collection. It is opt-in -- collections without a schema accept any metadata.
+
+### Setting Up a Schema
+
+```bash
+# Define a schema for the "products" collection
+curl -X POST http://localhost:11023/v1/schema/set \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "products",
+    "schema": {
+      "required": ["sku", "price", "category"],
+      "properties": {
+        "sku":      { "type": "string", "pattern": "^SKU-[0-9]+$" },
+        "price":    { "type": "number" },
+        "category": { "type": "string", "enum": ["electronics", "clothing", "books"] },
+        "tags":     { "type": "string", "minItems": 1, "maxItems": 10 }
+      }
+    }
+  }'
+```
+
+### Adding Documents with Validation
+
+```bash
+# This succeeds -- all required fields present with valid values
+curl -X POST http://localhost:11023/v1/add \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "products",
+    "key": "laptop-1",
+    "lang": "en_US",
+    "meta": {
+      "sku": ["SKU-10042"],
+      "price": ["999.99"],
+      "category": ["electronics"],
+      "tags": ["laptop", "computer", "portable"]
+    },
+    "contentMd": "# Laptop Pro 15\n\nHigh-performance laptop."
+  }'
+
+# This fails -- missing "price", invalid sku format, bad category
+curl -X POST http://localhost:11023/v1/add \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "products",
+    "key": "bad-product",
+    "lang": "en_US",
+    "meta": {
+      "sku": ["INVALID"],
+      "category": ["furniture"]
+    },
+    "contentMd": "# Bad Product"
+  }'
+# Error: schema validation failed: missing required metadata key "price";
+#   value "INVALID" for key "sku" does not match pattern "^SKU-[0-9]+$";
+#   value "furniture" for key "category" is not in allowed enum values [electronics, clothing, books]
+```
+
+### Dry-Run Validation
+
+```bash
+# Check metadata before adding a document
+curl -X POST http://localhost:11023/v1/validate \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "products",
+    "meta": {
+      "sku": ["SKU-20001"],
+      "price": ["49.99"],
+      "category": ["books"]
+    }
+  }'
+# Response: {"valid": true, "errors": []}
+```
+
+### Listing and Managing Schemas
+
+```bash
+# List all schemas
+curl -X POST http://localhost:11023/v1/schema/list \
+  -H 'Content-Type: application/json' \
+  -d '{}'
+
+# Get schema for a specific collection
+curl -X POST http://localhost:11023/v1/schema/get \
+  -H 'Content-Type: application/json' \
+  -d '{"collection": "products"}'
+
+# Delete schema to disable validation
+curl -X POST http://localhost:11023/v1/schema/delete \
+  -H 'Content-Type: application/json' \
+  -d '{"collection": "products"}'
+```
+
+### Blog Schema Example
+
+```bash
+# Enforce consistent blog metadata
+curl -X POST http://localhost:11023/v1/schema/set \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "blog",
+    "schema": {
+      "required": ["category", "author", "status"],
+      "properties": {
+        "category": { "type": "string", "enum": ["blog", "tutorial", "news", "changelog"] },
+        "author":   { "type": "string" },
+        "status":   { "type": "string", "enum": ["draft", "published", "archived"] },
+        "tags":     { "type": "string", "maxItems": 5 },
+        "featured": { "type": "boolean", "maxItems": 1 }
+      }
+    }
+  }'
+
+# Add a valid blog post
+curl -X POST http://localhost:11023/v1/add \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "blog",
+    "key": "schema-validation-guide",
+    "lang": "en_US",
+    "meta": {
+      "category": ["tutorial"],
+      "author": ["Jane Doe"],
+      "status": ["published"],
+      "tags": ["mddb", "validation", "schema"],
+      "featured": ["true"]
+    },
+    "contentMd": "# Schema Validation Guide\n\nLearn how to validate document metadata."
+  }'
 ```

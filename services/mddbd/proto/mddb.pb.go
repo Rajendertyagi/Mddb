@@ -2795,6 +2795,530 @@ func (x *DeleteWebhookResponse) GetId() string {
 	return ""
 }
 
+type SetSchemaRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Collection    string                 `protobuf:"bytes,1,opt,name=collection,proto3" json:"collection,omitempty"`
+	Schema        string                 `protobuf:"bytes,2,opt,name=schema,proto3" json:"schema,omitempty"` // JSON Schema string
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetSchemaRequest) Reset() {
+	*x = SetSchemaRequest{}
+	mi := &file_proto_mddb_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetSchemaRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetSchemaRequest) ProtoMessage() {}
+
+func (x *SetSchemaRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_mddb_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetSchemaRequest.ProtoReflect.Descriptor instead.
+func (*SetSchemaRequest) Descriptor() ([]byte, []int) {
+	return file_proto_mddb_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *SetSchemaRequest) GetCollection() string {
+	if x != nil {
+		return x.Collection
+	}
+	return ""
+}
+
+func (x *SetSchemaRequest) GetSchema() string {
+	if x != nil {
+		return x.Schema
+	}
+	return ""
+}
+
+type SetSchemaResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Status        string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetSchemaResponse) Reset() {
+	*x = SetSchemaResponse{}
+	mi := &file_proto_mddb_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetSchemaResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetSchemaResponse) ProtoMessage() {}
+
+func (x *SetSchemaResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_mddb_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetSchemaResponse.ProtoReflect.Descriptor instead.
+func (*SetSchemaResponse) Descriptor() ([]byte, []int) {
+	return file_proto_mddb_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *SetSchemaResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+type GetSchemaRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Collection    string                 `protobuf:"bytes,1,opt,name=collection,proto3" json:"collection,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSchemaRequest) Reset() {
+	*x = GetSchemaRequest{}
+	mi := &file_proto_mddb_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSchemaRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSchemaRequest) ProtoMessage() {}
+
+func (x *GetSchemaRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_mddb_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSchemaRequest.ProtoReflect.Descriptor instead.
+func (*GetSchemaRequest) Descriptor() ([]byte, []int) {
+	return file_proto_mddb_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *GetSchemaRequest) GetCollection() string {
+	if x != nil {
+		return x.Collection
+	}
+	return ""
+}
+
+type GetSchemaResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Collection    string                 `protobuf:"bytes,1,opt,name=collection,proto3" json:"collection,omitempty"`
+	Schema        string                 `protobuf:"bytes,2,opt,name=schema,proto3" json:"schema,omitempty"`
+	Enabled       bool                   `protobuf:"varint,3,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSchemaResponse) Reset() {
+	*x = GetSchemaResponse{}
+	mi := &file_proto_mddb_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSchemaResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSchemaResponse) ProtoMessage() {}
+
+func (x *GetSchemaResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_mddb_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSchemaResponse.ProtoReflect.Descriptor instead.
+func (*GetSchemaResponse) Descriptor() ([]byte, []int) {
+	return file_proto_mddb_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *GetSchemaResponse) GetCollection() string {
+	if x != nil {
+		return x.Collection
+	}
+	return ""
+}
+
+func (x *GetSchemaResponse) GetSchema() string {
+	if x != nil {
+		return x.Schema
+	}
+	return ""
+}
+
+func (x *GetSchemaResponse) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+type DeleteSchemaRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Collection    string                 `protobuf:"bytes,1,opt,name=collection,proto3" json:"collection,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteSchemaRequest) Reset() {
+	*x = DeleteSchemaRequest{}
+	mi := &file_proto_mddb_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteSchemaRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteSchemaRequest) ProtoMessage() {}
+
+func (x *DeleteSchemaRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_mddb_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteSchemaRequest.ProtoReflect.Descriptor instead.
+func (*DeleteSchemaRequest) Descriptor() ([]byte, []int) {
+	return file_proto_mddb_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *DeleteSchemaRequest) GetCollection() string {
+	if x != nil {
+		return x.Collection
+	}
+	return ""
+}
+
+type DeleteSchemaResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Status        string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteSchemaResponse) Reset() {
+	*x = DeleteSchemaResponse{}
+	mi := &file_proto_mddb_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteSchemaResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteSchemaResponse) ProtoMessage() {}
+
+func (x *DeleteSchemaResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_mddb_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteSchemaResponse.ProtoReflect.Descriptor instead.
+func (*DeleteSchemaResponse) Descriptor() ([]byte, []int) {
+	return file_proto_mddb_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *DeleteSchemaResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+type ListSchemasRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSchemasRequest) Reset() {
+	*x = ListSchemasRequest{}
+	mi := &file_proto_mddb_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSchemasRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSchemasRequest) ProtoMessage() {}
+
+func (x *ListSchemasRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_mddb_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSchemasRequest.ProtoReflect.Descriptor instead.
+func (*ListSchemasRequest) Descriptor() ([]byte, []int) {
+	return file_proto_mddb_proto_rawDescGZIP(), []int{51}
+}
+
+type ListSchemasResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Schemas       []*SchemaInfo          `protobuf:"bytes,1,rep,name=schemas,proto3" json:"schemas,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSchemasResponse) Reset() {
+	*x = ListSchemasResponse{}
+	mi := &file_proto_mddb_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSchemasResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSchemasResponse) ProtoMessage() {}
+
+func (x *ListSchemasResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_mddb_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSchemasResponse.ProtoReflect.Descriptor instead.
+func (*ListSchemasResponse) Descriptor() ([]byte, []int) {
+	return file_proto_mddb_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *ListSchemasResponse) GetSchemas() []*SchemaInfo {
+	if x != nil {
+		return x.Schemas
+	}
+	return nil
+}
+
+type SchemaInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Collection    string                 `protobuf:"bytes,1,opt,name=collection,proto3" json:"collection,omitempty"`
+	Schema        string                 `protobuf:"bytes,2,opt,name=schema,proto3" json:"schema,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SchemaInfo) Reset() {
+	*x = SchemaInfo{}
+	mi := &file_proto_mddb_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SchemaInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SchemaInfo) ProtoMessage() {}
+
+func (x *SchemaInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_mddb_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SchemaInfo.ProtoReflect.Descriptor instead.
+func (*SchemaInfo) Descriptor() ([]byte, []int) {
+	return file_proto_mddb_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *SchemaInfo) GetCollection() string {
+	if x != nil {
+		return x.Collection
+	}
+	return ""
+}
+
+func (x *SchemaInfo) GetSchema() string {
+	if x != nil {
+		return x.Schema
+	}
+	return ""
+}
+
+type ValidateDocumentRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Collection    string                 `protobuf:"bytes,1,opt,name=collection,proto3" json:"collection,omitempty"`
+	Meta          map[string]*MetaValues `protobuf:"bytes,2,rep,name=meta,proto3" json:"meta,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ValidateDocumentRequest) Reset() {
+	*x = ValidateDocumentRequest{}
+	mi := &file_proto_mddb_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ValidateDocumentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ValidateDocumentRequest) ProtoMessage() {}
+
+func (x *ValidateDocumentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_mddb_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ValidateDocumentRequest.ProtoReflect.Descriptor instead.
+func (*ValidateDocumentRequest) Descriptor() ([]byte, []int) {
+	return file_proto_mddb_proto_rawDescGZIP(), []int{54}
+}
+
+func (x *ValidateDocumentRequest) GetCollection() string {
+	if x != nil {
+		return x.Collection
+	}
+	return ""
+}
+
+func (x *ValidateDocumentRequest) GetMeta() map[string]*MetaValues {
+	if x != nil {
+		return x.Meta
+	}
+	return nil
+}
+
+type ValidateDocumentResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Valid         bool                   `protobuf:"varint,1,opt,name=valid,proto3" json:"valid,omitempty"`
+	Errors        []string               `protobuf:"bytes,2,rep,name=errors,proto3" json:"errors,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ValidateDocumentResponse) Reset() {
+	*x = ValidateDocumentResponse{}
+	mi := &file_proto_mddb_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ValidateDocumentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ValidateDocumentResponse) ProtoMessage() {}
+
+func (x *ValidateDocumentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_mddb_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ValidateDocumentResponse.ProtoReflect.Descriptor instead.
+func (*ValidateDocumentResponse) Descriptor() ([]byte, []int) {
+	return file_proto_mddb_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *ValidateDocumentResponse) GetValid() bool {
+	if x != nil {
+		return x.Valid
+	}
+	return false
+}
+
+func (x *ValidateDocumentResponse) GetErrors() []string {
+	if x != nil {
+		return x.Errors
+	}
+	return nil
+}
+
 var File_proto_mddb_proto protoreflect.FileDescriptor
 
 const file_proto_mddb_proto_rawDesc = "" +
@@ -3063,7 +3587,50 @@ const file_proto_mddb_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"?\n" +
 	"\x15DeleteWebhookResponse\x12\x16\n" +
 	"\x06status\x18\x01 \x01(\tR\x06status\x12\x0e\n" +
-	"\x02id\x18\x02 \x01(\tR\x02id2\x99\t\n" +
+	"\x02id\x18\x02 \x01(\tR\x02id\"J\n" +
+	"\x10SetSchemaRequest\x12\x1e\n" +
+	"\n" +
+	"collection\x18\x01 \x01(\tR\n" +
+	"collection\x12\x16\n" +
+	"\x06schema\x18\x02 \x01(\tR\x06schema\"+\n" +
+	"\x11SetSchemaResponse\x12\x16\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\"2\n" +
+	"\x10GetSchemaRequest\x12\x1e\n" +
+	"\n" +
+	"collection\x18\x01 \x01(\tR\n" +
+	"collection\"e\n" +
+	"\x11GetSchemaResponse\x12\x1e\n" +
+	"\n" +
+	"collection\x18\x01 \x01(\tR\n" +
+	"collection\x12\x16\n" +
+	"\x06schema\x18\x02 \x01(\tR\x06schema\x12\x18\n" +
+	"\aenabled\x18\x03 \x01(\bR\aenabled\"5\n" +
+	"\x13DeleteSchemaRequest\x12\x1e\n" +
+	"\n" +
+	"collection\x18\x01 \x01(\tR\n" +
+	"collection\".\n" +
+	"\x14DeleteSchemaResponse\x12\x16\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\"\x14\n" +
+	"\x12ListSchemasRequest\"A\n" +
+	"\x13ListSchemasResponse\x12*\n" +
+	"\aschemas\x18\x01 \x03(\v2\x10.mddb.SchemaInfoR\aschemas\"D\n" +
+	"\n" +
+	"SchemaInfo\x12\x1e\n" +
+	"\n" +
+	"collection\x18\x01 \x01(\tR\n" +
+	"collection\x12\x16\n" +
+	"\x06schema\x18\x02 \x01(\tR\x06schema\"\xc1\x01\n" +
+	"\x17ValidateDocumentRequest\x12\x1e\n" +
+	"\n" +
+	"collection\x18\x01 \x01(\tR\n" +
+	"collection\x12;\n" +
+	"\x04meta\x18\x02 \x03(\v2'.mddb.ValidateDocumentRequest.MetaEntryR\x04meta\x1aI\n" +
+	"\tMetaEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12&\n" +
+	"\x05value\x18\x02 \x01(\v2\x10.mddb.MetaValuesR\x05value:\x028\x01\"H\n" +
+	"\x18ValidateDocumentResponse\x12\x14\n" +
+	"\x05valid\x18\x01 \x01(\bR\x05valid\x12\x16\n" +
+	"\x06errors\x18\x02 \x03(\tR\x06errors2\xf3\v\n" +
 	"\x04MDDB\x12'\n" +
 	"\x03Add\x12\x10.mddb.AddRequest\x1a\x0e.mddb.Document\x129\n" +
 	"\bAddBatch\x12\x15.mddb.AddBatchRequest\x1a\x16.mddb.AddBatchResponse\x12B\n" +
@@ -3084,7 +3651,12 @@ const file_proto_mddb_proto_rawDesc = "" +
 	"\x03FTS\x12\x10.mddb.FTSRequest\x1a\x11.mddb.FTSResponse\x12C\n" +
 	"\x0fRegisterWebhook\x12\x1c.mddb.RegisterWebhookRequest\x1a\x12.mddb.WebhookProto\x12E\n" +
 	"\fListWebhooks\x12\x19.mddb.ListWebhooksRequest\x1a\x1a.mddb.ListWebhooksResponse\x12H\n" +
-	"\rDeleteWebhook\x12\x1a.mddb.DeleteWebhookRequest\x1a\x1b.mddb.DeleteWebhookResponseB\fZ\n" +
+	"\rDeleteWebhook\x12\x1a.mddb.DeleteWebhookRequest\x1a\x1b.mddb.DeleteWebhookResponse\x12<\n" +
+	"\tSetSchema\x12\x16.mddb.SetSchemaRequest\x1a\x17.mddb.SetSchemaResponse\x12<\n" +
+	"\tGetSchema\x12\x16.mddb.GetSchemaRequest\x1a\x17.mddb.GetSchemaResponse\x12E\n" +
+	"\fDeleteSchema\x12\x19.mddb.DeleteSchemaRequest\x1a\x1a.mddb.DeleteSchemaResponse\x12B\n" +
+	"\vListSchemas\x12\x18.mddb.ListSchemasRequest\x1a\x19.mddb.ListSchemasResponse\x12Q\n" +
+	"\x10ValidateDocument\x12\x1d.mddb.ValidateDocumentRequest\x1a\x1e.mddb.ValidateDocumentResponseB\fZ\n" +
 	"mddb/protob\x06proto3"
 
 var (
@@ -3099,139 +3671,164 @@ func file_proto_mddb_proto_rawDescGZIP() []byte {
 	return file_proto_mddb_proto_rawDescData
 }
 
-var file_proto_mddb_proto_msgTypes = make([]protoimpl.MessageInfo, 55)
+var file_proto_mddb_proto_msgTypes = make([]protoimpl.MessageInfo, 67)
 var file_proto_mddb_proto_goTypes = []any{
-	(*Document)(nil),               // 0: mddb.Document
-	(*MetaValues)(nil),             // 1: mddb.MetaValues
-	(*AddRequest)(nil),             // 2: mddb.AddRequest
-	(*AddBatchRequest)(nil),        // 3: mddb.AddBatchRequest
-	(*BatchDocument)(nil),          // 4: mddb.BatchDocument
-	(*AddBatchResponse)(nil),       // 5: mddb.AddBatchResponse
-	(*GetRequest)(nil),             // 6: mddb.GetRequest
-	(*SearchRequest)(nil),          // 7: mddb.SearchRequest
-	(*SearchResponse)(nil),         // 8: mddb.SearchResponse
-	(*ExportRequest)(nil),          // 9: mddb.ExportRequest
-	(*ExportChunk)(nil),            // 10: mddb.ExportChunk
-	(*BackupRequest)(nil),          // 11: mddb.BackupRequest
-	(*BackupResponse)(nil),         // 12: mddb.BackupResponse
-	(*RestoreRequest)(nil),         // 13: mddb.RestoreRequest
-	(*RestoreResponse)(nil),        // 14: mddb.RestoreResponse
-	(*TruncateRequest)(nil),        // 15: mddb.TruncateRequest
-	(*TruncateResponse)(nil),       // 16: mddb.TruncateResponse
-	(*StatsRequest)(nil),           // 17: mddb.StatsRequest
-	(*StatsResponse)(nil),          // 18: mddb.StatsResponse
-	(*CollectionStats)(nil),        // 19: mddb.CollectionStats
-	(*DeleteBatchRequest)(nil),     // 20: mddb.DeleteBatchRequest
-	(*DeleteDocument)(nil),         // 21: mddb.DeleteDocument
-	(*DeleteBatchResponse)(nil),    // 22: mddb.DeleteBatchResponse
-	(*UpdateBatchRequest)(nil),     // 23: mddb.UpdateBatchRequest
-	(*UpdateDocument)(nil),         // 24: mddb.UpdateDocument
-	(*UpdateBatchResponse)(nil),    // 25: mddb.UpdateBatchResponse
-	(*VectorSearchRequest)(nil),    // 26: mddb.VectorSearchRequest
-	(*VectorSearchResult)(nil),     // 27: mddb.VectorSearchResult
-	(*VectorSearchResponse)(nil),   // 28: mddb.VectorSearchResponse
-	(*VectorReindexRequest)(nil),   // 29: mddb.VectorReindexRequest
-	(*VectorReindexResponse)(nil),  // 30: mddb.VectorReindexResponse
-	(*VectorStatsRequest)(nil),     // 31: mddb.VectorStatsRequest
-	(*VectorStatsResponse)(nil),    // 32: mddb.VectorStatsResponse
-	(*VectorCollectionStats)(nil),  // 33: mddb.VectorCollectionStats
-	(*ImportURLRequest)(nil),       // 34: mddb.ImportURLRequest
-	(*SetTTLRequest)(nil),          // 35: mddb.SetTTLRequest
-	(*FTSRequest)(nil),             // 36: mddb.FTSRequest
-	(*FTSResult)(nil),              // 37: mddb.FTSResult
-	(*FTSResponse)(nil),            // 38: mddb.FTSResponse
-	(*WebhookProto)(nil),           // 39: mddb.WebhookProto
-	(*RegisterWebhookRequest)(nil), // 40: mddb.RegisterWebhookRequest
-	(*ListWebhooksRequest)(nil),    // 41: mddb.ListWebhooksRequest
-	(*ListWebhooksResponse)(nil),   // 42: mddb.ListWebhooksResponse
-	(*DeleteWebhookRequest)(nil),   // 43: mddb.DeleteWebhookRequest
-	(*DeleteWebhookResponse)(nil),  // 44: mddb.DeleteWebhookResponse
-	nil,                            // 45: mddb.Document.MetaEntry
-	nil,                            // 46: mddb.AddRequest.MetaEntry
-	nil,                            // 47: mddb.BatchDocument.MetaEntry
-	nil,                            // 48: mddb.GetRequest.EnvEntry
-	nil,                            // 49: mddb.SearchRequest.FilterMetaEntry
-	nil,                            // 50: mddb.ExportRequest.FilterMetaEntry
-	nil,                            // 51: mddb.UpdateDocument.MetaEntry
-	nil,                            // 52: mddb.VectorSearchRequest.FilterMetaEntry
-	nil,                            // 53: mddb.VectorStatsResponse.CollectionsEntry
-	nil,                            // 54: mddb.ImportURLRequest.MetaEntry
+	(*Document)(nil),                 // 0: mddb.Document
+	(*MetaValues)(nil),               // 1: mddb.MetaValues
+	(*AddRequest)(nil),               // 2: mddb.AddRequest
+	(*AddBatchRequest)(nil),          // 3: mddb.AddBatchRequest
+	(*BatchDocument)(nil),            // 4: mddb.BatchDocument
+	(*AddBatchResponse)(nil),         // 5: mddb.AddBatchResponse
+	(*GetRequest)(nil),               // 6: mddb.GetRequest
+	(*SearchRequest)(nil),            // 7: mddb.SearchRequest
+	(*SearchResponse)(nil),           // 8: mddb.SearchResponse
+	(*ExportRequest)(nil),            // 9: mddb.ExportRequest
+	(*ExportChunk)(nil),              // 10: mddb.ExportChunk
+	(*BackupRequest)(nil),            // 11: mddb.BackupRequest
+	(*BackupResponse)(nil),           // 12: mddb.BackupResponse
+	(*RestoreRequest)(nil),           // 13: mddb.RestoreRequest
+	(*RestoreResponse)(nil),          // 14: mddb.RestoreResponse
+	(*TruncateRequest)(nil),          // 15: mddb.TruncateRequest
+	(*TruncateResponse)(nil),         // 16: mddb.TruncateResponse
+	(*StatsRequest)(nil),             // 17: mddb.StatsRequest
+	(*StatsResponse)(nil),            // 18: mddb.StatsResponse
+	(*CollectionStats)(nil),          // 19: mddb.CollectionStats
+	(*DeleteBatchRequest)(nil),       // 20: mddb.DeleteBatchRequest
+	(*DeleteDocument)(nil),           // 21: mddb.DeleteDocument
+	(*DeleteBatchResponse)(nil),      // 22: mddb.DeleteBatchResponse
+	(*UpdateBatchRequest)(nil),       // 23: mddb.UpdateBatchRequest
+	(*UpdateDocument)(nil),           // 24: mddb.UpdateDocument
+	(*UpdateBatchResponse)(nil),      // 25: mddb.UpdateBatchResponse
+	(*VectorSearchRequest)(nil),      // 26: mddb.VectorSearchRequest
+	(*VectorSearchResult)(nil),       // 27: mddb.VectorSearchResult
+	(*VectorSearchResponse)(nil),     // 28: mddb.VectorSearchResponse
+	(*VectorReindexRequest)(nil),     // 29: mddb.VectorReindexRequest
+	(*VectorReindexResponse)(nil),    // 30: mddb.VectorReindexResponse
+	(*VectorStatsRequest)(nil),       // 31: mddb.VectorStatsRequest
+	(*VectorStatsResponse)(nil),      // 32: mddb.VectorStatsResponse
+	(*VectorCollectionStats)(nil),    // 33: mddb.VectorCollectionStats
+	(*ImportURLRequest)(nil),         // 34: mddb.ImportURLRequest
+	(*SetTTLRequest)(nil),            // 35: mddb.SetTTLRequest
+	(*FTSRequest)(nil),               // 36: mddb.FTSRequest
+	(*FTSResult)(nil),                // 37: mddb.FTSResult
+	(*FTSResponse)(nil),              // 38: mddb.FTSResponse
+	(*WebhookProto)(nil),             // 39: mddb.WebhookProto
+	(*RegisterWebhookRequest)(nil),   // 40: mddb.RegisterWebhookRequest
+	(*ListWebhooksRequest)(nil),      // 41: mddb.ListWebhooksRequest
+	(*ListWebhooksResponse)(nil),     // 42: mddb.ListWebhooksResponse
+	(*DeleteWebhookRequest)(nil),     // 43: mddb.DeleteWebhookRequest
+	(*DeleteWebhookResponse)(nil),    // 44: mddb.DeleteWebhookResponse
+	(*SetSchemaRequest)(nil),         // 45: mddb.SetSchemaRequest
+	(*SetSchemaResponse)(nil),        // 46: mddb.SetSchemaResponse
+	(*GetSchemaRequest)(nil),         // 47: mddb.GetSchemaRequest
+	(*GetSchemaResponse)(nil),        // 48: mddb.GetSchemaResponse
+	(*DeleteSchemaRequest)(nil),      // 49: mddb.DeleteSchemaRequest
+	(*DeleteSchemaResponse)(nil),     // 50: mddb.DeleteSchemaResponse
+	(*ListSchemasRequest)(nil),       // 51: mddb.ListSchemasRequest
+	(*ListSchemasResponse)(nil),      // 52: mddb.ListSchemasResponse
+	(*SchemaInfo)(nil),               // 53: mddb.SchemaInfo
+	(*ValidateDocumentRequest)(nil),  // 54: mddb.ValidateDocumentRequest
+	(*ValidateDocumentResponse)(nil), // 55: mddb.ValidateDocumentResponse
+	nil,                              // 56: mddb.Document.MetaEntry
+	nil,                              // 57: mddb.AddRequest.MetaEntry
+	nil,                              // 58: mddb.BatchDocument.MetaEntry
+	nil,                              // 59: mddb.GetRequest.EnvEntry
+	nil,                              // 60: mddb.SearchRequest.FilterMetaEntry
+	nil,                              // 61: mddb.ExportRequest.FilterMetaEntry
+	nil,                              // 62: mddb.UpdateDocument.MetaEntry
+	nil,                              // 63: mddb.VectorSearchRequest.FilterMetaEntry
+	nil,                              // 64: mddb.VectorStatsResponse.CollectionsEntry
+	nil,                              // 65: mddb.ImportURLRequest.MetaEntry
+	nil,                              // 66: mddb.ValidateDocumentRequest.MetaEntry
 }
 var file_proto_mddb_proto_depIdxs = []int32{
-	45, // 0: mddb.Document.meta:type_name -> mddb.Document.MetaEntry
-	46, // 1: mddb.AddRequest.meta:type_name -> mddb.AddRequest.MetaEntry
+	56, // 0: mddb.Document.meta:type_name -> mddb.Document.MetaEntry
+	57, // 1: mddb.AddRequest.meta:type_name -> mddb.AddRequest.MetaEntry
 	4,  // 2: mddb.AddBatchRequest.documents:type_name -> mddb.BatchDocument
-	47, // 3: mddb.BatchDocument.meta:type_name -> mddb.BatchDocument.MetaEntry
-	48, // 4: mddb.GetRequest.env:type_name -> mddb.GetRequest.EnvEntry
-	49, // 5: mddb.SearchRequest.filter_meta:type_name -> mddb.SearchRequest.FilterMetaEntry
+	58, // 3: mddb.BatchDocument.meta:type_name -> mddb.BatchDocument.MetaEntry
+	59, // 4: mddb.GetRequest.env:type_name -> mddb.GetRequest.EnvEntry
+	60, // 5: mddb.SearchRequest.filter_meta:type_name -> mddb.SearchRequest.FilterMetaEntry
 	0,  // 6: mddb.SearchResponse.documents:type_name -> mddb.Document
-	50, // 7: mddb.ExportRequest.filter_meta:type_name -> mddb.ExportRequest.FilterMetaEntry
+	61, // 7: mddb.ExportRequest.filter_meta:type_name -> mddb.ExportRequest.FilterMetaEntry
 	19, // 8: mddb.StatsResponse.collections:type_name -> mddb.CollectionStats
 	21, // 9: mddb.DeleteBatchRequest.documents:type_name -> mddb.DeleteDocument
 	24, // 10: mddb.UpdateBatchRequest.documents:type_name -> mddb.UpdateDocument
-	51, // 11: mddb.UpdateDocument.meta:type_name -> mddb.UpdateDocument.MetaEntry
-	52, // 12: mddb.VectorSearchRequest.filter_meta:type_name -> mddb.VectorSearchRequest.FilterMetaEntry
+	62, // 11: mddb.UpdateDocument.meta:type_name -> mddb.UpdateDocument.MetaEntry
+	63, // 12: mddb.VectorSearchRequest.filter_meta:type_name -> mddb.VectorSearchRequest.FilterMetaEntry
 	0,  // 13: mddb.VectorSearchResult.document:type_name -> mddb.Document
 	27, // 14: mddb.VectorSearchResponse.results:type_name -> mddb.VectorSearchResult
-	53, // 15: mddb.VectorStatsResponse.collections:type_name -> mddb.VectorStatsResponse.CollectionsEntry
-	54, // 16: mddb.ImportURLRequest.meta:type_name -> mddb.ImportURLRequest.MetaEntry
+	64, // 15: mddb.VectorStatsResponse.collections:type_name -> mddb.VectorStatsResponse.CollectionsEntry
+	65, // 16: mddb.ImportURLRequest.meta:type_name -> mddb.ImportURLRequest.MetaEntry
 	0,  // 17: mddb.FTSResult.document:type_name -> mddb.Document
 	37, // 18: mddb.FTSResponse.results:type_name -> mddb.FTSResult
 	39, // 19: mddb.ListWebhooksResponse.webhooks:type_name -> mddb.WebhookProto
-	1,  // 20: mddb.Document.MetaEntry.value:type_name -> mddb.MetaValues
-	1,  // 21: mddb.AddRequest.MetaEntry.value:type_name -> mddb.MetaValues
-	1,  // 22: mddb.BatchDocument.MetaEntry.value:type_name -> mddb.MetaValues
-	1,  // 23: mddb.SearchRequest.FilterMetaEntry.value:type_name -> mddb.MetaValues
-	1,  // 24: mddb.ExportRequest.FilterMetaEntry.value:type_name -> mddb.MetaValues
-	1,  // 25: mddb.UpdateDocument.MetaEntry.value:type_name -> mddb.MetaValues
-	1,  // 26: mddb.VectorSearchRequest.FilterMetaEntry.value:type_name -> mddb.MetaValues
-	33, // 27: mddb.VectorStatsResponse.CollectionsEntry.value:type_name -> mddb.VectorCollectionStats
-	1,  // 28: mddb.ImportURLRequest.MetaEntry.value:type_name -> mddb.MetaValues
-	2,  // 29: mddb.MDDB.Add:input_type -> mddb.AddRequest
-	3,  // 30: mddb.MDDB.AddBatch:input_type -> mddb.AddBatchRequest
-	20, // 31: mddb.MDDB.DeleteBatch:input_type -> mddb.DeleteBatchRequest
-	23, // 32: mddb.MDDB.UpdateBatch:input_type -> mddb.UpdateBatchRequest
-	6,  // 33: mddb.MDDB.Get:input_type -> mddb.GetRequest
-	7,  // 34: mddb.MDDB.Search:input_type -> mddb.SearchRequest
-	9,  // 35: mddb.MDDB.Export:input_type -> mddb.ExportRequest
-	11, // 36: mddb.MDDB.Backup:input_type -> mddb.BackupRequest
-	13, // 37: mddb.MDDB.Restore:input_type -> mddb.RestoreRequest
-	15, // 38: mddb.MDDB.Truncate:input_type -> mddb.TruncateRequest
-	17, // 39: mddb.MDDB.Stats:input_type -> mddb.StatsRequest
-	26, // 40: mddb.MDDB.VectorSearch:input_type -> mddb.VectorSearchRequest
-	29, // 41: mddb.MDDB.VectorReindex:input_type -> mddb.VectorReindexRequest
-	31, // 42: mddb.MDDB.VectorStats:input_type -> mddb.VectorStatsRequest
-	34, // 43: mddb.MDDB.ImportURL:input_type -> mddb.ImportURLRequest
-	35, // 44: mddb.MDDB.SetTTL:input_type -> mddb.SetTTLRequest
-	36, // 45: mddb.MDDB.FTS:input_type -> mddb.FTSRequest
-	40, // 46: mddb.MDDB.RegisterWebhook:input_type -> mddb.RegisterWebhookRequest
-	41, // 47: mddb.MDDB.ListWebhooks:input_type -> mddb.ListWebhooksRequest
-	43, // 48: mddb.MDDB.DeleteWebhook:input_type -> mddb.DeleteWebhookRequest
-	0,  // 49: mddb.MDDB.Add:output_type -> mddb.Document
-	5,  // 50: mddb.MDDB.AddBatch:output_type -> mddb.AddBatchResponse
-	22, // 51: mddb.MDDB.DeleteBatch:output_type -> mddb.DeleteBatchResponse
-	25, // 52: mddb.MDDB.UpdateBatch:output_type -> mddb.UpdateBatchResponse
-	0,  // 53: mddb.MDDB.Get:output_type -> mddb.Document
-	8,  // 54: mddb.MDDB.Search:output_type -> mddb.SearchResponse
-	10, // 55: mddb.MDDB.Export:output_type -> mddb.ExportChunk
-	12, // 56: mddb.MDDB.Backup:output_type -> mddb.BackupResponse
-	14, // 57: mddb.MDDB.Restore:output_type -> mddb.RestoreResponse
-	16, // 58: mddb.MDDB.Truncate:output_type -> mddb.TruncateResponse
-	18, // 59: mddb.MDDB.Stats:output_type -> mddb.StatsResponse
-	28, // 60: mddb.MDDB.VectorSearch:output_type -> mddb.VectorSearchResponse
-	30, // 61: mddb.MDDB.VectorReindex:output_type -> mddb.VectorReindexResponse
-	32, // 62: mddb.MDDB.VectorStats:output_type -> mddb.VectorStatsResponse
-	0,  // 63: mddb.MDDB.ImportURL:output_type -> mddb.Document
-	0,  // 64: mddb.MDDB.SetTTL:output_type -> mddb.Document
-	38, // 65: mddb.MDDB.FTS:output_type -> mddb.FTSResponse
-	39, // 66: mddb.MDDB.RegisterWebhook:output_type -> mddb.WebhookProto
-	42, // 67: mddb.MDDB.ListWebhooks:output_type -> mddb.ListWebhooksResponse
-	44, // 68: mddb.MDDB.DeleteWebhook:output_type -> mddb.DeleteWebhookResponse
-	49, // [49:69] is the sub-list for method output_type
-	29, // [29:49] is the sub-list for method input_type
-	29, // [29:29] is the sub-list for extension type_name
-	29, // [29:29] is the sub-list for extension extendee
-	0,  // [0:29] is the sub-list for field type_name
+	53, // 20: mddb.ListSchemasResponse.schemas:type_name -> mddb.SchemaInfo
+	66, // 21: mddb.ValidateDocumentRequest.meta:type_name -> mddb.ValidateDocumentRequest.MetaEntry
+	1,  // 22: mddb.Document.MetaEntry.value:type_name -> mddb.MetaValues
+	1,  // 23: mddb.AddRequest.MetaEntry.value:type_name -> mddb.MetaValues
+	1,  // 24: mddb.BatchDocument.MetaEntry.value:type_name -> mddb.MetaValues
+	1,  // 25: mddb.SearchRequest.FilterMetaEntry.value:type_name -> mddb.MetaValues
+	1,  // 26: mddb.ExportRequest.FilterMetaEntry.value:type_name -> mddb.MetaValues
+	1,  // 27: mddb.UpdateDocument.MetaEntry.value:type_name -> mddb.MetaValues
+	1,  // 28: mddb.VectorSearchRequest.FilterMetaEntry.value:type_name -> mddb.MetaValues
+	33, // 29: mddb.VectorStatsResponse.CollectionsEntry.value:type_name -> mddb.VectorCollectionStats
+	1,  // 30: mddb.ImportURLRequest.MetaEntry.value:type_name -> mddb.MetaValues
+	1,  // 31: mddb.ValidateDocumentRequest.MetaEntry.value:type_name -> mddb.MetaValues
+	2,  // 32: mddb.MDDB.Add:input_type -> mddb.AddRequest
+	3,  // 33: mddb.MDDB.AddBatch:input_type -> mddb.AddBatchRequest
+	20, // 34: mddb.MDDB.DeleteBatch:input_type -> mddb.DeleteBatchRequest
+	23, // 35: mddb.MDDB.UpdateBatch:input_type -> mddb.UpdateBatchRequest
+	6,  // 36: mddb.MDDB.Get:input_type -> mddb.GetRequest
+	7,  // 37: mddb.MDDB.Search:input_type -> mddb.SearchRequest
+	9,  // 38: mddb.MDDB.Export:input_type -> mddb.ExportRequest
+	11, // 39: mddb.MDDB.Backup:input_type -> mddb.BackupRequest
+	13, // 40: mddb.MDDB.Restore:input_type -> mddb.RestoreRequest
+	15, // 41: mddb.MDDB.Truncate:input_type -> mddb.TruncateRequest
+	17, // 42: mddb.MDDB.Stats:input_type -> mddb.StatsRequest
+	26, // 43: mddb.MDDB.VectorSearch:input_type -> mddb.VectorSearchRequest
+	29, // 44: mddb.MDDB.VectorReindex:input_type -> mddb.VectorReindexRequest
+	31, // 45: mddb.MDDB.VectorStats:input_type -> mddb.VectorStatsRequest
+	34, // 46: mddb.MDDB.ImportURL:input_type -> mddb.ImportURLRequest
+	35, // 47: mddb.MDDB.SetTTL:input_type -> mddb.SetTTLRequest
+	36, // 48: mddb.MDDB.FTS:input_type -> mddb.FTSRequest
+	40, // 49: mddb.MDDB.RegisterWebhook:input_type -> mddb.RegisterWebhookRequest
+	41, // 50: mddb.MDDB.ListWebhooks:input_type -> mddb.ListWebhooksRequest
+	43, // 51: mddb.MDDB.DeleteWebhook:input_type -> mddb.DeleteWebhookRequest
+	45, // 52: mddb.MDDB.SetSchema:input_type -> mddb.SetSchemaRequest
+	47, // 53: mddb.MDDB.GetSchema:input_type -> mddb.GetSchemaRequest
+	49, // 54: mddb.MDDB.DeleteSchema:input_type -> mddb.DeleteSchemaRequest
+	51, // 55: mddb.MDDB.ListSchemas:input_type -> mddb.ListSchemasRequest
+	54, // 56: mddb.MDDB.ValidateDocument:input_type -> mddb.ValidateDocumentRequest
+	0,  // 57: mddb.MDDB.Add:output_type -> mddb.Document
+	5,  // 58: mddb.MDDB.AddBatch:output_type -> mddb.AddBatchResponse
+	22, // 59: mddb.MDDB.DeleteBatch:output_type -> mddb.DeleteBatchResponse
+	25, // 60: mddb.MDDB.UpdateBatch:output_type -> mddb.UpdateBatchResponse
+	0,  // 61: mddb.MDDB.Get:output_type -> mddb.Document
+	8,  // 62: mddb.MDDB.Search:output_type -> mddb.SearchResponse
+	10, // 63: mddb.MDDB.Export:output_type -> mddb.ExportChunk
+	12, // 64: mddb.MDDB.Backup:output_type -> mddb.BackupResponse
+	14, // 65: mddb.MDDB.Restore:output_type -> mddb.RestoreResponse
+	16, // 66: mddb.MDDB.Truncate:output_type -> mddb.TruncateResponse
+	18, // 67: mddb.MDDB.Stats:output_type -> mddb.StatsResponse
+	28, // 68: mddb.MDDB.VectorSearch:output_type -> mddb.VectorSearchResponse
+	30, // 69: mddb.MDDB.VectorReindex:output_type -> mddb.VectorReindexResponse
+	32, // 70: mddb.MDDB.VectorStats:output_type -> mddb.VectorStatsResponse
+	0,  // 71: mddb.MDDB.ImportURL:output_type -> mddb.Document
+	0,  // 72: mddb.MDDB.SetTTL:output_type -> mddb.Document
+	38, // 73: mddb.MDDB.FTS:output_type -> mddb.FTSResponse
+	39, // 74: mddb.MDDB.RegisterWebhook:output_type -> mddb.WebhookProto
+	42, // 75: mddb.MDDB.ListWebhooks:output_type -> mddb.ListWebhooksResponse
+	44, // 76: mddb.MDDB.DeleteWebhook:output_type -> mddb.DeleteWebhookResponse
+	46, // 77: mddb.MDDB.SetSchema:output_type -> mddb.SetSchemaResponse
+	48, // 78: mddb.MDDB.GetSchema:output_type -> mddb.GetSchemaResponse
+	50, // 79: mddb.MDDB.DeleteSchema:output_type -> mddb.DeleteSchemaResponse
+	52, // 80: mddb.MDDB.ListSchemas:output_type -> mddb.ListSchemasResponse
+	55, // 81: mddb.MDDB.ValidateDocument:output_type -> mddb.ValidateDocumentResponse
+	57, // [57:82] is the sub-list for method output_type
+	32, // [32:57] is the sub-list for method input_type
+	32, // [32:32] is the sub-list for extension type_name
+	32, // [32:32] is the sub-list for extension extendee
+	0,  // [0:32] is the sub-list for field type_name
 }
 
 func init() { file_proto_mddb_proto_init() }
@@ -3245,7 +3842,7 @@ func file_proto_mddb_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_mddb_proto_rawDesc), len(file_proto_mddb_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   55,
+			NumMessages:   67,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

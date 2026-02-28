@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.1] - 2026-02-28
+
+### Added
+- **Schema Validation** - JSON Schema validation for document metadata
+  - Per-collection schemas (opt-in, disabled by default)
+  - HTTP endpoints: `/v1/schema/set`, `/v1/schema/get`, `/v1/schema/delete`, `/v1/schema/list`, `/v1/validate`
+  - gRPC RPCs: `SetSchema`, `GetSchema`, `DeleteSchema`, `ListSchemas`, `ValidateDocument`
+  - Supported rules: `required`, `properties` (types), `enum`, `pattern`, `minItems`/`maxItems`
+  - Automatic validation on document add/update when schema is set
+  - CLI commands: `schema set/get/delete/list`, `validate`
+  - MCP tools: `set_schema`, `get_schema`, `delete_schema`, `list_schemas`, `validate_document`
+  - PHP and Python extension support
+  - Dedicated documentation: `docs/SCHEMA-VALIDATION.md`
+- **SECURITY.md** - Security policy and vulnerability reporting process
+- **CONTRIBUTING.md** - Contribution guidelines with setup instructions
+
 ## [2.1.0] - 2025-01-09
 
 ### Added

@@ -524,6 +524,54 @@ func convertMetaFromProto(meta map[string]*pb.MetaValues) map[string][]string {
 	return result
 }
 
+func (c *GRPCClient) SetSchema(ctx context.Context, req *SetSchemaRequest) error {
+	_, err := c.client.SetSchema(ctx, &pb.SetSchemaRequest{
+		Collection: req.Collection,
+		Schema:     req.Schema,
+	})
+	return err
+}
+
+func (c *GRPCClient) GetSchema(ctx context.Context, collection string) (*SchemaResponse, error) {
+	resp, err := c.client.GetSchema(ctx, &pb.GetSchemaRequest{Collection: collection})
+	if err != nil {
+		return nil, err
+	}
+	return &SchemaResponse{
+		Collection: resp.Collection,
+		Schema:     resp.Schema,
+		Enabled:    resp.Enabled,
+	}, nil
+}
+
+func (c *GRPCClient) DeleteSchema(ctx context.Context, collection string) error {
+	_, err := c.client.DeleteSchema(ctx, &pb.DeleteSchemaRequest{Collection: collection})
+	return err
+}
+
+func (c *GRPCClient) ListSchemas(ctx context.Context) (*ListSchemasResponse, error) {
+	resp, err := c.client.ListSchemas(ctx, &pb.ListSchemasRequest{})
+	if err != nil {
+		return nil, err
+	}
+	var schemas []SchemaInfo
+	for _, s := range resp.Schemas {
+		schemas = append(schemas, SchemaInfo{Collection: s.Collection, Schema: s.Schema})
+	}
+	return &ListSchemasResponse{Schemas: schemas}, nil
+}
+
+func (c *GRPCClient) ValidateDocument(ctx context.Context, req *ValidateRequest) (*ValidateResponse, error) {
+	resp, err := c.client.ValidateDocument(ctx, &pb.ValidateDocumentRequest{
+		Collection: req.Collection,
+		Meta:       convertMetaToProto(req.Meta),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &ValidateResponse{Valid: resp.Valid, Errors: resp.Errors}, nil
+}
+
 // convertDocumentFromProto converts Document from proto to internal type.
 func convertDocumentFromProto(doc *pb.Document) *Document {
 	return &Document{

@@ -54,6 +54,7 @@ type Server struct {
 	TTLManager     *TTLManager     // Document TTL / auto-expiry
 	FTSIndex       *FTSIndex       // Full-text search index
 	WebhookManager *WebhookManager // Webhook subscriptions and delivery
+	SchemaManager  *SchemaManager  // Per-collection metadata schema validation
 }
 
 // BucketNames caches bucket name byte slices to avoid repeated allocations
@@ -257,6 +258,16 @@ func main() {
 	}
 	log.Printf("Webhook manager initialized (%d hooks loaded)", len(s.WebhookManager.List()))
 
+	// Initialize schema manager
+	s.SchemaManager = NewSchemaManager(db)
+	if err := s.SchemaManager.EnsureBucket(); err != nil {
+		log.Fatal(err)
+	}
+	if err := s.SchemaManager.LoadAll(); err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("Schema manager initialized (%d schemas loaded)", len(s.SchemaManager.List()))
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/v1/health", s.handleHealth)
@@ -278,6 +289,11 @@ func main() {
 	mux.HandleFunc("/v1/fts", s.handleFTS)
 	mux.HandleFunc("/v1/webhooks", s.handleWebhooks)
 	mux.HandleFunc("/v1/webhooks/delete", s.guardWrite(s.handleWebhookDelete))
+	mux.HandleFunc("/v1/schema/set", s.guardWrite(s.handleSchemaSet))
+	mux.HandleFunc("/v1/schema/get", s.handleSchemaGet)
+	mux.HandleFunc("/v1/schema/delete", s.guardWrite(s.handleSchemaDelete))
+	mux.HandleFunc("/v1/schema/list", s.handleSchemaList)
+	mux.HandleFunc("/v1/validate", s.handleValidate)
 
 	httpAddr := env("MDDB_ADDR", ":11023")
 	grpcAddr := env("MDDB_GRPC_ADDR", ":11024")
@@ -539,6 +555,11 @@ func (s *Server) handleAdd(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Collection == "" || req.Key == "" || req.Lang == "" {
 		bad(w, errors.New("missing fields"))
+		return
+	}
+
+	if err := s.SchemaManager.Validate(req.Collection, req.Meta); err != nil {
+		bad(w, err)
 		return
 	}
 

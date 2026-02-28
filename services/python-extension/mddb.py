@@ -180,6 +180,42 @@ class MDDB:
             raise RuntimeError('read-only client')
         return self._post('/webhooks/delete', {'id': webhook_id})
 
+    # --- Schema validation ---
+
+    def set_schema(self, schema: dict) -> dict:
+        """Set a JSON schema for the active collection."""
+        if self._mode == 'read':
+            raise RuntimeError('read-only client')
+        return self._post('/schema/set', {
+            'collection': self._collection,
+            'schema': schema,
+        })
+
+    def get_schema(self) -> dict:
+        """Get the schema for the active collection."""
+        return self._post('/schema/get', {
+            'collection': self._collection,
+        })
+
+    def delete_schema(self) -> dict:
+        """Delete the schema for the active collection."""
+        if self._mode == 'read':
+            raise RuntimeError('read-only client')
+        return self._post('/schema/delete', {
+            'collection': self._collection,
+        })
+
+    def list_schemas(self) -> list:
+        """List all schemas across all collections."""
+        return self._post('/schema/list', {})
+
+    def validate(self, meta: dict) -> dict:
+        """Validate metadata against the collection schema."""
+        return self._post('/validate', {
+            'collection': self._collection,
+            'meta': meta,
+        })
+
     # --- Server operations ---
 
     def stats(self) -> dict:
