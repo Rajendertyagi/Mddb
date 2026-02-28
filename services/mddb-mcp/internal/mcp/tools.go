@@ -35,6 +35,18 @@ func (s *Server) callTool(ctx context.Context, name string, args map[string]inte
 		return s.toolVectorReindex(ctx, args)
 	case "vector_stats":
 		return s.toolVectorStats(ctx, args)
+	case "import_url":
+		return s.toolImportURL(ctx, args)
+	case "set_ttl":
+		return s.toolSetTTL(ctx, args)
+	case "full_text_search":
+		return s.toolFTSSearch(ctx, args)
+	case "register_webhook":
+		return s.toolRegisterWebhook(ctx, args)
+	case "list_webhooks":
+		return s.toolListWebhooks(ctx, args)
+	case "delete_webhook":
+		return s.toolDeleteWebhook(ctx, args)
 	default:
 		return "", fmt.Errorf("unknown tool: %s", name)
 	}
@@ -283,6 +295,109 @@ func getInt(m map[string]interface{}, key string) int {
 		return int(v)
 	}
 	return 0
+}
+
+// toolImportURL imports a document from URL.
+func (s *Server) toolImportURL(ctx context.Context, args map[string]interface{}) (string, error) {
+	req := &mddb.ImportURLRequest{
+		Collection: getString(args, "collection"),
+		URL:        getString(args, "url"),
+		Key:        getString(args, "key"),
+		Lang:       getString(args, "lang"),
+		Meta:       getMetaMap(args, "meta"),
+		TTL:        int64(getInt(args, "ttl")),
+	}
+
+	doc, err := s.client.ImportURL(ctx, req)
+	if err != nil {
+		return "", err
+	}
+
+	data, _ := json.MarshalIndent(doc, "", "  ")
+	return fmt.Sprintf("Document imported from URL:\n%s", string(data)), nil
+}
+
+// toolSetTTL sets TTL on a document.
+func (s *Server) toolSetTTL(ctx context.Context, args map[string]interface{}) (string, error) {
+	req := &mddb.SetTTLRequest{
+		Collection: getString(args, "collection"),
+		Key:        getString(args, "key"),
+		Lang:       getString(args, "lang"),
+		TTL:        int64(getInt(args, "ttl")),
+	}
+
+	doc, err := s.client.SetTTL(ctx, req)
+	if err != nil {
+		return "", err
+	}
+
+	data, _ := json.MarshalIndent(doc, "", "  ")
+	return fmt.Sprintf("TTL updated:\n%s", string(data)), nil
+}
+
+// toolFTSSearch performs full-text search.
+func (s *Server) toolFTSSearch(ctx context.Context, args map[string]interface{}) (string, error) {
+	req := &mddb.FTSSearchRequest{
+		Collection: getString(args, "collection"),
+		Query:      getString(args, "query"),
+		Limit:      getInt(args, "limit"),
+	}
+
+	resp, err := s.client.FTSSearch(ctx, req)
+	if err != nil {
+		return "", err
+	}
+
+	data, _ := json.MarshalIndent(resp, "", "  ")
+	return string(data), nil
+}
+
+// toolRegisterWebhook registers a webhook.
+func (s *Server) toolRegisterWebhook(ctx context.Context, args map[string]interface{}) (string, error) {
+	req := &mddb.RegisterWebhookRequest{
+		URL:        getString(args, "url"),
+		Collection: getString(args, "collection"),
+	}
+
+	if eventsRaw, ok := args["events"].([]interface{}); ok {
+		for _, e := range eventsRaw {
+			if s, ok := e.(string); ok {
+				req.Events = append(req.Events, s)
+			}
+		}
+	}
+
+	wh, err := s.client.RegisterWebhook(ctx, req)
+	if err != nil {
+		return "", err
+	}
+
+	data, _ := json.MarshalIndent(wh, "", "  ")
+	return fmt.Sprintf("Webhook registered:\n%s", string(data)), nil
+}
+
+// toolListWebhooks lists all webhooks.
+func (s *Server) toolListWebhooks(ctx context.Context, args map[string]interface{}) (string, error) {
+	hooks, err := s.client.ListWebhooks(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	data, _ := json.MarshalIndent(hooks, "", "  ")
+	return string(data), nil
+}
+
+// toolDeleteWebhook deletes a webhook.
+func (s *Server) toolDeleteWebhook(ctx context.Context, args map[string]interface{}) (string, error) {
+	req := &mddb.DeleteWebhookRequest{
+		ID: getString(args, "id"),
+	}
+
+	if err := s.client.DeleteWebhook(ctx, req); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("Webhook deleted: %s", req.ID), nil
 }
 
 func getMetaMap(m map[string]interface{}, key string) map[string][]string {

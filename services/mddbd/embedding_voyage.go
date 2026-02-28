@@ -33,7 +33,7 @@ func NewVoyageEmbeddingProvider(apiKey, apiURL, model string, dimensions int) *V
 	}
 }
 
-func (p *VoyageEmbeddingProvider) Model() string  { return p.model }
+func (p *VoyageEmbeddingProvider) Model() string   { return p.model }
 func (p *VoyageEmbeddingProvider) Dimensions() int { return p.dimensions }
 
 // Embed generates an embedding for a single text.

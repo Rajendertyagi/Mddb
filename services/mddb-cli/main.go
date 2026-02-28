@@ -59,7 +59,7 @@ func (c *Client) request(method, path string, body interface{}) ([]byte, error) 
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -95,10 +95,10 @@ Reads content from stdin or file.`,
 		Args: cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			collection, key, lang := args[0], args[1], args[2]
-			
+
 			contentFile, _ := cmd.Flags().GetString("file")
 			metaStr, _ := cmd.Flags().GetString("meta")
-			
+
 			var content string
 			if contentFile != "" {
 				data, err := os.ReadFile(contentFile)
@@ -143,7 +143,9 @@ Reads content from stdin or file.`,
 				fmt.Println(string(resp))
 			} else {
 				var doc map[string]interface{}
-				json.Unmarshal(resp, &doc)
+				if err := json.Unmarshal(resp, &doc); err != nil {
+					return fmt.Errorf("parse response: %w", err)
+				}
 				fmt.Printf("✓ Document added: %s\n", doc["id"])
 				fmt.Printf("  Added: %v\n", time.Unix(int64(doc["addedAt"].(float64)), 0).Format(time.RFC3339))
 				fmt.Printf("  Updated: %v\n", time.Unix(int64(doc["updatedAt"].(float64)), 0).Format(time.RFC3339))
@@ -192,13 +194,17 @@ Reads content from stdin or file.`,
 
 			if contentOnly {
 				var doc map[string]interface{}
-				json.Unmarshal(resp, &doc)
+				if err := json.Unmarshal(resp, &doc); err != nil {
+					return fmt.Errorf("parse response: %w", err)
+				}
 				fmt.Print(doc["contentMd"])
 			} else if outputJSON {
 				fmt.Println(string(resp))
 			} else {
 				var doc map[string]interface{}
-				json.Unmarshal(resp, &doc)
+				if err := json.Unmarshal(resp, &doc); err != nil {
+					return fmt.Errorf("parse response: %w", err)
+				}
 				fmt.Printf("ID: %s\n", doc["id"])
 				fmt.Printf("Key: %s\n", doc["key"])
 				fmt.Printf("Lang: %s\n", doc["lang"])
@@ -456,18 +462,18 @@ Reads content from stdin or file.`,
 			} else {
 				var stats map[string]interface{}
 				json.Unmarshal(resp, &stats)
-				
+
 				fmt.Printf("MDDB Server Statistics\n")
 				fmt.Printf("═══════════════════════════════════════\n\n")
 				fmt.Printf("Database Path: %s\n", stats["databasePath"])
 				fmt.Printf("Database Size: %.2f MB\n", float64(stats["databaseSize"].(float64))/1024/1024)
 				fmt.Printf("Access Mode:   %s\n\n", stats["mode"])
-				
+
 				fmt.Printf("Global Totals:\n")
 				fmt.Printf("  Documents:     %d\n", int(stats["totalDocuments"].(float64)))
 				fmt.Printf("  Revisions:     %d\n", int(stats["totalRevisions"].(float64)))
 				fmt.Printf("  Meta Indices:  %d\n\n", int(stats["totalMetaIndices"].(float64)))
-				
+
 				if collections, ok := stats["collections"].([]interface{}); ok && len(collections) > 0 {
 					fmt.Printf("Collections:\n")
 					fmt.Printf("─────────────────────────────────────────\n")
@@ -696,7 +702,277 @@ Reads content from stdin or file.`,
 		},
 	}
 
-	rootCmd.AddCommand(addCmd, getCmd, searchCmd, exportCmd, backupCmd, restoreCmd, truncateCmd, statsCmd, vectorSearchCmd, vectorReindexCmd, vectorStatsCmd)
+	// Import URL command
+	importURLCmd := &cobra.Command{
+		Use:   "import-url [collection] [url] [lang]",
+		Short: "Import a document from URL",
+		Long:  `Import a markdown document from a URL. YAML frontmatter is parsed as metadata.`,
+		Args:  cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			collection, url, lang := args[0], args[1], args[2]
+			key, _ := cmd.Flags().GetString("key")
+			metaStr, _ := cmd.Flags().GetString("meta")
+			ttl, _ := cmd.Flags().GetInt64("ttl")
+
+			meta := make(map[string][]string)
+			if metaStr != "" {
+				pairs := strings.Split(metaStr, ",")
+				for _, pair := range pairs {
+					kv := strings.SplitN(pair, "=", 2)
+					if len(kv) == 2 {
+						meta[kv[0]] = strings.Split(kv[1], "|")
+					}
+				}
+			}
+
+			client := NewClient(serverURL)
+			body := map[string]interface{}{
+				"collection": collection,
+				"url":        url,
+				"lang":       lang,
+			}
+			if key != "" {
+				body["key"] = key
+			}
+			if len(meta) > 0 {
+				body["meta"] = meta
+			}
+			if ttl > 0 {
+				body["ttl"] = ttl
+			}
+
+			resp, err := client.request("POST", "/v1/import-url", body)
+			if err != nil {
+				return err
+			}
+
+			if outputJSON {
+				fmt.Println(string(resp))
+			} else {
+				var doc map[string]interface{}
+				json.Unmarshal(resp, &doc)
+				fmt.Printf("Document imported from URL: %s\n", doc["id"])
+			}
+			return nil
+		},
+	}
+	importURLCmd.Flags().String("key", "", "Document key (auto-derived from URL if empty)")
+	importURLCmd.Flags().StringP("meta", "m", "", "Metadata: key=val1|val2,key2=val")
+	importURLCmd.Flags().Int64("ttl", 0, "TTL in seconds (0 = no expiry)")
+
+	// Set TTL command
+	setTTLCmd := &cobra.Command{
+		Use:   "set-ttl [collection] [key] [lang]",
+		Short: "Set TTL on a document",
+		Long:  `Set or remove time-to-live on a document. Use --ttl=0 to remove TTL.`,
+		Args:  cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			collection, key, lang := args[0], args[1], args[2]
+			ttl, _ := cmd.Flags().GetInt64("ttl")
+
+			client := NewClient(serverURL)
+			body := map[string]interface{}{
+				"collection": collection,
+				"key":        key,
+				"lang":       lang,
+				"ttl":        ttl,
+			}
+
+			resp, err := client.request("POST", "/v1/set-ttl", body)
+			if err != nil {
+				return err
+			}
+
+			if outputJSON {
+				fmt.Println(string(resp))
+			} else {
+				if ttl > 0 {
+					fmt.Printf("TTL set to %d seconds for %s/%s/%s\n", ttl, collection, key, lang)
+				} else {
+					fmt.Printf("TTL removed for %s/%s/%s\n", collection, key, lang)
+				}
+			}
+			return nil
+		},
+	}
+	setTTLCmd.Flags().Int64("ttl", 0, "TTL in seconds (0 = remove)")
+
+	// FTS command
+	ftsCmd := &cobra.Command{
+		Use:   "fts [collection]",
+		Short: "Full-text search",
+		Long:  `Search documents by text content using full-text search.`,
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			collection := args[0]
+			query, _ := cmd.Flags().GetString("query")
+			limit, _ := cmd.Flags().GetInt("limit")
+
+			if query == "" {
+				return fmt.Errorf("--query flag is required")
+			}
+
+			client := NewClient(serverURL)
+			body := map[string]interface{}{
+				"collection": collection,
+				"query":      query,
+				"limit":      limit,
+			}
+
+			resp, err := client.request("POST", "/v1/fts", body)
+			if err != nil {
+				return err
+			}
+
+			if outputJSON {
+				fmt.Println(string(resp))
+			} else {
+				var result map[string]interface{}
+				json.Unmarshal(resp, &result)
+
+				results, _ := result["results"].([]interface{})
+				total, _ := result["total"].(float64)
+
+				fmt.Printf("Full-Text Search Results (%d matches)\n", int(total))
+				fmt.Printf("Query: %q\n", query)
+				fmt.Printf("═══════════════════════════════════════\n\n")
+
+				if len(results) == 0 {
+					fmt.Println("No results found.")
+				} else {
+					for i, r := range results {
+						item := r.(map[string]interface{})
+						doc := item["document"].(map[string]interface{})
+						score := item["score"].(float64)
+						terms, _ := item["matchedTerms"].([]interface{})
+
+						fmt.Printf("%d. %.0f%%  %s (%s)\n", i+1, score*100, doc["key"], doc["lang"])
+						if len(terms) > 0 {
+							termStrs := make([]string, len(terms))
+							for j, t := range terms {
+								termStrs[j] = t.(string)
+							}
+							fmt.Printf("   Matched: %s\n", strings.Join(termStrs, ", "))
+						}
+						fmt.Println()
+					}
+				}
+			}
+			return nil
+		},
+	}
+	ftsCmd.Flags().StringP("query", "q", "", "Search query (required)")
+	ftsCmd.Flags().IntP("limit", "l", 50, "Max results")
+
+	// Webhook commands
+	webhookCmd := &cobra.Command{
+		Use:   "webhook",
+		Short: "Manage webhooks",
+		Long:  `Register, list, and delete webhook subscriptions.`,
+	}
+
+	webhookRegisterCmd := &cobra.Command{
+		Use:   "register",
+		Short: "Register a webhook",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			url, _ := cmd.Flags().GetString("url")
+			eventsStr, _ := cmd.Flags().GetString("events")
+			collection, _ := cmd.Flags().GetString("collection")
+
+			if url == "" || eventsStr == "" {
+				return fmt.Errorf("--url and --events flags are required")
+			}
+
+			events := strings.Split(eventsStr, ",")
+
+			client := NewClient(serverURL)
+			body := map[string]interface{}{
+				"url":    url,
+				"events": events,
+			}
+			if collection != "" {
+				body["collection"] = collection
+			}
+
+			resp, err := client.request("POST", "/v1/webhooks", body)
+			if err != nil {
+				return err
+			}
+
+			if outputJSON {
+				fmt.Println(string(resp))
+			} else {
+				var wh map[string]interface{}
+				json.Unmarshal(resp, &wh)
+				fmt.Printf("Webhook registered: %s\n", wh["id"])
+				fmt.Printf("  URL: %s\n", wh["url"])
+				fmt.Printf("  Events: %v\n", wh["events"])
+			}
+			return nil
+		},
+	}
+	webhookRegisterCmd.Flags().String("url", "", "Webhook endpoint URL (required)")
+	webhookRegisterCmd.Flags().String("events", "", "Events: doc.added,doc.updated,doc.deleted (required)")
+	webhookRegisterCmd.Flags().String("collection", "", "Filter to collection (optional)")
+
+	webhookListCmd := &cobra.Command{
+		Use:   "list",
+		Short: "List webhooks",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client := NewClient(serverURL)
+			resp, err := client.request("GET", "/v1/webhooks", nil)
+			if err != nil {
+				return err
+			}
+
+			if outputJSON {
+				fmt.Println(string(resp))
+			} else {
+				var hooks []map[string]interface{}
+				json.Unmarshal(resp, &hooks)
+				if len(hooks) == 0 {
+					fmt.Println("No webhooks registered.")
+				} else {
+					fmt.Printf("%-20s %-40s %-30s %s\n", "ID", "URL", "Events", "Collection")
+					fmt.Printf("%-20s %-40s %-30s %s\n", "──────────────────", "────────────────────────────────────────", "──────────────────────────────", "──────────")
+					for _, h := range hooks {
+						coll := ""
+						if c, ok := h["collection"].(string); ok {
+							coll = c
+						}
+						fmt.Printf("%-20s %-40s %-30v %s\n", h["id"], h["url"], h["events"], coll)
+					}
+				}
+			}
+			return nil
+		},
+	}
+
+	webhookDeleteCmd := &cobra.Command{
+		Use:   "delete [id]",
+		Short: "Delete a webhook",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id := args[0]
+			client := NewClient(serverURL)
+			body := map[string]interface{}{"id": id}
+			resp, err := client.request("POST", "/v1/webhooks/delete", body)
+			if err != nil {
+				return err
+			}
+
+			if outputJSON {
+				fmt.Println(string(resp))
+			} else {
+				fmt.Printf("Webhook deleted: %s\n", id)
+			}
+			return nil
+		},
+	}
+
+	webhookCmd.AddCommand(webhookRegisterCmd, webhookListCmd, webhookDeleteCmd)
+
+	rootCmd.AddCommand(addCmd, getCmd, searchCmd, exportCmd, backupCmd, restoreCmd, truncateCmd, statsCmd, vectorSearchCmd, vectorReindexCmd, vectorStatsCmd, importURLCmd, setTTLCmd, ftsCmd, webhookCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

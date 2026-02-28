@@ -225,6 +225,80 @@ func (s *Server) handleTools(w http.ResponseWriter, r *http.Request) {
 				"type": "object",
 			},
 		},
+		{
+			Name:        "import_url",
+			Description: "Import a markdown document from a URL. Supports YAML frontmatter for metadata extraction.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Target collection"},
+					"url":        map[string]interface{}{"type": "string", "description": "URL to fetch markdown from"},
+					"lang":       map[string]interface{}{"type": "string", "description": "Language code (e.g. en_US)"},
+					"key":        map[string]interface{}{"type": "string", "description": "Document key (auto-derived from URL if empty)"},
+					"meta":       map[string]interface{}{"type": "object", "description": "Additional metadata (overrides frontmatter)"},
+					"ttl":        map[string]interface{}{"type": "integer", "description": "Time-to-live in seconds (0 = no expiry)"},
+				},
+				"required": []string{"collection", "url", "lang"},
+			},
+		},
+		{
+			Name:        "set_ttl",
+			Description: "Set or remove time-to-live on a document. The document will be automatically deleted after TTL expires.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection name"},
+					"key":        map[string]interface{}{"type": "string", "description": "Document key"},
+					"lang":       map[string]interface{}{"type": "string", "description": "Language code"},
+					"ttl":        map[string]interface{}{"type": "integer", "description": "TTL in seconds (0 = remove TTL)"},
+				},
+				"required": []string{"collection", "key", "lang", "ttl"},
+			},
+		},
+		{
+			Name:        "full_text_search",
+			Description: "Search documents by text content using full-text search with term matching and relevance scoring.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection to search in"},
+					"query":      map[string]interface{}{"type": "string", "description": "Search query text"},
+					"limit":      map[string]interface{}{"type": "integer", "description": "Max results (default: 50)"},
+				},
+				"required": []string{"collection", "query"},
+			},
+		},
+		{
+			Name:        "register_webhook",
+			Description: "Register a webhook to receive HTTP callbacks when documents are added, updated, or deleted.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"url":        map[string]interface{}{"type": "string", "description": "Webhook endpoint URL"},
+					"events":     map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}, "description": "Events: doc.added, doc.updated, doc.deleted"},
+					"collection": map[string]interface{}{"type": "string", "description": "Filter to specific collection (empty = all)"},
+				},
+				"required": []string{"url", "events"},
+			},
+		},
+		{
+			Name:        "list_webhooks",
+			Description: "List all registered webhooks.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+			},
+		},
+		{
+			Name:        "delete_webhook",
+			Description: "Delete a registered webhook by ID.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"id": map[string]interface{}{"type": "string", "description": "Webhook ID to delete"},
+				},
+				"required": []string{"id"},
+			},
+		},
 	}
 
 	w.Header().Set("Content-Type", "application/json")

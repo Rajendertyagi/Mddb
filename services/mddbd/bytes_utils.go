@@ -10,7 +10,7 @@ func BytesSplit(data []byte, sep byte) [][]byte {
 	if len(data) == 0 {
 		return nil
 	}
-	
+
 	// Count separators
 	n := 1
 	for i := 0; i < len(data); i++ {
@@ -18,21 +18,21 @@ func BytesSplit(data []byte, sep byte) [][]byte {
 			n++
 		}
 	}
-	
+
 	// Allocate result slice once
 	result := make([][]byte, 0, n)
 	start := 0
-	
+
 	for i := 0; i < len(data); i++ {
 		if data[i] == sep {
 			result = append(result, data[start:i])
 			start = i + 1
 		}
 	}
-	
+
 	// Add last part
 	result = append(result, data[start:])
-	
+
 	return result
 }
 
@@ -67,10 +67,10 @@ func ExtractPart(data []byte, partIndex int) []byte {
 	if len(data) == 0 {
 		return nil
 	}
-	
+
 	currentPart := 0
 	start := 0
-	
+
 	for i := 0; i < len(data); i++ {
 		if data[i] == '|' {
 			if currentPart == partIndex {
@@ -80,12 +80,12 @@ func ExtractPart(data []byte, partIndex int) []byte {
 			start = i + 1
 		}
 	}
-	
+
 	// Last part (no trailing |)
 	if currentPart == partIndex {
 		return data[start:]
 	}
-	
+
 	return nil
 }
 
@@ -95,34 +95,34 @@ func FormatTimestamp(timestamp int64, buf []byte) []byte {
 	if len(buf) < 20 {
 		buf = make([]byte, 20)
 	}
-	
+
 	// Convert to string representation
 	digits := make([]byte, 0, 20)
 	n := timestamp
-	
+
 	if n == 0 {
 		for i := 0; i < 20; i++ {
 			buf[i] = '0'
 		}
 		return buf[:20]
 	}
-	
+
 	// Extract digits
 	for n > 0 {
 		digits = append(digits, byte('0'+n%10))
 		n /= 10
 	}
-	
+
 	// Reverse and pad
 	padding := 20 - len(digits)
 	for i := 0; i < padding; i++ {
 		buf[i] = '0'
 	}
-	
+
 	for i := 0; i < len(digits); i++ {
 		buf[padding+i] = digits[len(digits)-1-i]
 	}
-	
+
 	return buf[:20]
 }
 
@@ -133,19 +133,19 @@ func AppendBytes(dst []byte, parts ...[]byte) []byte {
 	for _, part := range parts {
 		totalSize += len(part)
 	}
-	
+
 	// Grow if needed
 	if cap(dst) < totalSize {
 		newDst := make([]byte, len(dst), totalSize)
 		copy(newDst, dst)
 		dst = newDst
 	}
-	
+
 	// Append all parts
 	for _, part := range parts {
 		dst = append(dst, part...)
 	}
-	
+
 	return dst
 }
 
@@ -164,7 +164,7 @@ func CompareBytes(a, b []byte) int {
 	if len(b) < minLen {
 		minLen = len(b)
 	}
-	
+
 	for i := 0; i < minLen; i++ {
 		if a[i] < b[i] {
 			return -1
@@ -173,14 +173,14 @@ func CompareBytes(a, b []byte) int {
 			return 1
 		}
 	}
-	
+
 	if len(a) < len(b) {
 		return -1
 	}
 	if len(a) > len(b) {
 		return 1
 	}
-	
+
 	return 0
 }
 

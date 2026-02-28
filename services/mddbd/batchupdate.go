@@ -49,28 +49,28 @@ func (bu *BatchUpdater) ProcessBatchUpdate(ctx context.Context, collection strin
 	}
 
 	now := time.Now().Unix()
-	
+
 	// Phase 1: Parallel processing
 	updated := bu.parallelProcess(ctx, collection, updateDocs, now)
-	
+
 	// Phase 2: Single transaction commit
 	resp := bu.commitUpdate(collection, updated, now)
-	
+
 	return resp, nil
 }
 
 // parallelProcess processes updates in parallel
 func (bu *BatchUpdater) parallelProcess(ctx context.Context, collection string, updateDocs []*proto.UpdateDocument, now int64) []*UpdatedDoc {
 	updated := make([]*UpdatedDoc, len(updateDocs))
-	
+
 	numWorkers := bu.maxWorkers
 	if len(updateDocs) < numWorkers {
 		numWorkers = len(updateDocs)
 	}
-	
+
 	jobs := make(chan int, len(updateDocs))
 	var wg sync.WaitGroup
-	
+
 	// Start workers
 	for w := 0; w < numWorkers; w++ {
 		wg.Add(1)
@@ -81,13 +81,13 @@ func (bu *BatchUpdater) parallelProcess(ctx context.Context, collection string, 
 			}
 		}()
 	}
-	
+
 	// Send jobs
 	for i := range updateDocs {
 		jobs <- i
 	}
 	close(jobs)
-	
+
 	wg.Wait()
 	return updated
 }
@@ -99,24 +99,24 @@ func (bu *BatchUpdater) processDocument(collection string, updateDoc *proto.Upda
 		Lang:         updateDoc.Lang,
 		SaveRevision: updateDoc.SaveRevision,
 	}
-	
+
 	// Validate
 	if updateDoc.Key == "" || updateDoc.Lang == "" {
 		result.Error = fmt.Errorf("missing key or lang")
 		return result
 	}
-	
+
 	// Convert meta
 	meta := make(map[string][]string)
 	for k, v := range updateDoc.Meta {
 		meta[k] = v.Values
 	}
 	result.Meta = meta
-	
+
 	// Generate ID
 	docID := genID(collection, updateDoc.Key, updateDoc.Lang)
 	result.DocID = docID
-	
+
 	// Load existing
 	existing := Doc{}
 	err := bu.server.DB.View(func(tx *bolt.Tx) error {
@@ -131,19 +131,19 @@ func (bu *BatchUpdater) processDocument(collection string, updateDoc *proto.Upda
 		}
 		return nil
 	})
-	
+
 	if err != nil {
 		result.Error = err
 		return result
 	}
-	
+
 	if !result.Found {
 		result.Error = fmt.Errorf("document not found")
 		return result
 	}
-	
+
 	result.Existing = existing
-	
+
 	// Prepare updated document
 	doc := Doc{
 		ID:        docID,
@@ -154,29 +154,29 @@ func (bu *BatchUpdater) processDocument(collection string, updateDoc *proto.Upda
 		AddedAt:   existing.AddedAt,
 		UpdatedAt: now,
 	}
-	
+
 	// Marshal
 	buf, err := marshalDoc(&doc)
 	if err != nil {
 		result.Error = err
 		return result
 	}
-	
+
 	result.Doc = doc
 	result.Buf = buf
-	
+
 	return result
 }
 
 // commitUpdate commits all updates in a single transaction
 func (bu *BatchUpdater) commitUpdate(collection string, updated []*UpdatedDoc, now int64) *proto.UpdateBatchResponse {
 	resp := &proto.UpdateBatchResponse{}
-	
+
 	// Single transaction for all updates
 	err := bu.server.DB.Update(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(bu.server.BucketNames.Docs)
 		bRev := tx.Bucket(bu.server.BucketNames.Rev)
-		
+
 		for _, u := range updated {
 			if u.Error != nil {
 				if u.Error.Error() == "document not found" {
@@ -187,7 +187,7 @@ func (bu *BatchUpdater) commitUpdate(collection string, updated []*UpdatedDoc, n
 				}
 				continue
 			}
-			
+
 			// Update document
 			docKey := kDoc(collection, u.DocID)
 			if err := bDocs.Put(docKey, u.Buf); err != nil {
@@ -195,7 +195,7 @@ func (bu *BatchUpdater) commitUpdate(collection string, updated []*UpdatedDoc, n
 				resp.Errors = append(resp.Errors, fmt.Sprintf("%s/%s: update error: %v", u.Key, u.Lang, err))
 				continue
 			}
-			
+
 			// Queue metadata reindexing (lazy)
 			if metadataChanged(u.Existing.Meta, u.Doc.Meta) {
 				bu.server.IndexQueue.Enqueue(&IndexJob{
@@ -205,7 +205,7 @@ func (bu *BatchUpdater) commitUpdate(collection string, updated []*UpdatedDoc, n
 					NewMeta:    u.Doc.Meta,
 				})
 			}
-			
+
 			// Revision (optional)
 			if u.SaveRevision {
 				rkey := append(kRevPrefix(collection, u.Doc.ID), []byte(fmt.Sprintf("%020d", now))...)
@@ -215,21 +215,21 @@ func (bu *BatchUpdater) commitUpdate(collection string, updated []*UpdatedDoc, n
 					continue
 				}
 			}
-			
+
 			// Update cache
 			cacheKey := BuildCacheKey(collection, u.Key, u.Lang)
 			bu.server.Cache.Set(cacheKey, u.Buf)
-			
+
 			resp.Updated++
 		}
-		
+
 		return nil
 	})
-	
+
 	if err != nil {
 		resp.Failed++
 		resp.Errors = append(resp.Errors, fmt.Sprintf("transaction error: %v", err))
 	}
-	
+
 	return resp
 }

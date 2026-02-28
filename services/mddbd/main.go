@@ -26,38 +26,42 @@ const (
 )
 
 type Server struct {
-	DB                 *bolt.DB
-	Path               string
-	Mode               AccessMode
-	Hooks              Hooks // optional extensions
-	BucketNames        BucketNames
-	Cache              *DocumentCache          // Read-through cache (legacy)
-	LockFreeCache      *LockFreeCache          // Lock-free cache (extreme performance)
-	IndexQueue         *IndexQueue             // Async metadata indexing
-	WAL                *WAL                    // Write-Ahead Log
-	MVCC               *MVCC                   // Multi-Version Concurrency Control
-	BloomFilters       *BloomFilterManager     // Bloom filters for negative lookups
-	DeltaEncoder       *DeltaEncoder           // Delta encoding for revisions
-	AdaptiveIndex      *AdaptiveIndexManager   // Adaptive indexing
-	AsyncIO            *AsyncIO                // Async I/O
-	ZeroCopy           *ZeroCopyManager        // Zero-copy I/O
-	SIMD               *SIMDProcessor          // Vectorized operations
-	ShardCluster       *ShardCluster           // Distributed sharding
-	finalBatchProcessor *FinalBatchProcessor   // Final optimized batch processor
-	UseExtreme         bool                    // Enable extreme performance features
+	DB                  *bolt.DB
+	Path                string
+	Mode                AccessMode
+	Hooks               Hooks // optional extensions
+	BucketNames         BucketNames
+	Cache               *DocumentCache        // Read-through cache (legacy)
+	LockFreeCache       *LockFreeCache        // Lock-free cache (extreme performance)
+	IndexQueue          *IndexQueue           // Async metadata indexing
+	WAL                 *WAL                  // Write-Ahead Log
+	MVCC                *MVCC                 // Multi-Version Concurrency Control
+	BloomFilters        *BloomFilterManager   // Bloom filters for negative lookups
+	DeltaEncoder        *DeltaEncoder         // Delta encoding for revisions
+	AdaptiveIndex       *AdaptiveIndexManager // Adaptive indexing
+	AsyncIO             *AsyncIO              // Async I/O
+	ZeroCopy            *ZeroCopyManager      // Zero-copy I/O
+	SIMD                *SIMDProcessor        // Vectorized operations
+	ShardCluster        *ShardCluster         // Distributed sharding
+	finalBatchProcessor *FinalBatchProcessor  // Final optimized batch processor
+	UseExtreme          bool                  // Enable extreme performance features
 	// Vector search
-	VectorStore     *VectorStore        // Persistent vector storage in BoltDB
-	VectorIndex     *VectorIndex        // In-memory vector index for fast search
-	EmbeddingWorker *EmbeddingWorker    // Background embedding processor
-	Embedding       EmbeddingProvider   // Embedding generation provider
+	VectorStore     *VectorStore      // Persistent vector storage in BoltDB
+	VectorIndex     *VectorIndex      // In-memory vector index for fast search
+	EmbeddingWorker *EmbeddingWorker  // Background embedding processor
+	Embedding       EmbeddingProvider // Embedding generation provider
+	// New features
+	TTLManager     *TTLManager     // Document TTL / auto-expiry
+	FTSIndex       *FTSIndex       // Full-text search index
+	WebhookManager *WebhookManager // Webhook subscriptions and delivery
 }
 
 // BucketNames caches bucket name byte slices to avoid repeated allocations
 type BucketNames struct {
-	Docs   []byte
+	Docs    []byte
 	IdxMeta []byte
-	Rev    []byte
-	ByKey  []byte
+	Rev     []byte
+	ByKey   []byte
 }
 
 type Hooks struct {
@@ -75,6 +79,7 @@ type Doc struct {
 	ContentMD string              `json:"contentMd"` // raw markdown
 	AddedAt   int64               `json:"addedAt"`
 	UpdatedAt int64               `json:"updatedAt"`
+	ExpiresAt int64               `json:"expiresAt,omitempty"` // unix timestamp; 0 = never
 }
 
 type AddRequest struct {
@@ -83,6 +88,7 @@ type AddRequest struct {
 	Lang       string              `json:"lang"`
 	Meta       map[string][]string `json:"meta"`
 	ContentMD  string              `json:"contentMd"`
+	TTL        int64               `json:"ttl,omitempty"` // seconds; 0 = no expiry
 }
 
 type GetRequest struct {
@@ -127,17 +133,17 @@ type DeleteCollectionRequest struct {
 func getOptimizedBoltOptions() *bolt.Options {
 	return &bolt.Options{
 		Timeout:         2 * time.Second,
-		NoFreelistSync:  true,                    // Don't sync freelist to disk on every commit (faster writes)
-		FreelistType:    bolt.FreelistMapType,    // Use hashmap for freelist (faster than array)
-		NoGrowSync:      false,                   // Sync after growing mmap (safer)
-		InitialMmapSize: 100 * 1024 * 1024,       // 100MB initial mmap (reduce remapping)
+		NoFreelistSync:  true,                 // Don't sync freelist to disk on every commit (faster writes)
+		FreelistType:    bolt.FreelistMapType, // Use hashmap for freelist (faster than array)
+		NoGrowSync:      false,                // Sync after growing mmap (safer)
+		InitialMmapSize: 100 * 1024 * 1024,    // 100MB initial mmap (reduce remapping)
 	}
 }
 
 func main() {
 	dbPath := env("MDDB_PATH", "mddb.db")
 	mode := AccessMode(env("MDDB_MODE", "wr")) // read|write|wr
-	
+
 	db, err := bolt.Open(dbPath, 0600, getOptimizedBoltOptions())
 	if err != nil {
 		log.Fatal(err)
@@ -150,7 +156,7 @@ func main() {
 
 	// Check for extreme performance mode
 	useExtreme := os.Getenv("MDDB_EXTREME") == "true"
-	
+
 	s := &Server{
 		DB:   db,
 		Path: dbPath,
@@ -161,24 +167,24 @@ func main() {
 			Rev:     []byte("rev"),
 			ByKey:   []byte("bykey"),
 		},
-		Cache:         NewDocumentCache(1000, 300),     // 1000 docs, 5min TTL
-		LockFreeCache: NewLockFreeCache(10000, 300),    // 10k docs, 5min TTL (lock-free)
-		IndexQueue:    NewIndexQueue(nil, 4),           // 4 workers (will set server below)
-		BloomFilters:  NewBloomFilterManager(),         // Bloom filters
-		DeltaEncoder:  NewDeltaEncoder(),               // Delta encoding
-		AdaptiveIndex: NewAdaptiveIndexManager(),       // Adaptive indexing
-		AsyncIO:       NewAsyncIO(),                    // Async I/O
-		ZeroCopy:      NewZeroCopyManager(),            // Zero-copy I/O
-		SIMD:          NewSIMDProcessor(),              // Vectorized operations
-		ShardCluster:  NewShardCluster(4, 2),           // 4 shards, 2x replication
+		Cache:         NewDocumentCache(1000, 300),  // 1000 docs, 5min TTL
+		LockFreeCache: NewLockFreeCache(10000, 300), // 10k docs, 5min TTL (lock-free)
+		IndexQueue:    NewIndexQueue(nil, 4),        // 4 workers (will set server below)
+		BloomFilters:  NewBloomFilterManager(),      // Bloom filters
+		DeltaEncoder:  NewDeltaEncoder(),            // Delta encoding
+		AdaptiveIndex: NewAdaptiveIndexManager(),    // Adaptive indexing
+		AsyncIO:       NewAsyncIO(),                 // Async I/O
+		ZeroCopy:      NewZeroCopyManager(),         // Zero-copy I/O
+		SIMD:          NewSIMDProcessor(),           // Vectorized operations
+		ShardCluster:  NewShardCluster(4, 2),        // 4 shards, 2x replication
 		UseExtreme:    useExtreme,
 	}
 	s.IndexQueue.server = s // Set server reference
-	
+
 	// Initialize extreme performance features
 	if useExtreme {
 		log.Println("🚀 Extreme Performance Mode ENABLED")
-		
+
 		// Initialize WAL
 		wal, err := NewWAL(dbPath, SyncPeriodic)
 		if err != nil {
@@ -186,11 +192,11 @@ func main() {
 		}
 		s.WAL = wal
 		log.Println("  ✓ WAL initialized (SyncPeriodic)")
-		
+
 		// Initialize MVCC
 		s.MVCC = NewMVCC()
 		log.Println("  ✓ MVCC initialized")
-		
+
 		log.Println("  ✓ Lock-Free Cache enabled")
 		log.Println("  ✓ Bloom Filters enabled")
 		log.Println("  ✓ Delta Encoding enabled")
@@ -201,7 +207,7 @@ func main() {
 		log.Println("  ✓ Vectorized Operations (SIMD) enabled")
 		log.Println("  ✓ Distributed Sharding enabled (4 shards, 2x replication)")
 	}
-	
+
 	if err := s.ensureBuckets(); err != nil {
 		log.Fatal(err)
 	}
@@ -226,6 +232,31 @@ func main() {
 	// Load vectors into memory asynchronously
 	go s.loadVectorIndex()
 
+	// Initialize TTL manager
+	s.TTLManager = NewTTLManager(db, s)
+	if err := s.TTLManager.EnsureBuckets(); err != nil {
+		log.Fatal(err)
+	}
+	s.TTLManager.StartCleanup(30 * time.Second)
+	log.Println("TTL manager started (cleanup every 30s)")
+
+	// Initialize FTS index
+	s.FTSIndex = NewFTSIndex(db)
+	if err := s.FTSIndex.EnsureBuckets(); err != nil {
+		log.Fatal(err)
+	}
+	log.Println("Full-text search index initialized")
+
+	// Initialize webhook manager
+	s.WebhookManager = NewWebhookManager(db)
+	if err := s.WebhookManager.EnsureBucket(); err != nil {
+		log.Fatal(err)
+	}
+	if err := s.WebhookManager.LoadAll(); err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("Webhook manager initialized (%d hooks loaded)", len(s.WebhookManager.List()))
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/v1/health", s.handleHealth)
@@ -242,6 +273,11 @@ func main() {
 	mux.HandleFunc("/v1/vector-search", s.handleVectorSearch)
 	mux.HandleFunc("/v1/vector-reindex", s.guardWrite(s.handleVectorReindex))
 	mux.HandleFunc("/v1/vector-stats", s.handleVectorStats)
+	mux.HandleFunc("/v1/import-url", s.guardWrite(s.handleImportURL))
+	mux.HandleFunc("/v1/set-ttl", s.guardWrite(s.handleSetTTL))
+	mux.HandleFunc("/v1/fts", s.handleFTS)
+	mux.HandleFunc("/v1/webhooks", s.handleWebhooks)
+	mux.HandleFunc("/v1/webhooks/delete", s.guardWrite(s.handleWebhookDelete))
 
 	httpAddr := env("MDDB_ADDR", ":11023")
 	grpcAddr := env("MDDB_GRPC_ADDR", ":11024")
@@ -316,6 +352,185 @@ func (s *Server) guardWrite(next http.HandlerFunc) http.HandlerFunc {
 
 // --- handlers
 
+// addDocument is the shared internal method for adding/updating a document.
+// Returns the saved document, whether it was newly created, and any error.
+func (s *Server) addDocument(collection, key, lang string, meta map[string][]string, contentMD string, ttl int64) (Doc, bool, error) {
+	now := time.Now().Unix()
+	docID := genID(collection, key, lang)
+
+	var saved Doc
+	var isNew bool
+	err := s.DB.Update(func(tx *bolt.Tx) error {
+		bDocs := tx.Bucket([]byte("docs"))
+		bIdx := tx.Bucket([]byte("idxmeta"))
+		bRev := tx.Bucket([]byte("rev"))
+		bByK := tx.Bucket([]byte("bykey"))
+
+		existing := Doc{}
+		if v := bDocs.Get(kDoc(collection, docID)); v != nil {
+			if err := json.Unmarshal(v, &existing); err != nil {
+				return err
+			}
+		}
+		added := existing.AddedAt
+		if added == 0 {
+			added = now
+			isNew = true
+		}
+
+		doc := Doc{
+			ID: docID, Key: key, Lang: lang, Meta: meta,
+			ContentMD: contentMD, AddedAt: added, UpdatedAt: now,
+		}
+		if ttl > 0 {
+			doc.ExpiresAt = now + ttl
+		}
+
+		buf, _ := json.Marshal(doc)
+		if err := bDocs.Put(kDoc(collection, docID), buf); err != nil {
+			return err
+		}
+		if err := bByK.Put(kByKey(collection, key, lang), []byte(docID)); err != nil {
+			return err
+		}
+
+		if metadataChanged(existing.Meta, doc.Meta) {
+			if existing.ID != "" && existing.Meta != nil {
+				for mk, vals := range existing.Meta {
+					for _, mv := range vals {
+						prefix := append(kMetaKeyPrefix(collection, mk, mv), []byte(existing.ID)...)
+						_ = bIdx.Delete(prefix)
+					}
+				}
+			}
+			for mk, vals := range doc.Meta {
+				for _, mv := range vals {
+					mkey := append(kMetaKeyPrefix(collection, mk, mv), []byte(doc.ID)...)
+					if err := bIdx.Put(mkey, []byte("1")); err != nil {
+						return err
+					}
+				}
+			}
+		}
+
+		rkey := append(kRevPrefix(collection, doc.ID), []byte(fmt.Sprintf("%020d", now))...)
+		if err := bRev.Put(rkey, buf); err != nil {
+			return err
+		}
+
+		saved = doc
+		return nil
+	})
+	if err != nil {
+		return Doc{}, false, err
+	}
+
+	// Trigger async embedding
+	if s.EmbeddingWorker != nil && saved.ContentMD != "" {
+		s.EmbeddingWorker.Enqueue(EmbeddingJob{
+			Collection: collection,
+			DocID:      saved.ID,
+			ContentMD:  saved.ContentMD,
+		})
+	}
+
+	// TTL bucket entry
+	if s.TTLManager != nil && saved.ExpiresAt > 0 {
+		_ = s.TTLManager.Set(collection, saved.ID, saved.ExpiresAt)
+	}
+
+	// FTS indexing
+	if s.FTSIndex != nil && saved.ContentMD != "" {
+		_ = s.FTSIndex.Index(collection, saved.ID, saved.ContentMD)
+	}
+
+	// Webhooks
+	if s.WebhookManager != nil {
+		event := "doc.updated"
+		if isNew {
+			event = "doc.added"
+		}
+		s.WebhookManager.Fire(event, collection, key, lang, &saved)
+	}
+
+	return saved, isNew, nil
+}
+
+// deleteDocumentInternal deletes a document and all its associated data.
+func (s *Server) deleteDocumentInternal(collection, key, lang string) error {
+	docID := genID(collection, key, lang)
+
+	err := s.DB.Update(func(tx *bolt.Tx) error {
+		bDocs := tx.Bucket([]byte("docs"))
+		bIdx := tx.Bucket([]byte("idxmeta"))
+		bRev := tx.Bucket([]byte("rev"))
+		bByK := tx.Bucket([]byte("bykey"))
+
+		v := bDocs.Get(kDoc(collection, docID))
+		if v == nil {
+			return errors.New("document not found")
+		}
+		var doc Doc
+		if err := json.Unmarshal(v, &doc); err != nil {
+			return err
+		}
+
+		if err := bDocs.Delete(kDoc(collection, docID)); err != nil {
+			return err
+		}
+		if err := bByK.Delete(kByKey(collection, key, lang)); err != nil {
+			return err
+		}
+
+		c := bRev.Cursor()
+		rp := kRevPrefix(collection, docID)
+		for k, _ := c.Seek(rp); k != nil && bytes.HasPrefix(k, rp); k, _ = c.Next() {
+			if err := bRev.Delete(k); err != nil {
+				return err
+			}
+		}
+
+		for mk, vals := range doc.Meta {
+			for _, mv := range vals {
+				mkey := append(kMetaKeyPrefix(collection, mk, mv), []byte(docID)...)
+				if err := bIdx.Delete(mkey); err != nil {
+					return err
+				}
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	// Clean up vector embedding
+	if s.VectorStore != nil {
+		_ = s.VectorStore.Delete(collection, docID)
+		if s.VectorIndex != nil {
+			s.VectorIndex.Remove(collection, docID)
+		}
+	}
+
+	// Clean up TTL entry
+	if s.TTLManager != nil {
+		_ = s.TTLManager.Remove(collection, docID)
+	}
+
+	// Clean up FTS index
+	if s.FTSIndex != nil {
+		_ = s.FTSIndex.Remove(collection, docID)
+	}
+
+	// Fire webhook
+	if s.WebhookManager != nil {
+		s.WebhookManager.Fire("doc.deleted", collection, key, lang, nil)
+	}
+
+	return nil
+}
+
 func (s *Server) handleAdd(w http.ResponseWriter, r *http.Request) {
 	var req AddRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -327,85 +542,11 @@ func (s *Server) handleAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	now := time.Now().Unix()
-	docID := genID(req.Collection, req.Key, req.Lang) // deterministic ID (collection|key|lang)
-
-	var saved Doc
-	err := s.DB.Update(func(tx *bolt.Tx) error {
-		bDocs := tx.Bucket([]byte("docs"))
-		bIdx := tx.Bucket([]byte("idxmeta"))
-		bRev := tx.Bucket([]byte("rev"))
-		bByK := tx.Bucket([]byte("bykey"))
-
-		// load existing
-		existing := Doc{}
-		if v := bDocs.Get(kDoc(req.Collection, docID)); v != nil {
-			if err := json.Unmarshal(v, &existing); err != nil {
-				return err
-			}
-		}
-		added := existing.AddedAt
-		if added == 0 {
-			added = now
-		}
-
-		doc := Doc{
-			ID: docID, Key: req.Key, Lang: req.Lang, Meta: req.Meta,
-			ContentMD: req.ContentMD, AddedAt: added, UpdatedAt: now,
-		}
-		buf, _ := json.Marshal(doc)
-		if err := bDocs.Put(kDoc(req.Collection, docID), buf); err != nil {
-			return err
-		}
-		if err := bByK.Put(kByKey(req.Collection, req.Key, req.Lang), []byte(docID)); err != nil {
-			return err
-		}
-
-		// Only reindex metadata if it has changed (MAJOR OPTIMIZATION)
-		if metadataChanged(existing.Meta, doc.Meta) {
-			// delete old indices
-			if existing.ID != "" && existing.Meta != nil {
-				for mk, vals := range existing.Meta {
-					for _, mv := range vals {
-						prefix := append(kMetaKeyPrefix(req.Collection, mk, mv), []byte(existing.ID)...)
-						_ = bIdx.Delete(prefix)
-					}
-				}
-			}
-			// add new indices
-			for mk, vals := range doc.Meta {
-				for _, mv := range vals {
-					key := append(kMetaKeyPrefix(req.Collection, mk, mv), []byte(doc.ID)...)
-					if err := bIdx.Put(key, []byte("1")); err != nil {
-						return err
-					}
-				}
-			}
-		}
-
-		// revision
-		rkey := append(kRevPrefix(req.Collection, doc.ID), []byte(fmt.Sprintf("%020d", now))...)
-		if err := bRev.Put(rkey, buf); err != nil {
-			return err
-		}
-
-		saved = doc
-		return nil
-	})
+	saved, _, err := s.addDocument(req.Collection, req.Key, req.Lang, req.Meta, req.ContentMD, req.TTL)
 	if err != nil {
 		bad(w, err)
 		return
 	}
-
-	// Trigger async embedding if provider is configured
-	if s.EmbeddingWorker != nil && saved.ContentMD != "" {
-		s.EmbeddingWorker.Enqueue(EmbeddingJob{
-			Collection: req.Collection,
-			DocID:      saved.ID,
-			ContentMD:  saved.ContentMD,
-		})
-	}
-
 	ok(w, saved)
 }
 
@@ -436,6 +577,12 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		bad(w, err)
+		return
+	}
+
+	// Check TTL expiry
+	if doc.ExpiresAt > 0 && doc.ExpiresAt < time.Now().Unix() {
+		bad(w, errors.New("not found"))
 		return
 	}
 
@@ -473,6 +620,9 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 				if err := json.Unmarshal(v, &d); err != nil {
 					return err
 				}
+				if d.ExpiresAt > 0 && d.ExpiresAt < time.Now().Unix() {
+					continue
+				}
 				rows = append(rows, row{d})
 			}
 		} else {
@@ -504,6 +654,9 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 				var d Doc
 				if err := json.Unmarshal(v, &d); err != nil {
 					return err
+				}
+				if d.ExpiresAt > 0 && d.ExpiresAt < time.Now().Unix() {
+					continue
 				}
 				rows = append(rows, row{d})
 			}
@@ -640,7 +793,7 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 		bad(w, err)
 		return
 	}
-	
+
 	db, err := bolt.Open(s.Path, 0600, getOptimizedBoltOptions())
 	if err != nil {
 		bad(w, err)
@@ -720,13 +873,13 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	err := s.DB.View(func(tx *bolt.Tx) error {
 		return nil
 	})
-	
+
 	if err != nil {
 		w.WriteHeader(503)
 		_, _ = fmt.Fprintf(w, `{"status":"unhealthy","error":%q}`, err.Error())
 		return
 	}
-	
+
 	w.WriteHeader(200)
 	_, _ = w.Write([]byte(`{"status":"healthy","mode":"` + string(s.Mode) + `"}`))
 }
@@ -740,14 +893,14 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type Stats struct {
-		DatabasePath    string            `json:"databasePath"`
-		DatabaseSize    int64             `json:"databaseSize"`
-		Mode            string            `json:"mode"`
-		Collections     []CollectionStats `json:"collections"`
-		TotalDocuments  int               `json:"totalDocuments"`
-		TotalRevisions  int               `json:"totalRevisions"`
-		TotalMetaIndices int              `json:"totalMetaIndices"`
-		Uptime          string            `json:"uptime"`
+		DatabasePath     string            `json:"databasePath"`
+		DatabaseSize     int64             `json:"databaseSize"`
+		Mode             string            `json:"mode"`
+		Collections      []CollectionStats `json:"collections"`
+		TotalDocuments   int               `json:"totalDocuments"`
+		TotalRevisions   int               `json:"totalRevisions"`
+		TotalMetaIndices int               `json:"totalMetaIndices"`
+		Uptime           string            `json:"uptime"`
 	}
 
 	stats := Stats{
@@ -855,7 +1008,7 @@ func genID(parts ...string) string {
 			totalLen++ // for '|'
 		}
 	}
-	
+
 	buf := make([]byte, 0, totalLen)
 	for i, part := range parts {
 		for j := 0; j < len(part); j++ {
@@ -869,7 +1022,7 @@ func genID(parts ...string) string {
 			buf = append(buf, '|')
 		}
 	}
-	
+
 	return string(buf)
 }
 func applyEnv(s string, env map[string]string) string {
@@ -974,80 +1127,17 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	docID := genID(req.Collection, req.Key, req.Lang)
-	
-	err := s.DB.Update(func(tx *bolt.Tx) error {
-		bDocs := tx.Bucket([]byte("docs"))
-		bIdx := tx.Bucket([]byte("idxmeta"))
-		bRev := tx.Bucket([]byte("rev"))
-		bByK := tx.Bucket([]byte("bykey"))
-
-		// Check if document exists and load it for cleanup
-		v := bDocs.Get(kDoc(req.Collection, docID))
-		if v == nil {
-			return errors.New("document not found")
-		}
-
-		// Load document to get metadata for index cleanup
-		var doc Doc
-		if err := json.Unmarshal(v, &doc); err != nil {
-			return err
-		}
-
-		// Delete document
-		if err := bDocs.Delete(kDoc(req.Collection, docID)); err != nil {
-			return err
-		}
-
-		// Delete from bykey index
-		if err := bByK.Delete(kByKey(req.Collection, req.Key, req.Lang)); err != nil {
-			return err
-		}
-
-		// Delete all revisions
-		c := bRev.Cursor()
-		rp := kRevPrefix(req.Collection, docID)
-		for k, _ := c.Seek(rp); k != nil && bytes.HasPrefix(k, rp); k, _ = c.Next() {
-			if err := bRev.Delete(k); err != nil {
-				return err
-			}
-		}
-
-		// Delete metadata indices
-		for mk, vals := range doc.Meta {
-			for _, mv := range vals {
-				key := append(kMetaKeyPrefix(req.Collection, mk, mv), []byte(docID)...)
-				if err := bIdx.Delete(key); err != nil {
-					return err
-				}
-			}
-		}
-
-		return nil
-	})
-
-	if err != nil {
+	if err := s.deleteDocumentInternal(req.Collection, req.Key, req.Lang); err != nil {
 		bad(w, err)
 		return
 	}
 
-	// Clean up vector embedding
-	if s.VectorStore != nil {
-		_ = s.VectorStore.Delete(req.Collection, docID)
-		if s.VectorIndex != nil {
-			s.VectorIndex.Remove(req.Collection, docID)
-		}
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+	ok(w, map[string]interface{}{
 		"status":     "deleted",
 		"collection": req.Collection,
 		"key":        req.Key,
 		"lang":       req.Lang,
-	}); err != nil {
-		log.Printf("Error encoding delete response: %v", err)
-	}
+	})
 }
 
 // handleDeleteCollection deletes all documents in a collection
@@ -1063,7 +1153,7 @@ func (s *Server) handleDeleteCollection(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var deletedCount int
-	
+
 	err := s.DB.Update(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bIdx := tx.Bucket([]byte("idxmeta"))

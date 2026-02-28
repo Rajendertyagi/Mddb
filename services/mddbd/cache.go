@@ -13,12 +13,12 @@ type CacheEntry struct {
 
 // DocumentCache is a simple LRU cache for hot documents
 type DocumentCache struct {
-	cache    map[string]*CacheEntry
-	mu       sync.RWMutex
-	maxSize  int
-	ttl      int64 // seconds
-	hits     uint64
-	misses   uint64
+	cache   map[string]*CacheEntry
+	mu      sync.RWMutex
+	maxSize int
+	ttl     int64 // seconds
+	hits    uint64
+	misses  uint64
 }
 
 // NewDocumentCache creates a new document cache
@@ -29,16 +29,16 @@ func NewDocumentCache(maxSize int, ttlSeconds int64) *DocumentCache {
 	if ttlSeconds <= 0 {
 		ttlSeconds = 300 // Default 5 minutes
 	}
-	
+
 	cache := &DocumentCache{
 		cache:   make(map[string]*CacheEntry, maxSize),
 		maxSize: maxSize,
 		ttl:     ttlSeconds,
 	}
-	
+
 	// Start cleanup goroutine
 	go cache.cleanup()
-	
+
 	return cache
 }
 
@@ -46,19 +46,19 @@ func NewDocumentCache(maxSize int, ttlSeconds int64) *DocumentCache {
 func (dc *DocumentCache) Get(key string) ([]byte, bool) {
 	dc.mu.RLock()
 	defer dc.mu.RUnlock()
-	
+
 	entry, exists := dc.cache[key]
 	if !exists {
 		dc.misses++
 		return nil, false
 	}
-	
+
 	// Check if expired
 	if time.Now().Unix() > entry.ExpiresAt {
 		dc.misses++
 		return nil, false
 	}
-	
+
 	dc.hits++
 	return entry.Data, true
 }
@@ -67,7 +67,7 @@ func (dc *DocumentCache) Get(key string) ([]byte, bool) {
 func (dc *DocumentCache) Set(key string, data []byte) {
 	dc.mu.Lock()
 	defer dc.mu.Unlock()
-	
+
 	// Evict if cache is full (simple FIFO, not true LRU)
 	if len(dc.cache) >= dc.maxSize {
 		// Remove first entry (simple eviction)
@@ -76,7 +76,7 @@ func (dc *DocumentCache) Set(key string, data []byte) {
 			break
 		}
 	}
-	
+
 	dc.cache[key] = &CacheEntry{
 		Data:      data,
 		ExpiresAt: time.Now().Unix() + dc.ttl,
@@ -108,7 +108,7 @@ func (dc *DocumentCache) Stats() (hits, misses uint64, size int) {
 func (dc *DocumentCache) cleanup() {
 	ticker := time.NewTicker(60 * time.Second)
 	defer ticker.Stop()
-	
+
 	for range ticker.C {
 		dc.mu.Lock()
 		now := time.Now().Unix()

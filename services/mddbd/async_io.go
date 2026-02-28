@@ -48,12 +48,12 @@ func NewAsyncIO() *AsyncIO {
 		enabled:    isIOUringAvailable(),
 		operations: make(map[uint64]*AsyncOperation),
 	}
-	
+
 	if !aio.enabled {
 		// Fallback to goroutine-based async I/O
 		aio.enabled = true // Enable fallback mode
 	}
-	
+
 	return aio
 }
 
@@ -68,16 +68,16 @@ func (aio *AsyncIO) ReadAsync(file *os.File, size int, offset int64, callback fu
 		Callback: callback,
 		Done:     make(chan struct{}),
 	}
-	
+
 	aio.mu.Lock()
 	aio.operations[op.ID] = op
 	aio.mu.Unlock()
-	
+
 	aio.pending.Add(1)
-	
+
 	// Submit operation
 	go aio.executeOperation(op)
-	
+
 	return op.ID
 }
 
@@ -92,16 +92,16 @@ func (aio *AsyncIO) WriteAsync(file *os.File, data []byte, offset int64, callbac
 		Callback: callback,
 		Done:     make(chan struct{}),
 	}
-	
+
 	aio.mu.Lock()
 	aio.operations[op.ID] = op
 	aio.mu.Unlock()
-	
+
 	aio.pending.Add(1)
-	
+
 	// Submit operation
 	go aio.executeOperation(op)
-	
+
 	return op.ID
 }
 
@@ -111,13 +111,13 @@ func (aio *AsyncIO) executeOperation(op *AsyncOperation) {
 		aio.pending.Add(-1)
 		aio.completed.Add(1)
 		close(op.Done)
-		
+
 		// Cleanup
 		aio.mu.Lock()
 		delete(aio.operations, op.ID)
 		aio.mu.Unlock()
 	}()
-	
+
 	switch op.Type {
 	case OpRead:
 		n, err := op.File.ReadAt(op.Buffer, op.Offset)
@@ -126,16 +126,16 @@ func (aio *AsyncIO) executeOperation(op *AsyncOperation) {
 		} else {
 			op.Result = op.Buffer[:n]
 		}
-		
+
 	case OpWrite:
 		_, err := op.File.WriteAt(op.Buffer, op.Offset)
 		op.Error = err
 		op.Result = op.Buffer
-		
+
 	case OpSync:
 		op.Error = op.File.Sync()
 	}
-	
+
 	// Call callback if provided
 	if op.Callback != nil {
 		op.Callback(op.Result, op.Error)
@@ -147,11 +147,11 @@ func (aio *AsyncIO) Wait(id uint64) ([]byte, error) {
 	aio.mu.Lock()
 	op, exists := aio.operations[id]
 	aio.mu.Unlock()
-	
+
 	if !exists {
 		return nil, fmt.Errorf("operation not found: %d", id)
 	}
-	
+
 	<-op.Done
 	return op.Result, op.Error
 }
@@ -192,12 +192,12 @@ func isIOUringAvailable() bool {
 func (aio *AsyncIO) BatchReadAsync(file *os.File, requests []ReadRequest, callback func([]ReadResult)) {
 	results := make([]ReadResult, len(requests))
 	var wg sync.WaitGroup
-	
+
 	for i, req := range requests {
 		wg.Add(1)
 		idx := i
 		request := req
-		
+
 		aio.ReadAsync(file, request.Size, request.Offset, func(data []byte, err error) {
 			results[idx] = ReadResult{
 				Data:  data,
@@ -206,7 +206,7 @@ func (aio *AsyncIO) BatchReadAsync(file *os.File, requests []ReadRequest, callba
 			wg.Done()
 		})
 	}
-	
+
 	// Wait for all and callback
 	go func() {
 		wg.Wait()
@@ -241,14 +241,14 @@ func DirectIO(file *os.File) error {
 func AlignedBuffer(size int) []byte {
 	// Align to 4KB page boundary
 	const alignment = 4096
-	
+
 	// Allocate extra space for alignment
 	buf := make([]byte, size+alignment)
-	
+
 	// Calculate aligned offset
 	addr := uintptr(unsafe.Pointer(&buf[0]))
 	offset := int(alignment - (addr % alignment))
-	
+
 	// Return aligned slice
 	return buf[offset : offset+size]
 }

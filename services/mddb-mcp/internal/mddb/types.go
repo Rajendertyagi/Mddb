@@ -236,10 +236,10 @@ type VectorReindexResponse struct {
 
 // VectorStatsResponse represents vector stats.
 type VectorStatsResponse struct {
-	Provider    string                          `json:"provider"`
-	Model       string                          `json:"model"`
-	Dimensions  int                             `json:"dimensions"`
-	Enabled     bool                            `json:"enabled"`
+	Provider    string                           `json:"provider"`
+	Model       string                           `json:"model"`
+	Dimensions  int                              `json:"dimensions"`
+	Enabled     bool                             `json:"enabled"`
 	Collections map[string]VectorCollectionStats `json:"collections"`
 }
 
@@ -247,4 +247,63 @@ type VectorStatsResponse struct {
 type VectorCollectionStats struct {
 	TotalDocuments    int `json:"total_documents"`
 	EmbeddedDocuments int `json:"embedded_documents"`
+}
+
+// ImportURLRequest represents request to import a document from URL.
+type ImportURLRequest struct {
+	Collection string              `json:"collection"`
+	URL        string              `json:"url"`
+	Key        string              `json:"key,omitempty"`
+	Lang       string              `json:"lang"`
+	Meta       map[string][]string `json:"meta,omitempty"`
+	TTL        int64               `json:"ttl,omitempty"`
+}
+
+// SetTTLRequest represents request to set TTL on a document.
+type SetTTLRequest struct {
+	Collection string `json:"collection"`
+	Key        string `json:"key"`
+	Lang       string `json:"lang"`
+	TTL        int64  `json:"ttl"`
+}
+
+// FTSSearchRequest represents full-text search request.
+type FTSSearchRequest struct {
+	Collection string `json:"collection"`
+	Query      string `json:"query"`
+	Limit      int    `json:"limit,omitempty"`
+}
+
+// FTSResult represents a single FTS result.
+type FTSResult struct {
+	Document     Document `json:"document"`
+	Score        float64  `json:"score"`
+	MatchedTerms []string `json:"matchedTerms"`
+}
+
+// FTSSearchResponse represents full-text search results.
+type FTSSearchResponse struct {
+	Results []FTSResult `json:"results"`
+	Total   int         `json:"total"`
+}
+
+// Webhook represents a webhook subscription.
+type Webhook struct {
+	ID         string   `json:"id"`
+	URL        string   `json:"url"`
+	Events     []string `json:"events"`
+	Collection string   `json:"collection,omitempty"`
+	CreatedAt  int64    `json:"createdAt"`
+}
+
+// RegisterWebhookRequest represents request to register a webhook.
+type RegisterWebhookRequest struct {
+	URL        string   `json:"url"`
+	Events     []string `json:"events"`
+	Collection string   `json:"collection,omitempty"`
+}
+
+// DeleteWebhookRequest represents request to delete a webhook.
+type DeleteWebhookRequest struct {
+	ID string `json:"id"`
 }

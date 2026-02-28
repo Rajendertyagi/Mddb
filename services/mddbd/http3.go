@@ -51,7 +51,7 @@ func (h3 *HTTP3Server) Start() error {
 	log.Printf("   ⚡ 0-RTT reconnection enabled")
 	log.Printf("   ⚡ Multiplexing enabled")
 	log.Printf("   ⚡ Better congestion control")
-	
+
 	return h3.server.ListenAndServe()
 }
 
@@ -123,10 +123,10 @@ func HTTP3Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Add Alt-Svc header to advertise HTTP/3
 		w.Header().Set("Alt-Svc", `h3=":443"; ma=2592000`)
-		
+
 		// Add QUIC-specific headers
 		w.Header().Set("X-Protocol", r.Proto)
-		
+
 		next.ServeHTTP(w, r)
 	})
 }

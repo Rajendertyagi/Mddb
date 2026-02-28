@@ -197,6 +197,51 @@ func (c *RESTClient) VectorStats(ctx context.Context) (*VectorStatsResponse, err
 	return &resp, nil
 }
 
+func (c *RESTClient) ImportURL(ctx context.Context, req *ImportURLRequest) (*Document, error) {
+	var doc Document
+	if err := c.post(ctx, "/v1/import-url", req, &doc); err != nil {
+		return nil, err
+	}
+	return &doc, nil
+}
+
+func (c *RESTClient) SetTTL(ctx context.Context, req *SetTTLRequest) (*Document, error) {
+	var doc Document
+	if err := c.post(ctx, "/v1/set-ttl", req, &doc); err != nil {
+		return nil, err
+	}
+	return &doc, nil
+}
+
+func (c *RESTClient) FTSSearch(ctx context.Context, req *FTSSearchRequest) (*FTSSearchResponse, error) {
+	var resp FTSSearchResponse
+	if err := c.post(ctx, "/v1/fts", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *RESTClient) RegisterWebhook(ctx context.Context, req *RegisterWebhookRequest) (*Webhook, error) {
+	var wh Webhook
+	if err := c.post(ctx, "/v1/webhooks", req, &wh); err != nil {
+		return nil, err
+	}
+	return &wh, nil
+}
+
+func (c *RESTClient) ListWebhooks(ctx context.Context) ([]Webhook, error) {
+	var hooks []Webhook
+	if err := c.get(ctx, "/v1/webhooks", &hooks); err != nil {
+		return nil, err
+	}
+	return hooks, nil
+}
+
+func (c *RESTClient) DeleteWebhook(ctx context.Context, req *DeleteWebhookRequest) error {
+	var result map[string]interface{}
+	return c.post(ctx, "/v1/webhooks/delete", req, &result)
+}
+
 func (c *RESTClient) Close() error {
 	return nil
 }

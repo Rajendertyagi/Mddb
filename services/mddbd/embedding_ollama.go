@@ -31,7 +31,7 @@ func NewOllamaEmbeddingProvider(apiURL, model string, dimensions int) *OllamaEmb
 	}
 }
 
-func (p *OllamaEmbeddingProvider) Model() string  { return p.model }
+func (p *OllamaEmbeddingProvider) Model() string   { return p.model }
 func (p *OllamaEmbeddingProvider) Dimensions() int { return p.dimensions }
 
 // Embed generates an embedding for a single text.

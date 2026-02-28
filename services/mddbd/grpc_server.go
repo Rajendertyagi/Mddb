@@ -44,7 +44,7 @@ func NewGRPCServer(s *Server) *GRPCServer {
 	} else {
 		batchProc = NewBatchProcessor(s, 8)
 	}
-	
+
 	gs := &GRPCServer{
 		server:         s,
 		batchProcessor: batchProc,
@@ -63,12 +63,12 @@ func startGRPCServer(s *Server, addr string) error {
 	}
 
 	grpcServer := grpc.NewServer(
-		grpc.MaxRecvMsgSize(10 * 1024 * 1024), // 10MB
-		grpc.MaxSendMsgSize(10 * 1024 * 1024), // 10MB
+		grpc.MaxRecvMsgSize(10*1024*1024), // 10MB
+		grpc.MaxSendMsgSize(10*1024*1024), // 10MB
 	)
 
 	proto.RegisterMDDBServer(grpcServer, NewGRPCServer(s))
-	
+
 	// Register reflection service for grpcurl
 	reflection.Register(grpcServer)
 
@@ -128,13 +128,13 @@ func (g *GRPCServer) Add(ctx context.Context, req *proto.AddRequest) (*proto.Doc
 			return err
 		}
 		cachedBuf = buf // Save for cache
-		
+
 		// Use KeyBuilder for all keys
 		docKey = kb.BuildDocKey(req.Collection, docID)
 		if err := bDocs.Put(docKey, buf); err != nil {
 			return err
 		}
-		
+
 		byKeyKey := kb.BuildByKey(req.Collection, req.Key, req.Lang)
 		if err := bByK.Put(byKeyKey, []byte(docID)); err != nil {
 			return err
@@ -204,13 +204,13 @@ func (g *GRPCServer) AddBatch(ctx context.Context, req *proto.AddBatchRequest) (
 	// Use final batch processor if extreme mode, otherwise standard
 	var resp *proto.AddBatchResponse
 	var err error
-	
+
 	if g.server.UseExtreme && g.server.finalBatchProcessor != nil {
 		resp, err = g.server.finalBatchProcessor.ProcessBatch(ctx, req.Collection, req.Documents)
 	} else {
 		resp, err = g.batchProcessor.ProcessBatch(ctx, req.Collection, req.Documents)
 	}
-	
+
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -226,16 +226,16 @@ func (g *GRPCServer) Get(ctx context.Context, req *proto.GetRequest) (*proto.Doc
 
 	// Check cache first (use lock-free cache if extreme mode)
 	cacheKey := BuildCacheKey(req.Collection, req.Key, req.Lang)
-	
+
 	var cachedData []byte
 	var found bool
-	
+
 	if g.server.UseExtreme {
 		cachedData, found = g.server.LockFreeCache.Get(cacheKey)
 	} else {
 		cachedData, found = g.server.Cache.Get(cacheKey)
 	}
-	
+
 	if found {
 		docPtr, err := unmarshalDoc(cachedData)
 		if err == nil {
@@ -273,7 +273,7 @@ func (g *GRPCServer) Get(ctx context.Context, req *proto.GetRequest) (*proto.Doc
 		doc = *docPtr
 		return nil
 	})
-	
+
 	// Update cache (use lock-free cache if extreme mode)
 	if err == nil && docData != nil {
 		if g.server.UseExtreme {
@@ -313,11 +313,11 @@ func (g *GRPCServer) Search(ctx context.Context, req *proto.SearchRequest) (*pro
 	// Single transaction for both ID collection and document loading
 	var docs []Doc
 	var docIDs []string
-	
+
 	err := g.server.DB.View(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket(g.server.BucketNames.IdxMeta)
 		bDocs := tx.Bucket(g.server.BucketNames.Docs)
-		
+
 		if len(filterMeta) == 0 {
 			// No filter: scan all docs
 			c := bDocs.Cursor()
@@ -347,7 +347,7 @@ func (g *GRPCServer) Search(ctx context.Context, req *proto.SearchRequest) (*pro
 			}
 			docIDs = intersect(sets...)
 		}
-		
+
 		// Load documents in the same transaction
 		for _, id := range docIDs {
 			v := bDocs.Get(kDoc(req.Collection, id))
@@ -358,7 +358,7 @@ func (g *GRPCServer) Search(ctx context.Context, req *proto.SearchRequest) (*pro
 				}
 			}
 		}
-		
+
 		return nil
 	})
 
@@ -802,6 +802,7 @@ func docToProto(doc *Doc) *proto.Document {
 		ContentMd: doc.ContentMD,
 		AddedAt:   doc.AddedAt,
 		UpdatedAt: doc.UpdatedAt,
+		ExpiresAt: doc.ExpiresAt,
 	}
 }
 
@@ -839,4 +840,208 @@ func (g *GRPCServer) UpdateBatch(ctx context.Context, req *proto.UpdateBatchRequ
 	}
 
 	return resp, nil
+}
+
+// ImportURL implements the ImportURL RPC
+func (g *GRPCServer) ImportURL(ctx context.Context, req *proto.ImportURLRequest) (*proto.Document, error) {
+	if g.server.Mode == ModeRead {
+		return nil, status.Error(codes.PermissionDenied, "read-only mode")
+	}
+	if req.Collection == "" || req.Url == "" || req.Lang == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing required fields: collection, url, lang")
+	}
+
+	key := req.Key
+	if key == "" {
+		key = deriveKeyFromURL(req.Url)
+		if key == "" {
+			return nil, status.Error(codes.InvalidArgument, "cannot derive key from URL; provide key explicitly")
+		}
+	}
+
+	content, err := fetchURL(req.Url)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "fetch failed: "+err.Error())
+	}
+
+	fmMeta, body := parseFrontmatter(content)
+	mergedMeta := fmMeta
+	if mergedMeta == nil {
+		mergedMeta = make(map[string][]string)
+	}
+	for k, v := range req.Meta {
+		mergedMeta[k] = v.Values
+	}
+
+	saved, _, err := g.server.addDocument(req.Collection, key, req.Lang, mergedMeta, body, req.Ttl)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return docToProto(&saved), nil
+}
+
+// SetTTL implements the SetTTL RPC
+func (g *GRPCServer) SetTTL(ctx context.Context, req *proto.SetTTLRequest) (*proto.Document, error) {
+	if g.server.Mode == ModeRead {
+		return nil, status.Error(codes.PermissionDenied, "read-only mode")
+	}
+	if req.Collection == "" || req.Key == "" || req.Lang == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing required fields")
+	}
+
+	docID := genID(req.Collection, req.Key, req.Lang)
+	now := time.Now().Unix()
+	var expiresAt int64
+	if req.Ttl > 0 {
+		expiresAt = now + req.Ttl
+	}
+
+	var updated Doc
+	err := g.server.DB.Update(func(tx *bolt.Tx) error {
+		bDocs := tx.Bucket([]byte("docs"))
+		v := bDocs.Get(kDoc(req.Collection, docID))
+		if v == nil {
+			return fmt.Errorf("not found")
+		}
+		d, err := unmarshalDoc(v)
+		if err != nil {
+			return err
+		}
+		d.ExpiresAt = expiresAt
+		buf, err := marshalDoc(d)
+		if err != nil {
+			return err
+		}
+		updated = *d
+		return bDocs.Put(kDoc(req.Collection, docID), buf)
+	})
+	if err != nil {
+		if err.Error() == "not found" {
+			return nil, status.Error(codes.NotFound, "document not found")
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	if g.server.TTLManager != nil {
+		if expiresAt > 0 {
+			_ = g.server.TTLManager.Set(req.Collection, docID, expiresAt)
+		} else {
+			_ = g.server.TTLManager.Remove(req.Collection, docID)
+		}
+	}
+
+	return docToProto(&updated), nil
+}
+
+// FTS implements the FTS RPC
+func (g *GRPCServer) FTS(ctx context.Context, req *proto.FTSRequest) (*proto.FTSResponse, error) {
+	if req.Collection == "" || req.Query == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing required fields: collection, query")
+	}
+	if g.server.FTSIndex == nil {
+		return nil, status.Error(codes.FailedPrecondition, "full-text search not initialized")
+	}
+
+	limit := int(req.Limit)
+	if limit <= 0 {
+		limit = 50
+	}
+
+	results, err := g.server.FTSIndex.Search(req.Collection, req.Query, limit)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	var protoResults []*proto.FTSResult
+	_ = g.server.DB.View(func(tx *bolt.Tx) error {
+		bDocs := tx.Bucket([]byte("docs"))
+		for _, res := range results {
+			v := bDocs.Get(kDoc(req.Collection, res.DocID))
+			if v == nil {
+				continue
+			}
+			d, err := unmarshalDoc(v)
+			if err != nil {
+				continue
+			}
+			if d.ExpiresAt > 0 && d.ExpiresAt < time.Now().Unix() {
+				continue
+			}
+			protoResults = append(protoResults, &proto.FTSResult{
+				Document:     docToProto(d),
+				Score:        res.Score,
+				MatchedTerms: res.MatchedTerms,
+			})
+		}
+		return nil
+	})
+
+	return &proto.FTSResponse{
+		Results: protoResults,
+		Total:   int32(len(protoResults)),
+	}, nil
+}
+
+// RegisterWebhook implements the RegisterWebhook RPC
+func (g *GRPCServer) RegisterWebhook(ctx context.Context, req *proto.RegisterWebhookRequest) (*proto.WebhookProto, error) {
+	if g.server.Mode == ModeRead {
+		return nil, status.Error(codes.PermissionDenied, "read-only mode")
+	}
+	if g.server.WebhookManager == nil {
+		return nil, status.Error(codes.FailedPrecondition, "webhooks not initialized")
+	}
+
+	wh, err := g.server.WebhookManager.Register(req.Url, req.Events, req.Collection)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	return &proto.WebhookProto{
+		Id:         wh.ID,
+		Url:        wh.URL,
+		Events:     wh.Events,
+		Collection: wh.Collection,
+		CreatedAt:  wh.CreatedAt,
+	}, nil
+}
+
+// ListWebhooks implements the ListWebhooks RPC
+func (g *GRPCServer) ListWebhooks(ctx context.Context, req *proto.ListWebhooksRequest) (*proto.ListWebhooksResponse, error) {
+	if g.server.WebhookManager == nil {
+		return nil, status.Error(codes.FailedPrecondition, "webhooks not initialized")
+	}
+
+	hooks := g.server.WebhookManager.List()
+	protoHooks := make([]*proto.WebhookProto, len(hooks))
+	for i, h := range hooks {
+		protoHooks[i] = &proto.WebhookProto{
+			Id:         h.ID,
+			Url:        h.URL,
+			Events:     h.Events,
+			Collection: h.Collection,
+			CreatedAt:  h.CreatedAt,
+		}
+	}
+
+	return &proto.ListWebhooksResponse{Webhooks: protoHooks}, nil
+}
+
+// DeleteWebhook implements the DeleteWebhook RPC
+func (g *GRPCServer) DeleteWebhook(ctx context.Context, req *proto.DeleteWebhookRequest) (*proto.DeleteWebhookResponse, error) {
+	if g.server.Mode == ModeRead {
+		return nil, status.Error(codes.PermissionDenied, "read-only mode")
+	}
+	if g.server.WebhookManager == nil {
+		return nil, status.Error(codes.FailedPrecondition, "webhooks not initialized")
+	}
+	if req.Id == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing id")
+	}
+
+	if err := g.server.WebhookManager.Delete(req.Id); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &proto.DeleteWebhookResponse{Status: "deleted", Id: req.Id}, nil
 }

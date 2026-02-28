@@ -182,6 +182,69 @@ class MDDBClient {
   }
 
   /**
+   * Import document from URL
+   */
+  async importURL({ collection, url, lang, key, meta = {}, ttl = 0 }) {
+    const body = { collection, url, lang };
+    if (key) body.key = key;
+    if (Object.keys(meta).length > 0) body.meta = meta;
+    if (ttl > 0) body.ttl = ttl;
+    return this.request('/import-url', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  /**
+   * Set TTL on a document
+   */
+  async setTTL({ collection, key, lang, ttl }) {
+    return this.request('/set-ttl', {
+      method: 'POST',
+      body: JSON.stringify({ collection, key, lang, ttl }),
+    });
+  }
+
+  /**
+   * Full-text search
+   */
+  async ftsSearch({ collection, query, limit = 50 }) {
+    return this.request('/fts', {
+      method: 'POST',
+      body: JSON.stringify({ collection, query, limit }),
+    });
+  }
+
+  /**
+   * Register a webhook
+   */
+  async registerWebhook({ url, events, collection }) {
+    const body = { url, events };
+    if (collection) body.collection = collection;
+    return this.request('/webhooks', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  /**
+   * List all webhooks
+   */
+  async listWebhooks() {
+    return this.request('/webhooks', { method: 'GET' });
+  }
+
+  /**
+   * Delete a webhook
+   */
+  async deleteWebhook(id) {
+    return this.request('/webhooks/delete', {
+      method: 'POST',
+      body: JSON.stringify({ id }),
+    });
+  }
+
+  /**
    * Delete entire collection
    */
   async deleteCollection({ collection }) {

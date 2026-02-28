@@ -53,11 +53,11 @@ func (kb *KeyBuilder) BuildRevKey(coll, id string, timestamp int64) []byte {
 	n += copy(kb.buf[n:], id)
 	kb.buf[n] = '|'
 	n++
-	
+
 	// Use optimized timestamp formatting
 	tsBytes := FormatTimestamp(timestamp, kb.buf[n:n+20])
 	n += len(tsBytes)
-	
+
 	return kb.buf[:n]
 }
 

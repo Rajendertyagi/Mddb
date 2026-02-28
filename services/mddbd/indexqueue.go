@@ -18,15 +18,15 @@ type IndexJob struct {
 
 // IndexQueue manages asynchronous metadata indexing
 type IndexQueue struct {
-	server     *Server
-	queue      chan *IndexJob
-	workers    int
-	wg         sync.WaitGroup
-	ctx        context.Context
-	cancel     context.CancelFunc
-	processed  uint64
-	failed     uint64
-	mu         sync.RWMutex
+	server    *Server
+	queue     chan *IndexJob
+	workers   int
+	wg        sync.WaitGroup
+	ctx       context.Context
+	cancel    context.CancelFunc
+	processed uint64
+	failed    uint64
+	mu        sync.RWMutex
 }
 
 // NewIndexQueue creates a new index queue
@@ -34,9 +34,9 @@ func NewIndexQueue(server *Server, workers int) *IndexQueue {
 	if workers <= 0 {
 		workers = 4 // Default 4 workers
 	}
-	
+
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	iq := &IndexQueue{
 		server:  server,
 		queue:   make(chan *IndexJob, 1000), // Buffer 1000 jobs
@@ -44,13 +44,13 @@ func NewIndexQueue(server *Server, workers int) *IndexQueue {
 		ctx:     ctx,
 		cancel:  cancel,
 	}
-	
+
 	// Start workers
 	for i := 0; i < workers; i++ {
 		iq.wg.Add(1)
 		go iq.worker(i)
 	}
-	
+
 	return iq
 }
 
@@ -70,7 +70,7 @@ func (iq *IndexQueue) Enqueue(job *IndexJob) {
 // worker processes indexing jobs
 func (iq *IndexQueue) worker(id int) {
 	defer iq.wg.Done()
-	
+
 	for {
 		select {
 		case job := <-iq.queue:
@@ -94,7 +94,7 @@ func (iq *IndexQueue) worker(id int) {
 func (iq *IndexQueue) processJob(job *IndexJob) error {
 	return iq.server.DB.Update(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket(iq.server.BucketNames.IdxMeta)
-		
+
 		// Delete old indices
 		if job.OldMeta != nil {
 			for mk, vals := range job.OldMeta {
@@ -105,7 +105,7 @@ func (iq *IndexQueue) processJob(job *IndexJob) error {
 				}
 			}
 		}
-		
+
 		// Add new indices
 		if job.NewMeta != nil {
 			for mk, vals := range job.NewMeta {
@@ -118,7 +118,7 @@ func (iq *IndexQueue) processJob(job *IndexJob) error {
 				}
 			}
 		}
-		
+
 		return nil
 	})
 }

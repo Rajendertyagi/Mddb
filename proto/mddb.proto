@@ -47,6 +47,24 @@ service MDDB {
 
   // Get vector/embedding statistics
   rpc VectorStats(VectorStatsRequest) returns (VectorStatsResponse);
+
+  // Import document from URL
+  rpc ImportURL(ImportURLRequest) returns (Document);
+
+  // Set TTL on a document
+  rpc SetTTL(SetTTLRequest) returns (Document);
+
+  // Full-text search
+  rpc FTS(FTSRequest) returns (FTSResponse);
+
+  // Register a webhook
+  rpc RegisterWebhook(RegisterWebhookRequest) returns (WebhookProto);
+
+  // List webhooks
+  rpc ListWebhooks(ListWebhooksRequest) returns (ListWebhooksResponse);
+
+  // Delete a webhook
+  rpc DeleteWebhook(DeleteWebhookRequest) returns (DeleteWebhookResponse);
 }
 
 // Document represents a markdown document
@@ -58,6 +76,7 @@ message Document {
   string content_md = 5;
   int64 added_at = 6;
   int64 updated_at = 7;
+  int64 expires_at = 8;
 }
 
 // MetaValues holds multiple values for a metadata key
@@ -73,6 +92,7 @@ message AddRequest {
   map<string, MetaValues> meta = 4;
   string content_md = 5;
   bool save_revision = 6;  // Optional: save revision history (default: false)
+  int64 ttl = 7;           // Optional: time-to-live in seconds (0 = no expiry)
 }
 
 // Batch add request
@@ -293,4 +313,74 @@ message VectorCollectionStats {
   int32 total_documents = 1;
   int32 embedded_documents = 2;
   int32 stale_embeddings = 3;
+}
+
+// --- Import URL ---
+
+message ImportURLRequest {
+  string collection = 1;
+  string url = 2;
+  string key = 3;           // optional: derived from URL if empty
+  string lang = 4;
+  map<string, MetaValues> meta = 5;
+  int64 ttl = 6;
+}
+
+// --- TTL ---
+
+message SetTTLRequest {
+  string collection = 1;
+  string key = 2;
+  string lang = 3;
+  int64 ttl = 4;  // seconds; 0 = remove TTL
+}
+
+// --- Full-text search ---
+
+message FTSRequest {
+  string collection = 1;
+  string query = 2;
+  int32 limit = 3;
+}
+
+message FTSResult {
+  Document document = 1;
+  double score = 2;
+  repeated string matched_terms = 3;
+}
+
+message FTSResponse {
+  repeated FTSResult results = 1;
+  int32 total = 2;
+}
+
+// --- Webhooks ---
+
+message WebhookProto {
+  string id = 1;
+  string url = 2;
+  repeated string events = 3;
+  string collection = 4;
+  int64 created_at = 5;
+}
+
+message RegisterWebhookRequest {
+  string url = 1;
+  repeated string events = 2;
+  string collection = 3;
+}
+
+message ListWebhooksRequest {}
+
+message ListWebhooksResponse {
+  repeated WebhookProto webhooks = 1;
+}
+
+message DeleteWebhookRequest {
+  string id = 1;
+}
+
+message DeleteWebhookResponse {
+  string status = 1;
+  string id = 2;
 }

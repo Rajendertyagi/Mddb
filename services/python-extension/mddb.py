@@ -115,6 +115,71 @@ class MDDB:
         """Get embedding/vector statistics."""
         return self._get('/vector-stats')
 
+    # --- Import URL ---
+
+    def import_url(self, url: str, lang: str, key: str = None,
+                   meta: dict = None, ttl: int = 0) -> dict:
+        """Import a markdown document from URL."""
+        if self._mode == 'read':
+            raise RuntimeError('read-only client')
+        payload = {
+            'collection': self._collection,
+            'url': url,
+            'lang': lang,
+        }
+        if key:
+            payload['key'] = key
+        if meta:
+            payload['meta'] = meta
+        if ttl > 0:
+            payload['ttl'] = ttl
+        return self._post('/import-url', payload)
+
+    # --- TTL ---
+
+    def set_ttl(self, key: str, lang: str, ttl: int) -> dict:
+        """Set or remove TTL on a document (0 = remove TTL)."""
+        if self._mode == 'read':
+            raise RuntimeError('read-only client')
+        return self._post('/set-ttl', {
+            'collection': self._collection,
+            'key': key,
+            'lang': lang,
+            'ttl': ttl,
+        })
+
+    # --- Full-text search ---
+
+    def fts_search(self, query: str, limit: int = 50) -> dict:
+        """Full-text search by content."""
+        return self._post('/fts', {
+            'collection': self._collection,
+            'query': query,
+            'limit': limit,
+        })
+
+    # --- Webhooks ---
+
+    def register_webhook(self, url: str, events: list,
+                         collection: str = None) -> dict:
+        """Register a webhook for document events."""
+        if self._mode == 'read':
+            raise RuntimeError('read-only client')
+        payload = {'url': url, 'events': events}
+        if collection:
+            payload['collection'] = collection
+        return self._post('/webhooks', payload)
+
+    def list_webhooks(self) -> list:
+        """List all registered webhooks."""
+        return self._get('/webhooks')
+
+    def delete_webhook(self, webhook_id: str) -> dict:
+        """Delete a webhook by ID."""
+        if self._mode == 'read':
+            raise RuntimeError('read-only client')
+        return self._post('/webhooks/delete', {'id': webhook_id})
+
     # --- Server operations ---
 
     def stats(self) -> dict:

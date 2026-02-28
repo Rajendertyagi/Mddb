@@ -29,12 +29,12 @@ func NewBatchDeleter(server *Server, maxWorkers int) *BatchDeleter {
 
 // DeletedDoc represents a document to delete
 type DeletedDoc struct {
-	Key      string
-	Lang     string
-	DocID    string
-	Found    bool
-	OldMeta  map[string][]string
-	Error    error
+	Key     string
+	Lang    string
+	DocID   string
+	Found   bool
+	OldMeta map[string][]string
+	Error   error
 }
 
 // ProcessBatchDelete processes multiple document deletions in parallel
@@ -45,25 +45,25 @@ func (bd *BatchDeleter) ProcessBatchDelete(ctx context.Context, collection strin
 
 	// Phase 1: Parallel lookup
 	deleted := bd.parallelLookup(ctx, collection, deleteDocs)
-	
+
 	// Phase 2: Single transaction delete
 	resp := bd.commitDelete(collection, deleted)
-	
+
 	return resp, nil
 }
 
 // parallelLookup looks up documents in parallel
 func (bd *BatchDeleter) parallelLookup(ctx context.Context, collection string, deleteDocs []*proto.DeleteDocument) []*DeletedDoc {
 	deleted := make([]*DeletedDoc, len(deleteDocs))
-	
+
 	numWorkers := bd.maxWorkers
 	if len(deleteDocs) < numWorkers {
 		numWorkers = len(deleteDocs)
 	}
-	
+
 	jobs := make(chan int, len(deleteDocs))
 	var wg sync.WaitGroup
-	
+
 	// Start workers
 	for w := 0; w < numWorkers; w++ {
 		wg.Add(1)
@@ -74,13 +74,13 @@ func (bd *BatchDeleter) parallelLookup(ctx context.Context, collection string, d
 			}
 		}()
 	}
-	
+
 	// Send jobs
 	for i := range deleteDocs {
 		jobs <- i
 	}
 	close(jobs)
-	
+
 	wg.Wait()
 	return deleted
 }
@@ -91,17 +91,17 @@ func (bd *BatchDeleter) lookupDocument(collection string, deleteDoc *proto.Delet
 		Key:  deleteDoc.Key,
 		Lang: deleteDoc.Lang,
 	}
-	
+
 	// Validate
 	if deleteDoc.Key == "" || deleteDoc.Lang == "" {
 		result.Error = fmt.Errorf("missing key or lang")
 		return result
 	}
-	
+
 	// Generate ID
 	docID := genID(collection, deleteDoc.Key, deleteDoc.Lang)
 	result.DocID = docID
-	
+
 	// Load existing document (to get metadata for cleanup)
 	err := bd.server.DB.View(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(bd.server.BucketNames.Docs)
@@ -115,38 +115,38 @@ func (bd *BatchDeleter) lookupDocument(collection string, deleteDoc *proto.Delet
 		}
 		return nil
 	})
-	
+
 	if err != nil {
 		result.Error = err
 		return result
 	}
-	
+
 	return result
 }
 
 // commitDelete commits all deletions in a single transaction
 func (bd *BatchDeleter) commitDelete(collection string, deleted []*DeletedDoc) *proto.DeleteBatchResponse {
 	resp := &proto.DeleteBatchResponse{}
-	
+
 	// Single transaction for all deletions
 	err := bd.server.DB.Update(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(bd.server.BucketNames.Docs)
 		bIdx := tx.Bucket(bd.server.BucketNames.IdxMeta)
 		bRev := tx.Bucket(bd.server.BucketNames.Rev)
 		bByK := tx.Bucket(bd.server.BucketNames.ByKey)
-		
+
 		for _, d := range deleted {
 			if d.Error != nil {
 				resp.Failed++
 				resp.Errors = append(resp.Errors, fmt.Sprintf("%s/%s: %v", d.Key, d.Lang, d.Error))
 				continue
 			}
-			
+
 			if !d.Found {
 				resp.NotFound++
 				continue
 			}
-			
+
 			// Delete document
 			docKey := kDoc(collection, d.DocID)
 			if err := bDocs.Delete(docKey); err != nil {
@@ -154,11 +154,11 @@ func (bd *BatchDeleter) commitDelete(collection string, deleted []*DeletedDoc) *
 				resp.Errors = append(resp.Errors, fmt.Sprintf("%s/%s: delete error: %v", d.Key, d.Lang, err))
 				continue
 			}
-			
+
 			// Delete bykey index
 			byKeyKey := kByKey(collection, d.Key, d.Lang)
 			_ = bByK.Delete(byKeyKey)
-			
+
 			// Delete metadata indices
 			if d.OldMeta != nil {
 				for mk, vals := range d.OldMeta {
@@ -168,7 +168,7 @@ func (bd *BatchDeleter) commitDelete(collection string, deleted []*DeletedDoc) *
 					}
 				}
 			}
-			
+
 			// Delete revisions
 			revPrefix := kRevPrefix(collection, d.DocID)
 			c := bRev.Cursor()
@@ -178,21 +178,21 @@ func (bd *BatchDeleter) commitDelete(collection string, deleted []*DeletedDoc) *
 				}
 				_ = bRev.Delete(k)
 			}
-			
+
 			// Invalidate cache
 			cacheKey := BuildCacheKey(collection, d.Key, d.Lang)
 			bd.server.Cache.Delete(cacheKey)
-			
+
 			resp.Deleted++
 		}
-		
+
 		return nil
 	})
-	
+
 	if err != nil {
 		resp.Failed++
 		resp.Errors = append(resp.Errors, fmt.Sprintf("transaction error: %v", err))
 	}
-	
+
 	return resp
 }

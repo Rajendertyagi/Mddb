@@ -16,9 +16,9 @@ type VectorResult struct {
 // VectorIndex is an in-memory flat index for vector similarity search.
 // It stores vectors per collection and performs brute-force cosine similarity.
 type VectorIndex struct {
-	mu         sync.RWMutex
+	mu          sync.RWMutex
 	collections map[string]map[string][]float32 // collection -> docID -> vector
-	ready      atomic.Bool
+	ready       atomic.Bool
 }
 
 // NewVectorIndex creates a new empty vector index.

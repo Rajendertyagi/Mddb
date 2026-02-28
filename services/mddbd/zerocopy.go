@@ -24,22 +24,22 @@ func NewZeroCopyManager() *ZeroCopyManager {
 // CopyFile performs zero-copy file transfer
 func (zcm *ZeroCopyManager) CopyFile(dst, src *os.File, size int64) (int64, error) {
 	zcm.transfers.Add(1)
-	
+
 	// Use io.Copy which uses sendfile() on Linux when possible
 	// This is zero-copy at kernel level
 	n, err := io.Copy(dst, src)
-	
+
 	if err == nil {
 		zcm.bytesCopy.Add(uint64(n))
 	}
-	
+
 	return n, err
 }
 
 // CopyFileRange performs zero-copy between file ranges
 func (zcm *ZeroCopyManager) CopyFileRange(dst, src *os.File, srcOffset, dstOffset, length int64) (int64, error) {
 	zcm.transfers.Add(1)
-	
+
 	// Seek to positions
 	if _, err := src.Seek(srcOffset, io.SeekStart); err != nil {
 		return 0, err
@@ -47,29 +47,29 @@ func (zcm *ZeroCopyManager) CopyFileRange(dst, src *os.File, srcOffset, dstOffse
 	if _, err := dst.Seek(dstOffset, io.SeekStart); err != nil {
 		return 0, err
 	}
-	
+
 	// Use io.CopyN for limited copy
 	n, err := io.CopyN(dst, src, length)
-	
+
 	if err == nil || err == io.EOF {
 		zcm.bytesCopy.Add(uint64(n))
 		return n, nil
 	}
-	
+
 	return n, err
 }
 
 // StreamCopy performs streaming zero-copy
 func (zcm *ZeroCopyManager) StreamCopy(dst io.Writer, src io.Reader) (int64, error) {
 	zcm.transfers.Add(1)
-	
+
 	// Use io.Copy which is optimized for zero-copy when possible
 	n, err := io.Copy(dst, src)
-	
+
 	if err == nil {
 		zcm.bytesCopy.Add(uint64(n))
 	}
-	
+
 	return n, err
 }
 
@@ -128,7 +128,7 @@ func (zcr *ZeroCopyReader) Read(p []byte) (int, error) {
 		zcr.offset = 0
 		zcr.limit = 0
 	}
-	
+
 	// If buffer is empty, refill
 	if zcr.offset >= zcr.limit {
 		n, err := zcr.reader.Read(zcr.buffer)
@@ -138,11 +138,11 @@ func (zcr *ZeroCopyReader) Read(p []byte) (int, error) {
 		zcr.offset = 0
 		zcr.limit = n
 	}
-	
+
 	// Copy from buffer
 	n := copy(p, zcr.buffer[zcr.offset:zcr.limit])
 	zcr.offset += n
-	
+
 	return n, nil
 }
 
@@ -178,16 +178,16 @@ func (zcw *ZeroCopyWriter) Write(p []byte) (int, error) {
 		zcw.buffer = zcw.bufferPool.Get()
 		zcw.offset = 0
 	}
-	
+
 	totalWritten := 0
-	
+
 	for len(p) > 0 {
 		// Copy to buffer
 		n := copy(zcw.buffer[zcw.offset:], p)
 		zcw.offset += n
 		p = p[n:]
 		totalWritten += n
-		
+
 		// Flush if buffer is full
 		if zcw.offset >= len(zcw.buffer) {
 			if err := zcw.Flush(); err != nil {
@@ -195,7 +195,7 @@ func (zcw *ZeroCopyWriter) Write(p []byte) (int, error) {
 			}
 		}
 	}
-	
+
 	return totalWritten, nil
 }
 
@@ -204,10 +204,10 @@ func (zcw *ZeroCopyWriter) Flush() error {
 	if zcw.buffer == nil || zcw.offset == 0 {
 		return nil
 	}
-	
+
 	_, err := zcw.writer.Write(zcw.buffer[:zcw.offset])
 	zcw.offset = 0
-	
+
 	return err
 }
 
@@ -216,12 +216,12 @@ func (zcw *ZeroCopyWriter) Close() error {
 	if err := zcw.Flush(); err != nil {
 		return err
 	}
-	
+
 	if zcw.buffer != nil {
 		zcw.bufferPool.Put(zcw.buffer)
 		zcw.buffer = nil
 	}
-	
+
 	return nil
 }
 

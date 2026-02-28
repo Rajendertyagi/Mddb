@@ -27,7 +27,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	
+
 	// Initialize zstd decoder
 	zstdDecoder, err = zstd.NewReader(nil)
 	if err != nil {
@@ -38,7 +38,7 @@ func init() {
 // compressDoc compresses document data with adaptive compression levels
 func compressDoc(data []byte) []byte {
 	dataLen := len(data)
-	
+
 	// Small documents - no compression
 	if dataLen < compressionThresholdSmall {
 		result := make([]byte, dataLen+1)
@@ -46,11 +46,11 @@ func compressDoc(data []byte) []byte {
 		copy(result[1:], data)
 		return result
 	}
-	
+
 	// Medium documents (1KB-10KB) - use Snappy (fast)
 	if dataLen < compressionThresholdMedium {
 		compressed := snappy.Encode(nil, data)
-		
+
 		// Only use if beneficial
 		if len(compressed) < dataLen {
 			result := make([]byte, len(compressed)+1)
@@ -58,17 +58,17 @@ func compressDoc(data []byte) []byte {
 			copy(result[1:], compressed)
 			return result
 		}
-		
+
 		// Compression didn't help
 		result := make([]byte, dataLen+1)
 		result[0] = flagUncompressed
 		copy(result[1:], data)
 		return result
 	}
-	
+
 	// Large documents (>10KB) - use Zstd (high ratio)
 	compressed := zstdEncoder.EncodeAll(data, nil)
-	
+
 	// Only use if beneficial
 	if len(compressed) < dataLen {
 		result := make([]byte, len(compressed)+1)
@@ -76,7 +76,7 @@ func compressDoc(data []byte) []byte {
 		copy(result[1:], compressed)
 		return result
 	}
-	
+
 	// Compression didn't help
 	result := make([]byte, dataLen+1)
 	result[0] = flagUncompressed
@@ -96,21 +96,21 @@ func decompressDoc(data []byte) ([]byte, error) {
 	switch flag {
 	case flagUncompressed:
 		return payload, nil
-		
+
 	case flagSnappy:
 		decompressed, err := snappy.Decode(nil, payload)
 		if err != nil {
 			return nil, err
 		}
 		return decompressed, nil
-		
+
 	case flagZstd:
 		decompressed, err := zstdDecoder.DecodeAll(payload, nil)
 		if err != nil {
 			return nil, err
 		}
 		return decompressed, nil
-		
+
 	default:
 		// No flag - assume old format (uncompressed)
 		return data, nil
@@ -128,7 +128,7 @@ type CompressionStats struct {
 // GetCompressionStats analyzes compression for data
 func GetCompressionStats(data []byte) CompressionStats {
 	compressed := compressDoc(data)
-	
+
 	method := "none"
 	switch compressed[0] {
 	case flagSnappy:
@@ -136,12 +136,12 @@ func GetCompressionStats(data []byte) CompressionStats {
 	case flagZstd:
 		method = "zstd"
 	}
-	
+
 	ratio := 1.0
 	if len(data) > 0 {
 		ratio = float64(len(compressed)) / float64(len(data))
 	}
-	
+
 	return CompressionStats{
 		OriginalSize:   len(data),
 		CompressedSize: len(compressed),

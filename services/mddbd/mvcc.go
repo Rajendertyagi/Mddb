@@ -34,11 +34,11 @@ func NewMVCC() *MVCC {
 	mvcc := &MVCC{
 		gcDone: make(chan struct{}),
 	}
-	
+
 	// Start garbage collector
 	mvcc.gcTicker = time.NewTicker(10 * time.Second)
 	go mvcc.garbageCollector()
-	
+
 	return mvcc
 }
 
@@ -53,11 +53,11 @@ func (m *MVCC) Read(key string, txnID uint64) ([]byte, bool) {
 	if !ok {
 		return nil, false
 	}
-	
+
 	chain := value.(*VersionChain)
 	chain.mu.RLock()
 	defer chain.mu.RUnlock()
-	
+
 	// Find the latest visible version <= txnID
 	for i := len(chain.versions) - 1; i >= 0; i-- {
 		v := chain.versions[i]
@@ -65,14 +65,14 @@ func (m *MVCC) Read(key string, txnID uint64) ([]byte, bool) {
 			return v.Data, true
 		}
 	}
-	
+
 	return nil, false
 }
 
 // Write writes a new version of a document
 func (m *MVCC) Write(key string, data []byte, txnID uint64) {
 	now := time.Now().Unix()
-	
+
 	newVersion := &Version{
 		TxnID:     txnID,
 		Timestamp: now,
@@ -80,16 +80,16 @@ func (m *MVCC) Write(key string, data []byte, txnID uint64) {
 		Deleted:   false,
 		Visible:   false, // Not visible until commit
 	}
-	
+
 	// Load or create version chain
 	value, _ := m.versions.LoadOrStore(key, &VersionChain{
 		versions: make([]*Version, 0, 4),
 	})
-	
+
 	chain := value.(*VersionChain)
 	chain.mu.Lock()
 	defer chain.mu.Unlock()
-	
+
 	// Append new version
 	chain.versions = append(chain.versions, newVersion)
 }
@@ -97,7 +97,7 @@ func (m *MVCC) Write(key string, data []byte, txnID uint64) {
 // Delete marks a document as deleted
 func (m *MVCC) Delete(key string, txnID uint64) {
 	now := time.Now().Unix()
-	
+
 	deleteVersion := &Version{
 		TxnID:     txnID,
 		Timestamp: now,
@@ -105,7 +105,7 @@ func (m *MVCC) Delete(key string, txnID uint64) {
 		Deleted:   true,
 		Visible:   false,
 	}
-	
+
 	value, ok := m.versions.Load(key)
 	if !ok {
 		// Create tombstone
@@ -114,11 +114,11 @@ func (m *MVCC) Delete(key string, txnID uint64) {
 		})
 		return
 	}
-	
+
 	chain := value.(*VersionChain)
 	chain.mu.Lock()
 	defer chain.mu.Unlock()
-	
+
 	chain.versions = append(chain.versions, deleteVersion)
 }
 
@@ -127,13 +127,13 @@ func (m *MVCC) Commit(txnID uint64) {
 	m.versions.Range(func(key, value interface{}) bool {
 		chain := value.(*VersionChain)
 		chain.mu.Lock()
-		
+
 		for _, v := range chain.versions {
 			if v.TxnID == txnID {
 				v.Visible = true
 			}
 		}
-		
+
 		chain.mu.Unlock()
 		return true
 	})
@@ -144,7 +144,7 @@ func (m *MVCC) Rollback(txnID uint64) {
 	m.versions.Range(func(key, value interface{}) bool {
 		chain := value.(*VersionChain)
 		chain.mu.Lock()
-		
+
 		// Remove versions with this txnID
 		filtered := make([]*Version, 0, len(chain.versions))
 		for _, v := range chain.versions {
@@ -153,7 +153,7 @@ func (m *MVCC) Rollback(txnID uint64) {
 			}
 		}
 		chain.versions = filtered
-		
+
 		chain.mu.Unlock()
 		return true
 	})
@@ -174,11 +174,11 @@ func (m *MVCC) garbageCollector() {
 // gc performs garbage collection
 func (m *MVCC) gc() {
 	cutoff := time.Now().Unix() - 300 // Keep versions for 5 minutes
-	
+
 	m.versions.Range(func(key, value interface{}) bool {
 		chain := value.(*VersionChain)
 		chain.mu.Lock()
-		
+
 		// Keep only recent versions
 		kept := make([]*Version, 0, len(chain.versions))
 		for _, v := range chain.versions {
@@ -186,14 +186,14 @@ func (m *MVCC) gc() {
 				kept = append(kept, v)
 			}
 		}
-		
+
 		// Always keep at least one version
 		if len(kept) == 0 && len(chain.versions) > 0 {
 			kept = chain.versions[len(chain.versions)-1:]
 		}
-		
+
 		chain.versions = kept
-		
+
 		chain.mu.Unlock()
 		return true
 	})

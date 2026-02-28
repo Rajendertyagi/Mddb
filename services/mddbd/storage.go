@@ -1,8 +1,8 @@
 package main
 
 import (
-	pb "mddb/proto"
 	"google.golang.org/protobuf/proto"
+	pb "mddb/proto"
 )
 
 // Marshal document to protobuf bytes for storage with optional compression
@@ -12,7 +12,7 @@ func marshalDoc(doc *Doc) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Compress if beneficial
 	return compressDoc(data), nil
 }
@@ -24,7 +24,7 @@ func unmarshalDoc(data []byte) (*Doc, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	protoDoc := &pb.Document{}
 	if err := proto.Unmarshal(decompressed, protoDoc); err != nil {
 		return nil, err
@@ -47,6 +47,7 @@ func docToProtoInternal(doc *Doc) *pb.Document {
 		ContentMd: doc.ContentMD,
 		AddedAt:   doc.AddedAt,
 		UpdatedAt: doc.UpdatedAt,
+		ExpiresAt: doc.ExpiresAt,
 	}
 }
 
@@ -65,5 +66,6 @@ func protoToDoc(protoDoc *pb.Document) *Doc {
 		ContentMD: protoDoc.ContentMd,
 		AddedAt:   protoDoc.AddedAt,
 		UpdatedAt: protoDoc.UpdatedAt,
+		ExpiresAt: protoDoc.ExpiresAt,
 	}
 }

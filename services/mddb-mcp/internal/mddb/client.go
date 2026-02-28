@@ -58,6 +58,24 @@ type Client interface {
 	// VectorStats returns vector/embedding statistics.
 	VectorStats(ctx context.Context) (*VectorStatsResponse, error)
 
+	// ImportURL imports a document from a URL.
+	ImportURL(ctx context.Context, req *ImportURLRequest) (*Document, error)
+
+	// SetTTL sets or removes TTL on a document.
+	SetTTL(ctx context.Context, req *SetTTLRequest) (*Document, error)
+
+	// FTSSearch performs full-text search.
+	FTSSearch(ctx context.Context, req *FTSSearchRequest) (*FTSSearchResponse, error)
+
+	// RegisterWebhook registers a webhook.
+	RegisterWebhook(ctx context.Context, req *RegisterWebhookRequest) (*Webhook, error)
+
+	// ListWebhooks lists all webhooks.
+	ListWebhooks(ctx context.Context) ([]Webhook, error)
+
+	// DeleteWebhook deletes a webhook by ID.
+	DeleteWebhook(ctx context.Context, req *DeleteWebhookRequest) error
+
 	// Close closes connection to server.
 	Close() error
 }

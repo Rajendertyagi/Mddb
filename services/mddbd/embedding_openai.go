@@ -33,7 +33,7 @@ func NewOpenAIEmbeddingProvider(apiKey, apiURL, model string, dimensions int) *O
 	}
 }
 
-func (p *OpenAIEmbeddingProvider) Model() string  { return p.model }
+func (p *OpenAIEmbeddingProvider) Model() string   { return p.model }
 func (p *OpenAIEmbeddingProvider) Dimensions() int { return p.dimensions }
 
 // Embed generates an embedding for a single text.

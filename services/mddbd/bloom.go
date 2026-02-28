@@ -23,20 +23,20 @@ func (bfm *BloomFilterManager) GetOrCreate(collection string, expectedItems uint
 	if filter, ok := bfm.filters.Load(collection); ok {
 		return filter.(*bloom.BloomFilter)
 	}
-	
+
 	bfm.mu.Lock()
 	defer bfm.mu.Unlock()
-	
+
 	// Double-check after acquiring lock
 	if filter, ok := bfm.filters.Load(collection); ok {
 		return filter.(*bloom.BloomFilter)
 	}
-	
+
 	// Create new bloom filter
 	// False positive rate: 0.01 (1%)
 	filter := bloom.NewWithEstimates(expectedItems, 0.01)
 	bfm.filters.Store(collection, filter)
-	
+
 	return filter
 }
 
@@ -53,7 +53,7 @@ func (bfm *BloomFilterManager) Test(collection, key, lang string) bool {
 	if !ok {
 		return false // Collection doesn't exist
 	}
-	
+
 	compositeKey := collection + "|" + key + "|" + lang
 	return filter.(*bloom.BloomFilter).Test([]byte(compositeKey))
 }
@@ -74,11 +74,11 @@ func (bfm *BloomFilterManager) Clear(collection string) {
 // Stats returns bloom filter statistics
 func (bfm *BloomFilterManager) Stats() map[string]BloomStats {
 	stats := make(map[string]BloomStats)
-	
+
 	bfm.filters.Range(func(key, value interface{}) bool {
 		collection := key.(string)
 		filter := value.(*bloom.BloomFilter)
-		
+
 		stats[collection] = BloomStats{
 			Capacity: filter.Cap(),
 			Count:    filter.ApproximatedSize(),
@@ -86,7 +86,7 @@ func (bfm *BloomFilterManager) Stats() map[string]BloomStats {
 		}
 		return true
 	})
-	
+
 	return stats
 }
 
@@ -101,14 +101,14 @@ type BloomStats struct {
 func (bfm *BloomFilterManager) Rebuild(s *Server, collection string) error {
 	// Clear existing filter
 	bfm.Clear(collection)
-	
+
 	// Count documents first
 	var count uint
 	err := s.DB.View(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(s.BucketNames.Docs)
 		c := bDocs.Cursor()
 		prefix := []byte("doc|" + collection + "|")
-		
+
 		for k, _ := c.Seek(prefix); k != nil && len(k) >= len(prefix); k, _ = c.Next() {
 			if string(k[:len(prefix)]) != string(prefix) {
 				break
@@ -117,31 +117,31 @@ func (bfm *BloomFilterManager) Rebuild(s *Server, collection string) error {
 		}
 		return nil
 	})
-	
+
 	if err != nil {
 		return err
 	}
-	
+
 	// Create new filter with correct size
 	filter := bfm.GetOrCreate(collection, count+1000) // +1000 for growth
-	
+
 	// Populate filter
 	return s.DB.View(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(s.BucketNames.Docs)
 		c := bDocs.Cursor()
 		prefix := []byte("doc|" + collection + "|")
-		
+
 		for k, v := c.Seek(prefix); k != nil && len(k) >= len(prefix); k, v = c.Next() {
 			if string(k[:len(prefix)]) != string(prefix) {
 				break
 			}
-			
+
 			// Parse document to get key and lang
 			doc, err := unmarshalDoc(v)
 			if err != nil {
 				continue
 			}
-			
+
 			compositeKey := collection + "|" + doc.Key + "|" + doc.Lang
 			filter.Add([]byte(compositeKey))
 		}

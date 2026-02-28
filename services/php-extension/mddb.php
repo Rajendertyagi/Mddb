@@ -83,6 +83,53 @@ class mddb {
     return $this->httpGet('/vector-stats');
   }
 
+  public function importUrl(string $url, string $lang, ?string $key=null, ?array $meta=null, int $ttl=0) {
+    if ($this->mode === 'read') throw new Exception("read-only client");
+    $payload = [
+      'collection' => $this->collection,
+      'url' => $url,
+      'lang' => $lang,
+    ];
+    if ($key !== null) $payload['key'] = $key;
+    if ($meta !== null) $payload['meta'] = $meta;
+    if ($ttl > 0) $payload['ttl'] = $ttl;
+    return $this->post('/import-url', $payload);
+  }
+
+  public function setTtl(string $key, string $lang, int $ttl) {
+    if ($this->mode === 'read') throw new Exception("read-only client");
+    return $this->post('/set-ttl', [
+      'collection' => $this->collection,
+      'key' => $key,
+      'lang' => $lang,
+      'ttl' => $ttl,
+    ]);
+  }
+
+  public function ftsSearch(string $query, int $limit=50) {
+    return $this->post('/fts', [
+      'collection' => $this->collection,
+      'query' => $query,
+      'limit' => $limit,
+    ]);
+  }
+
+  public function registerWebhook(string $url, array $events, string $collection='') {
+    if ($this->mode === 'read') throw new Exception("read-only client");
+    $payload = ['url' => $url, 'events' => $events];
+    if ($collection !== '') $payload['collection'] = $collection;
+    return $this->post('/webhooks', $payload);
+  }
+
+  public function listWebhooks() {
+    return $this->httpGet('/webhooks');
+  }
+
+  public function deleteWebhook(string $id) {
+    if ($this->mode === 'read') throw new Exception("read-only client");
+    return $this->post('/webhooks/delete', ['id' => $id]);
+  }
+
   private function httpGet(string $path) {
     $ch = curl_init($this->base . $path);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);

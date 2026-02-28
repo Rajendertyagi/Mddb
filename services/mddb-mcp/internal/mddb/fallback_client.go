@@ -207,6 +207,60 @@ func (c *FallbackClient) VectorStats(ctx context.Context) (*VectorStatsResponse,
 	return resp, err
 }
 
+func (c *FallbackClient) ImportURL(ctx context.Context, req *ImportURLRequest) (*Document, error) {
+	doc, err := c.primary.ImportURL(ctx, req)
+	if err != nil && c.secondary != nil {
+		log.Printf("primary import url failed: %v, trying secondary", err)
+		return c.secondary.ImportURL(ctx, req)
+	}
+	return doc, err
+}
+
+func (c *FallbackClient) SetTTL(ctx context.Context, req *SetTTLRequest) (*Document, error) {
+	doc, err := c.primary.SetTTL(ctx, req)
+	if err != nil && c.secondary != nil {
+		log.Printf("primary set ttl failed: %v, trying secondary", err)
+		return c.secondary.SetTTL(ctx, req)
+	}
+	return doc, err
+}
+
+func (c *FallbackClient) FTSSearch(ctx context.Context, req *FTSSearchRequest) (*FTSSearchResponse, error) {
+	resp, err := c.primary.FTSSearch(ctx, req)
+	if err != nil && c.secondary != nil {
+		log.Printf("primary fts search failed: %v, trying secondary", err)
+		return c.secondary.FTSSearch(ctx, req)
+	}
+	return resp, err
+}
+
+func (c *FallbackClient) RegisterWebhook(ctx context.Context, req *RegisterWebhookRequest) (*Webhook, error) {
+	wh, err := c.primary.RegisterWebhook(ctx, req)
+	if err != nil && c.secondary != nil {
+		log.Printf("primary register webhook failed: %v, trying secondary", err)
+		return c.secondary.RegisterWebhook(ctx, req)
+	}
+	return wh, err
+}
+
+func (c *FallbackClient) ListWebhooks(ctx context.Context) ([]Webhook, error) {
+	hooks, err := c.primary.ListWebhooks(ctx)
+	if err != nil && c.secondary != nil {
+		log.Printf("primary list webhooks failed: %v, trying secondary", err)
+		return c.secondary.ListWebhooks(ctx)
+	}
+	return hooks, err
+}
+
+func (c *FallbackClient) DeleteWebhook(ctx context.Context, req *DeleteWebhookRequest) error {
+	err := c.primary.DeleteWebhook(ctx, req)
+	if err != nil && c.secondary != nil {
+		log.Printf("primary delete webhook failed: %v, trying secondary", err)
+		return c.secondary.DeleteWebhook(ctx, req)
+	}
+	return err
+}
+
 func (c *FallbackClient) Close() error {
 	var errs []error
 	if c.primary != nil {

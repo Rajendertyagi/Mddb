@@ -19,20 +19,26 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	MDDB_Add_FullMethodName           = "/mddb.MDDB/Add"
-	MDDB_AddBatch_FullMethodName      = "/mddb.MDDB/AddBatch"
-	MDDB_DeleteBatch_FullMethodName   = "/mddb.MDDB/DeleteBatch"
-	MDDB_UpdateBatch_FullMethodName   = "/mddb.MDDB/UpdateBatch"
-	MDDB_Get_FullMethodName           = "/mddb.MDDB/Get"
-	MDDB_Search_FullMethodName        = "/mddb.MDDB/Search"
-	MDDB_Export_FullMethodName        = "/mddb.MDDB/Export"
-	MDDB_Backup_FullMethodName        = "/mddb.MDDB/Backup"
-	MDDB_Restore_FullMethodName       = "/mddb.MDDB/Restore"
-	MDDB_Truncate_FullMethodName      = "/mddb.MDDB/Truncate"
-	MDDB_Stats_FullMethodName         = "/mddb.MDDB/Stats"
-	MDDB_VectorSearch_FullMethodName  = "/mddb.MDDB/VectorSearch"
-	MDDB_VectorReindex_FullMethodName = "/mddb.MDDB/VectorReindex"
-	MDDB_VectorStats_FullMethodName   = "/mddb.MDDB/VectorStats"
+	MDDB_Add_FullMethodName             = "/mddb.MDDB/Add"
+	MDDB_AddBatch_FullMethodName        = "/mddb.MDDB/AddBatch"
+	MDDB_DeleteBatch_FullMethodName     = "/mddb.MDDB/DeleteBatch"
+	MDDB_UpdateBatch_FullMethodName     = "/mddb.MDDB/UpdateBatch"
+	MDDB_Get_FullMethodName             = "/mddb.MDDB/Get"
+	MDDB_Search_FullMethodName          = "/mddb.MDDB/Search"
+	MDDB_Export_FullMethodName          = "/mddb.MDDB/Export"
+	MDDB_Backup_FullMethodName          = "/mddb.MDDB/Backup"
+	MDDB_Restore_FullMethodName         = "/mddb.MDDB/Restore"
+	MDDB_Truncate_FullMethodName        = "/mddb.MDDB/Truncate"
+	MDDB_Stats_FullMethodName           = "/mddb.MDDB/Stats"
+	MDDB_VectorSearch_FullMethodName    = "/mddb.MDDB/VectorSearch"
+	MDDB_VectorReindex_FullMethodName   = "/mddb.MDDB/VectorReindex"
+	MDDB_VectorStats_FullMethodName     = "/mddb.MDDB/VectorStats"
+	MDDB_ImportURL_FullMethodName       = "/mddb.MDDB/ImportURL"
+	MDDB_SetTTL_FullMethodName          = "/mddb.MDDB/SetTTL"
+	MDDB_FTS_FullMethodName             = "/mddb.MDDB/FTS"
+	MDDB_RegisterWebhook_FullMethodName = "/mddb.MDDB/RegisterWebhook"
+	MDDB_ListWebhooks_FullMethodName    = "/mddb.MDDB/ListWebhooks"
+	MDDB_DeleteWebhook_FullMethodName   = "/mddb.MDDB/DeleteWebhook"
 )
 
 // MDDBClient is the client API for MDDB service.
@@ -69,6 +75,18 @@ type MDDBClient interface {
 	VectorReindex(ctx context.Context, in *VectorReindexRequest, opts ...grpc.CallOption) (*VectorReindexResponse, error)
 	// Get vector/embedding statistics
 	VectorStats(ctx context.Context, in *VectorStatsRequest, opts ...grpc.CallOption) (*VectorStatsResponse, error)
+	// Import document from URL
+	ImportURL(ctx context.Context, in *ImportURLRequest, opts ...grpc.CallOption) (*Document, error)
+	// Set TTL on a document
+	SetTTL(ctx context.Context, in *SetTTLRequest, opts ...grpc.CallOption) (*Document, error)
+	// Full-text search
+	FTS(ctx context.Context, in *FTSRequest, opts ...grpc.CallOption) (*FTSResponse, error)
+	// Register a webhook
+	RegisterWebhook(ctx context.Context, in *RegisterWebhookRequest, opts ...grpc.CallOption) (*WebhookProto, error)
+	// List webhooks
+	ListWebhooks(ctx context.Context, in *ListWebhooksRequest, opts ...grpc.CallOption) (*ListWebhooksResponse, error)
+	// Delete a webhook
+	DeleteWebhook(ctx context.Context, in *DeleteWebhookRequest, opts ...grpc.CallOption) (*DeleteWebhookResponse, error)
 }
 
 type mDDBClient struct {
@@ -228,6 +246,66 @@ func (c *mDDBClient) VectorStats(ctx context.Context, in *VectorStatsRequest, op
 	return out, nil
 }
 
+func (c *mDDBClient) ImportURL(ctx context.Context, in *ImportURLRequest, opts ...grpc.CallOption) (*Document, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Document)
+	err := c.cc.Invoke(ctx, MDDB_ImportURL_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) SetTTL(ctx context.Context, in *SetTTLRequest, opts ...grpc.CallOption) (*Document, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Document)
+	err := c.cc.Invoke(ctx, MDDB_SetTTL_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) FTS(ctx context.Context, in *FTSRequest, opts ...grpc.CallOption) (*FTSResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FTSResponse)
+	err := c.cc.Invoke(ctx, MDDB_FTS_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) RegisterWebhook(ctx context.Context, in *RegisterWebhookRequest, opts ...grpc.CallOption) (*WebhookProto, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(WebhookProto)
+	err := c.cc.Invoke(ctx, MDDB_RegisterWebhook_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) ListWebhooks(ctx context.Context, in *ListWebhooksRequest, opts ...grpc.CallOption) (*ListWebhooksResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListWebhooksResponse)
+	err := c.cc.Invoke(ctx, MDDB_ListWebhooks_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) DeleteWebhook(ctx context.Context, in *DeleteWebhookRequest, opts ...grpc.CallOption) (*DeleteWebhookResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteWebhookResponse)
+	err := c.cc.Invoke(ctx, MDDB_DeleteWebhook_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MDDBServer is the server API for MDDB service.
 // All implementations must embed UnimplementedMDDBServer
 // for forward compatibility.
@@ -262,6 +340,18 @@ type MDDBServer interface {
 	VectorReindex(context.Context, *VectorReindexRequest) (*VectorReindexResponse, error)
 	// Get vector/embedding statistics
 	VectorStats(context.Context, *VectorStatsRequest) (*VectorStatsResponse, error)
+	// Import document from URL
+	ImportURL(context.Context, *ImportURLRequest) (*Document, error)
+	// Set TTL on a document
+	SetTTL(context.Context, *SetTTLRequest) (*Document, error)
+	// Full-text search
+	FTS(context.Context, *FTSRequest) (*FTSResponse, error)
+	// Register a webhook
+	RegisterWebhook(context.Context, *RegisterWebhookRequest) (*WebhookProto, error)
+	// List webhooks
+	ListWebhooks(context.Context, *ListWebhooksRequest) (*ListWebhooksResponse, error)
+	// Delete a webhook
+	DeleteWebhook(context.Context, *DeleteWebhookRequest) (*DeleteWebhookResponse, error)
 	mustEmbedUnimplementedMDDBServer()
 }
 
@@ -313,6 +403,24 @@ func (UnimplementedMDDBServer) VectorReindex(context.Context, *VectorReindexRequ
 }
 func (UnimplementedMDDBServer) VectorStats(context.Context, *VectorStatsRequest) (*VectorStatsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method VectorStats not implemented")
+}
+func (UnimplementedMDDBServer) ImportURL(context.Context, *ImportURLRequest) (*Document, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ImportURL not implemented")
+}
+func (UnimplementedMDDBServer) SetTTL(context.Context, *SetTTLRequest) (*Document, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetTTL not implemented")
+}
+func (UnimplementedMDDBServer) FTS(context.Context, *FTSRequest) (*FTSResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FTS not implemented")
+}
+func (UnimplementedMDDBServer) RegisterWebhook(context.Context, *RegisterWebhookRequest) (*WebhookProto, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegisterWebhook not implemented")
+}
+func (UnimplementedMDDBServer) ListWebhooks(context.Context, *ListWebhooksRequest) (*ListWebhooksResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListWebhooks not implemented")
+}
+func (UnimplementedMDDBServer) DeleteWebhook(context.Context, *DeleteWebhookRequest) (*DeleteWebhookResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteWebhook not implemented")
 }
 func (UnimplementedMDDBServer) mustEmbedUnimplementedMDDBServer() {}
 func (UnimplementedMDDBServer) testEmbeddedByValue()              {}
@@ -580,6 +688,114 @@ func _MDDB_VectorStats_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MDDB_ImportURL_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ImportURLRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).ImportURL(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_ImportURL_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).ImportURL(ctx, req.(*ImportURLRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_SetTTL_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetTTLRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).SetTTL(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_SetTTL_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).SetTTL(ctx, req.(*SetTTLRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_FTS_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FTSRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).FTS(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_FTS_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).FTS(ctx, req.(*FTSRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_RegisterWebhook_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RegisterWebhookRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).RegisterWebhook(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_RegisterWebhook_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).RegisterWebhook(ctx, req.(*RegisterWebhookRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_ListWebhooks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListWebhooksRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).ListWebhooks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_ListWebhooks_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).ListWebhooks(ctx, req.(*ListWebhooksRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_DeleteWebhook_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteWebhookRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).DeleteWebhook(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_DeleteWebhook_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).DeleteWebhook(ctx, req.(*DeleteWebhookRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MDDB_ServiceDesc is the grpc.ServiceDesc for MDDB service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -638,6 +854,30 @@ var MDDB_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "VectorStats",
 			Handler:    _MDDB_VectorStats_Handler,
+		},
+		{
+			MethodName: "ImportURL",
+			Handler:    _MDDB_ImportURL_Handler,
+		},
+		{
+			MethodName: "SetTTL",
+			Handler:    _MDDB_SetTTL_Handler,
+		},
+		{
+			MethodName: "FTS",
+			Handler:    _MDDB_FTS_Handler,
+		},
+		{
+			MethodName: "RegisterWebhook",
+			Handler:    _MDDB_RegisterWebhook_Handler,
+		},
+		{
+			MethodName: "ListWebhooks",
+			Handler:    _MDDB_ListWebhooks_Handler,
+		},
+		{
+			MethodName: "DeleteWebhook",
+			Handler:    _MDDB_DeleteWebhook_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

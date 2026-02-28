@@ -10,12 +10,12 @@ import (
 
 // WorkerPool manages a pool of workers for processing requests
 type WorkerPool struct {
-	workers   int
-	jobs      chan *Job
-	results   chan *JobResult
-	wg        sync.WaitGroup
-	ctx       context.Context
-	cancel    context.CancelFunc
+	workers    int
+	jobs       chan *Job
+	results    chan *JobResult
+	wg         sync.WaitGroup
+	ctx        context.Context
+	cancel     context.CancelFunc
 	grpcServer *GRPCServer
 }
 
@@ -35,7 +35,7 @@ type JobResult struct {
 // NewWorkerPool creates a new worker pool
 func NewWorkerPool(workers int, grpcServer *GRPCServer) *WorkerPool {
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	pool := &WorkerPool{
 		workers:    workers,
 		jobs:       make(chan *Job, workers*2), // Buffer = 2x workers
@@ -44,20 +44,20 @@ func NewWorkerPool(workers int, grpcServer *GRPCServer) *WorkerPool {
 		cancel:     cancel,
 		grpcServer: grpcServer,
 	}
-	
+
 	// Start workers
 	for i := 0; i < workers; i++ {
 		pool.wg.Add(1)
 		go pool.worker(i)
 	}
-	
+
 	return pool
 }
 
 // worker processes jobs from the queue
 func (p *WorkerPool) worker(id int) {
 	defer p.wg.Done()
-	
+
 	for {
 		select {
 		case <-p.ctx.Done():
@@ -66,10 +66,10 @@ func (p *WorkerPool) worker(id int) {
 			if !ok {
 				return
 			}
-			
+
 			// Process job
 			result := p.processJob(job)
-			
+
 			// Send result
 			select {
 			case p.results <- result:
@@ -87,17 +87,17 @@ func (p *WorkerPool) processJob(job *Job) *JobResult {
 		req := job.Request.(*proto.AddRequest)
 		resp, err := p.grpcServer.Add(job.Context, req)
 		return &JobResult{Response: resp, Error: err}
-		
+
 	case "get":
 		req := job.Request.(*proto.GetRequest)
 		resp, err := p.grpcServer.Get(job.Context, req)
 		return &JobResult{Response: resp, Error: err}
-		
+
 	case "search":
 		req := job.Request.(*proto.SearchRequest)
 		resp, err := p.grpcServer.Search(job.Context, req)
 		return &JobResult{Response: resp, Error: err}
-		
+
 	default:
 		return &JobResult{Error: ErrUnknownJobType}
 	}

@@ -400,6 +400,102 @@ func (c *GRPCClient) VectorStats(ctx context.Context) (*VectorStatsResponse, err
 	}, nil
 }
 
+func (c *GRPCClient) ImportURL(ctx context.Context, req *ImportURLRequest) (*Document, error) {
+	pbReq := &pb.ImportURLRequest{
+		Collection: req.Collection,
+		Url:        req.URL,
+		Key:        req.Key,
+		Lang:       req.Lang,
+		Meta:       convertMetaToProto(req.Meta),
+		Ttl:        req.TTL,
+	}
+	doc, err := c.client.ImportURL(ctx, pbReq)
+	if err != nil {
+		return nil, fmt.Errorf("import url: %w", err)
+	}
+	return convertDocumentFromProto(doc), nil
+}
+
+func (c *GRPCClient) SetTTL(ctx context.Context, req *SetTTLRequest) (*Document, error) {
+	pbReq := &pb.SetTTLRequest{
+		Collection: req.Collection,
+		Key:        req.Key,
+		Lang:       req.Lang,
+		Ttl:        req.TTL,
+	}
+	doc, err := c.client.SetTTL(ctx, pbReq)
+	if err != nil {
+		return nil, fmt.Errorf("set ttl: %w", err)
+	}
+	return convertDocumentFromProto(doc), nil
+}
+
+func (c *GRPCClient) FTSSearch(ctx context.Context, req *FTSSearchRequest) (*FTSSearchResponse, error) {
+	pbReq := &pb.FTSRequest{
+		Collection: req.Collection,
+		Query:      req.Query,
+		Limit:      int32(req.Limit),
+	}
+	resp, err := c.client.FTS(ctx, pbReq)
+	if err != nil {
+		return nil, fmt.Errorf("fts search: %w", err)
+	}
+	results := make([]FTSResult, len(resp.Results))
+	for i, r := range resp.Results {
+		results[i] = FTSResult{
+			Document:     *convertDocumentFromProto(r.Document),
+			Score:        r.Score,
+			MatchedTerms: r.MatchedTerms,
+		}
+	}
+	return &FTSSearchResponse{Results: results, Total: int(resp.Total)}, nil
+}
+
+func (c *GRPCClient) RegisterWebhook(ctx context.Context, req *RegisterWebhookRequest) (*Webhook, error) {
+	pbReq := &pb.RegisterWebhookRequest{
+		Url:        req.URL,
+		Events:     req.Events,
+		Collection: req.Collection,
+	}
+	resp, err := c.client.RegisterWebhook(ctx, pbReq)
+	if err != nil {
+		return nil, fmt.Errorf("register webhook: %w", err)
+	}
+	return &Webhook{
+		ID:         resp.Id,
+		URL:        resp.Url,
+		Events:     resp.Events,
+		Collection: resp.Collection,
+		CreatedAt:  resp.CreatedAt,
+	}, nil
+}
+
+func (c *GRPCClient) ListWebhooks(ctx context.Context) ([]Webhook, error) {
+	resp, err := c.client.ListWebhooks(ctx, &pb.ListWebhooksRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("list webhooks: %w", err)
+	}
+	hooks := make([]Webhook, len(resp.Webhooks))
+	for i, h := range resp.Webhooks {
+		hooks[i] = Webhook{
+			ID:         h.Id,
+			URL:        h.Url,
+			Events:     h.Events,
+			Collection: h.Collection,
+			CreatedAt:  h.CreatedAt,
+		}
+	}
+	return hooks, nil
+}
+
+func (c *GRPCClient) DeleteWebhook(ctx context.Context, req *DeleteWebhookRequest) error {
+	_, err := c.client.DeleteWebhook(ctx, &pb.DeleteWebhookRequest{Id: req.ID})
+	if err != nil {
+		return fmt.Errorf("delete webhook: %w", err)
+	}
+	return nil
+}
+
 func (c *GRPCClient) Close() error {
 	return c.conn.Close()
 }
