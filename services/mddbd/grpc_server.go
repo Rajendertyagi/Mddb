@@ -174,6 +174,15 @@ func (g *GRPCServer) Add(ctx context.Context, req *proto.AddRequest) (*proto.Doc
 		g.server.Cache.Set(cacheKey, cachedBuf)
 	}
 
+	// Trigger async embedding
+	if g.server.EmbeddingWorker != nil && saved.ContentMD != "" {
+		g.server.EmbeddingWorker.Enqueue(EmbeddingJob{
+			Collection: req.Collection,
+			DocID:      saved.ID,
+			ContentMD:  saved.ContentMD,
+		})
+	}
+
 	return docToProto(&saved), nil
 }
 
@@ -565,6 +574,214 @@ func (g *GRPCServer) Stats(ctx context.Context, req *proto.StatsRequest) (*proto
 	// Convert map to slice
 	for _, cs := range collectionMap {
 		resp.Collections = append(resp.Collections, cs)
+	}
+
+	return resp, nil
+}
+
+// VectorSearch implements the VectorSearch RPC
+func (g *GRPCServer) VectorSearch(ctx context.Context, req *proto.VectorSearchRequest) (*proto.VectorSearchResponse, error) {
+	if req.Collection == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing collection")
+	}
+	if req.Query == "" && len(req.QueryVector) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "either query or query_vector is required")
+	}
+
+	if !g.server.VectorIndex.IsReady() {
+		return nil, status.Error(codes.Unavailable, "vector index is loading")
+	}
+
+	// Get query vector
+	var queryVector []float32
+	if len(req.QueryVector) > 0 {
+		queryVector = req.QueryVector
+	} else if g.server.Embedding != nil {
+		var err error
+		queryVector, err = g.server.Embedding.Embed(ctx, req.Query)
+		if err != nil {
+			return nil, status.Error(codes.Internal, "failed to embed query: "+err.Error())
+		}
+	} else {
+		return nil, status.Error(codes.FailedPrecondition, "no embedding provider configured")
+	}
+
+	topK := int(req.TopK)
+	if topK <= 0 {
+		topK = 5
+	}
+
+	// Convert proto filter
+	filterMeta := make(map[string][]string)
+	for k, v := range req.FilterMeta {
+		filterMeta[k] = v.Values
+	}
+
+	var results []VectorResult
+	if len(filterMeta) > 0 {
+		allowedIDs := g.server.getDocIDsByMeta(req.Collection, filterMeta)
+		results = g.server.VectorIndex.SearchWithFilter(req.Collection, queryVector, topK, req.Threshold, allowedIDs)
+	} else {
+		results = g.server.VectorIndex.Search(req.Collection, queryVector, topK, req.Threshold)
+	}
+
+	// Load documents
+	protoResults := make([]*proto.VectorSearchResult, 0, len(results))
+	_ = g.server.DB.View(func(tx *bolt.Tx) error {
+		bDocs := tx.Bucket(g.server.BucketNames.Docs)
+		for rank, vr := range results {
+			v := bDocs.Get(kDoc(req.Collection, vr.DocID))
+			if v == nil {
+				continue
+			}
+			d, err := unmarshalDoc(v)
+			if err != nil {
+				continue
+			}
+			if !req.IncludeContent {
+				d.ContentMD = ""
+			}
+			protoResults = append(protoResults, &proto.VectorSearchResult{
+				Document: docToProto(d),
+				Score:    vr.Score,
+				Rank:     int32(rank + 1),
+			})
+		}
+		return nil
+	})
+
+	resp := &proto.VectorSearchResponse{
+		Results: protoResults,
+		Total:   int32(len(protoResults)),
+	}
+	if g.server.Embedding != nil {
+		resp.Model = g.server.Embedding.Model()
+		resp.Dimensions = int32(g.server.Embedding.Dimensions())
+	}
+
+	return resp, nil
+}
+
+// VectorReindex implements the VectorReindex RPC
+func (g *GRPCServer) VectorReindex(ctx context.Context, req *proto.VectorReindexRequest) (*proto.VectorReindexResponse, error) {
+	if g.server.Mode == ModeRead {
+		return nil, status.Error(codes.PermissionDenied, "read-only mode")
+	}
+	if req.Collection == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing collection")
+	}
+	if g.server.Embedding == nil {
+		return nil, status.Error(codes.FailedPrecondition, "no embedding provider configured")
+	}
+
+	// Collect documents
+	type docEntry struct {
+		ID        string
+		ContentMD string
+	}
+	var docs []docEntry
+
+	err := g.server.DB.View(func(tx *bolt.Tx) error {
+		bDocs := tx.Bucket(g.server.BucketNames.Docs)
+		c := bDocs.Cursor()
+		prefix := []byte("doc|" + req.Collection + "|")
+		for k, v := c.Seek(prefix); k != nil && strings.HasPrefix(string(k), string(prefix)); k, v = c.Next() {
+			d, err := unmarshalDoc(v)
+			if err != nil {
+				continue
+			}
+			docs = append(docs, docEntry{ID: d.ID, ContentMD: d.ContentMD})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	var embedded, skipped, failed int32
+	var errs []string
+
+	for _, d := range docs {
+		if d.ContentMD == "" {
+			skipped++
+			continue
+		}
+		if !req.Force {
+			existing, err := g.server.VectorStore.Get(req.Collection, d.ID)
+			if err == nil && existing != nil && existing.ContentHash == ContentHash(d.ContentMD) {
+				skipped++
+				continue
+			}
+		}
+
+		vector, err := g.server.Embedding.Embed(ctx, d.ContentMD)
+		if err != nil {
+			failed++
+			errs = append(errs, d.ID+": "+err.Error())
+			continue
+		}
+
+		if err := g.server.VectorStore.Put(req.Collection, d.ID, vector, g.server.Embedding.Model(), ContentHash(d.ContentMD)); err != nil {
+			failed++
+			errs = append(errs, d.ID+": store: "+err.Error())
+			continue
+		}
+		g.server.VectorIndex.Add(req.Collection, d.ID, vector)
+		embedded++
+	}
+
+	return &proto.VectorReindexResponse{
+		Embedded: embedded,
+		Skipped:  skipped,
+		Failed:   failed,
+		Errors:   errs,
+	}, nil
+}
+
+// VectorStats implements the VectorStats RPC
+func (g *GRPCServer) VectorStats(ctx context.Context, req *proto.VectorStatsRequest) (*proto.VectorStatsResponse, error) {
+	resp := &proto.VectorStatsResponse{
+		Enabled:     g.server.Embedding != nil,
+		Collections: make(map[string]*proto.VectorCollectionStats),
+	}
+
+	if g.server.Embedding != nil {
+		resp.Provider = g.server.Embedding.Model()
+		resp.Model = g.server.Embedding.Model()
+		resp.Dimensions = int32(g.server.Embedding.Dimensions())
+	}
+
+	vectorCounts, _ := g.server.VectorStore.CountByCollection()
+
+	docCounts := make(map[string]int)
+	_ = g.server.DB.View(func(tx *bolt.Tx) error {
+		bDocs := tx.Bucket(g.server.BucketNames.Docs)
+		if bDocs == nil {
+			return nil
+		}
+		c := bDocs.Cursor()
+		for k, _ := c.First(); k != nil; k, _ = c.Next() {
+			parts := strings.Split(string(k), "|")
+			if len(parts) >= 2 {
+				docCounts[parts[1]]++
+			}
+		}
+		return nil
+	})
+
+	allColls := make(map[string]bool)
+	for c := range docCounts {
+		allColls[c] = true
+	}
+	for c := range vectorCounts {
+		allColls[c] = true
+	}
+
+	for coll := range allColls {
+		resp.Collections[coll] = &proto.VectorCollectionStats{
+			TotalDocuments:    int32(docCounts[coll]),
+			EmbeddedDocuments: int32(vectorCounts[coll]),
+		}
 	}
 
 	return resp, nil

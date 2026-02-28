@@ -9,6 +9,9 @@
   - [POST /v1/add](#post-v1add)
   - [POST /v1/get](#post-v1get)
   - [POST /v1/search](#post-v1search)
+  - [POST /v1/vector-search](#post-v1vector-search)
+  - [POST /v1/vector-reindex](#post-v1vector-reindex)
+  - [GET /v1/vector-stats](#get-v1vector-stats)
   - [POST /v1/export](#post-v1export)
   - [GET /v1/backup](#get-v1backup)
   - [POST /v1/restore](#post-v1restore)
@@ -34,6 +37,11 @@ The server can be configured using environment variables:
 | `MDDB_ADDR` | `:11023` | Server address and port |
 | `MDDB_MODE` | `wr` | Access mode: `read`, `write`, or `wr` (read+write) |
 | `MDDB_PATH` | `mddb.db` | Path to the BoltDB database file |
+| `MDDB_EMBEDDING_PROVIDER` | `none` | Embedding provider: `openai`, `ollama`, `voyage`, or `none` |
+| `MDDB_EMBEDDING_API_KEY` | | API key for OpenAI or Voyage AI |
+| `MDDB_EMBEDDING_API_URL` | *(per provider)* | API base URL (see [Vector Search](#vector-search-configuration)) |
+| `MDDB_EMBEDDING_MODEL` | *(per provider)* | Embedding model name |
+| `MDDB_EMBEDDING_DIMENSIONS` | *(per provider)* | Vector dimensions |
 
 ### Access Modes
 
@@ -251,6 +259,224 @@ curl -X POST http://localhost:11023/v1/search \
     "limit": 10
   }'
 ```
+
+---
+
+### POST /v1/vector-search
+
+Perform semantic (vector) search using natural language queries. Documents are automatically embedded when added (if an embedding provider is configured). The search finds documents by meaning, not just exact metadata matches.
+
+**Request Body**:
+```json
+{
+  "collection": "docs",
+  "query": "how to authenticate users",
+  "topK": 5,
+  "threshold": 0.3,
+  "filterMeta": {
+    "category": ["tutorial"]
+  },
+  "includeContent": true
+}
+```
+
+**Parameters**:
+- `collection` (required): Collection name
+- `query` (required*): Natural language search query (will be embedded server-side)
+- `queryVector` (optional*): Pre-computed embedding vector (use instead of `query`)
+- `topK` (optional): Maximum results to return (default: 5)
+- `threshold` (optional): Minimum similarity score 0.0-1.0 (default: 0.0)
+- `filterMeta` (optional): Metadata pre-filter (same logic as `/v1/search`)
+- `includeContent` (optional): Include `contentMd` in results (default: false)
+
+\* Either `query` or `queryVector` is required.
+
+**Response**:
+```json
+{
+  "results": [
+    {
+      "document": {
+        "id": "docs|auth-guide|en_us",
+        "key": "auth-guide",
+        "lang": "en_US",
+        "meta": {"category": ["tutorial"]},
+        "contentMd": "# Authentication Guide\n...",
+        "addedAt": 1709136000,
+        "updatedAt": 1709136000
+      },
+      "score": 0.89,
+      "rank": 1
+    },
+    {
+      "document": {
+        "id": "docs|login-flow|en_us",
+        "key": "login-flow",
+        "lang": "en_US",
+        "meta": {"category": ["tutorial"]},
+        "contentMd": "# Login Flow\n...",
+        "addedAt": 1709135000,
+        "updatedAt": 1709135000
+      },
+      "score": 0.74,
+      "rank": 2
+    }
+  ],
+  "total": 2,
+  "model": "text-embedding-3-small",
+  "dimensions": 1536
+}
+```
+
+**Response Fields**:
+- `results`: Array of matched documents with similarity scores
+  - `document`: Full document object
+  - `score`: Cosine similarity score (0.0-1.0, higher = more similar)
+  - `rank`: Position in results (1-based)
+- `total`: Number of results returned
+- `model`: Embedding model used
+- `dimensions`: Vector dimensionality
+
+**How It Works**:
+1. When a document is added via `/v1/add`, its content is automatically embedded in the background
+2. The query text is embedded using the same model
+3. Cosine similarity is computed between the query vector and all document vectors
+4. Results are ranked by similarity score
+5. If `filterMeta` is provided, only documents matching the metadata filter are searched (hybrid search)
+
+**cURL Example**:
+```bash
+curl -X POST http://localhost:11023/v1/vector-search \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "docs",
+    "query": "how to authenticate users",
+    "topK": 5,
+    "includeContent": true
+  }'
+```
+
+---
+
+### POST /v1/vector-reindex
+
+Re-embed all documents in a collection. Useful after changing the embedding provider/model, or for initial indexing of existing documents.
+
+**Request Body**:
+```json
+{
+  "collection": "docs",
+  "force": false
+}
+```
+
+**Parameters**:
+- `collection` (required): Collection name
+- `force` (optional): If `true`, re-embed all documents regardless of content changes. If `false`, skip documents whose content hasn't changed (default: false)
+
+**Response**:
+```json
+{
+  "embedded": 42,
+  "skipped": 8,
+  "failed": 0,
+  "errors": []
+}
+```
+
+**cURL Example**:
+```bash
+curl -X POST http://localhost:11023/v1/vector-reindex \
+  -H 'Content-Type: application/json' \
+  -d '{"collection": "docs", "force": false}'
+```
+
+---
+
+### GET /v1/vector-stats
+
+Get embedding/vector search statistics.
+
+**Response**:
+```json
+{
+  "enabled": true,
+  "provider": "text-embedding-3-small",
+  "model": "text-embedding-3-small",
+  "dimensions": 1536,
+  "index_ready": true,
+  "collections": {
+    "docs": {
+      "total_documents": 50,
+      "embedded_documents": 48
+    },
+    "blog": {
+      "total_documents": 120,
+      "embedded_documents": 120
+    }
+  }
+}
+```
+
+**cURL Example**:
+```bash
+curl http://localhost:11023/v1/vector-stats
+```
+
+---
+
+### Vector Search Configuration
+
+#### Embedding Providers
+
+| Provider | `MDDB_EMBEDDING_PROVIDER` | Default Model | Default Dimensions | API Key Required |
+|----------|--------------------------|---------------|-------------------|-----------------|
+| OpenAI | `openai` | `text-embedding-3-small` | 1536 | Yes |
+| Voyage AI (Anthropic) | `voyage` | `voyage-3` | 1024 | Yes |
+| Ollama (local) | `ollama` | `nomic-embed-text` | 768 | No |
+| Disabled | `none` or empty | - | - | - |
+
+#### Provider-Specific Configuration
+
+**OpenAI**:
+```bash
+MDDB_EMBEDDING_PROVIDER=openai
+MDDB_EMBEDDING_API_KEY=sk-...
+MDDB_EMBEDDING_API_URL=https://api.openai.com/v1    # default
+MDDB_EMBEDDING_MODEL=text-embedding-3-small          # default
+MDDB_EMBEDDING_DIMENSIONS=1536                        # default
+```
+
+**Voyage AI (Anthropic)**:
+```bash
+MDDB_EMBEDDING_PROVIDER=voyage
+MDDB_EMBEDDING_API_KEY=pa-...
+MDDB_EMBEDDING_API_URL=https://api.voyageai.com/v1   # default
+MDDB_EMBEDDING_MODEL=voyage-3                         # default
+MDDB_EMBEDDING_DIMENSIONS=1024                        # default
+```
+
+**Ollama (local, no API key needed)**:
+```bash
+MDDB_EMBEDDING_PROVIDER=ollama
+MDDB_EMBEDDING_API_URL=http://localhost:11434          # default
+MDDB_EMBEDDING_MODEL=nomic-embed-text                  # default
+MDDB_EMBEDDING_DIMENSIONS=768                          # default
+```
+
+#### Performance Benchmarks (Apple M2)
+
+| Documents | Dimensions | Search Latency | Throughput |
+|-----------|-----------|---------------|------------|
+| 1,000 | 768 | ~0.9 ms | ~1,064 qps |
+| 1,000 | 1,536 | ~1.8 ms | ~544 qps |
+| 5,000 | 768 | ~4.8 ms | ~210 qps |
+| 10,000 | 768 | ~9.7 ms | ~104 qps |
+| 10,000 | 1,536 | ~19 ms | ~52 qps |
+| 50,000 | 768 | ~50 ms | ~20 qps |
+| 50,000 | 1,536 | ~96 ms | ~10 qps |
+
+Metadata pre-filtering significantly reduces search time (e.g., filtering to 10% of 10K docs: ~1.1 ms vs ~9.7 ms).
 
 ---
 

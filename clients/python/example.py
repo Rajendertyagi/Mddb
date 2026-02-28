@@ -98,6 +98,41 @@ def main():
     print(f"✅ Backup created: {backup_resp.backup}")
     print()
 
+    # ========================================================================
+    # Vector Search (semantic search)
+    # ========================================================================
+    print("🧠 Vector search: 'how to use the API'...")
+    try:
+        resp = client.VectorSearch(mddb_pb2.VectorSearchRequest(
+            collection='blog',
+            query='how to use the API',
+            top_k=5,
+            include_content=False
+        ))
+        print(f"✅ Found {len(resp.results)} similar documents")
+        for r in resp.results:
+            print(f"   #{r.rank}  {r.score:.0%}  {r.document.key} ({r.document.lang})")
+        if resp.model:
+            print(f"   Model: {resp.model}, Dimensions: {resp.dimensions}")
+    except grpc.RpcError as e:
+        print(f"   ⚠️  Vector search unavailable: {e.details()}")
+    print()
+
+    # ========================================================================
+    # Vector Stats
+    # ========================================================================
+    print("📊 Vector stats...")
+    try:
+        vs = client.VectorStats(mddb_pb2.VectorStatsRequest())
+        print(f"✅ Embeddings: {'enabled' if vs.enabled else 'disabled'}")
+        if vs.enabled:
+            print(f"   Model: {vs.model}, Dimensions: {vs.dimensions}")
+            for name, cs in vs.collections.items():
+                print(f"   {name}: {cs.embedded_documents}/{cs.total_documents} embedded")
+    except grpc.RpcError as e:
+        print(f"   ⚠️  Vector stats unavailable: {e.details()}")
+    print()
+
     print("✨ All operations completed successfully!")
     channel.close()
 

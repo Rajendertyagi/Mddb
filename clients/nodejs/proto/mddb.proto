@@ -12,6 +12,12 @@ service MDDB {
   // Add or update multiple documents in a single transaction (batch)
   rpc AddBatch(AddBatchRequest) returns (AddBatchResponse);
   
+  // Delete multiple documents in a single transaction (batch)
+  rpc DeleteBatch(DeleteBatchRequest) returns (DeleteBatchResponse);
+  
+  // Update multiple documents in a single transaction (batch)
+  rpc UpdateBatch(UpdateBatchRequest) returns (UpdateBatchResponse);
+  
   // Get a document by key and language
   rpc Get(GetRequest) returns (Document);
   
@@ -32,6 +38,15 @@ service MDDB {
   
   // Get server statistics
   rpc Stats(StatsRequest) returns (StatsResponse);
+
+  // Vector/semantic search using embeddings
+  rpc VectorSearch(VectorSearchRequest) returns (VectorSearchResponse);
+
+  // Reindex embeddings for a collection
+  rpc VectorReindex(VectorReindexRequest) returns (VectorReindexResponse);
+
+  // Get vector/embedding statistics
+  rpc VectorStats(VectorStatsRequest) returns (VectorStatsResponse);
 }
 
 // Document represents a markdown document
@@ -57,6 +72,7 @@ message AddRequest {
   string lang = 3;
   map<string, MetaValues> meta = 4;
   string content_md = 5;
+  bool save_revision = 6;  // Optional: save revision history (default: false)
 }
 
 // Batch add request
@@ -71,6 +87,7 @@ message BatchDocument {
   string lang = 2;
   map<string, MetaValues> meta = 3;
   string content_md = 4;
+  bool save_revision = 5;  // Optional: save revision history (default: false)
 }
 
 // Batch add response
@@ -172,4 +189,108 @@ message CollectionStats {
   int32 document_count = 2;
   int32 revision_count = 3;
   int32 meta_index_count = 4;
+}
+
+// Delete batch request
+message DeleteBatchRequest {
+  string collection = 1;
+  repeated DeleteDocument documents = 2;
+}
+
+// Document to delete
+message DeleteDocument {
+  string key = 1;
+  string lang = 2;
+}
+
+// Delete batch response
+message DeleteBatchResponse {
+  int32 deleted = 1;
+  int32 not_found = 2;
+  int32 failed = 3;
+  repeated string errors = 4;
+}
+
+// Update batch request
+message UpdateBatchRequest {
+  string collection = 1;
+  repeated UpdateDocument documents = 2;
+}
+
+// Document to update
+message UpdateDocument {
+  string key = 1;
+  string lang = 2;
+  map<string, MetaValues> meta = 3;
+  string content_md = 4;
+  bool save_revision = 5;
+}
+
+// Update batch response
+message UpdateBatchResponse {
+  int32 updated = 1;
+  int32 not_found = 2;
+  int32 failed = 3;
+  repeated string errors = 4;
+}
+
+// --- Vector search messages ---
+
+// Vector search request
+message VectorSearchRequest {
+  string collection = 1;
+  string query = 2;                              // text query (will be embedded server-side)
+  repeated float query_vector = 3;               // OR pre-computed vector
+  int32 top_k = 4;                               // number of results (default: 5)
+  double threshold = 5;                          // minimum similarity 0-1 (default: 0.0)
+  map<string, MetaValues> filter_meta = 6;       // optional metadata pre-filter
+  bool include_content = 7;                      // include full content_md in results
+}
+
+// Vector search result
+message VectorSearchResult {
+  Document document = 1;
+  float score = 2;
+  int32 rank = 3;
+}
+
+// Vector search response
+message VectorSearchResponse {
+  repeated VectorSearchResult results = 1;
+  int32 total = 2;
+  string model = 3;
+  int32 dimensions = 4;
+}
+
+// Vector reindex request
+message VectorReindexRequest {
+  string collection = 1;
+  bool force = 2;  // re-embed even if content hash matches
+}
+
+// Vector reindex response
+message VectorReindexResponse {
+  int32 embedded = 1;
+  int32 skipped = 2;
+  int32 failed = 3;
+  repeated string errors = 4;
+}
+
+// Vector stats request
+message VectorStatsRequest {}
+
+// Vector stats response
+message VectorStatsResponse {
+  string provider = 1;
+  string model = 2;
+  int32 dimensions = 3;
+  bool enabled = 4;
+  map<string, VectorCollectionStats> collections = 5;
+}
+
+// Vector collection stats
+message VectorCollectionStats {
+  int32 total_documents = 1;
+  int32 embedded_documents = 2;
+  int32 stale_embeddings = 3;
 }

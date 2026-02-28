@@ -490,7 +490,213 @@ Reads content from stdin or file.`,
 		},
 	}
 
-	rootCmd.AddCommand(addCmd, getCmd, searchCmd, exportCmd, backupCmd, restoreCmd, truncateCmd, statsCmd)
+	// Vector Search command
+	vectorSearchCmd := &cobra.Command{
+		Use:   "vector-search [collection]",
+		Short: "Semantic search using AI embeddings",
+		Long:  `Search documents by meaning using vector similarity. Requires embedding provider configured on server.`,
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			collection := args[0]
+			query, _ := cmd.Flags().GetString("query")
+			topK, _ := cmd.Flags().GetInt("top-k")
+			threshold, _ := cmd.Flags().GetFloat64("threshold")
+			metaStr, _ := cmd.Flags().GetString("filter")
+			includeContent, _ := cmd.Flags().GetBool("include-content")
+
+			if query == "" {
+				return fmt.Errorf("--query flag is required")
+			}
+
+			filterMeta := make(map[string][]string)
+			if metaStr != "" {
+				pairs := strings.Split(metaStr, ",")
+				for _, pair := range pairs {
+					kv := strings.SplitN(pair, "=", 2)
+					if len(kv) == 2 {
+						filterMeta[kv[0]] = strings.Split(kv[1], "|")
+					}
+				}
+			}
+
+			client := NewClient(serverURL)
+			body := map[string]interface{}{
+				"collection":     collection,
+				"query":          query,
+				"topK":           topK,
+				"threshold":      threshold,
+				"includeContent": includeContent,
+			}
+			if len(filterMeta) > 0 {
+				body["filterMeta"] = filterMeta
+			}
+
+			resp, err := client.request("POST", "/v1/vector-search", body)
+			if err != nil {
+				return err
+			}
+
+			if outputJSON {
+				fmt.Println(string(resp))
+			} else {
+				var result map[string]interface{}
+				json.Unmarshal(resp, &result)
+
+				results, _ := result["results"].([]interface{})
+				model, _ := result["model"].(string)
+				dims, _ := result["dimensions"].(float64)
+
+				fmt.Printf("Vector Search Results (model: %s, dims: %d)\n", model, int(dims))
+				fmt.Printf("Query: %q\n", query)
+				fmt.Printf("═══════════════════════════════════════\n\n")
+
+				if len(results) == 0 {
+					fmt.Println("No results found.")
+				} else {
+					for _, r := range results {
+						item := r.(map[string]interface{})
+						doc := item["document"].(map[string]interface{})
+						score := item["score"].(float64)
+						rank := int(item["rank"].(float64))
+
+						fmt.Printf("#%d  %.0f%%  %s (%s)\n", rank, score*100, doc["key"], doc["lang"])
+						if meta, ok := doc["meta"].(map[string]interface{}); ok && len(meta) > 0 {
+							metaParts := []string{}
+							for k, v := range meta {
+								metaParts = append(metaParts, fmt.Sprintf("%s=%v", k, v))
+							}
+							fmt.Printf("     Meta: %s\n", strings.Join(metaParts, ", "))
+						}
+						if includeContent {
+							if content, ok := doc["contentMd"].(string); ok && content != "" {
+								preview := content
+								if len(preview) > 200 {
+									preview = preview[:200] + "..."
+								}
+								fmt.Printf("     Content: %s\n", strings.ReplaceAll(preview, "\n", " "))
+							}
+						}
+						fmt.Println()
+					}
+				}
+			}
+
+			return nil
+		},
+	}
+	vectorSearchCmd.Flags().StringP("query", "q", "", "Search query (required)")
+	vectorSearchCmd.Flags().IntP("top-k", "k", 5, "Number of results")
+	vectorSearchCmd.Flags().Float64P("threshold", "t", 0.0, "Minimum similarity score (0.0-1.0)")
+	vectorSearchCmd.Flags().StringP("filter", "f", "", "Pre-filter by metadata: key=val1|val2,key2=val")
+	vectorSearchCmd.Flags().BoolP("include-content", "c", false, "Include document content in results")
+
+	// Vector Reindex command
+	vectorReindexCmd := &cobra.Command{
+		Use:   "vector-reindex [collection]",
+		Short: "Re-embed documents in a collection",
+		Long:  `Re-generate embedding vectors for all documents in a collection.`,
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			collection := args[0]
+			force, _ := cmd.Flags().GetBool("force")
+
+			client := NewClient(serverURL)
+			body := map[string]interface{}{
+				"collection": collection,
+				"force":      force,
+			}
+
+			resp, err := client.request("POST", "/v1/vector-reindex", body)
+			if err != nil {
+				return err
+			}
+
+			if outputJSON {
+				fmt.Println(string(resp))
+			} else {
+				var result map[string]interface{}
+				json.Unmarshal(resp, &result)
+				embedded := int(result["embedded"].(float64))
+				skipped := int(result["skipped"].(float64))
+				failed := int(result["failed"].(float64))
+
+				fmt.Printf("Reindex completed for collection: %s\n", collection)
+				fmt.Printf("  Embedded: %d\n", embedded)
+				fmt.Printf("  Skipped:  %d\n", skipped)
+				fmt.Printf("  Failed:   %d\n", failed)
+
+				if errs, ok := result["errors"].([]interface{}); ok && len(errs) > 0 {
+					fmt.Printf("\n  Errors:\n")
+					for _, e := range errs {
+						fmt.Printf("    - %s\n", e)
+					}
+				}
+			}
+
+			return nil
+		},
+	}
+	vectorReindexCmd.Flags().Bool("force", false, "Force re-embed all documents (ignore content hash)")
+
+	// Vector Stats command
+	vectorStatsCmd := &cobra.Command{
+		Use:   "vector-stats",
+		Short: "Show vector/embedding statistics",
+		Long:  `Display embedding provider info and per-collection embedding statistics.`,
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client := NewClient(serverURL)
+			resp, err := client.request("GET", "/v1/vector-stats", nil)
+			if err != nil {
+				return err
+			}
+
+			if outputJSON {
+				fmt.Println(string(resp))
+			} else {
+				var result map[string]interface{}
+				json.Unmarshal(resp, &result)
+
+				enabled, _ := result["enabled"].(bool)
+				fmt.Printf("Vector Search Statistics\n")
+				fmt.Printf("═══════════════════════════════════════\n\n")
+
+				if !enabled {
+					fmt.Println("Embedding provider: disabled")
+					fmt.Println("Set MDDB_EMBEDDING_PROVIDER to enable vector search.")
+					return nil
+				}
+
+				fmt.Printf("Provider:   %s\n", result["provider"])
+				fmt.Printf("Model:      %s\n", result["model"])
+				fmt.Printf("Dimensions: %v\n", result["dimensions"])
+				fmt.Printf("Index Ready: %v\n\n", result["index_ready"])
+
+				if collections, ok := result["collections"].(map[string]interface{}); ok && len(collections) > 0 {
+					fmt.Printf("Collections:\n")
+					fmt.Printf("─────────────────────────────────────────\n")
+					fmt.Printf("%-20s %12s %12s %10s\n", "Name", "Documents", "Embedded", "Coverage")
+					fmt.Printf("─────────────────────────────────────────\n")
+					for name, v := range collections {
+						coll := v.(map[string]interface{})
+						total := int(coll["total_documents"].(float64))
+						embedded := int(coll["embedded_documents"].(float64))
+						coverage := 0.0
+						if total > 0 {
+							coverage = float64(embedded) / float64(total) * 100
+						}
+						fmt.Printf("%-20s %12d %12d %9.0f%%\n", name, total, embedded, coverage)
+					}
+				} else {
+					fmt.Println("No collections with embeddings.")
+				}
+			}
+
+			return nil
+		},
+	}
+
+	rootCmd.AddCommand(addCmd, getCmd, searchCmd, exportCmd, backupCmd, restoreCmd, truncateCmd, statsCmd, vectorSearchCmd, vectorReindexCmd, vectorStatsCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

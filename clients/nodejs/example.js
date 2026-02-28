@@ -131,7 +131,52 @@ client.Add({
           }
           
           console.log(`✅ Backup created: ${backup_resp.backup}\n`);
-          console.log('✨ All operations completed successfully!');
+
+          // ================================================================
+          // Vector Search (semantic search)
+          // ================================================================
+          console.log('🧠 Vector search: "how to use the API"...');
+          client.VectorSearch({
+            collection: 'blog',
+            query: 'how to use the API',
+            top_k: 5,
+            include_content: false
+          }, (err, resp) => {
+            if (err) {
+              console.log(`   ⚠️  Vector search unavailable: ${err.message}\n`);
+            } else {
+              console.log(`✅ Found ${resp.results.length} similar documents`);
+              resp.results.forEach(r => {
+                const pct = Math.round(r.score * 100);
+                console.log(`   #${r.rank}  ${pct}%  ${r.document.key} (${r.document.lang})`);
+              });
+              if (resp.model) {
+                console.log(`   Model: ${resp.model}, Dimensions: ${resp.dimensions}`);
+              }
+              console.log();
+            }
+
+            // ==============================================================
+            // Vector Stats
+            // ==============================================================
+            console.log('📊 Vector stats...');
+            client.VectorStats({}, (err, vs) => {
+              if (err) {
+                console.log(`   ⚠️  Vector stats unavailable: ${err.message}\n`);
+              } else {
+                console.log(`✅ Embeddings: ${vs.enabled ? 'enabled' : 'disabled'}`);
+                if (vs.enabled) {
+                  console.log(`   Model: ${vs.model}, Dimensions: ${vs.dimensions}`);
+                  for (const [name, cs] of Object.entries(vs.collections || {})) {
+                    console.log(`   ${name}: ${cs.embedded_documents}/${cs.total_documents} embedded`);
+                  }
+                }
+                console.log();
+              }
+
+              console.log('✨ All operations completed successfully!');
+            });
+          });
         });
       });
     });

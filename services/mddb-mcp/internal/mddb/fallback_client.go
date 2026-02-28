@@ -180,6 +180,33 @@ func (c *FallbackClient) Truncate(ctx context.Context, req *TruncateRequest) (*T
 	return resp, err
 }
 
+func (c *FallbackClient) VectorSearch(ctx context.Context, req *VectorSearchRequest) (*VectorSearchResponse, error) {
+	resp, err := c.primary.VectorSearch(ctx, req)
+	if err != nil && c.secondary != nil {
+		log.Printf("primary vector search failed: %v, trying secondary", err)
+		return c.secondary.VectorSearch(ctx, req)
+	}
+	return resp, err
+}
+
+func (c *FallbackClient) VectorReindex(ctx context.Context, req *VectorReindexRequest) (*VectorReindexResponse, error) {
+	resp, err := c.primary.VectorReindex(ctx, req)
+	if err != nil && c.secondary != nil {
+		log.Printf("primary vector reindex failed: %v, trying secondary", err)
+		return c.secondary.VectorReindex(ctx, req)
+	}
+	return resp, err
+}
+
+func (c *FallbackClient) VectorStats(ctx context.Context) (*VectorStatsResponse, error) {
+	resp, err := c.primary.VectorStats(ctx)
+	if err != nil && c.secondary != nil {
+		log.Printf("primary vector stats failed: %v, trying secondary", err)
+		return c.secondary.VectorStats(ctx)
+	}
+	return resp, err
+}
+
 func (c *FallbackClient) Close() error {
 	var errs []error
 	if c.primary != nil {

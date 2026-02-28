@@ -49,6 +49,15 @@ type Client interface {
 	// Truncate truncates revision history.
 	Truncate(ctx context.Context, req *TruncateRequest) (*TruncateResponse, error)
 
+	// VectorSearch performs semantic/vector search.
+	VectorSearch(ctx context.Context, req *VectorSearchRequest) (*VectorSearchResponse, error)
+
+	// VectorReindex re-embeds documents in a collection.
+	VectorReindex(ctx context.Context, req *VectorReindexRequest) (*VectorReindexResponse, error)
+
+	// VectorStats returns vector/embedding statistics.
+	VectorStats(ctx context.Context) (*VectorStatsResponse, error)
+
 	// Close closes connection to server.
 	Close() error
 }

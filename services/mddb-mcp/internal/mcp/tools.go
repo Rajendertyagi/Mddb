@@ -29,6 +29,12 @@ func (s *Server) callTool(ctx context.Context, name string, args map[string]inte
 		return s.toolBackup(ctx, args)
 	case "restore_backup":
 		return s.toolRestore(ctx, args)
+	case "semantic_search":
+		return s.toolSemanticSearch(ctx, args)
+	case "vector_reindex":
+		return s.toolVectorReindex(ctx, args)
+	case "vector_stats":
+		return s.toolVectorStats(ctx, args)
 	default:
 		return "", fmt.Errorf("unknown tool: %s", name)
 	}
@@ -209,6 +215,58 @@ func (s *Server) toolRestore(ctx context.Context, args map[string]interface{}) (
 	}
 
 	return fmt.Sprintf("Database restored from: %s", resp.Restored), nil
+}
+
+// toolSemanticSearch performs semantic/vector search.
+func (s *Server) toolSemanticSearch(ctx context.Context, args map[string]interface{}) (string, error) {
+	req := &mddb.VectorSearchRequest{
+		Collection:     getString(args, "collection"),
+		Query:          getString(args, "query"),
+		TopK:           getInt(args, "top_k"),
+		IncludeContent: true,
+		FilterMeta:     getMetaMap(args, "filter_meta"),
+	}
+
+	if threshold, ok := args["threshold"].(float64); ok {
+		req.Threshold = threshold
+	}
+
+	resp, err := s.client.VectorSearch(ctx, req)
+	if err != nil {
+		return "", err
+	}
+
+	data, _ := json.MarshalIndent(resp, "", "  ")
+	return string(data), nil
+}
+
+// toolVectorReindex re-embeds documents in a collection.
+func (s *Server) toolVectorReindex(ctx context.Context, args map[string]interface{}) (string, error) {
+	req := &mddb.VectorReindexRequest{
+		Collection: getString(args, "collection"),
+	}
+	if force, ok := args["force"].(bool); ok {
+		req.Force = force
+	}
+
+	resp, err := s.client.VectorReindex(ctx, req)
+	if err != nil {
+		return "", err
+	}
+
+	data, _ := json.MarshalIndent(resp, "", "  ")
+	return fmt.Sprintf("Reindex complete:\n%s", string(data)), nil
+}
+
+// toolVectorStats returns embedding statistics.
+func (s *Server) toolVectorStats(ctx context.Context, args map[string]interface{}) (string, error) {
+	resp, err := s.client.VectorStats(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	data, _ := json.MarshalIndent(resp, "", "  ")
+	return string(data), nil
 }
 
 // Helper functions for parsing arguments

@@ -201,6 +201,7 @@ Tools are operations that can modify state or perform tasks:
 
 - `add_document` - Add or update a document
 - `search_documents` - Search with filters and sorting
+- `semantic_search` - **Vector/semantic search** using natural language queries
 - `delete_document` - Delete a document
 - `get_stats` - Get server statistics
 - `add_documents_batch` - Batch add/update documents
@@ -208,6 +209,27 @@ Tools are operations that can modify state or perform tasks:
 - `export_documents` - Export documents (NDJSON/ZIP)
 - `create_backup` - Create database backup
 - `restore_backup` - Restore from backup
+- `vector_reindex` - Re-embed documents in a collection
+- `vector_stats` - Get embedding/vector statistics
+
+### Vector Search (AI-Powered)
+
+The `semantic_search` tool enables AI assistants to find documents by meaning rather than exact metadata matches. When configured with an embedding provider, documents are automatically embedded when added.
+
+**Example usage by AI:**
+- "Find documentation about authentication" -> searches by semantic similarity
+- "What articles discuss database performance?" -> finds related content even without exact keyword matches
+
+**Embedding providers:**
+- `openai` - OpenAI text-embedding-3-small (cloud, best quality)
+- `voyage` - Voyage AI / Anthropic (cloud)
+- `ollama` - Local embeddings (free, no API key)
+
+Configure via environment variables on the MDDB server:
+```bash
+MDDB_EMBEDDING_PROVIDER=openai
+MDDB_EMBEDDING_API_KEY=sk-your-key
+```
 
 ## API Endpoints
 

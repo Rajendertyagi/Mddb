@@ -148,6 +148,40 @@ class MDDBClient {
   }
 
   /**
+   * Vector/semantic search
+   */
+  async vectorSearch({ collection, query, topK = 5, threshold = 0.0, filterMeta = {}, includeContent = false }) {
+    return this.request('/vector-search', {
+      method: 'POST',
+      body: JSON.stringify({
+        collection,
+        query,
+        topK,
+        threshold,
+        filterMeta,
+        includeContent,
+      }),
+    });
+  }
+
+  /**
+   * Re-embed documents in a collection
+   */
+  async vectorReindex({ collection, force = false }) {
+    return this.request('/vector-reindex', {
+      method: 'POST',
+      body: JSON.stringify({ collection, force }),
+    });
+  }
+
+  /**
+   * Get vector/embedding statistics
+   */
+  async vectorStats() {
+    return this.request('/vector-stats', { method: 'GET' });
+  }
+
+  /**
    * Delete entire collection
    */
   async deleteCollection({ collection }) {

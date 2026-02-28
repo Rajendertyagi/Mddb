@@ -173,6 +173,30 @@ func (c *RESTClient) Truncate(ctx context.Context, req *TruncateRequest) (*Trunc
 	return &TruncateResponse{Status: fmt.Sprintf("deleted %d revisions", int(deleted))}, nil
 }
 
+func (c *RESTClient) VectorSearch(ctx context.Context, req *VectorSearchRequest) (*VectorSearchResponse, error) {
+	var resp VectorSearchResponse
+	if err := c.post(ctx, "/v1/vector-search", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *RESTClient) VectorReindex(ctx context.Context, req *VectorReindexRequest) (*VectorReindexResponse, error) {
+	var resp VectorReindexResponse
+	if err := c.post(ctx, "/v1/vector-reindex", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *RESTClient) VectorStats(ctx context.Context) (*VectorStatsResponse, error) {
+	var resp VectorStatsResponse
+	if err := c.get(ctx, "/v1/vector-stats", &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 func (c *RESTClient) Close() error {
 	return nil
 }

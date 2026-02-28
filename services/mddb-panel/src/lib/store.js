@@ -28,6 +28,18 @@ export const useStore = create((set, get) => ({
   sortAsc: false,
   limit: 100,
 
+  // Search mode
+  searchMode: 'metadata',
+
+  // Vector search
+  vectorQuery: '',
+  vectorTopK: 10,
+  vectorThreshold: 0.0,
+  vectorResults: [],
+  vectorLoading: false,
+  vectorError: null,
+  vectorStats: null,
+
   // Actions
   setStats: (stats) => set({ stats }),
   setStatsLoading: (loading) => set({ statsLoading: loading }),
@@ -47,6 +59,15 @@ export const useStore = create((set, get) => ({
   setSortBy: (sortBy) => set({ sortBy }),
   setSortAsc: (asc) => set({ sortAsc: asc }),
   setLimit: (limit) => set({ limit }),
+
+  setSearchMode: (mode) => set({ searchMode: mode }),
+  setVectorQuery: (q) => set({ vectorQuery: q }),
+  setVectorTopK: (k) => set({ vectorTopK: k }),
+  setVectorThreshold: (t) => set({ vectorThreshold: t }),
+  setVectorResults: (r) => set({ vectorResults: r }),
+  setVectorLoading: (l) => set({ vectorLoading: l }),
+  setVectorError: (e) => set({ vectorError: e }),
+  setVectorStats: (s) => set({ vectorStats: s }),
 
   // Clear current document
   clearCurrentDocument: () => set({ 

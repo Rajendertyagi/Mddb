@@ -57,6 +57,43 @@ class mddb {
     return $this->post('/search', $payload);
   }
 
+  public function vectorSearch(string $query, int $topK=5, float $threshold=0.0, bool $includeContent=false, ?array $filterMeta=null) {
+    $payload = [
+      'collection' => $this->collection,
+      'query' => $query,
+      'topK' => $topK,
+      'threshold' => $threshold,
+      'includeContent' => $includeContent,
+    ];
+    if ($filterMeta !== null) {
+      $payload['filterMeta'] = $filterMeta;
+    }
+    return $this->post('/vector-search', $payload);
+  }
+
+  public function vectorReindex(bool $force=false) {
+    $payload = [
+      'collection' => $this->collection,
+      'force' => $force,
+    ];
+    return $this->post('/vector-reindex', $payload);
+  }
+
+  public function vectorStats() {
+    return $this->httpGet('/vector-stats');
+  }
+
+  private function httpGet(string $path) {
+    $ch = curl_init($this->base . $path);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    $res = curl_exec($ch);
+    if ($res === false) throw new Exception(curl_error($ch));
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($code >= 400) throw new Exception($res);
+    return json_decode($res);
+  }
+
   private function post(string $path, array $payload) {
     $ch = curl_init($this->base . $path);
     curl_setopt($ch, CURLOPT_POST, true);

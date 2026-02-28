@@ -45,6 +45,11 @@ type Server struct {
 	ShardCluster       *ShardCluster           // Distributed sharding
 	finalBatchProcessor *FinalBatchProcessor   // Final optimized batch processor
 	UseExtreme         bool                    // Enable extreme performance features
+	// Vector search
+	VectorStore     *VectorStore        // Persistent vector storage in BoltDB
+	VectorIndex     *VectorIndex        // In-memory vector index for fast search
+	EmbeddingWorker *EmbeddingWorker    // Background embedding processor
+	Embedding       EmbeddingProvider   // Embedding generation provider
 }
 
 // BucketNames caches bucket name byte slices to avoid repeated allocations
@@ -201,6 +206,26 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Initialize vector search
+	s.VectorStore = NewVectorStore(db)
+	if err := s.VectorStore.EnsureBucket(); err != nil {
+		log.Fatal(err)
+	}
+	s.VectorIndex = NewVectorIndex()
+	s.Embedding = NewEmbeddingProvider()
+
+	if s.Embedding != nil {
+		s.EmbeddingWorker = NewEmbeddingWorker(s.Embedding, s.VectorStore, s.VectorIndex, 1000)
+		s.EmbeddingWorker.Start(2)
+		log.Printf("Vector search enabled (provider=%s, model=%s, dims=%d)",
+			s.Embedding.Model(), s.Embedding.Model(), s.Embedding.Dimensions())
+	} else {
+		log.Println("Vector search: embedding provider not configured (set MDDB_EMBEDDING_PROVIDER)")
+	}
+
+	// Load vectors into memory asynchronously
+	go s.loadVectorIndex()
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/v1/health", s.handleHealth)
@@ -214,6 +239,9 @@ func main() {
 	mux.HandleFunc("/v1/delete", s.guardWrite(s.handleDelete))
 	mux.HandleFunc("/v1/delete-collection", s.guardWrite(s.handleDeleteCollection))
 	mux.HandleFunc("/v1/stats", s.handleStats)
+	mux.HandleFunc("/v1/vector-search", s.handleVectorSearch)
+	mux.HandleFunc("/v1/vector-reindex", s.guardWrite(s.handleVectorReindex))
+	mux.HandleFunc("/v1/vector-stats", s.handleVectorStats)
 
 	httpAddr := env("MDDB_ADDR", ":11023")
 	grpcAddr := env("MDDB_GRPC_ADDR", ":11024")
@@ -368,6 +396,16 @@ func (s *Server) handleAdd(w http.ResponseWriter, r *http.Request) {
 		bad(w, err)
 		return
 	}
+
+	// Trigger async embedding if provider is configured
+	if s.EmbeddingWorker != nil && saved.ContentMD != "" {
+		s.EmbeddingWorker.Enqueue(EmbeddingJob{
+			Collection: req.Collection,
+			DocID:      saved.ID,
+			ContentMD:  saved.ContentMD,
+		})
+	}
+
 	ok(w, saved)
 }
 
@@ -991,6 +1029,14 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		bad(w, err)
 		return
+	}
+
+	// Clean up vector embedding
+	if s.VectorStore != nil {
+		_ = s.VectorStore.Delete(req.Collection, docID)
+		if s.VectorIndex != nil {
+			s.VectorIndex.Remove(req.Collection, docID)
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

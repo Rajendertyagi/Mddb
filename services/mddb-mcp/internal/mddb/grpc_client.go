@@ -325,6 +325,81 @@ func (c *GRPCClient) Truncate(ctx context.Context, req *TruncateRequest) (*Trunc
 	return &TruncateResponse{Status: resp.Status}, nil
 }
 
+func (c *GRPCClient) VectorSearch(ctx context.Context, req *VectorSearchRequest) (*VectorSearchResponse, error) {
+	pbReq := &pb.VectorSearchRequest{
+		Collection:     req.Collection,
+		Query:          req.Query,
+		QueryVector:    req.QueryVector,
+		TopK:           int32(req.TopK),
+		Threshold:      req.Threshold,
+		FilterMeta:     convertMetaToProto(req.FilterMeta),
+		IncludeContent: req.IncludeContent,
+	}
+
+	resp, err := c.client.VectorSearch(ctx, pbReq)
+	if err != nil {
+		return nil, fmt.Errorf("vector search: %w", err)
+	}
+
+	results := make([]VectorSearchResult, len(resp.Results))
+	for i, r := range resp.Results {
+		results[i] = VectorSearchResult{
+			Document: *convertDocumentFromProto(r.Document),
+			Score:    r.Score,
+			Rank:     int(r.Rank),
+		}
+	}
+
+	return &VectorSearchResponse{
+		Results:    results,
+		Total:      int(resp.Total),
+		Model:      resp.Model,
+		Dimensions: int(resp.Dimensions),
+	}, nil
+}
+
+func (c *GRPCClient) VectorReindex(ctx context.Context, req *VectorReindexRequest) (*VectorReindexResponse, error) {
+	pbReq := &pb.VectorReindexRequest{
+		Collection: req.Collection,
+		Force:      req.Force,
+	}
+
+	resp, err := c.client.VectorReindex(ctx, pbReq)
+	if err != nil {
+		return nil, fmt.Errorf("vector reindex: %w", err)
+	}
+
+	return &VectorReindexResponse{
+		Embedded: int(resp.Embedded),
+		Skipped:  int(resp.Skipped),
+		Failed:   int(resp.Failed),
+		Errors:   resp.Errors,
+	}, nil
+}
+
+func (c *GRPCClient) VectorStats(ctx context.Context) (*VectorStatsResponse, error) {
+	resp, err := c.client.VectorStats(ctx, &pb.VectorStatsRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("vector stats: %w", err)
+	}
+
+	collections := make(map[string]VectorCollectionStats, len(resp.Collections))
+	for name, cs := range resp.Collections {
+		collections[name] = VectorCollectionStats{
+			TotalDocuments:    int(cs.TotalDocuments),
+			EmbeddedDocuments: int(cs.EmbeddedDocuments),
+		}
+	}
+
+	return &VectorStatsResponse{
+		Provider:    resp.Provider,
+		Model:       resp.Model,
+		Dimensions:  int(resp.Dimensions),
+		Enabled:     resp.Enabled,
+		Collections: collections,
+	}, nil
+}
+
 func (c *GRPCClient) Close() error {
 	return c.conn.Close()
 }

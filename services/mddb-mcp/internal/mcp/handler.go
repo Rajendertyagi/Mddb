@@ -201,6 +201,40 @@ func (h *Handler) handleToolsList() map[string]interface{} {
 				"type": "object",
 			},
 		},
+		{
+			Name:        "semantic_search",
+			Description: "Search documents by meaning using semantic similarity. Use this when you need to find documents related to a concept or question, rather than filtering by exact metadata tags. Requires embedding provider to be configured on the server.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection":  map[string]interface{}{"type": "string", "description": "Collection to search in"},
+					"query":       map[string]interface{}{"type": "string", "description": "Natural language search query"},
+					"top_k":       map[string]interface{}{"type": "integer", "description": "Number of results to return (default: 5)"},
+					"threshold":   map[string]interface{}{"type": "number", "description": "Minimum similarity score 0-1 (default: 0.0)"},
+					"filter_meta": map[string]interface{}{"type": "object", "description": "Optional metadata filter to combine with semantic search"},
+				},
+				"required": []string{"collection", "query"},
+			},
+		},
+		{
+			Name:        "vector_reindex",
+			Description: "Re-embed all documents in a collection. Use after adding many documents or changing the embedding model.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection to reindex"},
+					"force":      map[string]interface{}{"type": "boolean", "description": "Force re-embed even if content hasn't changed (default: false)"},
+				},
+				"required": []string{"collection"},
+			},
+		},
+		{
+			Name:        "vector_stats",
+			Description: "Get vector/embedding statistics including provider info and per-collection embedding coverage.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+			},
+		},
 	}
 
 	return map[string]interface{}{

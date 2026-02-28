@@ -1,0 +1,359 @@
+package main
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"log"
+	"net/http"
+	"time"
+
+	json "github.com/goccy/go-json"
+	bolt "go.etcd.io/bbolt"
+)
+
+// VectorSearchRequest represents an HTTP vector search request.
+type VectorSearchRequest struct {
+	Collection     string              `json:"collection"`
+	Query          string              `json:"query"`
+	QueryVector    []float32           `json:"queryVector"`
+	TopK           int                 `json:"topK"`
+	Threshold      float64             `json:"threshold"`
+	FilterMeta     map[string][]string `json:"filterMeta"`
+	IncludeContent bool                `json:"includeContent"`
+}
+
+// VectorSearchResultItem represents a single search result.
+type VectorSearchResultItem struct {
+	Document Doc     `json:"document"`
+	Score    float32 `json:"score"`
+	Rank     int     `json:"rank"`
+}
+
+// VectorSearchResponse represents the response from vector search.
+type VectorSearchResponseHTTP struct {
+	Results    []VectorSearchResultItem `json:"results"`
+	Total      int                      `json:"total"`
+	Model      string                   `json:"model"`
+	Dimensions int                      `json:"dimensions"`
+}
+
+// VectorReindexRequest represents a reindex request.
+type VectorReindexRequestHTTP struct {
+	Collection string `json:"collection"`
+	Force      bool   `json:"force"`
+}
+
+// loadVectorIndex loads all vectors from BoltDB into the in-memory index.
+func (s *Server) loadVectorIndex() {
+	start := time.Now()
+
+	// Get all collections with vectors
+	counts, err := s.VectorStore.CountByCollection()
+	if err != nil {
+		log.Printf("ERROR: failed to count vector collections: %v", err)
+		s.VectorIndex.SetReady()
+		return
+	}
+
+	totalLoaded := 0
+	for collection, count := range counts {
+		records, err := s.VectorStore.LoadCollection(collection)
+		if err != nil {
+			log.Printf("ERROR: failed to load vectors for collection %q: %v", collection, err)
+			continue
+		}
+		for docID, rec := range records {
+			s.VectorIndex.Add(collection, docID, rec.Vector)
+		}
+		totalLoaded += count
+	}
+
+	s.VectorIndex.SetReady()
+	log.Printf("Vector index loaded: %d vectors across %d collections in %v",
+		totalLoaded, len(counts), time.Since(start))
+}
+
+// handleVectorSearch handles POST /v1/vector-search
+func (s *Server) handleVectorSearch(w http.ResponseWriter, r *http.Request) {
+	var req VectorSearchRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		bad(w, err)
+		return
+	}
+	if req.Collection == "" {
+		bad(w, errors.New("missing collection"))
+		return
+	}
+	if req.Query == "" && len(req.QueryVector) == 0 {
+		bad(w, errors.New("either query or queryVector is required"))
+		return
+	}
+
+	if !s.VectorIndex.IsReady() {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte(`{"error":"vector index is loading, please retry"}`))
+		return
+	}
+
+	// Get query vector
+	var queryVector []float32
+	if len(req.QueryVector) > 0 {
+		queryVector = req.QueryVector
+	} else if s.Embedding != nil {
+		ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+		defer cancel()
+		var err error
+		queryVector, err = s.Embedding.Embed(ctx, req.Query)
+		if err != nil {
+			bad(w, errors.New("failed to embed query: "+err.Error()))
+			return
+		}
+	} else {
+		bad(w, errors.New("no embedding provider configured and no queryVector provided"))
+		return
+	}
+
+	topK := req.TopK
+	if topK <= 0 {
+		topK = 5
+	}
+
+	// Search: with or without metadata filter
+	var results []VectorResult
+	if len(req.FilterMeta) > 0 {
+		// Get doc IDs matching metadata filter first
+		allowedIDs := s.getDocIDsByMeta(req.Collection, req.FilterMeta)
+		if len(allowedIDs) == 0 {
+			ok(w, VectorSearchResponseHTTP{
+				Results: []VectorSearchResultItem{},
+				Total:   0,
+			})
+			return
+		}
+		results = s.VectorIndex.SearchWithFilter(req.Collection, queryVector, topK, req.Threshold, allowedIDs)
+	} else {
+		results = s.VectorIndex.Search(req.Collection, queryVector, topK, req.Threshold)
+	}
+
+	// Load full documents for results
+	items := make([]VectorSearchResultItem, 0, len(results))
+	_ = s.DB.View(func(tx *bolt.Tx) error {
+		bDocs := tx.Bucket([]byte("docs"))
+		if bDocs == nil {
+			return nil
+		}
+		for rank, vr := range results {
+			v := bDocs.Get(kDoc(req.Collection, vr.DocID))
+			if v == nil {
+				continue
+			}
+			var doc Doc
+			if err := json.Unmarshal(v, &doc); err != nil {
+				continue
+			}
+			if !req.IncludeContent {
+				doc.ContentMD = ""
+			}
+			items = append(items, VectorSearchResultItem{
+				Document: doc,
+				Score:    vr.Score,
+				Rank:     rank + 1,
+			})
+		}
+		return nil
+	})
+
+	resp := VectorSearchResponseHTTP{
+		Results: items,
+		Total:   len(items),
+	}
+	if s.Embedding != nil {
+		resp.Model = s.Embedding.Model()
+		resp.Dimensions = s.Embedding.Dimensions()
+	}
+
+	ok(w, resp)
+}
+
+// handleVectorReindex handles POST /v1/vector-reindex
+func (s *Server) handleVectorReindex(w http.ResponseWriter, r *http.Request) {
+	var req VectorReindexRequestHTTP
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		bad(w, err)
+		return
+	}
+	if req.Collection == "" {
+		bad(w, errors.New("missing collection"))
+		return
+	}
+	if s.Embedding == nil {
+		bad(w, errors.New("no embedding provider configured"))
+		return
+	}
+
+	// Load all documents in collection
+	type docEntry struct {
+		ID        string
+		ContentMD string
+	}
+	var docs []docEntry
+
+	err := s.DB.View(func(tx *bolt.Tx) error {
+		bDocs := tx.Bucket([]byte("docs"))
+		if bDocs == nil {
+			return nil
+		}
+		c := bDocs.Cursor()
+		prefix := []byte("doc|" + req.Collection + "|")
+		for k, v := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = c.Next() {
+			var d Doc
+			if err := json.Unmarshal(v, &d); err != nil {
+				continue
+			}
+			docs = append(docs, docEntry{ID: d.ID, ContentMD: d.ContentMD})
+		}
+		return nil
+	})
+	if err != nil {
+		bad(w, err)
+		return
+	}
+
+	embedded, skipped, failed := 0, 0, 0
+	var errs []string
+
+	for _, d := range docs {
+		if d.ContentMD == "" {
+			skipped++
+			continue
+		}
+
+		// Check if already embedded with same content hash
+		if !req.Force {
+			existing, err := s.VectorStore.Get(req.Collection, d.ID)
+			if err == nil && existing != nil {
+				currentHash := ContentHash(d.ContentMD)
+				if existing.ContentHash == currentHash {
+					skipped++
+					continue
+				}
+			}
+		}
+
+		// Generate embedding
+		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+		vector, err := s.Embedding.Embed(ctx, d.ContentMD)
+		cancel()
+		if err != nil {
+			failed++
+			errs = append(errs, d.ID+": "+err.Error())
+			continue
+		}
+
+		// Store
+		contentHash := ContentHash(d.ContentMD)
+		if err := s.VectorStore.Put(req.Collection, d.ID, vector, s.Embedding.Model(), contentHash); err != nil {
+			failed++
+			errs = append(errs, d.ID+": store: "+err.Error())
+			continue
+		}
+		s.VectorIndex.Add(req.Collection, d.ID, vector)
+		embedded++
+	}
+
+	ok(w, map[string]interface{}{
+		"embedded": embedded,
+		"skipped":  skipped,
+		"failed":   failed,
+		"errors":   errs,
+	})
+}
+
+// handleVectorStats handles GET /v1/vector-stats
+func (s *Server) handleVectorStats(w http.ResponseWriter, r *http.Request) {
+	resp := map[string]interface{}{
+		"enabled": s.Embedding != nil,
+	}
+
+	if s.Embedding != nil {
+		resp["provider"] = s.Embedding.Model()
+		resp["model"] = s.Embedding.Model()
+		resp["dimensions"] = s.Embedding.Dimensions()
+	}
+
+	// Count embeddings per collection
+	vectorCounts, _ := s.VectorStore.CountByCollection()
+
+	// Count total docs per collection
+	docCounts := make(map[string]int)
+	_ = s.DB.View(func(tx *bolt.Tx) error {
+		bDocs := tx.Bucket([]byte("docs"))
+		if bDocs == nil {
+			return nil
+		}
+		c := bDocs.Cursor()
+		for k, _ := c.First(); k != nil; k, _ = c.Next() {
+			parts := splitKey(k)
+			if len(parts) >= 2 {
+				docCounts[parts[1]]++
+			}
+		}
+		return nil
+	})
+
+	collections := make(map[string]interface{})
+	allColls := make(map[string]bool)
+	for c := range docCounts {
+		allColls[c] = true
+	}
+	for c := range vectorCounts {
+		allColls[c] = true
+	}
+
+	for coll := range allColls {
+		collections[coll] = map[string]interface{}{
+			"total_documents":    docCounts[coll],
+			"embedded_documents": vectorCounts[coll],
+		}
+	}
+
+	resp["collections"] = collections
+	resp["index_ready"] = s.VectorIndex.IsReady()
+
+	ok(w, resp)
+}
+
+// getDocIDsByMeta returns a set of doc IDs matching metadata filters.
+func (s *Server) getDocIDsByMeta(collection string, filterMeta map[string][]string) map[string]bool {
+	result := make(map[string]bool)
+
+	_ = s.DB.View(func(tx *bolt.Tx) error {
+		bIdx := tx.Bucket([]byte("idxmeta"))
+		if bIdx == nil {
+			return nil
+		}
+
+		var sets [][]string
+		for mk, mvals := range filterMeta {
+			var ids []string
+			for _, mv := range mvals {
+				prefix := kMetaKeyPrefix(collection, mk, mv)
+				c := bIdx.Cursor()
+				for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
+					id := string(k[len(prefix):])
+					ids = append(ids, id)
+				}
+			}
+			ids = unique(ids)
+			sets = append(sets, ids)
+		}
+
+		for _, id := range intersect(sets...) {
+			result[id] = true
+		}
+		return nil
+	})
+
+	return result
+}

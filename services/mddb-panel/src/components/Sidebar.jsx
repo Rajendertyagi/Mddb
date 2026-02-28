@@ -1,11 +1,24 @@
-import { useState } from 'react';
-import { Folder, Database, HardDrive, FileText, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Folder, Database, HardDrive, FileText, Trash2, Brain } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
 
 export default function Sidebar({ stats, statsError }) {
-  const { currentCollection, setCurrentCollection } = useStore();
+  const { currentCollection, setCurrentCollection, vectorStats, setVectorStats } = useStore();
   const [deletingCollection, setDeletingCollection] = useState(null);
+
+  useEffect(() => {
+    loadVectorStats();
+  }, []);
+
+  const loadVectorStats = async () => {
+    try {
+      const data = await mddbClient.vectorStats();
+      setVectorStats(data);
+    } catch {
+      // Vector stats unavailable - not critical
+    }
+  };
 
   const collections = stats?.collections || [];
 
@@ -71,6 +84,42 @@ export default function Sidebar({ stats, statsError }) {
           </div>
         </div>
       </div>
+
+      {/* Embeddings */}
+      {vectorStats && (
+        <div className="p-4 border-b border-gray-200">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+            <span className="flex items-center space-x-1">
+              <Brain className="w-3 h-3" />
+              <span>Embeddings</span>
+            </span>
+          </h3>
+          {vectorStats.enabled ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">Model</span>
+                <span className="font-medium text-gray-900 text-xs truncate max-w-[120px]" title={vectorStats.model}>
+                  {vectorStats.model}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">Dimensions</span>
+                <span className="font-medium text-gray-900">{vectorStats.dimensions}</span>
+              </div>
+              {vectorStats.collections && Object.entries(vectorStats.collections).map(([name, cs]) => (
+                <div key={name} className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600 truncate max-w-[100px]" title={name}>{name}</span>
+                  <span className="font-medium text-gray-900">
+                    {cs.embeddedDocuments}/{cs.totalDocuments}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400">Disabled</p>
+          )}
+        </div>
+      )}
 
       {/* Collections List */}
       <div className="p-4">

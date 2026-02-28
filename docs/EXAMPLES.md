@@ -130,6 +130,178 @@ curl -X POST http://localhost:11023/v1/search \
   }'
 ```
 
+## Vector Search (Semantic Search)
+
+### Setup
+
+First, configure an embedding provider:
+```bash
+# Option 1: OpenAI (cloud, best quality)
+export MDDB_EMBEDDING_PROVIDER=openai
+export MDDB_EMBEDDING_API_KEY=sk-your-key-here
+
+# Option 2: Voyage AI / Anthropic (cloud)
+export MDDB_EMBEDDING_PROVIDER=voyage
+export MDDB_EMBEDDING_API_KEY=pa-your-key-here
+
+# Option 3: Ollama (local, free, no API key)
+export MDDB_EMBEDDING_PROVIDER=ollama
+# Make sure ollama is running: ollama serve
+# Pull model: ollama pull nomic-embed-text
+```
+
+### Adding Documents (auto-embedding)
+
+When an embedding provider is configured, documents are automatically embedded when added:
+
+```bash
+# Add a document about authentication
+curl -X POST http://localhost:11023/v1/add \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "docs",
+    "key": "auth-guide",
+    "lang": "en_US",
+    "meta": {"category": ["security"], "type": ["guide"]},
+    "contentMd": "# Authentication Guide\n\nThis guide covers user authentication using JWT tokens. Learn how to implement login, registration, and session management."
+  }'
+
+# Add more documents
+curl -X POST http://localhost:11023/v1/add \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "docs",
+    "key": "api-reference",
+    "lang": "en_US",
+    "meta": {"category": ["api"], "type": ["reference"]},
+    "contentMd": "# API Reference\n\nComplete REST API reference with endpoints, parameters, and response formats."
+  }'
+
+curl -X POST http://localhost:11023/v1/add \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "docs",
+    "key": "deployment",
+    "lang": "en_US",
+    "meta": {"category": ["devops"], "type": ["guide"]},
+    "contentMd": "# Deployment Guide\n\nHow to deploy the application to production using Docker, Kubernetes, and CI/CD pipelines."
+  }'
+```
+
+### Semantic Search (finding documents by meaning)
+
+```bash
+# Search by meaning - finds auth-guide even though query doesn't match exact keywords
+curl -X POST http://localhost:11023/v1/vector-search \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "docs",
+    "query": "how to login users",
+    "topK": 3,
+    "includeContent": true
+  }'
+# Returns: auth-guide (score: ~0.85), api-reference (score: ~0.42), ...
+```
+
+Response shows which documents are most relevant and their similarity scores:
+```json
+{
+  "results": [
+    {
+      "document": {
+        "id": "docs|auth-guide|en_us",
+        "key": "auth-guide",
+        "meta": {"category": ["security"], "type": ["guide"]},
+        "contentMd": "# Authentication Guide\n..."
+      },
+      "score": 0.85,
+      "rank": 1
+    },
+    {
+      "document": {
+        "id": "docs|api-reference|en_us",
+        "key": "api-reference",
+        "meta": {"category": ["api"], "type": ["reference"]}
+      },
+      "score": 0.42,
+      "rank": 2
+    }
+  ],
+  "total": 2,
+  "model": "text-embedding-3-small",
+  "dimensions": 1536
+}
+```
+
+### Hybrid Search (vector + metadata filter)
+
+Combine semantic search with metadata pre-filtering:
+```bash
+# Find security-related docs about passwords
+curl -X POST http://localhost:11023/v1/vector-search \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "docs",
+    "query": "password reset flow",
+    "topK": 5,
+    "filterMeta": {"category": ["security"]},
+    "includeContent": false
+  }'
+```
+
+### Search with Similarity Threshold
+
+```bash
+# Only return highly relevant results (score > 0.7)
+curl -X POST http://localhost:11023/v1/vector-search \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "docs",
+    "query": "kubernetes deployment",
+    "topK": 10,
+    "threshold": 0.7
+  }'
+```
+
+### Reindex Existing Documents
+
+If you added documents before configuring embeddings, or changed the model:
+```bash
+# Reindex only changed documents (smart - skips already-embedded)
+curl -X POST http://localhost:11023/v1/vector-reindex \
+  -H 'Content-Type: application/json' \
+  -d '{"collection": "docs", "force": false}'
+
+# Force reindex everything (after model change)
+curl -X POST http://localhost:11023/v1/vector-reindex \
+  -H 'Content-Type: application/json' \
+  -d '{"collection": "docs", "force": true}'
+```
+
+### Check Embedding Status
+
+```bash
+# See which collections have embeddings
+curl http://localhost:11023/v1/vector-stats | jq
+```
+
+Response:
+```json
+{
+  "enabled": true,
+  "provider": "text-embedding-3-small",
+  "model": "text-embedding-3-small",
+  "dimensions": 1536,
+  "index_ready": true,
+  "collections": {
+    "docs": {
+      "total_documents": 3,
+      "embedded_documents": 3
+    }
+  }
+}
+```
+
 ## Export Examples
 
 ### NDJSON Export

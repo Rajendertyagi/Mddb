@@ -193,3 +193,58 @@ type TruncateRequest struct {
 type TruncateResponse struct {
 	Status string `json:"status"`
 }
+
+// VectorSearchRequest represents vector/semantic search request.
+type VectorSearchRequest struct {
+	Collection     string              `json:"collection"`
+	Query          string              `json:"query"`
+	QueryVector    []float32           `json:"queryVector,omitempty"`
+	TopK           int                 `json:"topK,omitempty"`
+	Threshold      float64             `json:"threshold,omitempty"`
+	FilterMeta     map[string][]string `json:"filterMeta,omitempty"`
+	IncludeContent bool                `json:"includeContent,omitempty"`
+}
+
+// VectorSearchResult represents a single semantic search result.
+type VectorSearchResult struct {
+	Document Document `json:"document"`
+	Score    float32  `json:"score"`
+	Rank     int      `json:"rank"`
+}
+
+// VectorSearchResponse represents vector search results.
+type VectorSearchResponse struct {
+	Results    []VectorSearchResult `json:"results"`
+	Total      int                  `json:"total"`
+	Model      string               `json:"model"`
+	Dimensions int                  `json:"dimensions"`
+}
+
+// VectorReindexRequest represents a reindex request.
+type VectorReindexRequest struct {
+	Collection string `json:"collection"`
+	Force      bool   `json:"force"`
+}
+
+// VectorReindexResponse represents reindex results.
+type VectorReindexResponse struct {
+	Embedded int      `json:"embedded"`
+	Skipped  int      `json:"skipped"`
+	Failed   int      `json:"failed"`
+	Errors   []string `json:"errors,omitempty"`
+}
+
+// VectorStatsResponse represents vector stats.
+type VectorStatsResponse struct {
+	Provider    string                          `json:"provider"`
+	Model       string                          `json:"model"`
+	Dimensions  int                             `json:"dimensions"`
+	Enabled     bool                            `json:"enabled"`
+	Collections map[string]VectorCollectionStats `json:"collections"`
+}
+
+// VectorCollectionStats represents per-collection embedding stats.
+type VectorCollectionStats struct {
+	TotalDocuments    int `json:"total_documents"`
+	EmbeddedDocuments int `json:"embedded_documents"`
+}
