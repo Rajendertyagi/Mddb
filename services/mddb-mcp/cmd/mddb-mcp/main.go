@@ -42,12 +42,12 @@ func main() {
 	}()
 
 	// Inicjalizacja MCP servera
-	server := mcp.NewServer(client, cfg.MCP.ListenAddress)
+	server := mcp.NewServer(client, cfg.MCP.ListenAddress, cfg.CustomTools)
 	if err := server.Start(); err != nil {
 		log.Fatalf("failed to start mcp server: %v", err)
 	}
 
-	log.Printf("mddb-mcp server running on %s", cfg.MCP.ListenAddress)
+	log.Printf("mddb-mcp server running on %s (custom_tools=%d)", cfg.MCP.ListenAddress, len(cfg.CustomTools))
 
 	// Graceful shutdown
 	sigChan := make(chan os.Signal, 1)

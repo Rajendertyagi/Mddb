@@ -226,6 +226,7 @@ See [Performance Tests](test/README.md) for detailed benchmarks.
 - **CLI Client** - Full-featured command-line interface
 - **Web Admin Panel** - Modern React-based UI for browsing and managing data
 - **MCP Server** - Model Context Protocol for LLM integration (gRPC + REST fallback)
+- **Custom MCP Tools** - YAML-defined website-specific AI tools with preconfigured defaults
 
 ### Operations
 - **Export** - NDJSON or ZIP formats with filtering
@@ -407,30 +408,32 @@ MDDB includes a Model Context Protocol (MCP) server for seamless integration wit
 **Features:**
 - Dual mode: HTTP server + stdio mode for IDE integration
 - Full MDDB API access through MCP tools and resources
+- Custom YAML tools: define website-specific tools with preconfigured defaults
 - Docker ready with single image, mode selection via env var
 
 **Quick Start with Docker:**
 ```bash
 # Pull MCP image (uses same version as main MDDB)
-docker pull tradik/mddb:mcp-2.3.2
+docker pull tradik/mddb:mcp-2.3.3
 
 # For Windsurf/Claude Desktop (stdio mode)
 docker run -i --rm \
   -e MCP_MODE=stdio \
   -e MDDB_GRPC_ADDRESS=localhost:11024 \
   -e MDDB_REST_BASE_URL=http://localhost:11023 \
-  tradik/mddb:mcp-2.3.2
+  tradik/mddb:mcp-2.3.3
 
 # For HTTP mode
 docker run -d -p 9000:9000 \
   -e MCP_MODE=http \
   -e MDDB_GRPC_ADDRESS=localhost:11024 \
   -e MDDB_REST_BASE_URL=http://localhost:11023 \
-  tradik/mddb:mcp-2.3.2
+  tradik/mddb:mcp-2.3.3
 ```
 
 **Documentation:**
 - [MCP Server README](services/mddb-mcp/README.md)
+- [Custom MCP Tools Guide](docs/CUSTOM-TOOLS.md)
 - [Windsurf Setup Guide](services/mddb-mcp/WINDSURF_SETUP.md)
 - [WSL Setup Guide](services/mddb-mcp/WSL_SETUP.md) (Windows)
 - [MCP Configuration Examples](services/mddb-mcp/)
@@ -504,6 +507,7 @@ make tidy          # Tidy Go modules
 - **[gRPC Documentation](docs/GRPC.md)** - High-performance gRPC API guide
 - **[Web Panel Guide](docs/PANEL.md)** - Web admin interface documentation
 - **[MCP Server Guide](services/mddb-mcp/README.md)** - Model Context Protocol server for LLM integration
+- **[Custom MCP Tools](docs/CUSTOM-TOOLS.md)** - YAML-defined website-specific AI tools
 - **[Bulk Import Guide](docs/BULK-IMPORT.md)** - Import markdown files from folders
 - **[Docker Guide](docs/DOCKER.md)** - Docker deployment with Alpine Linux
 - **[Usage Examples](docs/EXAMPLES.md)** - Code examples and patterns
@@ -591,6 +595,7 @@ mddb-cli get products laptop-x1 pl_PL
 ### Extensions & Integrations
 - **Webhooks** - HTTP callbacks on `doc.added`, `doc.updated`, `doc.deleted` with exponential backoff retry
 - **MCP Server** - Model Context Protocol for LLM integration (gRPC + REST fallback)
+- **Custom MCP Tools** - YAML-defined website-specific tools with defaults (semantic_search, search_documents, full_text_search)
 - **PHP Client** - Single-file client, zero dependencies, PHP 8.0+
 - **Python Client** - Single-file client, zero dependencies, Python 3.8+
 - **Configurable** - Environment-based configuration

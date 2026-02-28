@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.3] - 2026-02-28
+
+### Added
+- **Custom MCP Tools** - YAML-defined website-specific AI tools for mddb-mcp
+  - Define custom tools in `config.yaml` under `custom_tools:` key
+  - 3 supported actions: `semantic_search`, `search_documents`, `full_text_search`
+  - Preconfigured defaults merged with user arguments at runtime
+  - Custom tools appear alongside 23 built-in tools in `tools/list`
+  - Startup validation: name conflicts, valid actions, valid param types
+  - Works on both transports: stdio (Claude Desktop) and HTTP
+  - Deduplicated tool definitions (~420 lines removed, shared `builtinTools()`)
+  - Dedicated documentation: `docs/CUSTOM-TOOLS.md`
+
 ## [2.3.2] - 2026-02-28
 
 ### Added

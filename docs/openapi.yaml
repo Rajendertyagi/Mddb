@@ -27,7 +27,7 @@ info:
     ## Authentication
     Currently, MDDB does not have built-in authentication. Use a reverse proxy (Nginx, Caddy) for authentication and TLS.
 
-  version: 2.3.2
+  version: 2.3.3
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb

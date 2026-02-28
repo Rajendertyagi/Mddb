@@ -7,21 +7,24 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/tradik/mddb/services/mddb-mcp/internal/config"
 	"github.com/tradik/mddb/services/mddb-mcp/internal/mddb"
 )
 
 // Server implements MCP server for MDDB.
 type Server struct {
-	client mddb.Client
-	addr   string
-	server *http.Server
+	client      mddb.Client
+	addr        string
+	server      *http.Server
+	customTools []config.CustomToolConfig
 }
 
 // NewServer creates a new MCP server.
-func NewServer(client mddb.Client, addr string) *Server {
+func NewServer(client mddb.Client, addr string, customTools []config.CustomToolConfig) *Server {
 	return &Server{
-		client: client,
-		addr:   addr,
+		client:      client,
+		addr:        addr,
+		customTools: customTools,
 	}
 }
 
@@ -140,223 +143,9 @@ func (s *Server) handleResourceRead(w http.ResponseWriter, r *http.Request) {
 
 // handleTools returns list of available tools.
 func (s *Server) handleTools(w http.ResponseWriter, r *http.Request) {
-	tools := []Tool{
-		{
-			Name:        "add_document",
-			Description: "Add or update a document in MDDB",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"collection": map[string]interface{}{"type": "string"},
-					"key":        map[string]interface{}{"type": "string"},
-					"lang":       map[string]interface{}{"type": "string"},
-					"content_md": map[string]interface{}{"type": "string"},
-					"meta":       map[string]interface{}{"type": "object"},
-				},
-				"required": []string{"collection", "key", "lang", "content_md"},
-			},
-		},
-		{
-			Name:        "search_documents",
-			Description: "Search documents with filters and sorting",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"collection":  map[string]interface{}{"type": "string"},
-					"filter_meta": map[string]interface{}{"type": "object"},
-					"sort":        map[string]interface{}{"type": "string"},
-					"limit":       map[string]interface{}{"type": "integer"},
-					"offset":      map[string]interface{}{"type": "integer"},
-				},
-				"required": []string{"collection"},
-			},
-		},
-		{
-			Name:        "delete_document",
-			Description: "Delete a document from MDDB",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"collection": map[string]interface{}{"type": "string"},
-					"key":        map[string]interface{}{"type": "string"},
-					"lang":       map[string]interface{}{"type": "string"},
-				},
-				"required": []string{"collection", "key", "lang"},
-			},
-		},
-		{
-			Name:        "get_stats",
-			Description: "Get MDDB server statistics",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-			},
-		},
-		{
-			Name:        "semantic_search",
-			Description: "Search documents by meaning using semantic similarity. Use this when you need to find documents related to a concept or question, rather than filtering by exact metadata tags. Requires embedding provider to be configured on the server.",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"collection":  map[string]interface{}{"type": "string", "description": "Collection to search in"},
-					"query":       map[string]interface{}{"type": "string", "description": "Natural language search query"},
-					"top_k":       map[string]interface{}{"type": "integer", "description": "Number of results to return (default: 5)"},
-					"threshold":   map[string]interface{}{"type": "number", "description": "Minimum similarity score 0-1 (default: 0.0)"},
-					"filter_meta": map[string]interface{}{"type": "object", "description": "Optional metadata filter to combine with semantic search"},
-				},
-				"required": []string{"collection", "query"},
-			},
-		},
-		{
-			Name:        "vector_reindex",
-			Description: "Re-embed all documents in a collection. Use after adding many documents or changing the embedding model.",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"collection": map[string]interface{}{"type": "string", "description": "Collection to reindex"},
-					"force":      map[string]interface{}{"type": "boolean", "description": "Force re-embed even if content hasn't changed (default: false)"},
-				},
-				"required": []string{"collection"},
-			},
-		},
-		{
-			Name:        "vector_stats",
-			Description: "Get vector/embedding statistics including provider info and per-collection embedding coverage.",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-			},
-		},
-		{
-			Name:        "import_url",
-			Description: "Import a markdown document from a URL. Supports YAML frontmatter for metadata extraction.",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"collection": map[string]interface{}{"type": "string", "description": "Target collection"},
-					"url":        map[string]interface{}{"type": "string", "description": "URL to fetch markdown from"},
-					"lang":       map[string]interface{}{"type": "string", "description": "Language code (e.g. en_US)"},
-					"key":        map[string]interface{}{"type": "string", "description": "Document key (auto-derived from URL if empty)"},
-					"meta":       map[string]interface{}{"type": "object", "description": "Additional metadata (overrides frontmatter)"},
-					"ttl":        map[string]interface{}{"type": "integer", "description": "Time-to-live in seconds (0 = no expiry)"},
-				},
-				"required": []string{"collection", "url", "lang"},
-			},
-		},
-		{
-			Name:        "set_ttl",
-			Description: "Set or remove time-to-live on a document. The document will be automatically deleted after TTL expires.",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"collection": map[string]interface{}{"type": "string", "description": "Collection name"},
-					"key":        map[string]interface{}{"type": "string", "description": "Document key"},
-					"lang":       map[string]interface{}{"type": "string", "description": "Language code"},
-					"ttl":        map[string]interface{}{"type": "integer", "description": "TTL in seconds (0 = remove TTL)"},
-				},
-				"required": []string{"collection", "key", "lang", "ttl"},
-			},
-		},
-		{
-			Name:        "full_text_search",
-			Description: "Search documents by text content using full-text search with term matching and relevance scoring.",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"collection": map[string]interface{}{"type": "string", "description": "Collection to search in"},
-					"query":      map[string]interface{}{"type": "string", "description": "Search query text"},
-					"limit":      map[string]interface{}{"type": "integer", "description": "Max results (default: 50)"},
-				},
-				"required": []string{"collection", "query"},
-			},
-		},
-		{
-			Name:        "register_webhook",
-			Description: "Register a webhook to receive HTTP callbacks when documents are added, updated, or deleted.",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"url":        map[string]interface{}{"type": "string", "description": "Webhook endpoint URL"},
-					"events":     map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}, "description": "Events: doc.added, doc.updated, doc.deleted"},
-					"collection": map[string]interface{}{"type": "string", "description": "Filter to specific collection (empty = all)"},
-				},
-				"required": []string{"url", "events"},
-			},
-		},
-		{
-			Name:        "list_webhooks",
-			Description: "List all registered webhooks.",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-			},
-		},
-		{
-			Name:        "delete_webhook",
-			Description: "Delete a registered webhook by ID.",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"id": map[string]interface{}{"type": "string", "description": "Webhook ID to delete"},
-				},
-				"required": []string{"id"},
-			},
-		},
-		{
-			Name:        "set_schema",
-			Description: "Set JSON Schema for collection metadata validation. Documents added to this collection will be validated against the schema.",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"collection": map[string]interface{}{"type": "string", "description": "Collection name"},
-					"schema":     map[string]interface{}{"type": "string", "description": "JSON Schema as a string"},
-				},
-				"required": []string{"collection", "schema"},
-			},
-		},
-		{
-			Name:        "get_schema",
-			Description: "Get JSON Schema for a collection.",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"collection": map[string]interface{}{"type": "string", "description": "Collection name"},
-				},
-				"required": []string{"collection"},
-			},
-		},
-		{
-			Name:        "delete_schema",
-			Description: "Delete/disable schema validation for a collection.",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"collection": map[string]interface{}{"type": "string", "description": "Collection name"},
-				},
-				"required": []string{"collection"},
-			},
-		},
-		{
-			Name:        "list_schemas",
-			Description: "List all collection schemas.",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-			},
-		},
-		{
-			Name:        "validate_document",
-			Description: "Validate document metadata against collection schema without adding the document.",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"collection": map[string]interface{}{"type": "string", "description": "Collection name"},
-					"meta":       map[string]interface{}{"type": "object", "description": "Document metadata to validate"},
-				},
-				"required": []string{"collection", "meta"},
-			},
-		},
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
-		"tools": tools,
+		"tools": allTools(s.customTools),
 	}); err != nil {
 		log.Printf("error encoding tools response: %v", err)
 	}

@@ -58,6 +58,12 @@ func (s *Server) callTool(ctx context.Context, name string, args map[string]inte
 	case "validate_document":
 		return s.toolValidateDocument(ctx, args)
 	default:
+		// Check custom tools
+		for _, ct := range s.customTools {
+			if ct.Name == name {
+				return s.callCustomTool(ctx, ct, args)
+			}
+		}
 		return "", fmt.Errorf("unknown tool: %s", name)
 	}
 }
@@ -89,6 +95,9 @@ func (s *Server) toolSearchDocuments(ctx context.Context, args map[string]interf
 		Sort:       getString(args, "sort"),
 		Limit:      getInt(args, "limit"),
 		Offset:     getInt(args, "offset"),
+	}
+	if asc, ok := args["asc"].(bool); ok {
+		req.Asc = asc
 	}
 
 	resp, err := s.client.Search(ctx, req)

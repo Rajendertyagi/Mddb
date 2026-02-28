@@ -42,7 +42,7 @@ func main() {
 	}()
 
 	// Create MCP handler
-	handler := mcp.NewHandler(client)
+	handler := mcp.NewHandler(client, cfg.CustomTools)
 
 	// Read from stdin, write to stdout (MCP stdio protocol)
 	scanner := bufio.NewScanner(os.Stdin)
