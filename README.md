@@ -928,12 +928,12 @@ results = db.vector_search(
     include_content=True
 )
 
-# Step 2: Build context from results
-context = "\n\n".join([r["contentMd"] for r in results["results"]])
+# Step 2: Build context from retrieved documents
+context = "\n\n".join([r["document"]["contentMd"] for r in results["results"]])
 
 # Step 3: Send to LLM with retrieved context
 response = openai.chat.completions.create(
-    model="gpt-4",
+    model="gpt-4o",
     messages=[
         {"role": "system", "content": f"Answer based on this context:\n\n{context}"},
         {"role": "user", "content": "How do I cancel my subscription?"}
@@ -941,6 +941,8 @@ response = openai.chat.completions.create(
 )
 print(response.choices[0].message.content)
 ```
+
+> **Full RAG guide**: See [docs/RAG-PIPELINE.md](docs/RAG-PIPELINE.md) for a complete WordPress → MDDB → LLM pipeline with diagrams.
 
 ### CLI Vector Search
 
