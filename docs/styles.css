@@ -90,6 +90,34 @@ h2 { font-size: 2.25rem; }
 h3 { font-size: 1.5rem; }
 h4 { font-size: 1.25rem; }
 
+/* Anchor Links */
+.anchor-link {
+    color: var(--text-muted);
+    font-weight: 400;
+    font-size: 0.75em;
+    opacity: 0;
+    margin-left: 0.25em;
+    transition: opacity 0.2s ease, color 0.2s ease;
+    text-decoration: none;
+    vertical-align: middle;
+}
+
+h2:hover .anchor-link,
+.example-tab:hover .anchor-link,
+.anchor-link:focus {
+    opacity: 1;
+}
+
+.anchor-link:hover {
+    color: var(--primary-color);
+    opacity: 1;
+}
+
+.example-tab .anchor-link {
+    font-size: 0.8em;
+    font-weight: 400;
+}
+
 p {
     margin-bottom: 1rem;
 }
