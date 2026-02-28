@@ -3,24 +3,30 @@ info:
   title: MDDB API
   description: |
     MDDB (Markdown Database) is a high-performance, version-controlled markdown database with dual protocol support.
-    
+
     ## Features
     - Store and manage markdown documents with metadata
     - Full revision history for all documents
     - Multi-language support
     - Fast metadata-based search
+    - **Vector search** with embedding providers (OpenAI, Ollama)
+    - **Full-text search** with TF-IDF scoring
+    - **Webhooks** for real-time event notifications
+    - **TTL** (time-to-live) support for automatic document expiration
+    - **JSON Schema validation** for document metadata
+    - **URL import** with YAML frontmatter parsing
     - Template variable substitution
     - Export capabilities (NDJSON, ZIP)
     - Backup and restore operations
-    
+
     ## Protocols
     - **HTTP/JSON** - Port 11023 (documented here)
     - **gRPC/Protobuf** - Port 11024 (see gRPC documentation)
     - **HTTP/3 + QUIC** - Port 11443 (extreme mode only)
-    
+
     ## Authentication
     Currently, MDDB does not have built-in authentication. Use a reverse proxy (Nginx, Caddy) for authentication and TLS.
-    
+
   version: 2.3.1
   contact:
     name: MDDB Team
@@ -42,6 +48,18 @@ tags:
     description: Document management operations
   - name: Search
     description: Search and query operations
+  - name: Vector Search
+    description: Semantic/vector search operations
+  - name: Full-Text Search
+    description: Keyword-based full-text search
+  - name: Import
+    description: Document import from URLs
+  - name: TTL
+    description: Document time-to-live management
+  - name: Webhooks
+    description: Webhook registration and management
+  - name: Schema Validation
+    description: JSON Schema validation for metadata
   - name: Export
     description: Export and backup operations
   - name: Maintenance
@@ -196,9 +214,9 @@ paths:
       summary: Search documents
       description: |
         Search documents with metadata filtering, sorting, and pagination.
-        
+
         **Filtering:** AND logic between different metadata keys, OR logic between values of the same key.
-        
+
         **Sorting:** Sort by `addedAt`, `updatedAt`, or `key`.
       operationId: searchDocuments
       requestBody:
@@ -305,9 +323,9 @@ paths:
       summary: Export documents
       description: |
         Export documents in NDJSON or ZIP format with optional metadata filtering.
-        
+
         **NDJSON:** Newline-delimited JSON, one document per line.
-        
+
         **ZIP:** Archive with markdown files named `{key}.{lang}.md`.
       operationId: exportDocuments
       requestBody:
@@ -419,7 +437,7 @@ paths:
       summary: Truncate revision history
       description: |
         Remove old revisions to save disk space. Keeps the latest N revisions per document.
-        
+
         **Warning:** This operation is irreversible.
       operationId: truncateRevisions
       requestBody:
@@ -448,6 +466,476 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
           description: Read-only mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/vector-search:
+    post:
+      tags:
+        - Vector Search
+      summary: Semantic vector search
+      description: |
+        Search documents by semantic similarity using vector embeddings.
+
+        Provide either a `query` string (which will be embedded automatically using the configured provider) or a raw `queryVector` array of floats.
+
+        Results are ranked by cosine similarity score. Use `threshold` to filter out low-relevance results. Use `filterMeta` to narrow results by metadata before ranking.
+      operationId: vectorSearch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VectorSearchRequest'
+      responses:
+        '200':
+          description: Vector search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VectorSearchResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Vector index is still loading
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/vector-reindex:
+    post:
+      tags:
+        - Vector Search
+      summary: Reindex collection embeddings
+      description: |
+        Trigger re-embedding of all documents in a collection. This is a write-protected endpoint.
+
+        Use `force: true` to re-embed all documents even if their content has not changed since the last embedding.
+      operationId: vectorReindex
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VectorReindexRequest'
+      responses:
+        '200':
+          description: Reindex completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VectorReindexResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Read-only mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/vector-stats:
+    get:
+      tags:
+        - Vector Search
+      summary: Vector search statistics
+      description: Get the current status of the vector search subsystem, including provider info, index readiness, and per-collection embedding counts.
+      operationId: vectorStats
+      responses:
+        '200':
+          description: Vector stats retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VectorStatsResponse'
+
+  /v1/fts:
+    post:
+      tags:
+        - Full-Text Search
+      summary: Full-text search
+      description: |
+        Perform keyword-based full-text search across documents in a collection using TF-IDF scoring.
+
+        The query is tokenized and matched against document content. Results include matched terms and relevance scores.
+      operationId: fullTextSearch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FTSSearchRequest'
+      responses:
+        '200':
+          description: Full-text search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FTSSearchResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/import-url:
+    post:
+      tags:
+        - Import
+      summary: Import document from URL
+      description: |
+        Fetch content from a URL, parse YAML frontmatter if present, merge metadata, and store the document. This is a write-protected endpoint.
+
+        If `key` is not provided, it is derived from the URL path. YAML frontmatter metadata from the fetched content is merged with the `meta` parameter.
+      operationId: importUrl
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImportURLRequest'
+      responses:
+        '200':
+          description: Document imported successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Read-only mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/set-ttl:
+    post:
+      tags:
+        - TTL
+      summary: Set document TTL
+      description: |
+        Set a time-to-live (TTL) on a document. After the TTL expires, the document will be automatically deleted. This is a write-protected endpoint.
+
+        Set `ttl` to `0` to remove the TTL and make the document permanent again.
+      operationId: setTTL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetTTLRequest'
+      responses:
+        '200':
+          description: TTL set successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Read-only mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/webhooks:
+    get:
+      tags:
+        - Webhooks
+      summary: List webhooks
+      description: List all registered webhooks.
+      operationId: listWebhooks
+      responses:
+        '200':
+          description: List of registered webhooks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Webhook'
+    post:
+      tags:
+        - Webhooks
+      summary: Register webhook
+      description: |
+        Register a new webhook to receive event notifications. This is a write-protected endpoint.
+
+        If `collection` is empty, the webhook will receive events for all collections.
+      operationId: registerWebhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterWebhookRequest'
+      responses:
+        '200':
+          description: Webhook registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Webhook'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Read-only mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/webhooks/delete:
+    post:
+      tags:
+        - Webhooks
+      summary: Delete webhook
+      description: Delete a registered webhook by its ID. This is a write-protected endpoint.
+      operationId: deleteWebhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteWebhookRequest'
+      responses:
+        '200':
+          description: Webhook deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: deleted
+                  id:
+                    type: string
+                    example: abc123
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Read-only mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/schema/set:
+    post:
+      tags:
+        - Schema Validation
+      summary: Set collection schema
+      description: |
+        Set a JSON Schema for a collection's metadata validation. This is a write-protected endpoint.
+
+        Once set, all documents added to the collection will have their metadata validated against this schema.
+      operationId: setSchema
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetSchemaRequest'
+      responses:
+        '200':
+          description: Schema set successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  collection:
+                    type: string
+                    example: blog
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Read-only mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/schema/get:
+    post:
+      tags:
+        - Schema Validation
+      summary: Get collection schema
+      description: Retrieve the JSON Schema currently set for a collection.
+      operationId: getSchema
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - collection
+              properties:
+                collection:
+                  type: string
+                  description: Collection name
+                  example: blog
+      responses:
+        '200':
+          description: Schema retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchemaResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/schema/delete:
+    post:
+      tags:
+        - Schema Validation
+      summary: Delete collection schema
+      description: Remove the JSON Schema for a collection, disabling metadata validation. This is a write-protected endpoint.
+      operationId: deleteSchema
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - collection
+              properties:
+                collection:
+                  type: string
+                  description: Collection name
+                  example: blog
+      responses:
+        '200':
+          description: Schema deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  collection:
+                    type: string
+                    example: blog
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Read-only mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/schema/list:
+    post:
+      tags:
+        - Schema Validation
+      summary: List all schemas
+      description: List all JSON Schemas set across all collections.
+      operationId: listSchemas
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: List of schemas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  schemas:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        collection:
+                          type: string
+                          example: blog
+                        schema:
+                          type: string
+                          description: JSON Schema string
+                          example: '{"type":"object","required":["author"]}'
+
+  /v1/validate:
+    post:
+      tags:
+        - Schema Validation
+      summary: Validate metadata against schema
+      description: |
+        Validate a metadata object against the JSON Schema set for a collection.
+
+        This is a dry-run validation that does not modify any data. Useful for pre-validating metadata before adding a document.
+      operationId: validateMetadata
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateRequest'
+      responses:
+        '200':
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidateResponse'
+        '400':
+          description: Invalid request
           content:
             application/json:
               schema:
@@ -714,6 +1202,405 @@ components:
         uptime:
           type: string
           example: 2h15m30s
+
+    VectorSearchRequest:
+      type: object
+      required:
+        - collection
+      properties:
+        collection:
+          type: string
+          description: Collection name to search
+          example: blog
+        query:
+          type: string
+          description: Natural language query string (required if queryVector is not provided)
+          example: How to set up a CI/CD pipeline?
+        queryVector:
+          type: array
+          items:
+            type: number
+            format: float
+          description: Raw embedding vector (optional, use instead of query for pre-computed embeddings)
+        topK:
+          type: integer
+          description: Number of top results to return (default 5)
+          default: 5
+          example: 5
+        threshold:
+          type: number
+          format: float
+          description: Minimum cosine similarity score (0.0 to 1.0)
+          minimum: 0
+          maximum: 1
+          example: 0.7
+        filterMeta:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Metadata filters to narrow results before ranking
+          example:
+            category: [devops, tutorial]
+        includeContent:
+          type: boolean
+          description: Whether to include document content in results (default false)
+          default: false
+          example: false
+
+    VectorSearchResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/VectorSearchResultItem'
+        total:
+          type: integer
+          description: Number of results returned
+          example: 5
+        model:
+          type: string
+          description: Embedding model used
+          example: text-embedding-3-small
+        dimensions:
+          type: integer
+          description: Embedding vector dimensions
+          example: 1536
+
+    VectorSearchResultItem:
+      type: object
+      properties:
+        document:
+          $ref: '#/components/schemas/Document'
+        score:
+          type: number
+          format: float
+          description: Cosine similarity score (0.0 to 1.0)
+          example: 0.92
+        rank:
+          type: integer
+          description: Result rank (1-based)
+          example: 1
+
+    VectorReindexRequest:
+      type: object
+      required:
+        - collection
+      properties:
+        collection:
+          type: string
+          description: Collection name to reindex
+          example: blog
+        force:
+          type: boolean
+          description: If true, re-embed even if content is unchanged
+          default: false
+          example: false
+
+    VectorReindexResponse:
+      type: object
+      properties:
+        embedded:
+          type: integer
+          description: Number of documents embedded
+          example: 42
+        skipped:
+          type: integer
+          description: Number of documents skipped (content unchanged)
+          example: 10
+        failed:
+          type: integer
+          description: Number of documents that failed to embed
+          example: 0
+        errors:
+          type: array
+          items:
+            type: string
+          description: Error messages for failed embeddings
+
+    VectorStatsResponse:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: Whether vector search is enabled
+          example: true
+        provider:
+          type: string
+          description: Embedding provider name
+          example: text-embedding-3-small
+        model:
+          type: string
+          description: Embedding model name
+          example: text-embedding-3-small
+        dimensions:
+          type: integer
+          description: Embedding vector dimensions
+          example: 1536
+        index_ready:
+          type: boolean
+          description: Whether the vector index is loaded and ready
+          example: true
+        collections:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              total_documents:
+                type: integer
+                description: Total documents in collection
+                example: 100
+              embedded_documents:
+                type: integer
+                description: Documents with embeddings
+                example: 95
+          description: Per-collection embedding statistics
+          example:
+            blog:
+              total_documents: 100
+              embedded_documents: 95
+
+    FTSSearchRequest:
+      type: object
+      required:
+        - collection
+        - query
+      properties:
+        collection:
+          type: string
+          description: Collection name to search
+          example: blog
+        query:
+          type: string
+          description: Full-text search query string
+          example: cancel subscription
+        limit:
+          type: integer
+          description: Maximum number of results (default 50)
+          default: 50
+          example: 50
+
+    FTSSearchResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/FTSResultItem'
+        total:
+          type: integer
+          description: Number of results returned
+          example: 3
+
+    FTSResultItem:
+      type: object
+      properties:
+        document:
+          $ref: '#/components/schemas/Document'
+        score:
+          type: number
+          format: float
+          description: TF-IDF relevance score
+          example: 2.45
+        matchedTerms:
+          type: array
+          items:
+            type: string
+          description: Terms from the query that matched
+          example: [cancel, subscription]
+
+    ImportURLRequest:
+      type: object
+      required:
+        - collection
+        - url
+        - lang
+      properties:
+        collection:
+          type: string
+          description: Collection name
+          example: blog
+        url:
+          type: string
+          format: uri
+          description: URL to fetch content from
+          example: https://example.com/post.md
+        key:
+          type: string
+          description: Document key (derived from URL if empty)
+          example: my-post
+        lang:
+          type: string
+          description: Language code
+          example: en_US
+        meta:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Additional metadata to merge with frontmatter
+          example:
+            source: [imported]
+        ttl:
+          type: integer
+          description: Time-to-live in seconds (0 = no expiration)
+          example: 3600
+
+    SetTTLRequest:
+      type: object
+      required:
+        - collection
+        - key
+        - lang
+        - ttl
+      properties:
+        collection:
+          type: string
+          description: Collection name
+          example: blog
+        key:
+          type: string
+          description: Document key
+          example: hello-world
+        lang:
+          type: string
+          description: Language code
+          example: en_US
+        ttl:
+          type: integer
+          description: Time-to-live in seconds (0 = remove TTL)
+          example: 3600
+
+    Webhook:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique webhook ID
+          example: abc123
+        url:
+          type: string
+          format: uri
+          description: Webhook callback URL
+          example: https://example.com/hook
+        events:
+          type: array
+          items:
+            type: string
+            enum: [doc.added, doc.updated, doc.deleted]
+          description: Event types to listen for
+          example: [doc.added, doc.updated]
+        collection:
+          type: string
+          description: Collection filter (empty = all collections)
+          example: blog
+        createdAt:
+          type: integer
+          format: int64
+          description: Unix timestamp when the webhook was created
+          example: 1704844800
+
+    RegisterWebhookRequest:
+      type: object
+      required:
+        - url
+        - events
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Webhook callback URL
+          example: https://example.com/hook
+        events:
+          type: array
+          items:
+            type: string
+            enum: [doc.added, doc.updated, doc.deleted]
+          description: Event types to listen for
+          example: [doc.added, doc.updated]
+        collection:
+          type: string
+          description: Collection filter (empty = all collections)
+          example: blog
+
+    DeleteWebhookRequest:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          description: Webhook ID to delete
+          example: abc123
+
+    SetSchemaRequest:
+      type: object
+      required:
+        - collection
+        - schema
+      properties:
+        collection:
+          type: string
+          description: Collection name
+          example: blog
+        schema:
+          type: string
+          description: JSON Schema string for metadata validation
+          example: '{"type":"object","required":["author"],"properties":{"author":{"type":"array","items":{"type":"string"}}}}'
+
+    SchemaResponse:
+      type: object
+      properties:
+        collection:
+          type: string
+          description: Collection name
+          example: blog
+        schema:
+          type: string
+          description: JSON Schema string
+          example: '{"type":"object","required":["author"]}'
+        enabled:
+          type: boolean
+          description: Whether schema validation is enabled for this collection
+          example: true
+
+    ValidateRequest:
+      type: object
+      required:
+        - collection
+        - meta
+      properties:
+        collection:
+          type: string
+          description: Collection name
+          example: blog
+        meta:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Metadata to validate against the collection schema
+          example:
+            category: [blog]
+            author: [John Doe]
+
+    ValidateResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+          description: Whether the metadata is valid according to the schema
+          example: true
+        errors:
+          type: array
+          items:
+            type: string
+          description: Validation error messages (empty if valid)
+          example: []
 
     ErrorResponse:
       type: object
