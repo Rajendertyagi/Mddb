@@ -58,7 +58,7 @@ services:
     labels:
       - "com.mddb.description=MDDB Panel - Development Web Interface"
       - "com.mddb.environment=development"
-      - "com.mddb.version=2.1.0"
+      - "com.mddb.version=2.3.1"
 
 volumes:
   mddb-dev-data:
