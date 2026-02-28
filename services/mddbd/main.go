@@ -55,6 +55,7 @@ type Server struct {
 	FTSIndex       *FTSIndex       // Full-text search index
 	WebhookManager *WebhookManager // Webhook subscriptions and delivery
 	SchemaManager  *SchemaManager  // Per-collection metadata schema validation
+	Metrics        *Metrics        // Prometheus-compatible telemetry
 }
 
 // BucketNames caches bucket name byte slices to avoid repeated allocations
@@ -268,6 +269,13 @@ func main() {
 	}
 	log.Printf("Schema manager initialized (%d schemas loaded)", len(s.SchemaManager.List()))
 
+	// Initialize metrics (enabled by default, set MDDB_METRICS=false to disable)
+	metricsEnabled := env("MDDB_METRICS", "true") != "false"
+	s.Metrics = NewMetrics(s, metricsEnabled)
+	if metricsEnabled {
+		log.Println("Prometheus metrics enabled (GET /metrics)")
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/v1/health", s.handleHealth)
@@ -294,14 +302,19 @@ func main() {
 	mux.HandleFunc("/v1/schema/delete", s.guardWrite(s.handleSchemaDelete))
 	mux.HandleFunc("/v1/schema/list", s.handleSchemaList)
 	mux.HandleFunc("/v1/validate", s.handleValidate)
+	mux.HandleFunc("/metrics", s.Metrics.HandleMetrics)
 
 	httpAddr := env("MDDB_ADDR", ":11023")
 	grpcAddr := env("MDDB_GRPC_ADDR", ":11024")
 
+	// Wrap mux: metrics middleware → JSON content type → routes
+	handler := withJSON(mux)
+	handler = s.Metrics.Middleware(handler)
+
 	// Start HTTP server
 	go func() {
 		log.Printf("mddb HTTP listening on %s (mode=%s, db=%s)", httpAddr, s.Mode, dbPath)
-		if err := http.ListenAndServe(httpAddr, withJSON(mux)); err != nil {
+		if err := http.ListenAndServe(httpAddr, handler); err != nil {
 			log.Fatal(err)
 		}
 	}()
@@ -310,7 +323,7 @@ func main() {
 	if useExtreme {
 		http3Addr := env("MDDB_HTTP3_ADDR", ":11443")
 		go func() {
-			h3Server, err := NewHTTP3Server(http3Addr, HTTP3Middleware(withJSON(mux)))
+			h3Server, err := NewHTTP3Server(http3Addr, HTTP3Middleware(handler))
 			if err != nil {
 				log.Printf("⚠️  Failed to start HTTP/3 server: %v", err)
 				return

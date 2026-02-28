@@ -26,7 +26,7 @@ Model Context Protocol (MCP) server for MDDB - provides LLM-friendly access to M
 docker pull tradik/mddb:mcp
 
 # Specific version (same as main MDDB version)
-docker pull tradik/mddb:mcp-2.3.1
+docker pull tradik/mddb:mcp-2.3.2
 ```
 
 **Or build locally:**

@@ -28,7 +28,7 @@ services:
       start_period: 10s
     labels:
       - "com.mddb.description=MDDB - High-Performance Markdown Database"
-      - "com.mddb.version=2.3.1"
+      - "com.mddb.version=2.3.2"
       - "com.mddb.performance=optimized"
 
   mddb-panel:
@@ -48,7 +48,7 @@ services:
         condition: service_healthy
     labels:
       - "com.mddb.description=MDDB Panel - Web Admin Interface"
-      - "com.mddb.version=2.3.1"
+      - "com.mddb.version=2.3.2"
 
   mddb-mcp:
     build:
@@ -76,7 +76,7 @@ services:
       start_period: 10s
     labels:
       - "com.mddb.description=MDDB MCP - Model Context Protocol Server"
-      - "com.mddb.version=2.3.1"
+      - "com.mddb.version=2.3.2"
 
 volumes:
   mddb-data:

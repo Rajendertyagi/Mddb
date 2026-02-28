@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.2] - 2026-02-28
+
+### Added
+- **Telemetry** - Prometheus-compatible `/metrics` endpoint
+  - HTTP request counters with method, path, and status labels
+  - Request duration histograms (12 buckets from 1ms to 10s)
+  - Database metrics: file size, documents, revisions, meta indices per collection
+  - Vector search metrics: embeddings count, index readiness, queue size
+  - Webhook and schema counts
+  - Go runtime: goroutines, memory stats, GC metrics
+  - Zero external dependencies (pure Go text exposition format)
+  - DB stats cached for 15s to minimize scan overhead
+  - Configurable via `MDDB_METRICS` env var (enabled by default)
+  - Dedicated documentation: `docs/TELEMETRY.md` with Grafana queries and alerting rules
+
 ## [2.3.1] - 2026-02-28
 
 ### Added

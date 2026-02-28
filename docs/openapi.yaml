@@ -27,7 +27,7 @@ info:
     ## Authentication
     Currently, MDDB does not have built-in authentication. Use a reverse proxy (Nginx, Caddy) for authentication and TLS.
 
-  version: 2.3.1
+  version: 2.3.2
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -64,6 +64,8 @@ tags:
     description: Export and backup operations
   - name: Maintenance
     description: Database maintenance operations
+  - name: Telemetry
+    description: Prometheus-compatible metrics endpoint
 
 paths:
   /health:
@@ -940,6 +942,37 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /metrics:
+    get:
+      tags:
+        - Telemetry
+      summary: Prometheus metrics
+      description: |
+        Returns server telemetry in Prometheus text exposition format.
+
+        Includes HTTP request counters, latency histograms, database statistics,
+        vector search status, and Go runtime metrics. Enabled by default
+        (set `MDDB_METRICS=false` to disable).
+
+        See [Telemetry documentation](TELEMETRY.md) for Grafana dashboards and alerting rules.
+      operationId: getMetrics
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP mddb_uptime_seconds Time since server start in seconds.
+                  # TYPE mddb_uptime_seconds gauge
+                  mddb_uptime_seconds 3621.4
+                  # HELP mddb_http_requests_total Total number of HTTP requests.
+                  # TYPE mddb_http_requests_total counter
+                  mddb_http_requests_total{method="POST",path="/v1/add",status="200"} 1523
+        '404':
+          description: Metrics disabled (MDDB_METRICS=false)
 
 components:
   schemas:

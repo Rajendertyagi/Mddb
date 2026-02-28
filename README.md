@@ -213,6 +213,7 @@ See [Performance Tests](test/README.md) for detailed benchmarks.
 - **Schema Validation** - Per-collection JSON Schema validation for metadata (opt-in, disabled by default)
 - **Webhooks** - HTTP callbacks on `doc.added`, `doc.updated`, `doc.deleted` events with 3x retry
 - **Import from URL** - Fetch markdown from URLs with automatic frontmatter parsing and key derivation
+- **Telemetry** - Prometheus-compatible `/metrics` endpoint with request counters, latency histograms, and DB stats
 - **Multi-language** - Store same document in multiple languages
 - **Template Variables** - Dynamic content with `{{variable}}` substitution
 - **Collections** - Organize documents into logical groups
@@ -411,21 +412,21 @@ MDDB includes a Model Context Protocol (MCP) server for seamless integration wit
 **Quick Start with Docker:**
 ```bash
 # Pull MCP image (uses same version as main MDDB)
-docker pull tradik/mddb:mcp-2.3.1
+docker pull tradik/mddb:mcp-2.3.2
 
 # For Windsurf/Claude Desktop (stdio mode)
 docker run -i --rm \
   -e MCP_MODE=stdio \
   -e MDDB_GRPC_ADDRESS=localhost:11024 \
   -e MDDB_REST_BASE_URL=http://localhost:11023 \
-  tradik/mddb:mcp-2.3.1
+  tradik/mddb:mcp-2.3.2
 
 # For HTTP mode
 docker run -d -p 9000:9000 \
   -e MCP_MODE=http \
   -e MDDB_GRPC_ADDRESS=localhost:11024 \
   -e MDDB_REST_BASE_URL=http://localhost:11023 \
-  tradik/mddb:mcp-2.3.1
+  tradik/mddb:mcp-2.3.2
 ```
 
 **Documentation:**
@@ -953,6 +954,26 @@ mddb-cli search kb -f "category=billing"
 # Use full-text search as a complement to vector search
 mddb-cli fts kb --query="cancel subscription" --limit=5
 ```
+
+## 📊 Telemetry & Monitoring
+
+MDDB exposes a Prometheus-compatible `GET /metrics` endpoint (enabled by default):
+
+```bash
+curl http://localhost:11023/metrics
+```
+
+Available metrics:
+- `mddb_http_requests_total` - request counter (method, path, status)
+- `mddb_http_request_duration_seconds` - latency histogram
+- `mddb_documents_total` / `mddb_revisions_total` - per-collection counts
+- `mddb_database_size_bytes` - database file size
+- `mddb_vector_embeddings_total` / `mddb_embedding_queue_size` - vector status
+- `go_goroutines` / `go_memstats_*` - Go runtime
+
+Set `MDDB_METRICS=false` to disable.
+
+> **Full guide**: See [docs/TELEMETRY.md](docs/TELEMETRY.md) for Prometheus config, Grafana dashboards, alerting rules, and Kubernetes setup.
 
 ## 🗺️ Roadmap
 
