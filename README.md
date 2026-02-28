@@ -11,9 +11,9 @@
 [![Protocol Buffers](https://img.shields.io/badge/protobuf-3-blue.svg)](https://protobuf.dev)
 [![MCP](https://img.shields.io/badge/MCP-enabled-purple.svg)](https://modelcontextprotocol.io)
 
-**A high-performance, version-controlled markdown database with dual protocol support (HTTP/JSON + gRPC/Protobuf)**
+**A high-performance, version-controlled markdown database with vector search and dual protocol support (HTTP/JSON + gRPC/Protobuf)**
 
-MDDB is a lightweight, embedded database specifically designed for storing and managing markdown documents with rich metadata. Built with Go and BoltDB, it provides blazing-fast document operations with full revision history, making it perfect for content management systems, documentation platforms, and knowledge bases.
+MDDB is a lightweight, embedded database specifically designed for storing and managing markdown documents with rich metadata. Built with Go and BoltDB, it provides blazing-fast document operations with full revision history and semantic vector search, making it perfect for content management systems, documentation platforms, knowledge bases, and RAG pipelines.
 
 ## 🎯 What is MDDB?
 
@@ -23,6 +23,7 @@ MDDB (Markdown Database) is a specialized database server that treats markdown d
 - **Dual Protocol APIs** - Choose between HTTP/JSON (easy debugging) or gRPC/Protobuf (high performance)
 - **Full Revision History** - Every document update creates a new revision with complete content snapshot
 - **Rich Metadata Indexing** - Fast searches using multi-value metadata tags
+- **Vector Search** - Semantic similarity search powered by embeddings (OpenAI, Ollama, Voyage AI)
 - **Template Variables** - Dynamic content with variable substitution
 - **Multi-language Support** - Store documents in multiple languages with the same key
 - **Zero Configuration** - Single binary, embedded database, no external dependencies
@@ -104,7 +105,18 @@ doc, _ := client.Get(ctx, &mddb.GetRequest{
 ```
 **Perfect for**: Template storage, shared content, configuration distribution
 
-### 6. **Version-Controlled Content**
+### 6. **RAG / AI Knowledge Base**
+```bash
+# Documents are automatically embedded in the background
+mddb-cli add kb faq-billing en_US -f billing.md -m "category=billing"
+
+# Semantic search - find relevant docs by meaning, not keywords
+curl -X POST http://localhost:11023/v1/vector/search \
+  -d '{"collection": "kb", "query": "how do I cancel my subscription?", "limit": 5}'
+```
+**Perfect for**: RAG pipelines, AI assistants, semantic search, chatbot knowledge bases
+
+### 7. **Version-Controlled Content**
 ```bash
 # Track all changes with full history
 mddb-cli add docs readme en_US -f README.md -m "version=1.0"
@@ -160,6 +172,7 @@ See [Performance Tests](test/README.md) for detailed benchmarks.
 - **Document Management** - Add, update, retrieve markdown with metadata
 - **Revision History** - Every update creates a new revision with full content
 - **Metadata Search** - Fast indexed search with multi-value tags
+- **Vector Search** - Semantic similarity search with auto-generated embeddings (OpenAI, Ollama, Voyage AI)
 - **Multi-language** - Store same document in multiple languages
 - **Template Variables** - Dynamic content with `{{variable}}` substitution
 - **Collections** - Organize documents into logical groups
@@ -513,6 +526,8 @@ mddb-cli get products laptop-x1 pl_PL
 - `GET /v1/backup` - Create database backup
 - `POST /v1/restore` - Restore from backup
 - `POST /v1/truncate` - Clean up old revisions
+- `POST /v1/vector/search` - Semantic vector similarity search
+- `POST /v1/vector/status` - Embedding index status
 
 **Interactive API Documentation:** Open [docs/swagger.html](docs/swagger.html) in your browser for full API documentation with try-it-out functionality.
 
@@ -674,7 +689,6 @@ The folder loader script automatically:
 ## 🗺️ Roadmap
 
 ### Planned Features
-- **Full-Text Search** - Integration with Bleve or Meilisearch
 - **Authentication** - Built-in API key and JWT support
 - **Authorization** - Collection-level access control
 - **Schema Validation** - JSON Schema validation for metadata
