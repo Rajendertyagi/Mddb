@@ -358,21 +358,21 @@ MDDB includes a Model Context Protocol (MCP) server for seamless integration wit
 **Quick Start with Docker:**
 ```bash
 # Pull MCP image (uses same version as main MDDB)
-docker pull tradik/mddb:mcp-2.0.4
+docker pull tradik/mddb:mcp-2.1.0
 
 # For Windsurf/Claude Desktop (stdio mode)
 docker run -i --rm \
   -e MCP_MODE=stdio \
   -e MDDB_GRPC_ADDRESS=localhost:11024 \
   -e MDDB_REST_BASE_URL=http://localhost:11023 \
-  tradik/mddb:mcp-2.0.4
+  tradik/mddb:mcp-2.1.0
 
 # For HTTP mode
 docker run -d -p 9000:9000 \
   -e MCP_MODE=http \
   -e MDDB_GRPC_ADDRESS=localhost:11024 \
   -e MDDB_REST_BASE_URL=http://localhost:11023 \
-  tradik/mddb:mcp-2.0.4
+  tradik/mddb:mcp-2.1.0
 ```
 
 **Documentation:**

@@ -69,13 +69,13 @@ func (p *VoyageEmbeddingProvider) EmbedBatch(ctx context.Context, texts []string
 
 	resp, err := p.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("Voyage AI API request: %w", err)
+		return nil, fmt.Errorf("voyage AI API request: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Voyage AI API error (status %d): %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("voyage AI API error (status %d): %s", resp.StatusCode, string(respBody))
 	}
 
 	var result voyageEmbeddingResponse
