@@ -1,4 +1,4 @@
-.TH MDDB-CLI 1 "November 2024" "mddb-cli 1.0.0" "User Commands"
+.TH MDDB-CLI 1 "March 2026" "mddb-cli 2.5.0" "User Commands"
 .SH NAME
 mddb-cli \- command-line client for MDDB (Markdown Database)
 .SH SYNOPSIS
@@ -13,6 +13,15 @@ via HTTP/JSON API.
 .TP
 .BR \-s ", " \-\-server =\fIURL\fR
 MDDB server URL (default: http://localhost:11023)
+.TP
+.BR \-\-token =\fITOKEN\fR
+JWT token for authentication (v2.4+)
+.TP
+.BR \-\-api-key =\fIKEY\fR
+API key for authentication (v2.4+)
+.TP
+.BR \-\-graphql
+Use GraphQL endpoint instead of REST (v2.5+)
 .TP
 .BR \-j ", " \-\-json
 Output raw JSON responses
@@ -128,6 +137,227 @@ mddb-cli export blog -F zip -o backup.zip
 mddb-cli export blog -f "status=published" -o published.ndjson
 .fi
 .RE
+.SS import-url
+Import a markdown document from a URL (v2.2+).
+.PP
+.B mddb-cli import-url
+[\fIOPTIONS\fR] \fICOLLECTION\fR \fIURL\fR \fILANG\fR
+.PP
+Fetches markdown from URL and automatically parses YAML frontmatter as metadata.
+.PP
+Options:
+.TP
+.BR \-k ", " \-\-key =\fIKEY\fR
+Document key (default: derived from URL filename)
+.PP
+Examples:
+.RS
+.nf
+mddb-cli import-url docs https://example.com/guide.md en_US
+mddb-cli import-url kb https://raw.githubusercontent.com/user/repo/README.md en -k readme
+.fi
+.RE
+.SS set-ttl
+Set or remove time-to-live (TTL) for a document (v2.0+).
+.PP
+.B mddb-cli set-ttl
+[\fIOPTIONS\fR] \fICOLLECTION\fR \fIKEY\fR \fILANG\fR
+.PP
+Options:
+.TP
+.BR \-\-ttl =\fISECONDS\fR
+TTL in seconds (0 = remove TTL, make permanent)
+.PP
+Examples:
+.RS
+.nf
+# Expire in 1 hour
+mddb-cli set-ttl cache session-123 en --ttl=3600
+
+# Remove TTL (make permanent)
+mddb-cli set-ttl cache session-123 en --ttl=0
+.fi
+.RE
+.SS fts
+Full-text search using built-in inverted index (v2.2+).
+.PP
+.B mddb-cli fts
+[\fIOPTIONS\fR] \fICOLLECTION\fR
+.PP
+Options:
+.TP
+.BR \-\-query =\fIQUERY\fR
+Search query (keywords)
+.TP
+.BR \-l ", " \-\-limit =\fIN\fR
+Maximum results (default: 50)
+.PP
+Examples:
+.RS
+.nf
+mddb-cli fts blog --query="markdown database tutorial"
+mddb-cli fts kb --query="authentication setup" --limit=10
+.fi
+.RE
+.SS vector-search
+Semantic vector search using embeddings (v2.1+).
+.PP
+.B mddb-cli vector-search
+[\fIOPTIONS\fR] \fICOLLECTION\fR
+.PP
+Options:
+.TP
+.BR \-\-query =\fIQUERY\fR
+Search query (natural language)
+.TP
+.BR \-k ", " \-\-top-k =\fIN\fR
+Number of results (default: 5)
+.TP
+.BR \-t ", " \-\-threshold =\fIFLOAT\fR
+Minimum similarity score 0.0-1.0 (default: 0.7)
+.TP
+.BR \-c ", " \-\-include-content
+Include full document content in results
+.PP
+Examples:
+.RS
+.nf
+mddb-cli vector-search kb --query="how to reset password?"
+mddb-cli vector-search blog --query="getting started guide" -k 3 -t 0.8 -c
+.fi
+.RE
+.SS vector-reindex
+Re-generate embeddings for all documents in a collection (v2.1+).
+.PP
+.B mddb-cli vector-reindex
+[\fIOPTIONS\fR] \fICOLLECTION\fR
+.PP
+Options:
+.TP
+.BR \-\-force
+Force reindex even if embeddings exist
+.PP
+Examples:
+.RS
+.nf
+mddb-cli vector-reindex kb
+mddb-cli vector-reindex blog --force
+.fi
+.RE
+.SS vector-stats
+Display vector search statistics (v2.1+).
+.PP
+.B mddb-cli vector-stats
+.PP
+Shows:
+.RS
+- Total embeddings count
+.br
+- Embedding dimensions
+.br
+- Provider and model
+.br
+- Queue size
+.RE
+.PP
+Examples:
+.RS
+.nf
+mddb-cli vector-stats
+mddb-cli vector-stats -j  # JSON output
+.fi
+.RE
+.SS webhook
+Manage webhooks for document events (v2.1+).
+.PP
+.B mddb-cli webhook
+\fISUBCOMMAND\fR [\fIOPTIONS\fR]
+.PP
+Subcommands:
+.TP
+.B register
+Register a new webhook
+.RS
+.TP
+.BR \-\-url =\fIURL\fR
+Webhook callback URL (required)
+.TP
+.BR \-\-events =\fIEVENTS\fR
+Comma-separated events: doc.added,doc.updated,doc.deleted
+.TP
+.BR \-\-collection =\fICOLLECTION\fR
+Filter to specific collection (optional)
+.RE
+.TP
+.B list
+List all registered webhooks
+.TP
+.B delete
+Delete a webhook by ID
+.PP
+Examples:
+.RS
+.nf
+# Register webhook for all events
+mddb-cli webhook register --url=https://example.com/hook --events=doc.added,doc.updated
+
+# Register for specific collection
+mddb-cli webhook register --url=https://cdn.com/purge --events=doc.updated --collection=blog
+
+# List webhooks
+mddb-cli webhook list
+
+# Delete webhook
+mddb-cli webhook delete abc123
+.fi
+.RE
+.SS schema
+Manage JSON Schema validation for collections (v2.3.1+).
+.PP
+.B mddb-cli schema
+\fISUBCOMMAND\fR [\fIOPTIONS\fR]
+.PP
+Subcommands:
+.TP
+.B set
+Set JSON Schema for a collection
+.RS
+.TP
+.BR \-f ", " \-\-file =\fIFILE\fR
+JSON Schema file
+.RE
+.TP
+.B get
+Get JSON Schema for a collection
+.TP
+.B delete
+Remove JSON Schema from a collection
+.PP
+Examples:
+.RS
+.nf
+# Set schema from file
+mddb-cli schema set blog -f blog-schema.json
+
+# Get schema
+mddb-cli schema get blog
+
+# Delete schema
+mddb-cli schema delete blog
+.fi
+.RE
+.SS validate
+Validate a document against its collection's JSON Schema (v2.3.1+).
+.PP
+.B mddb-cli validate
+\fICOLLECTION\fR \fIKEY\fR \fILANG\fR
+.PP
+Examples:
+.RS
+.nf
+mddb-cli validate blog post-1 en_US
+.fi
+.RE
 .SS backup
 Create a backup of the database.
 .PP
@@ -201,6 +431,72 @@ Examples:
 .nf
 mddb-cli stats
 mddb-cli stats -j  # JSON output
+.fi
+.RE
+.SS login
+Authenticate with the MDDB server and obtain a JWT token (v2.4+).
+.PP
+.B mddb-cli login
+\fIUSERNAME\fR \fIPASSWORD\fR
+.PP
+The JWT token is saved for use in subsequent commands. Use \fB\-\-token\fR flag to override.
+.PP
+Examples:
+.RS
+.nf
+mddb-cli login admin secret
+mddb-cli --token YOUR_TOKEN stats  # Use specific token
+.fi
+.RE
+.SS api-key
+Manage API keys for programmatic access (v2.4+).
+.PP
+.B mddb-cli api-key
+\fISUBCOMMAND\fR [\fIOPTIONS\fR]
+.PP
+Subcommands:
+.TP
+.B create
+Create a new API key
+.RS
+.TP
+.BR \-\-description =\fIDESC\fR
+Description for the API key
+.TP
+.BR \-\-token =\fITOKEN\fR
+JWT token for authentication (required)
+.RE
+.TP
+.B list
+List all API keys for current user
+.RS
+.TP
+.BR \-\-token =\fITOKEN\fR
+JWT token for authentication (required)
+.RE
+.TP
+.B delete
+Delete an API key by hash
+.RS
+.TP
+.BR \-\-token =\fITOKEN\fR
+JWT token for authentication (required)
+.RE
+.PP
+Examples:
+.RS
+.nf
+# Create API key
+mddb-cli api-key create --description "Production deployment" --token $TOKEN
+
+# List all keys
+mddb-cli api-key list --token $TOKEN
+
+# Delete a key
+mddb-cli api-key delete abc123... --token $TOKEN
+
+# Use API key in commands
+mddb-cli --api-key mddb_live_xyz789... stats
 .fi
 .RE
 .SH GRAPHQL SUPPORT
