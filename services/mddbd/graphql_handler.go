@@ -69,7 +69,7 @@ func (s *Server) GraphQLAuthMiddleware(next http.Handler) http.Handler {
 		// Try to get claims from existing middleware
 		if claims, ok := GetClaimsFromContext(r.Context()); ok {
 			// Claims already in context from HTTP middleware
-			ctx = context.WithValue(ctx, "auth_claims", claims)
+			ctx = context.WithValue(ctx, authContextKey, claims)
 			r = r.WithContext(ctx)
 		}
 

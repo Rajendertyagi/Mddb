@@ -91,11 +91,9 @@ func (p *CohereEmbeddingProvider) EmbedBatch(ctx context.Context, texts []string
 		return nil, fmt.Errorf("unexpected number of embeddings: got %d, expected %d", len(result.Embeddings), len(texts))
 	}
 
-	// Convert float64 to float32 if needed
+	// Copy embeddings to result
 	vectors := make([][]float32, len(result.Embeddings))
-	for i, emb := range result.Embeddings {
-		vectors[i] = emb
-	}
+	copy(vectors, result.Embeddings)
 
 	// Update dimensions from actual response
 	if len(vectors) > 0 && len(vectors[0]) > 0 {

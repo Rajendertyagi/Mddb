@@ -12,11 +12,14 @@ import (
 )
 
 // Mock adapter for testing
+//
+//nolint:unused // Mock is reserved for future GraphQL adapter tests
 type mockGraphQLAdapter struct {
 	authenticateFn func(username, password string) (gql.UserInfo, error)
 	generateJWTFn  func(username string, isAdmin bool) (string, int64, error)
 }
 
+//nolint:unused // Mock method reserved for future GraphQL adapter tests
 func (m *mockGraphQLAdapter) Authenticate(username, password string) (gql.UserInfo, error) {
 	if m.authenticateFn != nil {
 		return m.authenticateFn(username, password)
@@ -24,6 +27,7 @@ func (m *mockGraphQLAdapter) Authenticate(username, password string) (gql.UserIn
 	return gql.UserInfo{}, ErrAuthNotEnabled
 }
 
+//nolint:unused // Mock method reserved for future GraphQL adapter tests
 func (m *mockGraphQLAdapter) GenerateJWT(username string, isAdmin bool) (string, int64, error) {
 	if m.generateJWTFn != nil {
 		return m.generateJWTFn(username, isAdmin)
@@ -31,34 +35,42 @@ func (m *mockGraphQLAdapter) GenerateJWT(username string, isAdmin bool) (string,
 	return "", 0, ErrAuthNotEnabled
 }
 
+//nolint:unused // Mock method reserved for future GraphQL adapter tests
 func (m *mockGraphQLAdapter) GetClaimsFromContext(ctx context.Context) (gql.Claims, bool) {
 	return gql.Claims{}, false
 }
 
+//nolint:unused // Mock method reserved for future GraphQL adapter tests
 func (m *mockGraphQLAdapter) CheckPermission(ctx context.Context, collection string, perm int) error {
 	return nil
 }
 
+//nolint:unused // Mock method reserved for future GraphQL adapter tests
 func (m *mockGraphQLAdapter) GetDocument(ctx context.Context, collection, key, lang string, env map[string]string) (interface{}, error) {
 	return nil, ErrInvalidRequest
 }
 
+//nolint:unused // Mock method reserved for future GraphQL adapter tests
 func (m *mockGraphQLAdapter) SearchDocuments(ctx context.Context, collection string, filterMeta map[string][]string, sort string, asc bool, limit, offset int) (interface{}, error) {
 	return nil, ErrInvalidRequest
 }
 
+//nolint:unused // Mock method reserved for future GraphQL adapter tests
 func (m *mockGraphQLAdapter) AddDocument(ctx context.Context, collection, key, lang string, meta map[string][]string, contentMd string, ttl int64) (interface{}, bool, error) {
 	return nil, false, ErrInvalidRequest
 }
 
+//nolint:unused // Mock method reserved for future GraphQL adapter tests
 func (m *mockGraphQLAdapter) DeleteDocument(ctx context.Context, collection, key, lang string) error {
 	return ErrInvalidRequest
 }
 
+//nolint:unused // Mock method reserved for future GraphQL adapter tests
 func (m *mockGraphQLAdapter) GetStats(ctx context.Context) (interface{}, error) {
 	return nil, ErrInvalidRequest
 }
 
+//nolint:unused // Mock method reserved for future GraphQL adapter tests
 func (m *mockGraphQLAdapter) VectorSearch(ctx context.Context, collection, query string, queryVector []float32, topK int, threshold float64, filterMeta map[string][]string, includeContent bool) (interface{}, error) {
 	return nil, ErrVectorSearchNotEnabled
 }
@@ -107,7 +119,7 @@ func TestGraphQLAuthMiddleware_NoAuth(t *testing.T) {
 	// Create a simple handler
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ok"))
+		_, _ = w.Write([]byte("ok")) // nolint:errcheck // Test response writer
 	})
 
 	wrappedHandler := s.GraphQLAuthMiddleware(testHandler)

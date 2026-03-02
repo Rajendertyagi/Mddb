@@ -42,7 +42,7 @@ func (s *Server) SaveEmbeddingConfig(config *EmbeddingConfig) error {
 				if existing.IsDefault && existing.ID != config.ID {
 					existing.IsDefault = false
 					data, _ := json.Marshal(existing)
-					bucket.Put([]byte(existing.ID), data)
+					_ = bucket.Put([]byte(existing.ID), data) // Best-effort update of old default
 				}
 			}
 		}
@@ -169,9 +169,9 @@ func (s *Server) handleListEmbeddingConfigs(w http.ResponseWriter, r *http.Reque
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"configs": configs,
-	})
+	}) // nolint:errcheck // HTTP response already committed
 }
 
 func (s *Server) handleCreateEmbeddingConfig(w http.ResponseWriter, r *http.Request) {
@@ -212,7 +212,7 @@ func (s *Server) handleCreateEmbeddingConfig(w http.ResponseWriter, r *http.Requ
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(config)
+	_ = json.NewEncoder(w).Encode(config) // nolint:errcheck // HTTP response already committed
 }
 
 func (s *Server) handleGetEmbeddingConfig(w http.ResponseWriter, r *http.Request, id string) {
@@ -223,7 +223,7 @@ func (s *Server) handleGetEmbeddingConfig(w http.ResponseWriter, r *http.Request
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(config)
+	_ = json.NewEncoder(w).Encode(config) // nolint:errcheck // HTTP response already committed
 }
 
 func (s *Server) handleUpdateEmbeddingConfig(w http.ResponseWriter, r *http.Request, id string) {
@@ -258,7 +258,7 @@ func (s *Server) handleUpdateEmbeddingConfig(w http.ResponseWriter, r *http.Requ
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(config)
+	_ = json.NewEncoder(w).Encode(config) // nolint:errcheck // HTTP response already committed
 }
 
 func (s *Server) handleDeleteEmbeddingConfig(w http.ResponseWriter, r *http.Request, id string) {
@@ -313,9 +313,9 @@ func (s *Server) handleSetDefaultEmbeddingConfig(w http.ResponseWriter, r *http.
 	s.InitializeEmbeddingFromConfig(config)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]string{
 		"message": "default config updated",
-	})
+	}) // nolint:errcheck // HTTP response already committed
 }
 
 // InitializeEmbeddingFromConfig initializes the embedding system from a config

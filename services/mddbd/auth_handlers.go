@@ -262,14 +262,17 @@ func (s *Server) handleAuthAPIKeyDelete(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Delete API key
-	if err := s.AuthManager.DeleteAPIKey(claims.Username, keyHash); err != nil {
-		if err == ErrAPIKeyNotFound {
-			http.Error(w, `{"error":"api key not found"}`, http.StatusNotFound)
-		} else if err == ErrForbidden {
-			http.Error(w, `{"error":"forbidden: you can only delete your own api keys"}`, http.StatusForbidden)
-		} else {
-			http.Error(w, `{"error":"failed to delete api key"}`, http.StatusInternalServerError)
-		}
+	switch err := s.AuthManager.DeleteAPIKey(claims.Username, keyHash); err {
+	case nil:
+		// Success, continue
+	case ErrAPIKeyNotFound:
+		http.Error(w, `{"error":"api key not found"}`, http.StatusNotFound)
+		return
+	case ErrForbidden:
+		http.Error(w, `{"error":"forbidden: you can only delete your own api keys"}`, http.StatusForbidden)
+		return
+	default:
+		http.Error(w, `{"error":"failed to delete api key"}`, http.StatusInternalServerError)
 		return
 	}
 
