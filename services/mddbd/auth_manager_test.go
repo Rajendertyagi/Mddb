@@ -31,8 +31,8 @@ func setupTestAuthManager(t *testing.T) (*AuthManager, *bolt.DB, func()) {
 	}
 
 	cleanup := func() {
-		db.Close()
-		os.Remove(dbPath)
+		_ = db.Close()
+		_ = os.Remove(dbPath)
 	}
 
 	return am, db, cleanup
@@ -377,7 +377,9 @@ func TestAuthManager_SetPermission_Update(t *testing.T) {
 		Write:      false,
 		Admin:      false,
 	}
-	am.SetPermission(perm)
+	if err := am.SetPermission(perm); err != nil {
+		t.Fatalf("SetPermission failed: %v", err)
+	}
 
 	// Update permission
 	perm.Write = true
@@ -427,10 +429,14 @@ func TestAuthManager_CheckPermission(t *testing.T) {
 		Write:      false,
 		Admin:      false,
 	}
-	am.SetPermission(perm)
+	if err := am.SetPermission(perm); err != nil {
+		t.Fatalf("SetPermission failed: %v", err)
+	}
 
 	// Load permissions into cache
-	am.LoadAll()
+	if err := am.LoadAll(); err != nil {
+		t.Fatalf("LoadAll failed: %v", err)
+	}
 
 	// Should succeed for read
 	err = am.CheckPermission(ctx, collection, PermRead)
@@ -465,8 +471,12 @@ func TestAuthManager_CheckPermission_Wildcard(t *testing.T) {
 		Write:      false,
 		Admin:      false,
 	}
-	am.SetPermission(perm)
-	am.LoadAll()
+	if err := am.SetPermission(perm); err != nil {
+		t.Fatalf("SetPermission failed: %v", err)
+	}
+	if err := am.LoadAll(); err != nil {
+		t.Fatalf("LoadAll failed: %v", err)
+	}
 
 	claims := &JWTClaims{
 		Username: username,
@@ -504,8 +514,12 @@ func TestAuthManager_CheckPermission_Admin(t *testing.T) {
 		Write:      false,
 		Admin:      true,
 	}
-	am.SetPermission(perm)
-	am.LoadAll()
+	if err := am.SetPermission(perm); err != nil {
+		t.Fatalf("SetPermission failed: %v", err)
+	}
+	if err := am.LoadAll(); err != nil {
+		t.Fatalf("LoadAll failed: %v", err)
+	}
 
 	claims := &JWTClaims{
 		Username: username,
@@ -548,8 +562,12 @@ func TestAuthManager_IsAdmin(t *testing.T) {
 		Write:      false,
 		Admin:      true,
 	}
-	am.SetPermission(perm)
-	am.LoadAll()
+	if err := am.SetPermission(perm); err != nil {
+		t.Fatalf("SetPermission failed: %v", err)
+	}
+	if err := am.LoadAll(); err != nil {
+		t.Fatalf("LoadAll failed: %v", err)
+	}
 
 	// Should be admin now
 	if !am.IsAdmin(username) {
@@ -633,7 +651,9 @@ func TestAuthManager_BootstrapAdmin(t *testing.T) {
 	}
 
 	// Load permissions
-	am.LoadAll()
+	if err := am.LoadAll(); err != nil {
+		t.Fatalf("LoadAll failed: %v", err)
+	}
 
 	// Verify admin has admin permission
 	if !am.IsAdmin(adminUsername) {
