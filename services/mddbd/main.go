@@ -224,15 +224,25 @@ func main() {
 		log.Fatal(err)
 	}
 	s.VectorIndex = NewVectorIndex()
-	s.Embedding = NewEmbeddingProvider()
 
-	if s.Embedding != nil {
-		s.EmbeddingWorker = NewEmbeddingWorker(s.Embedding, s.VectorStore, s.VectorIndex, 1000)
-		s.EmbeddingWorker.Start(2)
-		log.Printf("Vector search enabled (provider=%s, model=%s, dims=%d)",
-			s.Embedding.Model(), s.Embedding.Model(), s.Embedding.Dimensions())
+	// Try to load embedding config from database first
+	defaultConfig, err := s.GetDefaultEmbeddingConfig()
+	if err == nil && defaultConfig != nil {
+		// Use stored configuration
+		s.InitializeEmbeddingFromConfig(defaultConfig)
+		log.Printf("Vector search enabled from stored config (provider=%s, model=%s, dims=%d)",
+			defaultConfig.Provider, defaultConfig.Model, defaultConfig.Dimensions)
 	} else {
-		log.Println("Vector search: embedding provider not configured (set MDDB_EMBEDDING_PROVIDER)")
+		// Fall back to environment variables
+		s.Embedding = NewEmbeddingProvider()
+		if s.Embedding != nil {
+			s.EmbeddingWorker = NewEmbeddingWorker(s.Embedding, s.VectorStore, s.VectorIndex, 1000)
+			s.EmbeddingWorker.Start(2)
+			log.Printf("Vector search enabled from env vars (provider=%s, model=%s, dims=%d)",
+				s.Embedding.Model(), s.Embedding.Model(), s.Embedding.Dimensions())
+		} else {
+			log.Println("Vector search: embedding provider not configured (set MDDB_EMBEDDING_PROVIDER or configure in panel)")
+		}
 	}
 
 	// Load vectors into memory asynchronously
@@ -330,6 +340,9 @@ func main() {
 	mux.HandleFunc("/v1/vector-search", s.handleVectorSearch)
 	mux.HandleFunc("/v1/vector-reindex", s.guardWrite(s.handleVectorReindex))
 	mux.HandleFunc("/v1/vector-stats", s.handleVectorStats)
+	mux.HandleFunc("/v1/embedding-configs", s.handleEmbeddingConfigs)
+	mux.HandleFunc("/v1/embedding-configs/", s.handleEmbeddingConfigDetail)
+	mux.HandleFunc("/v1/embedding-configs/set-default", s.handleSetDefaultEmbeddingConfig)
 	mux.HandleFunc("/v1/import-url", s.guardWrite(s.handleImportURL))
 	mux.HandleFunc("/v1/set-ttl", s.guardWrite(s.handleSetTTL))
 	mux.HandleFunc("/v1/fts", s.handleFTS)
@@ -353,6 +366,8 @@ func main() {
 		mux.HandleFunc("/v1/auth/login", s.handleAuthLogin)
 		mux.HandleFunc("/v1/auth/register", s.handleAuthRegister)
 		mux.HandleFunc("/v1/auth/api-key", s.handleAuthAPIKey)
+		mux.HandleFunc("/v1/auth/api-keys/", s.handleAuthAPIKeyDelete) // Note: trailing slash for DELETE /v1/auth/api-keys/:keyHash
+		mux.HandleFunc("/v1/auth/api-keys", s.handleAuthAPIKeysList)
 		mux.HandleFunc("/v1/auth/me", s.handleAuthMe)
 		mux.HandleFunc("/v1/auth/permissions", s.handleAuthPermissions)
 		mux.HandleFunc("/v1/auth/users/", s.handleAuthDeleteUser) // Note: trailing slash for DELETE /v1/auth/users/:username
@@ -360,6 +375,26 @@ func main() {
 		mux.HandleFunc("/v1/auth/groups", s.handleAuthGroups)
 		mux.HandleFunc("/v1/auth/groups/", s.handleAuthGroupDetail)
 		mux.HandleFunc("/v1/auth/group-permissions", s.handleAuthGroupPermissions)
+	}
+
+	// GraphQL endpoint (disabled by default)
+	graphqlEnabled := env("MDDB_GRAPHQL_ENABLED", "false") == "true"
+	if graphqlEnabled {
+		graphqlHandler := s.newGraphQLHandler()
+
+		// Wrap with auth middleware if enabled
+		if authEnabled && s.AuthManager != nil {
+			graphqlHandler = s.GraphQLAuthMiddleware(graphqlHandler)
+		}
+
+		mux.Handle("/graphql", graphqlHandler)
+		log.Printf("GraphQL endpoint enabled at /graphql")
+
+		// GraphQL Playground (development tool)
+		if env("MDDB_GRAPHQL_PLAYGROUND", "true") == "true" {
+			mux.Handle("/playground", newGraphQLPlaygroundHandler("/graphql"))
+			log.Printf("GraphQL Playground enabled at /playground")
+		}
 	}
 
 	httpAddr := env("MDDB_ADDR", ":11023")
@@ -414,6 +449,7 @@ func (s *Server) ensureBuckets() error {
 		_, _ = tx.CreateBucketIfNotExists(s.BucketNames.IdxMeta) // meta|collection|key|value|docID -> 1
 		_, _ = tx.CreateBucketIfNotExists(s.BucketNames.Rev)     // rev|collection|docID|ts -> json
 		_, _ = tx.CreateBucketIfNotExists(s.BucketNames.ByKey)   // bykey|collection|key|lang -> docID
+		_, _ = tx.CreateBucketIfNotExists([]byte("embedding_configs")) // embedding model configurations
 		return nil
 	})
 }

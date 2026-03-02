@@ -424,6 +424,61 @@ class MDDBClient {
       method: 'GET',
     });
   }
+
+  /**
+   * Embedding Configurations
+   */
+
+  /**
+   * List all embedding configurations
+   */
+  async listEmbeddingConfigs() {
+    return this.request('/embedding-configs', { method: 'GET' });
+  }
+
+  /**
+   * Get embedding configuration by ID
+   */
+  async getEmbeddingConfig(id) {
+    return this.request(`/embedding-configs/${id}`, { method: 'GET' });
+  }
+
+  /**
+   * Create embedding configuration
+   */
+  async createEmbeddingConfig({ id, name, provider, model, dimensions, apiKey, apiUrl, isDefault }) {
+    return this.request('/embedding-configs', {
+      method: 'POST',
+      body: JSON.stringify({ id, name, provider, model, dimensions, apiKey, apiUrl, isDefault }),
+    });
+  }
+
+  /**
+   * Update embedding configuration
+   */
+  async updateEmbeddingConfig(id, { name, provider, model, dimensions, apiKey, apiUrl, isDefault }) {
+    return this.request(`/embedding-configs/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ name, provider, model, dimensions, apiKey, apiUrl, isDefault }),
+    });
+  }
+
+  /**
+   * Delete embedding configuration
+   */
+  async deleteEmbeddingConfig(id) {
+    return this.request(`/embedding-configs/${id}`, { method: 'DELETE' });
+  }
+
+  /**
+   * Set default embedding configuration
+   */
+  async setDefaultEmbeddingConfig(id) {
+    return this.request('/embedding-configs/set-default', {
+      method: 'POST',
+      body: JSON.stringify({ id }),
+    });
+  }
 }
 
 export default new MDDBClient();

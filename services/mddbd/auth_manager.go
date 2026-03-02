@@ -406,6 +406,52 @@ func (am *AuthManager) ValidateAPIKey(key string) (string, error) {
 	return apiKey.Username, nil
 }
 
+// ListAPIKeys lists all API keys for a user (without key values)
+func (am *AuthManager) ListAPIKeys(username string) ([]*APIKey, error) {
+	am.mu.RLock()
+	defer am.mu.RUnlock()
+
+	var keys []*APIKey
+	for _, apiKey := range am.apiKeys {
+		if apiKey.Username == username {
+			keys = append(keys, apiKey)
+		}
+	}
+
+	return keys, nil
+}
+
+// DeleteAPIKey deletes an API key by its hash
+func (am *AuthManager) DeleteAPIKey(username, keyHash string) error {
+	// Verify user owns this key
+	am.mu.RLock()
+	apiKey, exists := am.apiKeys[keyHash]
+	am.mu.RUnlock()
+
+	if !exists {
+		return ErrAPIKeyNotFound
+	}
+
+	if apiKey.Username != username {
+		return ErrForbidden
+	}
+
+	// Delete from database
+	if err := am.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(bucketAuthAPIKeys)
+		return b.Delete([]byte("apikey|" + keyHash))
+	}); err != nil {
+		return err
+	}
+
+	// Remove from cache
+	am.mu.Lock()
+	delete(am.apiKeys, keyHash)
+	am.mu.Unlock()
+
+	return nil
+}
+
 // ---- Permission management ----
 
 // SetPermission sets permissions for a user on a collection

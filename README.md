@@ -23,7 +23,7 @@ MDDB (Markdown Database) is a specialized database server that treats markdown d
 - **Dual Protocol APIs** - Choose between HTTP/JSON (easy debugging) or gRPC/Protobuf (high performance)
 - **Full Revision History** - Every document update creates a new revision with complete content snapshot
 - **Rich Metadata Indexing** - Fast searches using multi-value metadata tags
-- **Vector Search** - Semantic similarity search powered by embeddings (OpenAI, Ollama, Voyage AI)
+- **Vector Search** - Semantic similarity search powered by embeddings (OpenAI, Cohere, Voyage AI, Ollama)
 - **Full-Text Search** - Built-in inverted index with TF scoring, no external dependencies
 - **Document TTL** - Auto-expiring documents with background cleanup (like Redis)
 - **Webhooks** - HTTP callbacks on document events with retry logic
@@ -160,6 +160,97 @@ mddb-cli add docs readme en_US -f README-v2.md -m "version=2.0"
 # Access any revision through API
 ```
 **Perfect for**: Legal documents, compliance, audit trails
+
+### 10. **GraphQL API**
+
+MDDB provides a GraphQL API alongside REST for flexible, modern data fetching.
+
+**Enabling GraphQL:**
+```bash
+# Via environment variable
+export MDDB_GRAPHQL_ENABLED=true
+mddbd
+
+# Via CLI flag
+mddbd --graphql
+
+# With Docker
+docker run -e MDDB_GRAPHQL_ENABLED=true tradik/mddb
+```
+
+**Endpoints:**
+- GraphQL API: `POST /graphql`
+- GraphQL Playground: `GET /playground` (interactive development tool)
+
+**Example Query:**
+```graphql
+query {
+  document(collection: "blog", key: "hello-world", lang: "en") {
+    id
+    key
+    contentMd
+    meta
+    addedAt
+  }
+}
+```
+
+**Example Mutation:**
+```graphql
+mutation {
+  addDocument(input: {
+    collection: "blog"
+    key: "new-post"
+    lang: "en"
+    meta: [
+      { key: "author", values: ["John"] }
+      { key: "tags", values: ["tutorial", "graphql"] }
+    ]
+    contentMd: "# Hello GraphQL\n\nModern API for flexible queries."
+  }) {
+    id
+    addedAt
+  }
+}
+```
+
+**Vector Search via GraphQL:**
+```graphql
+query {
+  vectorSearch(input: {
+    collection: "kb"
+    query: "how to configure authentication?"
+    topK: 5
+    includeContent: true
+  }) {
+    results {
+      document { key contentMd }
+      score
+      rank
+    }
+  }
+}
+```
+
+**Authentication:**
+```bash
+# Login and get JWT token
+curl -X POST http://localhost:11023/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query": "mutation { login(username: \"admin\", password: \"secret\") { token expiresAt } }"}'
+
+# Query with authentication
+curl -X POST http://localhost:11023/graphql \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "{ me { username admin } }"}'
+```
+
+**GraphQL vs REST:**
+- **Use GraphQL** for: flexible field selection, combining multiple queries, modern frontends (React, Vue)
+- **Use REST** for: simple curl/wget access, scripts, streaming responses (export/backup)
+
+**Perfect for**: Modern web applications, mobile apps, flexible data requirements
 
 ## ⚡ Performance
 
@@ -505,6 +596,7 @@ make tidy          # Tidy Go modules
 - **[Swagger UI](docs/swagger.html)** - Interactive API documentation
 - **[Health Check Guide](docs/HEALTHCHECK.md)** - Health checks for Docker and Kubernetes
 - **[gRPC Documentation](docs/GRPC.md)** - High-performance gRPC API guide
+- **[Embedding Providers Guide](docs/EMBEDDING_PROVIDERS.md)** - Vector search with OpenAI, Cohere, Voyage AI, and Ollama
 - **[Web Panel Guide](docs/PANEL.md)** - Web admin interface documentation
 - **[MCP Server Guide](services/mddb-mcp/README.md)** - Model Context Protocol server for LLM integration
 - **[Custom MCP Tools](docs/CUSTOM-TOOLS.md)** - YAML-defined website-specific AI tools
@@ -877,16 +969,22 @@ db.backup('daily.db')
 
 ## 🔍 Vector Search & RAG
 
-MDDB includes built-in vector search powered by embedding providers (OpenAI, Ollama, Voyage AI). Documents are automatically embedded in the background when added.
+MDDB includes built-in vector search powered by embedding providers (OpenAI, Cohere, Voyage AI, Ollama). Documents are automatically embedded in the background when added.
 
 ### Configuration
 
 ```bash
 # Environment variables for embedding
-export MDDB_EMBEDDING_PROVIDER=openai      # openai, ollama, or voyage
-export MDDB_EMBEDDING_API_KEY=sk-...       # API key (OpenAI/Voyage)
+export MDDB_EMBEDDING_PROVIDER=openai      # openai, cohere, voyage, or ollama
+export MDDB_EMBEDDING_API_KEY=sk-...       # API key (OpenAI/Cohere/Voyage)
 export MDDB_EMBEDDING_MODEL=text-embedding-3-small
 export MDDB_EMBEDDING_DIMENSIONS=1536
+
+# For Cohere (best multilingual support):
+# export MDDB_EMBEDDING_PROVIDER=cohere
+# export MDDB_EMBEDDING_API_KEY=cohere_api_key...
+# export MDDB_EMBEDDING_MODEL=embed-english-v3.0
+
 # For Ollama (local, free):
 # export MDDB_EMBEDDING_PROVIDER=ollama
 # export MDDB_EMBEDDING_API_URL=http://localhost:11434
@@ -982,12 +1080,16 @@ Set `MDDB_METRICS=false` to disable.
 
 ## 🗺️ Roadmap
 
-### Planned Features
-- **Authentication** - Built-in API key and JWT support
-- **Authorization** - Collection-level access control
+### Implemented Features ✅
+- **Authentication** - JWT tokens and API keys with bcrypt password hashing
+- **Authorization** - Collection-level RBAC with Read/Write/Admin permissions
+- **User Management** - Multi-user support with admin roles
+- **Group-Based Permissions** - Organize users into groups with inherited permissions
+- **GraphQL API** - Modern GraphQL endpoint with full CRUD operations and authentication directives
 - ~~**Schema Validation** - JSON Schema validation for metadata~~ (Implemented in v2.3.1)
+
+### Planned Features
 - **Streaming Export** - Memory-efficient ZIP export
-- **GraphQL API** - GraphQL endpoint alongside REST
 - **Replication** - Built-in replication support
 - **Plugins** - Plugin system for custom extensions
 

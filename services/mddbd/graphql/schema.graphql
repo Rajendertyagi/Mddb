@@ -1,0 +1,330 @@
+# Directives for authentication and authorization
+directive @auth on FIELD_DEFINITION
+directive @hasRole(role: Role!) on FIELD_DEFINITION
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum Permission {
+  READ
+  WRITE
+  ADMIN
+}
+
+# Custom scalar for flexible JSON
+scalar JSONObject
+scalar Time
+
+# Core document type
+type Document {
+  id: ID!
+  key: String!
+  lang: String!
+  meta: JSONObject!
+  contentMd: String!
+  addedAt: Time!
+  updatedAt: Time!
+  expiresAt: Time
+}
+
+# Search and pagination
+type DocumentConnection {
+  edges: [DocumentEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type DocumentEdge {
+  cursor: String!
+  node: Document!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+# Vector search result
+type VectorSearchResult {
+  document: Document!
+  score: Float!
+  rank: Int!
+}
+
+type VectorSearchResponse {
+  results: [VectorSearchResult!]!
+  total: Int!
+  model: String
+  dimensions: Int
+}
+
+# Full-text search result
+type FTSResult {
+  document: Document!
+  score: Float!
+  matchedTerms: [String!]!
+}
+
+type FTSResponse {
+  results: [FTSResult!]!
+  total: Int!
+}
+
+# Stats and metrics
+type CollectionStats {
+  name: String!
+  documentCount: Int!
+  revisionCount: Int!
+  metaIndexCount: Int!
+}
+
+type Stats {
+  databasePath: String!
+  databaseSize: Int!
+  mode: String!
+  collections: [CollectionStats!]!
+  totalDocuments: Int!
+  totalRevisions: Int!
+  totalMetaIndices: Int!
+}
+
+type VectorCollectionStats {
+  collection: String!
+  totalDocuments: Int!
+  embeddedDocuments: Int!
+}
+
+type VectorStats {
+  enabled: Boolean!
+  provider: String
+  model: String
+  dimensions: Int
+  collections: [VectorCollectionStats!]!
+  indexReady: Boolean!
+}
+
+# Webhooks
+type Webhook {
+  id: ID!
+  url: String!
+  events: [String!]!
+  collection: String!
+  createdAt: Time!
+}
+
+# Schema validation
+type Schema {
+  collection: String!
+  schema: String!
+  enabled: Boolean!
+}
+
+type ValidationResult {
+  valid: Boolean!
+  errors: [String!]!
+}
+
+# Authentication types
+type AuthPayload {
+  token: String!
+  expiresAt: Time!
+}
+
+type User {
+  username: String!
+  admin: Boolean!
+  createdAt: Time!
+}
+
+type APIKey {
+  key: String!
+  description: String!
+  expiresAt: Time
+  createdAt: Time!
+}
+
+type Group {
+  name: String!
+  description: String!
+  members: [String!]!
+  createdAt: Time!
+}
+
+type UserPermission {
+  username: String!
+  collection: String!
+  read: Boolean!
+  write: Boolean!
+  admin: Boolean!
+}
+
+type GroupPermission {
+  groupName: String!
+  collection: String!
+  read: Boolean!
+  write: Boolean!
+  admin: Boolean!
+}
+
+# Input types
+input MetaInput {
+  key: String!
+  values: [String!]!
+}
+
+input AddDocumentInput {
+  collection: String!
+  key: String!
+  lang: String!
+  meta: [MetaInput!]
+  contentMd: String!
+  ttl: Int
+}
+
+input UpdateDocumentInput {
+  collection: String!
+  key: String!
+  lang: String!
+  meta: [MetaInput!]
+  contentMd: String
+}
+
+input SearchInput {
+  collection: String!
+  filterMeta: [MetaInput!]
+  sort: String
+  asc: Boolean
+  limit: Int
+  offset: Int
+}
+
+input VectorSearchInput {
+  collection: String!
+  query: String
+  queryVector: [Float!]
+  topK: Int
+  threshold: Float
+  filterMeta: [MetaInput!]
+  includeContent: Boolean
+}
+
+input FTSInput {
+  collection: String!
+  query: String!
+  limit: Int
+}
+
+input RegisterWebhookInput {
+  url: String!
+  events: [String!]!
+  collection: String!
+}
+
+input SetSchemaInput {
+  collection: String!
+  schema: String!
+}
+
+input SetPermissionInput {
+  username: String!
+  collection: String!
+  read: Boolean!
+  write: Boolean!
+  admin: Boolean!
+}
+
+input SetGroupPermissionInput {
+  groupName: String!
+  collection: String!
+  read: Boolean!
+  write: Boolean!
+  admin: Boolean!
+}
+
+input CreateGroupInput {
+  name: String!
+  description: String!
+  members: [String!]!
+}
+
+input CreateAPIKeyInput {
+  description: String!
+  expiresAt: Time
+}
+
+# Queries
+type Query {
+  # Document operations
+  document(collection: String!, key: String!, lang: String!, env: JSONObject): Document @auth
+
+  search(input: SearchInput!): DocumentConnection @auth
+
+  # Vector search
+  vectorSearch(input: VectorSearchInput!): VectorSearchResponse @auth
+  vectorStats: VectorStats @auth
+
+  # Full-text search
+  fts(input: FTSInput!): FTSResponse @auth
+
+  # Stats
+  stats: Stats @auth
+
+  # Webhooks
+  webhooks(collection: String): [Webhook!]! @auth @hasRole(role: ADMIN)
+
+  # Schema
+  schema(collection: String!): Schema @auth
+  schemas: [Schema!]! @auth
+
+  # Auth
+  me: User! @auth
+  users: [User!]! @auth @hasRole(role: ADMIN)
+  groups: [Group!]! @auth @hasRole(role: ADMIN)
+  userPermissions(username: String!): [UserPermission!]! @auth @hasRole(role: ADMIN)
+  groupPermissions(groupName: String!): [GroupPermission!]! @auth @hasRole(role: ADMIN)
+}
+
+# Mutations
+type Mutation {
+  # Document operations
+  addDocument(input: AddDocumentInput!): Document! @auth
+  updateDocument(input: UpdateDocumentInput!): Document! @auth
+  deleteDocument(collection: String!, key: String!, lang: String!): Boolean! @auth
+  deleteCollection(collection: String!): Int! @auth
+
+  # Vector operations
+  vectorReindex(collection: String!, force: Boolean): VectorStats! @auth
+
+  # TTL
+  setTTL(collection: String!, key: String!, lang: String!, ttl: Int!): Document! @auth
+
+  # Import
+  importURL(collection: String!, url: String!, key: String, lang: String!, meta: [MetaInput!], ttl: Int): Document! @auth
+
+  # Webhooks
+  registerWebhook(input: RegisterWebhookInput!): Webhook! @auth @hasRole(role: ADMIN)
+  deleteWebhook(id: ID!): Boolean! @auth @hasRole(role: ADMIN)
+
+  # Schema
+  setSchema(input: SetSchemaInput!): Boolean! @auth @hasRole(role: ADMIN)
+  deleteSchema(collection: String!): Boolean! @auth @hasRole(role: ADMIN)
+  validateDocument(collection: String!, meta: [MetaInput!]!): ValidationResult! @auth
+
+  # Auth
+  login(username: String!, password: String!): AuthPayload!
+  register(username: String!, password: String!): User! @auth @hasRole(role: ADMIN)
+  createAPIKey(input: CreateAPIKeyInput!): APIKey! @auth
+
+  # Permissions
+  setPermission(input: SetPermissionInput!): Boolean! @auth @hasRole(role: ADMIN)
+
+  # Groups
+  createGroup(input: CreateGroupInput!): Group! @auth @hasRole(role: ADMIN)
+  updateGroup(name: String!, description: String!, members: [String!]!): Group! @auth @hasRole(role: ADMIN)
+  deleteGroup(name: String!): Boolean! @auth @hasRole(role: ADMIN)
+  setGroupPermission(input: SetGroupPermissionInput!): Boolean! @auth @hasRole(role: ADMIN)
+}

@@ -222,33 +222,36 @@ export default function UploadModal({ collection, onClose, onSuccess }) {
                   : 'border-gray-300 hover:border-gray-400'
               }`}
             >
-              {file ? (
+              {files.length > 0 ? (
                 <div>
                   <FileText className="w-12 h-12 text-blue-600 mx-auto mb-2" />
-                  <p className="text-sm font-medium text-gray-900">{file.name}</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {(file.size / 1024).toFixed(1)} KB
+                  <p className="text-sm font-medium text-gray-900 mb-2">
+                    {files.length} file{files.length > 1 ? 's' : ''} selected
                   </p>
+                  <div className="max-h-40 overflow-y-auto mb-3">
+                    {files.map((fileData, idx) => (
+                      <div key={idx} className="text-xs text-gray-600 py-1">
+                        ✓ {fileData.file.name} ({(fileData.file.size / 1024).toFixed(1)} KB)
+                      </div>
+                    ))}
+                  </div>
                   <button
                     type="button"
                     onClick={() => {
-                      setFile(null);
-                      setKey('');
-                      setLang('en');
-                      setMeta({});
-                      setContentMd('');
+                      setFiles([]);
+                      setError(null);
                     }}
                     className="mt-2 text-sm text-blue-600 hover:text-blue-700"
                     disabled={loading}
                   >
-                    Choose different file
+                    Choose different files
                   </button>
                 </div>
               ) : (
                 <div>
                   <Upload className="w-12 h-12 text-gray-400 mx-auto mb-2" />
                   <p className="text-sm font-medium text-gray-900 mb-1">
-                    Drop your markdown file here
+                    Drop your markdown files here
                   </p>
                   <p className="text-xs text-gray-500 mb-3">or</p>
                   <label className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer transition-colors">
@@ -256,28 +259,33 @@ export default function UploadModal({ collection, onClose, onSuccess }) {
                     <input
                       type="file"
                       accept=".md"
-                      onChange={(e) => handleFile(e.target.files[0])}
+                      multiple
+                      onChange={(e) => handleFiles(e.target.files)}
                       className="hidden"
                     />
                   </label>
                   <p className="text-xs text-gray-500 mt-3">
-                    Max file size: 10MB
+                    Select one or multiple .md files (max 10MB each)
                   </p>
                 </div>
               )}
             </div>
 
-            {/* Show parsed metadata */}
-            {file && Object.keys(meta).length > 0 && (
+            {/* Show parsed metadata summary */}
+            {files.length > 0 && (
               <div className="mb-4 p-4 bg-gray-50 rounded-lg">
                 <p className="text-sm font-medium text-gray-700 mb-2">
-                  Parsed Metadata ({Object.keys(meta).length} fields)
+                  Files ready to upload
                 </p>
-                <div className="space-y-1 max-h-40 overflow-y-auto">
-                  {Object.entries(meta).map(([key, values]) => (
-                    <div key={key} className="text-xs text-gray-600">
-                      <span className="font-medium">{key}:</span>{' '}
-                      {Array.isArray(values) ? values.join(', ') : values}
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {files.map((fileData, idx) => (
+                    <div key={idx} className="text-xs text-gray-600 flex items-start gap-2">
+                      <span className="font-medium">{fileData.key}</span>
+                      {Object.keys(fileData.meta).length > 0 && (
+                        <span className="text-gray-500">
+                          ({Object.keys(fileData.meta).length} metadata fields)
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -299,34 +307,16 @@ export default function UploadModal({ collection, onClose, onSuccess }) {
               />
               <p className="text-xs text-gray-500 mt-1">
                 {collection
-                  ? `Uploading to existing collection: ${collection}`
-                  : 'New collection will be created if it doesn\'t exist'
+                  ? `Uploading to: ${collection}`
+                  : 'All files will be uploaded to this collection'
                 }
               </p>
             </div>
 
-            {/* Key input */}
+            {/* Language input - applies to all files */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Document Key
-              </label>
-              <input
-                type="text"
-                value={key}
-                onChange={(e) => setKey(e.target.value)}
-                placeholder="Auto-generated from filename"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={loading}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Leave empty for auto-generated key
-              </p>
-            </div>
-
-            {/* Language input */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Language
+                Language (applies to all files)
               </label>
               <input
                 type="text"
@@ -336,6 +326,9 @@ export default function UploadModal({ collection, onClose, onSuccess }) {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 disabled={loading}
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Document keys will be generated from filenames
+              </p>
             </div>
 
             {/* Error display */}
@@ -357,18 +350,18 @@ export default function UploadModal({ collection, onClose, onSuccess }) {
               </button>
               <button
                 type="submit"
-                disabled={!file || loading}
+                disabled={files.length === 0 || loading}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
               >
                 {loading ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                    Uploading...
+                    Uploading {uploadProgress.current}/{uploadProgress.total}...
                   </>
                 ) : (
                   <>
                     <Upload className="w-4 h-4" />
-                    Upload Document
+                    Upload {files.length} File{files.length !== 1 ? 's' : ''}
                   </>
                 )}
               </button>
@@ -379,11 +372,21 @@ export default function UploadModal({ collection, onClose, onSuccess }) {
 
       {/* Loading overlay */}
       {loading && (
-        <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-lg">
+        <div className="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center rounded-lg">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
-            <p className="text-sm text-gray-600">Uploading document...</p>
-            <p className="text-xs text-gray-500 mt-1">This may take a few seconds</p>
+            <p className="text-sm font-medium text-gray-900">
+              Uploading files...
+            </p>
+            <p className="text-sm text-gray-600 mt-1">
+              {uploadProgress.current} of {uploadProgress.total} files
+            </p>
+            {successCount > 0 && (
+              <p className="text-xs text-green-600 mt-1">
+                ✓ {successCount} uploaded successfully
+              </p>
+            )}
+            <p className="text-xs text-gray-500 mt-2">Please wait...</p>
           </div>
         </div>
       )}

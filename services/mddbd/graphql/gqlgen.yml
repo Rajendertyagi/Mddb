@@ -1,0 +1,50 @@
+# GraphQL schema location
+schema:
+  - graphql/schema.graphql
+
+# Where should the generated code go?
+exec:
+  filename: graphql/generated.go
+  package: graphql
+
+# Where should the generated models go?
+model:
+  filename: graphql/models_gen.go
+  package: graphql
+
+# Where should the resolvers go?
+resolver:
+  layout: follow-schema
+  dir: graphql
+  package: graphql
+  filename_template: "{name}.resolvers.go"
+
+# Custom scalar mappings
+models:
+  ID:
+    model:
+      - github.com/99designs/gqlgen/graphql.ID
+      - github.com/99designs/gqlgen/graphql.Int
+      - github.com/99designs/gqlgen/graphql.Int64
+      - github.com/99designs/gqlgen/graphql.Int32
+  Int:
+    model:
+      - github.com/99designs/gqlgen/graphql.Int
+      - github.com/99designs/gqlgen/graphql.Int64
+      - github.com/99designs/gqlgen/graphql.Int32
+  JSONObject:
+    model:
+      - github.com/99designs/gqlgen/graphql.Map
+  Time:
+    model:
+      - github.com/99designs/gqlgen/graphql.Int64
+
+# Directives
+directives:
+  auth:
+    skip_runtime: false
+  hasRole:
+    skip_runtime: false
+
+# Omit some types from generation if needed
+# omit_slice_element_pointers: false

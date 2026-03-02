@@ -15,6 +15,7 @@ import EndpointsPanel from './components/EndpointsPanel';
 import UsersPanel from './components/UsersPanel';
 import GroupsPanel from './components/GroupsPanel';
 import VectorPanel from './components/VectorPanel';
+import EmbeddingModelsPanel from './components/EmbeddingModelsPanel';
 
 function App() {
   const {
@@ -124,6 +125,11 @@ function App() {
           {viewMode === 'vectors' && (
             <div className="flex-1 border-l border-gray-200">
               <VectorPanel />
+            </div>
+          )}
+          {viewMode === 'embeddings' && (
+            <div className="flex-1 border-l border-gray-200">
+              <EmbeddingModelsPanel />
             </div>
           )}
           {viewMode === 'documents' && (

@@ -93,13 +93,28 @@ export default function Sidebar({ stats, statsError, onStatsRefresh }) {
       {vectorStats && (
         <div className="p-4 border-b border-gray-200">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-            <span className="flex items-center space-x-1">
+            <span className="flex items-center space-x-2">
               <Brain className="w-3 h-3" />
               <span>Embeddings</span>
+              {vectorStats.enabled ? (
+                <span className="flex items-center">
+                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" title="Connected"></span>
+                </span>
+              ) : (
+                <span className="flex items-center">
+                  <span className="w-2 h-2 bg-red-500 rounded-full" title="Disconnected"></span>
+                </span>
+              )}
             </span>
           </h3>
           {vectorStats.enabled ? (
             <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">Provider</span>
+                <span className="font-medium text-gray-900 text-xs capitalize">
+                  {vectorStats.provider || 'Unknown'}
+                </span>
+              </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-600">Model</span>
                 <span className="font-medium text-gray-900 text-xs truncate max-w-[120px]" title={vectorStats.model}>
@@ -289,6 +304,17 @@ export default function Sidebar({ stats, statsError, onStatsRefresh }) {
           >
             <Database className="w-4 h-4" />
             <span className="text-sm font-medium">Vector Search</span>
+          </button>
+          <button
+            onClick={() => setViewMode('embeddings')}
+            className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+              viewMode === 'embeddings'
+                ? 'bg-blue-100 text-blue-700'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <Brain className="w-4 h-4" />
+            <span className="text-sm font-medium">Embedding Models</span>
           </button>
         </div>
       </div>

@@ -43,6 +43,17 @@ type CreateAPIKeyResponse struct {
 	CreatedAt   int64  `json:"createdAt"`
 }
 
+type APIKeyListItem struct {
+	KeyHash     string `json:"keyHash"` // for deletion
+	Description string `json:"description"`
+	CreatedAt   int64  `json:"createdAt"`
+	ExpiresAt   int64  `json:"expiresAt"`
+}
+
+type ListAPIKeysResponse struct {
+	Keys []APIKeyListItem `json:"keys"`
+}
+
 type GetMeResponse struct {
 	Username  string `json:"username"`
 	Admin     bool   `json:"admin"`
@@ -185,6 +196,85 @@ func (s *Server) handleAuthAPIKey(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		http.Error(w, `{"error":"failed to encode response"}`, http.StatusInternalServerError)
+	}
+}
+
+// handleAuthAPIKeysList handles GET /v1/auth/api-keys
+func (s *Server) handleAuthAPIKeysList(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Check authentication
+	claims, ok := GetClaimsFromContext(r.Context())
+	if !ok {
+		http.Error(w, `{"error":"authentication required"}`, http.StatusUnauthorized)
+		return
+	}
+
+	// Get user's API keys
+	apiKeys, err := s.AuthManager.ListAPIKeys(claims.Username)
+	if err != nil {
+		http.Error(w, `{"error":"failed to list api keys"}`, http.StatusInternalServerError)
+		return
+	}
+
+	// Convert to response format (without actual key values)
+	items := make([]APIKeyListItem, 0, len(apiKeys))
+	for _, key := range apiKeys {
+		items = append(items, APIKeyListItem{
+			KeyHash:     key.KeyHash,
+			Description: key.Description,
+			CreatedAt:   key.CreatedAt,
+			ExpiresAt:   key.ExpiresAt,
+		})
+	}
+
+	resp := ListAPIKeysResponse{Keys: items}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		http.Error(w, `{"error":"failed to encode response"}`, http.StatusInternalServerError)
+	}
+}
+
+// handleAuthAPIKeyDelete handles DELETE /v1/auth/api-keys/:keyHash
+func (s *Server) handleAuthAPIKeyDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "DELETE" {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Check authentication
+	claims, ok := GetClaimsFromContext(r.Context())
+	if !ok {
+		http.Error(w, `{"error":"authentication required"}`, http.StatusUnauthorized)
+		return
+	}
+
+	// Extract keyHash from path: /v1/auth/api-keys/abc123...
+	keyHash := strings.TrimPrefix(r.URL.Path, "/v1/auth/api-keys/")
+	if keyHash == "" {
+		http.Error(w, `{"error":"key hash required"}`, http.StatusBadRequest)
+		return
+	}
+
+	// Delete API key
+	if err := s.AuthManager.DeleteAPIKey(claims.Username, keyHash); err != nil {
+		if err == ErrAPIKeyNotFound {
+			http.Error(w, `{"error":"api key not found"}`, http.StatusNotFound)
+		} else if err == ErrForbidden {
+			http.Error(w, `{"error":"forbidden: you can only delete your own api keys"}`, http.StatusForbidden)
+		} else {
+			http.Error(w, `{"error":"failed to delete api key"}`, http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]string{"status": "deleted"}); err != nil {
 		http.Error(w, `{"error":"failed to encode response"}`, http.StatusInternalServerError)
 	}
 }

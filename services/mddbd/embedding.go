@@ -59,6 +59,17 @@ func NewEmbeddingProvider() EmbeddingProvider {
 		dims := envDefaultInt("MDDB_EMBEDDING_DIMENSIONS", 1024)
 		return NewVoyageEmbeddingProvider(apiKey, apiURL, model, dims)
 
+	case "cohere":
+		apiKey := os.Getenv("MDDB_EMBEDDING_API_KEY")
+		if apiKey == "" {
+			log.Println("WARNING: MDDB_EMBEDDING_PROVIDER=cohere but MDDB_EMBEDDING_API_KEY not set")
+			return nil
+		}
+		apiURL := envDefault("MDDB_EMBEDDING_API_URL", "https://api.cohere.ai/v1")
+		model := envDefault("MDDB_EMBEDDING_MODEL", "embed-english-v3.0")
+		dims := envDefaultInt("MDDB_EMBEDDING_DIMENSIONS", 1024)
+		return NewCohereEmbeddingProvider(apiKey, apiURL, model, dims)
+
 	default:
 		log.Printf("WARNING: unknown MDDB_EMBEDDING_PROVIDER=%q, embedding disabled", provider)
 		return nil
