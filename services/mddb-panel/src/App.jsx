@@ -14,6 +14,7 @@ import MCPConfigPanel from './components/MCPConfigPanel';
 import EndpointsPanel from './components/EndpointsPanel';
 import UsersPanel from './components/UsersPanel';
 import GroupsPanel from './components/GroupsPanel';
+import VectorPanel from './components/VectorPanel';
 
 function App() {
   const {
@@ -118,6 +119,11 @@ function App() {
           {viewMode === 'groups' && (
             <div className="flex-1 border-l border-gray-200">
               <GroupsPanel />
+            </div>
+          )}
+          {viewMode === 'vectors' && (
+            <div className="flex-1 border-l border-gray-200">
+              <VectorPanel />
             </div>
           )}
           {viewMode === 'documents' && (

@@ -58,7 +58,7 @@ export default function UsersPanel() {
   if (usersLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
@@ -145,8 +145,8 @@ export default function UsersPanel() {
                     <tr key={user.username} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="flex-shrink-0 h-8 w-8 bg-primary-100 rounded-full flex items-center justify-center">
-                            <span className="text-primary-600 font-medium text-sm">
+                          <div className="flex-shrink-0 h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
+                            <span className="text-blue-600 font-medium text-sm">
                               {user.username.charAt(0).toUpperCase()}
                             </span>
                           </div>
@@ -206,7 +206,7 @@ export default function UsersPanel() {
                             setSelectedUser(user);
                             setShowPermissionsModal(true);
                           }}
-                          className="text-primary-600 hover:text-primary-900 mr-3"
+                          className="text-blue-600 hover:text-blue-900 mr-3"
                           title="Manage Permissions"
                         >
                           <Key className="w-4 h-4" />
@@ -312,7 +312,7 @@ function CreateUserModal({ onClose, onSuccess }) {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>
@@ -325,7 +325,7 @@ function CreateUserModal({ onClose, onSuccess }) {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
                 minLength={6}
               />
@@ -337,7 +337,7 @@ function CreateUserModal({ onClose, onSuccess }) {
                 id="isAdmin"
                 checked={isAdmin}
                 onChange={(e) => setIsAdmin(e.target.checked)}
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
               />
               <label htmlFor="isAdmin" className="ml-2 block text-sm text-gray-700">
                 Administrator privileges
@@ -529,7 +529,7 @@ function PermissionsModal({ user, onClose }) {
                 type="text"
                 value={collection}
                 onChange={(e) => setCollection(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>
@@ -542,7 +542,7 @@ function PermissionsModal({ user, onClose }) {
                   id="read"
                   checked={read}
                   onChange={(e) => setRead(e.target.checked)}
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
                 <label htmlFor="read" className="ml-2 block text-sm text-gray-700">
                   Read
@@ -554,7 +554,7 @@ function PermissionsModal({ user, onClose }) {
                   id="write"
                   checked={write}
                   onChange={(e) => setWrite(e.target.checked)}
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
                 <label htmlFor="write" className="ml-2 block text-sm text-gray-700">
                   Write
@@ -566,7 +566,7 @@ function PermissionsModal({ user, onClose }) {
                   id="admin"
                   checked={admin}
                   onChange={(e) => setAdmin(e.target.checked)}
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
                 <label htmlFor="admin" className="ml-2 block text-sm text-gray-700">
                   Admin

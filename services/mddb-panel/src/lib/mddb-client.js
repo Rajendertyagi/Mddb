@@ -301,6 +301,23 @@ class MDDBClient {
     return this.request('/endpoints', { method: 'GET' });
   }
 
+  /**
+   * Get vector search statistics
+   */
+  async getVectorStats() {
+    return this.request('/vector-stats', { method: 'GET' });
+  }
+
+  /**
+   * Reindex vectors for a collection
+   */
+  async reindexVectors(collection) {
+    return this.request('/vector-reindex', {
+      method: 'POST',
+      body: JSON.stringify({ collection }),
+    });
+  }
+
   // ---- User Management Methods ----
 
   /**

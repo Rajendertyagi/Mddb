@@ -148,7 +148,7 @@ export default function Sidebar({ stats, statsError }) {
                 key={collection.name}
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors group ${
                   currentCollection === collection.name
-                    ? 'bg-primary-100 text-primary-700'
+                    ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
               >
@@ -194,7 +194,7 @@ export default function Sidebar({ stats, statsError }) {
             onClick={() => setViewMode('system')}
             className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
               viewMode === 'system'
-                ? 'bg-primary-100 text-primary-700'
+                ? 'bg-blue-100 text-blue-700'
                 : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -205,7 +205,7 @@ export default function Sidebar({ stats, statsError }) {
             onClick={() => setViewMode('config')}
             className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
               viewMode === 'config'
-                ? 'bg-primary-100 text-primary-700'
+                ? 'bg-blue-100 text-blue-700'
                 : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -216,7 +216,7 @@ export default function Sidebar({ stats, statsError }) {
             onClick={() => setViewMode('mcp')}
             className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
               viewMode === 'mcp'
-                ? 'bg-primary-100 text-primary-700'
+                ? 'bg-blue-100 text-blue-700'
                 : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -227,7 +227,7 @@ export default function Sidebar({ stats, statsError }) {
             onClick={() => setViewMode('endpoints')}
             className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
               viewMode === 'endpoints'
-                ? 'bg-primary-100 text-primary-700'
+                ? 'bg-blue-100 text-blue-700'
                 : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -238,7 +238,7 @@ export default function Sidebar({ stats, statsError }) {
             onClick={() => setViewMode('users')}
             className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
               viewMode === 'users'
-                ? 'bg-primary-100 text-primary-700'
+                ? 'bg-blue-100 text-blue-700'
                 : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -249,7 +249,7 @@ export default function Sidebar({ stats, statsError }) {
             onClick={() => setViewMode('groups')}
             className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
               viewMode === 'groups'
-                ? 'bg-primary-100 text-primary-700'
+                ? 'bg-blue-100 text-blue-700'
                 : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -257,10 +257,21 @@ export default function Sidebar({ stats, statsError }) {
             <span className="text-sm font-medium">Groups</span>
           </button>
           <button
+            onClick={() => setViewMode('vectors')}
+            className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+              viewMode === 'vectors'
+                ? 'bg-blue-100 text-blue-700'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <Database className="w-4 h-4" />
+            <span className="text-sm font-medium">Vector Search</span>
+          </button>
+          <button
             onClick={() => setViewMode('documents')}
             className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
               viewMode === 'documents'
-                ? 'bg-primary-100 text-primary-700'
+                ? 'bg-blue-100 text-blue-700'
                 : 'text-gray-700 hover:bg-gray-100'
             }`}
           >

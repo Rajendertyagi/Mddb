@@ -366,7 +366,7 @@ function CreateGroupModal({ users, onClose, onSuccess }) {
                         type="checkbox"
                         checked={selectedMembers.includes(user.username)}
                         onChange={() => toggleMember(user.username)}
-                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                       />
                       <span className="ml-2 text-sm text-gray-700">{user.username}</span>
                       {user.admin && (
@@ -483,7 +483,7 @@ function EditGroupModal({ group, users, onClose, onSuccess }) {
                         type="checkbox"
                         checked={selectedMembers.includes(user.username)}
                         onChange={() => toggleMember(user.username)}
-                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                       />
                       <span className="ml-2 text-sm text-gray-700">{user.username}</span>
                       {user.admin && (
@@ -694,7 +694,7 @@ function GroupPermissionsModal({ group, onClose }) {
                   id="groupRead"
                   checked={read}
                   onChange={(e) => setRead(e.target.checked)}
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
                 <label htmlFor="groupRead" className="ml-2 block text-sm text-gray-700">
                   Read
@@ -706,7 +706,7 @@ function GroupPermissionsModal({ group, onClose }) {
                   id="groupWrite"
                   checked={write}
                   onChange={(e) => setWrite(e.target.checked)}
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
                 <label htmlFor="groupWrite" className="ml-2 block text-sm text-gray-700">
                   Write
@@ -718,7 +718,7 @@ function GroupPermissionsModal({ group, onClose }) {
                   id="groupAdmin"
                   checked={admin}
                   onChange={(e) => setAdmin(e.target.checked)}
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
                 <label htmlFor="groupAdmin" className="ml-2 block text-sm text-gray-700">
                   Admin
