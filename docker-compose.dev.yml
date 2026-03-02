@@ -1,74 +1,105 @@
+version: '3.8'
+
 services:
-  mddb-dev:
+  # MDDB Server (Backend)
+  mddbd:
     build:
-      context: .
-      dockerfile: services/mddbd/Dockerfile.dev
-    image: mddb:dev
-    container_name: mddb-server-dev
-    restart: unless-stopped
+      context: ./services/mddbd
+      dockerfile: Dockerfile.dev
+    container_name: mddb-server
     ports:
       - "11023:11023"  # HTTP API
-      - "11024:11024"  # gRPC API
-      - "11443:11443/udp"  # HTTP/3 (QUIC)
+      - "11024:11024"  # gRPC
     volumes:
-      - ./services/mddbd:/app:delegated
-      - ./proto:/proto:ro
-      - mddb-dev-data:/app/data
-      - ./backups:/app/backups
-      - go-cache:/go/pkg/mod
-      - /app/proto
-    working_dir: /app
+      - ./services/mddbd:/app
+      - mddb-data:/data
     environment:
+      - MDDB_PATH=/data/mddb.db
+      - MDDB_MODE=wr
       - MDDB_ADDR=:11023
       - MDDB_GRPC_ADDR=:11024
-      - MDDB_MODE=wr
-      - MDDB_PATH=/app/data/mddb.db
-      - MDDB_EXTREME=true
-      - TZ=UTC
-      - GO_ENV=development
+      - MDDB_AUTH_ENABLED=true
+      - MDDB_AUTH_JWT_SECRET=dev-secret-change-in-production-12345678901234567890
+      - MDDB_AUTH_JWT_EXPIRY=24h
+      - MDDB_AUTH_ADMIN_USERNAME=admin
+      - MDDB_AUTH_ADMIN_PASSWORD=admin123
+      - MDDB_METRICS=true
+      - MDDB_EMBEDDING_PROVIDER=ollama
+      - MDDB_EMBEDDING_API_URL=http://ollama:11434
+      - MDDB_EMBEDDING_MODEL=nomic-embed-text
+      - MDDB_EMBEDDING_DIMENSIONS=768
     networks:
       - mddb-network
-    command: air -c .air.toml
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:11023/health"]
-      interval: 30s
-      timeout: 3s
+      test: ["CMD", "curl", "-f", "http://localhost:11023/v1/health"]
+      interval: 10s
+      timeout: 5s
       retries: 3
-      start_period: 10s
-    labels:
-      - "com.mddb.description=MDDB Development Server with Hot Reload"
-      - "com.mddb.environment=development"
 
-  mddb-panel-dev:
+  # MDDB Panel (Frontend)
+  mddb-panel:
     build:
       context: ./services/mddb-panel
       dockerfile: Dockerfile
-    image: mddb-panel:dev
-    container_name: mddb-panel-dev
-    restart: unless-stopped
+      target: development
+    container_name: mddb-panel
     ports:
-      - "3000:3000"  # Web UI
+      - "3000:3000"
+    volumes:
+      - ./services/mddb-panel:/app
+      - /app/node_modules
     environment:
-      - VITE_MDDB_SERVER=http://mddb-dev:11023
+      - VITE_MDBB_SERVER=localhost:11023
+      - NODE_ENV=development
     networks:
       - mddb-network
     depends_on:
-      mddb-dev:
-        condition: service_healthy
-    labels:
-      - "com.mddb.description=MDDB Panel - Development Web Interface"
-      - "com.mddb.environment=development"
-      - "com.mddb.version=2.3.3"
+      - mddbd
+    restart: unless-stopped
+    command: npm run dev -- --host 0.0.0.0
+
+  # MDDB MCP Server
+  mddb-mcp:
+    build:
+      context: ./services/mddb-mcp
+      dockerfile: Dockerfile
+    container_name: mddb-mcp
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./services/mddb-mcp:/app
+      - ./services/mddb-mcp/config.yaml:/app/config.yaml:ro
+    environment:
+      - MCP_LISTEN_ADDRESS=0.0.0.0:9000
+      - MDDB_GRPC_ADDRESS=mddbd:11024
+      - MDDB_REST_BASE_URL=http://mddbd:11023
+    networks:
+      - mddb-network
+    depends_on:
+      - mddbd
+    restart: unless-stopped
+
+  # Ollama (Optional - for vector embeddings)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: mddb-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - mddb-network
+    restart: unless-stopped
+    profiles:
+      - with-ollama
 
 volumes:
-  mddb-dev-data:
+  mddb-data:
     driver: local
-    name: mddb-dev-data
-  go-cache:
+  ollama-data:
     driver: local
-    name: mddb-go-cache
 
 networks:
   mddb-network:
     driver: bridge
-    name: mddb-network
