@@ -8,6 +8,12 @@ import DocumentList from './components/DocumentList';
 import DocumentViewer from './components/DocumentViewer';
 import VectorSearchPanel from './components/VectorSearchPanel';
 import LoginForm from './components/LoginForm';
+import SystemInfo from './components/SystemInfo';
+import ConfigPanel from './components/ConfigPanel';
+import MCPConfigPanel from './components/MCPConfigPanel';
+import EndpointsPanel from './components/EndpointsPanel';
+import UsersPanel from './components/UsersPanel';
+import GroupsPanel from './components/GroupsPanel';
 
 function App() {
   const {
@@ -18,6 +24,7 @@ function App() {
     setStatsError,
     currentDocument,
     searchMode,
+    viewMode,
   } = useStore();
 
   const [isAuthenticated, setIsAuthenticated] = useState(authManager.isAuthenticated());
@@ -83,26 +90,60 @@ function App() {
         <Sidebar stats={stats} statsError={statsError} />
 
         <div className="flex-1 flex">
-          {searchMode === 'vector' ? (
+          {viewMode === 'system' && (
+            <div className="flex-1 border-l border-gray-200">
+              <SystemInfo />
+            </div>
+          )}
+          {viewMode === 'config' && (
+            <div className="flex-1 border-l border-gray-200">
+              <ConfigPanel />
+            </div>
+          )}
+          {viewMode === 'mcp' && (
+            <div className="flex-1 border-l border-gray-200">
+              <MCPConfigPanel />
+            </div>
+          )}
+          {viewMode === 'endpoints' && (
+            <div className="flex-1 border-l border-gray-200">
+              <EndpointsPanel />
+            </div>
+          )}
+          {viewMode === 'users' && (
+            <div className="flex-1 border-l border-gray-200">
+              <UsersPanel />
+            </div>
+          )}
+          {viewMode === 'groups' && (
+            <div className="flex-1 border-l border-gray-200">
+              <GroupsPanel />
+            </div>
+          )}
+          {viewMode === 'documents' && (
             <>
-              <div className="flex-1 border-l border-gray-200">
-                <VectorSearchPanel />
-              </div>
-              {currentDocument && (
-                <div className="flex-1 border-l border-gray-200">
-                  <DocumentViewer />
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              <div className="flex-1 border-l border-gray-200">
-                <DocumentList />
-              </div>
-              {currentDocument && (
-                <div className="flex-1 border-l border-gray-200">
-                  <DocumentViewer />
-                </div>
+              {searchMode === 'vector' ? (
+                <>
+                  <div className="flex-1 border-l border-gray-200">
+                    <VectorSearchPanel />
+                  </div>
+                  {currentDocument && (
+                    <div className="flex-1 border-l border-gray-200">
+                      <DocumentViewer />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="flex-1 border-l border-gray-200">
+                    <DocumentList />
+                  </div>
+                  {currentDocument && (
+                    <div className="flex-1 border-l border-gray-200">
+                      <DocumentViewer />
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}

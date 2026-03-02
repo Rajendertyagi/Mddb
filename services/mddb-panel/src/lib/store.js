@@ -40,6 +40,39 @@ export const useStore = create((set, get) => ({
   vectorError: null,
   vectorStats: null,
 
+  // View mode (documents, system, config, mcp, endpoints, users, groups)
+  viewMode: 'documents',
+
+  // System info
+  systemInfo: null,
+  systemInfoLoading: false,
+  systemInfoError: null,
+
+  // Config
+  config: null,
+  configLoading: false,
+  configError: null,
+
+  // MCP Config
+  mcpConfig: null,
+  mcpConfigLoading: false,
+  mcpConfigError: null,
+
+  // Endpoints
+  endpoints: null,
+  endpointsLoading: false,
+  endpointsError: null,
+
+  // Users
+  users: [],
+  usersLoading: false,
+  usersError: null,
+
+  // Groups
+  groups: [],
+  groupsLoading: false,
+  groupsError: null,
+
   // Actions
   setStats: (stats) => set({ stats }),
   setStatsLoading: (loading) => set({ statsLoading: loading }),
@@ -68,6 +101,39 @@ export const useStore = create((set, get) => ({
   setVectorLoading: (l) => set({ vectorLoading: l }),
   setVectorError: (e) => set({ vectorError: e }),
   setVectorStats: (s) => set({ vectorStats: s }),
+
+  // View mode actions
+  setViewMode: (mode) => set({ viewMode: mode }),
+
+  // System info actions
+  setSystemInfo: (info) => set({ systemInfo: info }),
+  setSystemInfoLoading: (loading) => set({ systemInfoLoading: loading }),
+  setSystemInfoError: (error) => set({ systemInfoError: error }),
+
+  // Config actions
+  setConfig: (config) => set({ config }),
+  setConfigLoading: (loading) => set({ configLoading: loading }),
+  setConfigError: (error) => set({ configError: error }),
+
+  // MCP Config actions
+  setMcpConfig: (config) => set({ mcpConfig: config }),
+  setMcpConfigLoading: (loading) => set({ mcpConfigLoading: loading }),
+  setMcpConfigError: (error) => set({ mcpConfigError: error }),
+
+  // Endpoints actions
+  setEndpoints: (endpoints) => set({ endpoints }),
+  setEndpointsLoading: (loading) => set({ endpointsLoading: loading }),
+  setEndpointsError: (error) => set({ endpointsError: error }),
+
+  // Users actions
+  setUsers: (users) => set({ users }),
+  setUsersLoading: (loading) => set({ usersLoading: loading }),
+  setUsersError: (error) => set({ usersError: error }),
+
+  // Groups actions
+  setGroups: (groups) => set({ groups }),
+  setGroupsLoading: (loading) => set({ groupsLoading: loading }),
+  setGroupsError: (error) => set({ groupsError: error }),
 
   // Clear current document
   clearCurrentDocument: () => set({ 

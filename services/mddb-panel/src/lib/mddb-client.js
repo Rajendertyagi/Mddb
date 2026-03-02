@@ -271,6 +271,107 @@ class MDDBClient {
       }),
     });
   }
+
+  // ---- System & Configuration Methods ----
+
+  /**
+   * Get system information
+   */
+  async getSystemInfo() {
+    return this.request('/system/info', { method: 'GET' });
+  }
+
+  /**
+   * Get server configuration
+   */
+  async getConfig() {
+    return this.request('/config', { method: 'GET' });
+  }
+
+  /**
+   * Get MCP configuration YAML
+   */
+  async getMCPConfig() {
+    return this.request('/mcp/config', { method: 'GET' });
+  }
+
+  /**
+   * Get all API endpoints
+   */
+  async getEndpoints() {
+    return this.request('/endpoints', { method: 'GET' });
+  }
+
+  // ---- User Management Methods ----
+
+  /**
+   * List all users (admin only)
+   */
+  async listUsers() {
+    return this.request('/auth/users', { method: 'GET' });
+  }
+
+  // ---- Group Management Methods ----
+
+  /**
+   * Create a new group
+   */
+  async createGroup({ name, description, members = [] }) {
+    return this.request('/auth/groups', {
+      method: 'POST',
+      body: JSON.stringify({ name, description, members }),
+    });
+  }
+
+  /**
+   * List all groups
+   */
+  async listGroups() {
+    return this.request('/auth/groups', { method: 'GET' });
+  }
+
+  /**
+   * Get group details
+   */
+  async getGroup(name) {
+    return this.request(`/auth/groups/${name}`, { method: 'GET' });
+  }
+
+  /**
+   * Update group
+   */
+  async updateGroup(name, { description, members }) {
+    return this.request(`/auth/groups/${name}`, {
+      method: 'PUT',
+      body: JSON.stringify({ description, members }),
+    });
+  }
+
+  /**
+   * Delete group
+   */
+  async deleteGroup(name) {
+    return this.request(`/auth/groups/${name}`, { method: 'DELETE' });
+  }
+
+  /**
+   * Set group permission
+   */
+  async setGroupPermission({ groupName, collection, read, write, admin }) {
+    return this.request('/auth/group-permissions', {
+      method: 'POST',
+      body: JSON.stringify({ groupName, collection, read, write, admin }),
+    });
+  }
+
+  /**
+   * Get group permissions
+   */
+  async getGroupPermissions(groupName) {
+    return this.request(`/auth/group-permissions?group=${groupName}`, {
+      method: 'GET',
+    });
+  }
 }
 
 export default new MDDBClient();

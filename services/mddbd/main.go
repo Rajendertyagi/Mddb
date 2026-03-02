@@ -18,6 +18,8 @@ import (
 	"google.golang.org/grpc"
 )
 
+const VERSION = "2.4.0"
+
 type AccessMode string
 
 const (
@@ -340,6 +342,12 @@ func main() {
 	mux.HandleFunc("/v1/validate", s.handleValidate)
 	mux.HandleFunc("/metrics", s.Metrics.HandleMetrics)
 
+	// System info and config endpoints
+	mux.HandleFunc("/v1/system/info", s.handleSystemInfo)
+	mux.HandleFunc("/v1/config", s.handleConfig)
+	mux.HandleFunc("/v1/mcp/config", s.handleMCPConfig)
+	mux.HandleFunc("/v1/endpoints", s.handleEndpoints)
+
 	// Auth endpoints (if enabled)
 	if authEnabled {
 		mux.HandleFunc("/v1/auth/login", s.handleAuthLogin)
@@ -348,6 +356,10 @@ func main() {
 		mux.HandleFunc("/v1/auth/me", s.handleAuthMe)
 		mux.HandleFunc("/v1/auth/permissions", s.handleAuthPermissions)
 		mux.HandleFunc("/v1/auth/users/", s.handleAuthDeleteUser) // Note: trailing slash for DELETE /v1/auth/users/:username
+		mux.HandleFunc("/v1/auth/users", s.handleAuthUsersList)
+		mux.HandleFunc("/v1/auth/groups", s.handleAuthGroups)
+		mux.HandleFunc("/v1/auth/groups/", s.handleAuthGroupDetail)
+		mux.HandleFunc("/v1/auth/group-permissions", s.handleAuthGroupPermissions)
 	}
 
 	httpAddr := env("MDDB_ADDR", ":11023")

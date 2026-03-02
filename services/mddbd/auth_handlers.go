@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -308,5 +309,243 @@ func (s *Server) handleAuthDeleteUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]string{"status": "deleted"}); err != nil {
 		http.Error(w, `{"error":"failed to encode response"}`, http.StatusInternalServerError)
+	}
+}
+
+// ---- Users List Handler ----
+
+type UserInfoResponse struct {
+	Username  string   `json:"username"`
+	CreatedAt int64    `json:"createdAt"`
+	Disabled  bool     `json:"disabled"`
+	Admin     bool     `json:"admin"`
+	Groups    []string `json:"groups"`
+}
+
+type UsersListResponse struct {
+	Users []UserInfoResponse `json:"users"`
+}
+
+// handleAuthUsersList lists all users (admin only)
+func (s *Server) handleAuthUsersList(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Check admin permission
+	claims, ok := GetClaimsFromContext(r.Context())
+	if !ok || !claims.Admin {
+		http.Error(w, `{"error":"admin access required"}`, http.StatusForbidden)
+		return
+	}
+
+	users := s.AuthManager.ListAllUsers()
+	userInfos := make([]UserInfoResponse, 0, len(users))
+
+	for _, u := range users {
+		userInfos = append(userInfos, UserInfoResponse{
+			Username:  u.Username,
+			CreatedAt: u.CreatedAt,
+			Disabled:  u.Disabled,
+			Admin:     s.AuthManager.IsAdmin(u.Username),
+			Groups:    s.AuthManager.GetUserGroups(u.Username),
+		})
+	}
+
+	response := UsersListResponse{Users: userInfos}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, `{"error":"failed to encode response"}`, http.StatusInternalServerError)
+	}
+}
+
+// ---- Group Handlers ----
+
+type CreateGroupRequest struct {
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Members     []string `json:"members"`
+}
+
+type UpdateGroupRequest struct {
+	Description string   `json:"description"`
+	Members     []string `json:"members"`
+}
+
+type GroupsListResponse struct {
+	Groups []*Group `json:"groups"`
+}
+
+// handleAuthGroups handles GET (list) and POST (create) for groups
+func (s *Server) handleAuthGroups(w http.ResponseWriter, r *http.Request) {
+	// Check admin permission
+	claims, ok := GetClaimsFromContext(r.Context())
+	if !ok || !claims.Admin {
+		http.Error(w, `{"error":"admin access required"}`, http.StatusForbidden)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		// List all groups
+		groups := s.AuthManager.ListGroups()
+		response := GroupsListResponse{Groups: groups}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			http.Error(w, `{"error":"failed to encode response"}`, http.StatusInternalServerError)
+		}
+
+	case http.MethodPost:
+		// Create new group
+		var req CreateGroupRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+			return
+		}
+
+		if req.Name == "" {
+			http.Error(w, `{"error":"group name is required"}`, http.StatusBadRequest)
+			return
+		}
+
+		group, err := s.AuthManager.CreateGroup(req.Name, req.Description, req.Members)
+		if err != nil {
+			http.Error(w, fmt.Sprintf(`{"error":"%s"}`, err.Error()), http.StatusBadRequest)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		if err := json.NewEncoder(w).Encode(group); err != nil {
+			http.Error(w, `{"error":"failed to encode response"}`, http.StatusInternalServerError)
+		}
+
+	default:
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+	}
+}
+
+// handleAuthGroupDetail handles GET, PUT, DELETE for specific group
+func (s *Server) handleAuthGroupDetail(w http.ResponseWriter, r *http.Request) {
+	// Check admin permission
+	claims, ok := GetClaimsFromContext(r.Context())
+	if !ok || !claims.Admin {
+		http.Error(w, `{"error":"admin access required"}`, http.StatusForbidden)
+		return
+	}
+
+	// Extract group name from path: /v1/auth/groups/developers
+	groupName := strings.TrimPrefix(r.URL.Path, "/v1/auth/groups/")
+	if groupName == "" {
+		http.Error(w, `{"error":"group name required"}`, http.StatusBadRequest)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		// Get group details
+		group, err := s.AuthManager.GetGroup(groupName)
+		if err != nil {
+			http.Error(w, `{"error":"group not found"}`, http.StatusNotFound)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(group); err != nil {
+			http.Error(w, `{"error":"failed to encode response"}`, http.StatusInternalServerError)
+		}
+
+	case http.MethodPut:
+		// Update group
+		var req UpdateGroupRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+			return
+		}
+
+		group, err := s.AuthManager.UpdateGroup(groupName, req.Description, req.Members)
+		if err != nil {
+			if err.Error() == "group not found" {
+				http.Error(w, `{"error":"group not found"}`, http.StatusNotFound)
+			} else {
+				http.Error(w, fmt.Sprintf(`{"error":"%s"}`, err.Error()), http.StatusBadRequest)
+			}
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(group); err != nil {
+			http.Error(w, `{"error":"failed to encode response"}`, http.StatusInternalServerError)
+		}
+
+	case http.MethodDelete:
+		// Delete group
+		if err := s.AuthManager.DeleteGroup(groupName); err != nil {
+			if err.Error() == "group not found" {
+				http.Error(w, `{"error":"group not found"}`, http.StatusNotFound)
+			} else {
+				http.Error(w, fmt.Sprintf(`{"error":"%s"}`, err.Error()), http.StatusInternalServerError)
+			}
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(map[string]string{"status": "deleted"}); err != nil {
+			http.Error(w, `{"error":"failed to encode response"}`, http.StatusInternalServerError)
+		}
+
+	default:
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+	}
+}
+
+// handleAuthGroupPermissions handles GET and POST for group permissions
+func (s *Server) handleAuthGroupPermissions(w http.ResponseWriter, r *http.Request) {
+	// Check admin permission
+	claims, ok := GetClaimsFromContext(r.Context())
+	if !ok || !claims.Admin {
+		http.Error(w, `{"error":"admin access required"}`, http.StatusForbidden)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		// Get group permissions
+		groupName := r.URL.Query().Get("group")
+		if groupName == "" {
+			http.Error(w, `{"error":"group parameter required"}`, http.StatusBadRequest)
+			return
+		}
+
+		perms := s.AuthManager.GetGroupPermissions(groupName)
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{"permissions": perms}); err != nil {
+			http.Error(w, `{"error":"failed to encode response"}`, http.StatusInternalServerError)
+		}
+
+	case http.MethodPost:
+		// Set group permission
+		var gp GroupPermission
+		if err := json.NewDecoder(r.Body).Decode(&gp); err != nil {
+			http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+			return
+		}
+
+		if err := s.AuthManager.SetGroupPermission(&gp); err != nil {
+			http.Error(w, fmt.Sprintf(`{"error":"%s"}`, err.Error()), http.StatusBadRequest)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(map[string]string{"status": "permission set"}); err != nil {
+			http.Error(w, `{"error":"failed to encode response"}`, http.StatusInternalServerError)
+		}
+
+	default:
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
 	}
 }

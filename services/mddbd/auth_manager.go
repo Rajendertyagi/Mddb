@@ -13,9 +13,11 @@ import (
 )
 
 var (
-	bucketAuthUsers   = []byte("auth_users")
-	bucketAuthAPIKeys = []byte("auth_apikeys")
-	bucketAuthPerms   = []byte("auth_permissions")
+	bucketAuthUsers      = []byte("auth_users")
+	bucketAuthAPIKeys    = []byte("auth_apikeys")
+	bucketAuthPerms      = []byte("auth_permissions")
+	bucketAuthGroups     = []byte("auth_groups")
+	bucketAuthGroupPerms = []byte("auth_group_perms")
 )
 
 // AuthManager manages authentication and authorization
@@ -25,21 +27,25 @@ type AuthManager struct {
 	enabled bool
 
 	// In-memory caches
-	mu          sync.RWMutex
-	users       map[string]*User
-	apiKeys     map[string]*APIKey       // keyHash -> APIKey
-	permissions map[string][]*Permission // username -> permissions
+	mu               sync.RWMutex
+	users            map[string]*User
+	apiKeys          map[string]*APIKey            // keyHash -> APIKey
+	permissions      map[string][]*Permission      // username -> permissions
+	groups           map[string]*Group             // groupName -> Group
+	groupPermissions map[string][]*GroupPermission // groupName -> permissions
 }
 
 // NewAuthManager creates a new authentication manager
 func NewAuthManager(db *bolt.DB, config AuthConfig) *AuthManager {
 	return &AuthManager{
-		db:          db,
-		config:      config,
-		enabled:     true,
-		users:       make(map[string]*User),
-		apiKeys:     make(map[string]*APIKey),
-		permissions: make(map[string][]*Permission),
+		db:               db,
+		config:           config,
+		enabled:          true,
+		users:            make(map[string]*User),
+		apiKeys:          make(map[string]*APIKey),
+		permissions:      make(map[string][]*Permission),
+		groups:           make(map[string]*Group),
+		groupPermissions: make(map[string][]*GroupPermission),
 	}
 }
 
@@ -60,6 +66,12 @@ func (am *AuthManager) EnsureBuckets() error {
 		if _, err := tx.CreateBucketIfNotExists(bucketAuthPerms); err != nil {
 			return err
 		}
+		if _, err := tx.CreateBucketIfNotExists(bucketAuthGroups); err != nil {
+			return err
+		}
+		if _, err := tx.CreateBucketIfNotExists(bucketAuthGroupPerms); err != nil {
+			return err
+		}
 		return nil
 	})
 }
@@ -69,6 +81,8 @@ func (am *AuthManager) LoadAll() error {
 	var users []*User
 	var apiKeys []*APIKey
 	var permissions []*Permission
+	var groups []*Group
+	var groupPermissions []*GroupPermission
 
 	err := am.db.View(func(tx *bolt.Tx) error {
 		// Load users
@@ -116,6 +130,36 @@ func (am *AuthManager) LoadAll() error {
 			}
 		}
 
+		// Load groups
+		b = tx.Bucket(bucketAuthGroups)
+		if b != nil {
+			if err := b.ForEach(func(k, v []byte) error {
+				var g Group
+				if err := json.Unmarshal(v, &g); err != nil {
+					return nil // skip corrupt entries
+				}
+				groups = append(groups, &g)
+				return nil
+			}); err != nil {
+				return err
+			}
+		}
+
+		// Load group permissions
+		b = tx.Bucket(bucketAuthGroupPerms)
+		if b != nil {
+			if err := b.ForEach(func(k, v []byte) error {
+				var gp GroupPermission
+				if err := json.Unmarshal(v, &gp); err != nil {
+					return nil // skip corrupt entries
+				}
+				groupPermissions = append(groupPermissions, &gp)
+				return nil
+			}); err != nil {
+				return err
+			}
+		}
+
 		return nil
 	})
 
@@ -128,6 +172,8 @@ func (am *AuthManager) LoadAll() error {
 	am.users = make(map[string]*User)
 	am.apiKeys = make(map[string]*APIKey)
 	am.permissions = make(map[string][]*Permission)
+	am.groups = make(map[string]*Group)
+	am.groupPermissions = make(map[string][]*GroupPermission)
 
 	for _, u := range users {
 		am.users[u.Username] = u
@@ -139,6 +185,14 @@ func (am *AuthManager) LoadAll() error {
 
 	for _, p := range permissions {
 		am.permissions[p.Username] = append(am.permissions[p.Username], p)
+	}
+
+	for _, g := range groups {
+		am.groups[g.Name] = g
+	}
+
+	for _, gp := range groupPermissions {
+		am.groupPermissions[gp.GroupName] = append(am.groupPermissions[gp.GroupName], gp)
 	}
 
 	am.mu.Unlock()
@@ -417,19 +471,51 @@ func (am *AuthManager) CheckPermission(ctx context.Context, collection string, o
 	am.mu.RLock()
 	defer am.mu.RUnlock()
 
-	perms := am.permissions[claims.Username]
+	username := claims.Username
+	perms := am.permissions[username]
 
-	// Check collection-specific permission
+	// Check user's direct collection-specific permission
 	for _, p := range perms {
 		if p.Collection == collection && p.HasPermission(operation) {
 			return nil
 		}
 	}
 
-	// Check wildcard permission
+	// Check user's direct wildcard permission
 	for _, p := range perms {
 		if p.Collection == "*" && p.HasPermission(operation) {
 			return nil
+		}
+	}
+
+	// Check group permissions
+	for _, g := range am.groups {
+		// Check if user is a member of this group
+		isMember := false
+		for _, member := range g.Members {
+			if member == username {
+				isMember = true
+				break
+			}
+		}
+
+		if !isMember {
+			continue
+		}
+
+		// Check group's collection-specific permission
+		groupPerms := am.groupPermissions[g.Name]
+		for _, gp := range groupPerms {
+			if gp.Collection == collection && gp.HasPermission(operation) {
+				return nil
+			}
+		}
+
+		// Check group's wildcard permission
+		for _, gp := range groupPerms {
+			if gp.Collection == "*" && gp.HasPermission(operation) {
+				return nil
+			}
 		}
 	}
 
@@ -449,4 +535,235 @@ func (am *AuthManager) IsAdmin(username string) bool {
 	}
 
 	return false
+}
+
+// ---- Group Management ----
+
+// CreateGroup creates a new group
+func (am *AuthManager) CreateGroup(name, description string, members []string) (*Group, error) {
+	if name == "" {
+		return nil, errors.New("group name cannot be empty")
+	}
+
+	// Check if group already exists
+	am.mu.RLock()
+	if _, exists := am.groups[name]; exists {
+		am.mu.RUnlock()
+		return nil, errors.New("group already exists")
+	}
+	am.mu.RUnlock()
+
+	group := &Group{
+		Name:        name,
+		Description: description,
+		Members:     members,
+		CreatedAt:   time.Now().Unix(),
+	}
+
+	// Save to database
+	err := am.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(bucketAuthGroups)
+		data, err := json.Marshal(group)
+		if err != nil {
+			return err
+		}
+		return b.Put([]byte(name), data)
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Update cache
+	am.mu.Lock()
+	am.groups[name] = group
+	am.mu.Unlock()
+
+	log.Printf("Created group: %s with %d members", name, len(members))
+	return group, nil
+}
+
+// GetGroup retrieves a group by name
+func (am *AuthManager) GetGroup(name string) (*Group, error) {
+	am.mu.RLock()
+	defer am.mu.RUnlock()
+
+	group, exists := am.groups[name]
+	if !exists {
+		return nil, errors.New("group not found")
+	}
+	return group, nil
+}
+
+// ListGroups returns all groups
+func (am *AuthManager) ListGroups() []*Group {
+	am.mu.RLock()
+	defer am.mu.RUnlock()
+
+	groups := make([]*Group, 0, len(am.groups))
+	for _, g := range am.groups {
+		groups = append(groups, g)
+	}
+	return groups
+}
+
+// UpdateGroup updates group description and members
+func (am *AuthManager) UpdateGroup(name, description string, members []string) (*Group, error) {
+	am.mu.Lock()
+	defer am.mu.Unlock()
+
+	group, exists := am.groups[name]
+	if !exists {
+		return nil, errors.New("group not found")
+	}
+
+	// Update fields
+	group.Description = description
+	group.Members = members
+
+	// Save to database
+	err := am.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(bucketAuthGroups)
+		data, err := json.Marshal(group)
+		if err != nil {
+			return err
+		}
+		return b.Put([]byte(name), data)
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	log.Printf("Updated group: %s (now %d members)", name, len(members))
+	return group, nil
+}
+
+// DeleteGroup deletes a group and its permissions
+func (am *AuthManager) DeleteGroup(name string) error {
+	am.mu.Lock()
+	defer am.mu.Unlock()
+
+	if _, exists := am.groups[name]; !exists {
+		return errors.New("group not found")
+	}
+
+	// Delete from database
+	err := am.db.Update(func(tx *bolt.Tx) error {
+		// Delete group
+		b := tx.Bucket(bucketAuthGroups)
+		if err := b.Delete([]byte(name)); err != nil {
+			return err
+		}
+
+		// Delete group permissions
+		b = tx.Bucket(bucketAuthGroupPerms)
+		cursor := b.Cursor()
+		prefix := []byte(name + "|")
+		for k, _ := cursor.Seek(prefix); k != nil && string(k[:len(prefix)]) == string(prefix); k, _ = cursor.Next() {
+			if err := b.Delete(k); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	// Update cache
+	delete(am.groups, name)
+	delete(am.groupPermissions, name)
+
+	log.Printf("Deleted group: %s", name)
+	return nil
+}
+
+// SetGroupPermission sets a group permission for a collection
+func (am *AuthManager) SetGroupPermission(gp *GroupPermission) error {
+	if gp.GroupName == "" || gp.Collection == "" {
+		return errors.New("group name and collection are required")
+	}
+
+	// Check if group exists
+	am.mu.RLock()
+	if _, exists := am.groups[gp.GroupName]; !exists {
+		am.mu.RUnlock()
+		return errors.New("group not found")
+	}
+	am.mu.RUnlock()
+
+	key := fmt.Sprintf("%s|%s", gp.GroupName, gp.Collection)
+
+	// Save to database
+	err := am.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(bucketAuthGroupPerms)
+		data, err := json.Marshal(gp)
+		if err != nil {
+			return err
+		}
+		return b.Put([]byte(key), data)
+	})
+
+	if err != nil {
+		return err
+	}
+
+	// Update cache - replace existing permission for this collection
+	am.mu.Lock()
+	perms := am.groupPermissions[gp.GroupName]
+	found := false
+	for i, p := range perms {
+		if p.Collection == gp.Collection {
+			perms[i] = gp
+			found = true
+			break
+		}
+	}
+	if !found {
+		am.groupPermissions[gp.GroupName] = append(perms, gp)
+	}
+	am.mu.Unlock()
+
+	log.Printf("Set group permission: %s on %s (read=%v, write=%v, admin=%v)",
+		gp.GroupName, gp.Collection, gp.Read, gp.Write, gp.Admin)
+	return nil
+}
+
+// GetGroupPermissions retrieves all permissions for a group
+func (am *AuthManager) GetGroupPermissions(groupName string) []*GroupPermission {
+	am.mu.RLock()
+	defer am.mu.RUnlock()
+
+	return am.groupPermissions[groupName]
+}
+
+// ListAllUsers returns all users (for admin panel)
+func (am *AuthManager) ListAllUsers() []*User {
+	am.mu.RLock()
+	defer am.mu.RUnlock()
+
+	users := make([]*User, 0, len(am.users))
+	for _, u := range am.users {
+		users = append(users, u)
+	}
+	return users
+}
+
+// GetUserGroups returns all groups a user belongs to
+func (am *AuthManager) GetUserGroups(username string) []string {
+	am.mu.RLock()
+	defer am.mu.RUnlock()
+
+	var userGroups []string
+	for _, g := range am.groups {
+		for _, member := range g.Members {
+			if member == username {
+				userGroups = append(userGroups, g.Name)
+				break
+			}
+		}
+	}
+	return userGroups
 }

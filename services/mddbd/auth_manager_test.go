@@ -688,3 +688,280 @@ func TestAuthManager_CheckPermission_NoContext(t *testing.T) {
 		t.Fatalf("CheckPermission should fail with ErrUnauthorized without context, got: %v", err)
 	}
 }
+
+// ---- Group Management Tests ----
+
+func TestAuthManager_CreateGroup(t *testing.T) {
+	am, _, cleanup := setupTestAuthManager(t)
+	defer cleanup()
+
+	members := []string{"alice", "bob"}
+	group, err := am.CreateGroup("developers", "Development team", members)
+	if err != nil {
+		t.Fatalf("CreateGroup failed: %v", err)
+	}
+
+	if group.Name != "developers" {
+		t.Errorf("Expected name 'developers', got '%s'", group.Name)
+	}
+	if group.Description != "Development team" {
+		t.Errorf("Expected description 'Development team', got '%s'", group.Description)
+	}
+	if len(group.Members) != 2 {
+		t.Errorf("Expected 2 members, got %d", len(group.Members))
+	}
+	if group.CreatedAt == 0 {
+		t.Error("CreatedAt should be set")
+	}
+}
+
+func TestAuthManager_CreateGroup_Duplicate(t *testing.T) {
+	am, _, cleanup := setupTestAuthManager(t)
+	defer cleanup()
+
+	_, err := am.CreateGroup("developers", "Dev team", []string{"alice"})
+	if err != nil {
+		t.Fatalf("CreateGroup failed: %v", err)
+	}
+
+	_, err = am.CreateGroup("developers", "Duplicate", []string{"bob"})
+	if err == nil {
+		t.Fatal("CreateGroup should fail for duplicate group name")
+	}
+}
+
+func TestAuthManager_GetGroup(t *testing.T) {
+	am, _, cleanup := setupTestAuthManager(t)
+	defer cleanup()
+
+	members := []string{"alice", "bob"}
+	_, err := am.CreateGroup("developers", "Dev team", members)
+	if err != nil {
+		t.Fatalf("CreateGroup failed: %v", err)
+	}
+
+	group, err := am.GetGroup("developers")
+	if err != nil {
+		t.Fatalf("GetGroup failed: %v", err)
+	}
+
+	if group.Name != "developers" {
+		t.Errorf("Expected name 'developers', got '%s'", group.Name)
+	}
+	if len(group.Members) != 2 {
+		t.Errorf("Expected 2 members, got %d", len(group.Members))
+	}
+}
+
+func TestAuthManager_GetGroup_NotFound(t *testing.T) {
+	am, _, cleanup := setupTestAuthManager(t)
+	defer cleanup()
+
+	_, err := am.GetGroup("nonexistent")
+	if err == nil {
+		t.Fatal("GetGroup should fail for nonexistent group")
+	}
+}
+
+func TestAuthManager_ListGroups(t *testing.T) {
+	am, _, cleanup := setupTestAuthManager(t)
+	defer cleanup()
+
+	_, err := am.CreateGroup("developers", "Dev team", []string{"alice"})
+	if err != nil {
+		t.Fatalf("CreateGroup failed: %v", err)
+	}
+
+	_, err = am.CreateGroup("managers", "Management", []string{"bob"})
+	if err != nil {
+		t.Fatalf("CreateGroup failed: %v", err)
+	}
+
+	groups := am.ListGroups()
+	if len(groups) != 2 {
+		t.Fatalf("Expected 2 groups, got %d", len(groups))
+	}
+}
+
+func TestAuthManager_UpdateGroup(t *testing.T) {
+	am, _, cleanup := setupTestAuthManager(t)
+	defer cleanup()
+
+	_, err := am.CreateGroup("developers", "Dev team", []string{"alice"})
+	if err != nil {
+		t.Fatalf("CreateGroup failed: %v", err)
+	}
+
+	newMembers := []string{"alice", "bob", "charlie"}
+	group, err := am.UpdateGroup("developers", "Updated description", newMembers)
+	if err != nil {
+		t.Fatalf("UpdateGroup failed: %v", err)
+	}
+
+	if group.Description != "Updated description" {
+		t.Errorf("Expected updated description, got '%s'", group.Description)
+	}
+	if len(group.Members) != 3 {
+		t.Errorf("Expected 3 members, got %d", len(group.Members))
+	}
+}
+
+func TestAuthManager_DeleteGroup(t *testing.T) {
+	am, _, cleanup := setupTestAuthManager(t)
+	defer cleanup()
+
+	_, err := am.CreateGroup("developers", "Dev team", []string{"alice"})
+	if err != nil {
+		t.Fatalf("CreateGroup failed: %v", err)
+	}
+
+	err = am.DeleteGroup("developers")
+	if err != nil {
+		t.Fatalf("DeleteGroup failed: %v", err)
+	}
+
+	_, err = am.GetGroup("developers")
+	if err == nil {
+		t.Fatal("Group should not exist after deletion")
+	}
+}
+
+func TestAuthManager_SetGroupPermission(t *testing.T) {
+	am, _, cleanup := setupTestAuthManager(t)
+	defer cleanup()
+
+	_, err := am.CreateGroup("developers", "Dev team", []string{"alice"})
+	if err != nil {
+		t.Fatalf("CreateGroup failed: %v", err)
+	}
+
+	perm := &GroupPermission{
+		GroupName:  "developers",
+		Collection: "blog",
+		Read:       true,
+		Write:      true,
+		Admin:      false,
+	}
+
+	err = am.SetGroupPermission(perm)
+	if err != nil {
+		t.Fatalf("SetGroupPermission failed: %v", err)
+	}
+
+	perms := am.GetGroupPermissions("developers")
+	if len(perms) != 1 {
+		t.Fatalf("Expected 1 permission, got %d", len(perms))
+	}
+
+	if perms[0].Collection != "blog" {
+		t.Errorf("Expected collection 'blog', got '%s'", perms[0].Collection)
+	}
+	if !perms[0].Read || !perms[0].Write || perms[0].Admin {
+		t.Error("Permission flags not set correctly")
+	}
+}
+
+func TestAuthManager_CheckPermission_GroupPermission(t *testing.T) {
+	am, _, cleanup := setupTestAuthManager(t)
+	defer cleanup()
+
+	// Create user
+	user, err := am.CreateUser("alice", "password123")
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+
+	// Create group with alice as member
+	_, err = am.CreateGroup("developers", "Dev team", []string{"alice"})
+	if err != nil {
+		t.Fatalf("CreateGroup failed: %v", err)
+	}
+
+	// Set group permission
+	perm := &GroupPermission{
+		GroupName:  "developers",
+		Collection: "blog",
+		Read:       true,
+		Write:      false,
+		Admin:      false,
+	}
+	err = am.SetGroupPermission(perm)
+	if err != nil {
+		t.Fatalf("SetGroupPermission failed: %v", err)
+	}
+
+	// Generate JWT for alice
+	token, err := GenerateJWT(user.Username, false, am.config.JWTSecret, am.config.JWTExpiry)
+	if err != nil {
+		t.Fatalf("GenerateJWT failed: %v", err)
+	}
+
+	claims, err := ValidateJWT(token, am.config.JWTSecret)
+	if err != nil {
+		t.Fatalf("ValidateJWT failed: %v", err)
+	}
+
+	ctx := context.WithValue(context.Background(), authContextKey, claims)
+
+	// Test read permission (should succeed via group)
+	err = am.CheckPermission(ctx, "blog", PermRead)
+	if err != nil {
+		t.Errorf("CheckPermission should succeed for group read permission: %v", err)
+	}
+
+	// Test write permission (should fail)
+	err = am.CheckPermission(ctx, "blog", PermWrite)
+	if err != ErrForbidden {
+		t.Errorf("CheckPermission should fail for write, got: %v", err)
+	}
+}
+
+func TestAuthManager_GetUserGroups(t *testing.T) {
+	am, _, cleanup := setupTestAuthManager(t)
+	defer cleanup()
+
+	_, err := am.CreateGroup("developers", "Dev team", []string{"alice", "bob"})
+	if err != nil {
+		t.Fatalf("CreateGroup failed: %v", err)
+	}
+
+	_, err = am.CreateGroup("managers", "Management", []string{"alice"})
+	if err != nil {
+		t.Fatalf("CreateGroup failed: %v", err)
+	}
+
+	aliceGroups := am.GetUserGroups("alice")
+	if len(aliceGroups) != 2 {
+		t.Fatalf("Expected alice to be in 2 groups, got %d", len(aliceGroups))
+	}
+
+	bobGroups := am.GetUserGroups("bob")
+	if len(bobGroups) != 1 {
+		t.Fatalf("Expected bob to be in 1 group, got %d", len(bobGroups))
+	}
+
+	charlieGroups := am.GetUserGroups("charlie")
+	if len(charlieGroups) != 0 {
+		t.Fatalf("Expected charlie to be in 0 groups, got %d", len(charlieGroups))
+	}
+}
+
+func TestAuthManager_ListAllUsers(t *testing.T) {
+	am, _, cleanup := setupTestAuthManager(t)
+	defer cleanup()
+
+	_, err := am.CreateUser("alice", "password123")
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+
+	_, err = am.CreateUser("bob", "password456")
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+
+	users := am.ListAllUsers()
+	if len(users) != 2 {
+		t.Fatalf("Expected 2 users, got %d", len(users))
+	}
+}

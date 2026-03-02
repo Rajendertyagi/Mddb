@@ -64,6 +64,23 @@ type Permission struct {
 	Admin      bool   `json:"admin"` // can manage users/permissions
 }
 
+// Group represents a user group
+type Group struct {
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Members     []string `json:"members"` // usernames
+	CreatedAt   int64    `json:"createdAt"`
+}
+
+// GroupPermission represents a group permission for a collection
+type GroupPermission struct {
+	GroupName  string `json:"groupName"`
+	Collection string `json:"collection"` // "*" = all collections
+	Read       bool   `json:"read"`
+	Write      bool   `json:"write"`
+	Admin      bool   `json:"admin"` // can manage users/permissions
+}
+
 // JWTClaims represents JWT token claims
 type JWTClaims struct {
 	Username string `json:"username"`
@@ -119,6 +136,20 @@ func (p *Permission) HasPermission(op PermissionType) bool {
 		return p.Write
 	case PermAdmin:
 		return p.Admin
+	default:
+		return false
+	}
+}
+
+// HasPermission checks if group permission has the required operation
+func (gp *GroupPermission) HasPermission(op PermissionType) bool {
+	switch op {
+	case PermRead:
+		return gp.Read
+	case PermWrite:
+		return gp.Write
+	case PermAdmin:
+		return gp.Admin
 	default:
 		return false
 	}
