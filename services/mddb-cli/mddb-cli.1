@@ -246,6 +246,52 @@ For full GraphQL documentation, visit:
 .br
 Or see:
 .I docs/GRAPHQL.md
+.SS graphql
+Execute a raw GraphQL query against the MDDB server.
+.PP
+.B mddb-cli graphql
+[\fIOPTIONS\fR] \fIQUERY\fR
+.PP
+Options:
+.TP
+.BR \-V ", " \-\-variables =\fIJSON\fR
+GraphQL variables as JSON string
+.PP
+Examples:
+.RS
+.nf
+# Simple query
+mddb-cli graphql '{ stats { totalDocuments } }'
+
+# Mutation
+mddb-cli graphql 'mutation { login(username: "admin", password: "secret") { token } }'
+
+# Query with authentication
+mddb-cli --token YOUR_JWT_TOKEN graphql '{ me { username admin } }'
+
+# Query with variables
+mddb-cli graphql 'query($coll: String!) { search(input: {collection: $coll}) { totalCount } }' \\
+  -V '{"coll":"blog"}'
+
+# Get document
+mddb-cli graphql 'query { document(collection: "blog", key: "post", lang: "en") { contentMd } }'
+.fi
+.RE
+.SS playground
+Open the GraphQL Playground in your default web browser.
+.PP
+.B mddb-cli playground
+.PP
+The Playground provides an interactive GraphQL IDE for exploring the schema,
+running queries, and viewing documentation.
+.PP
+Example:
+.RS
+.nf
+mddb-cli playground
+mddb-cli -s http://production.server:11023 playground
+.fi
+.RE
 .SH ENVIRONMENT
 .TP
 .B MDDB_SERVER

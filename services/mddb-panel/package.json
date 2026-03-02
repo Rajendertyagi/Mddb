@@ -1,6 +1,6 @@
 {
   "name": "mddb-panel",
-  "version": "2.3.3",
+  "version": "2.5.0",
   "description": "Web admin panel for MDDB - Markdown Database",
   "type": "module",
   "scripts": {
@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "date-fns": "^4.1.0",
+    "graphql": "^16.9.0",
     "lucide-react": "^0.544.0",
     "prismjs": "^1.30.0",
     "react": "^19.1.0",
@@ -20,6 +21,7 @@
     "rehype-raw": "^7.0.0",
     "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.1",
+    "urql": "^4.1.0",
     "zustand": "^5.0.5"
   },
   "devDependencies": {

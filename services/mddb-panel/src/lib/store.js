@@ -31,6 +31,9 @@ export const useStore = create((set, get) => ({
   // Search mode
   searchMode: 'metadata',
 
+  // API mode (rest or graphql)
+  apiMode: localStorage.getItem('apiMode') || 'rest',
+
   // Vector search
   vectorQuery: '',
   vectorTopK: 10,
@@ -94,6 +97,10 @@ export const useStore = create((set, get) => ({
   setLimit: (limit) => set({ limit }),
 
   setSearchMode: (mode) => set({ searchMode: mode }),
+  setApiMode: (mode) => {
+    localStorage.setItem('apiMode', mode);
+    set({ apiMode: mode });
+  },
   setVectorQuery: (q) => set({ vectorQuery: q }),
   setVectorTopK: (k) => set({ vectorTopK: k }),
   setVectorThreshold: (t) => set({ vectorThreshold: t }),

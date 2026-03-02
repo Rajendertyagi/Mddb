@@ -16,6 +16,7 @@ import UsersPanel from './components/UsersPanel';
 import GroupsPanel from './components/GroupsPanel';
 import VectorPanel from './components/VectorPanel';
 import EmbeddingModelsPanel from './components/EmbeddingModelsPanel';
+import SettingsPanel from './components/SettingsPanel';
 
 function App() {
   const {
@@ -130,6 +131,11 @@ function App() {
           {viewMode === 'embeddings' && (
             <div className="flex-1 border-l border-gray-200">
               <EmbeddingModelsPanel />
+            </div>
+          )}
+          {viewMode === 'settings' && (
+            <div className="flex-1 border-l border-gray-200">
+              <SettingsPanel />
             </div>
           )}
           {viewMode === 'documents' && (

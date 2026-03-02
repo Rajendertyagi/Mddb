@@ -11,16 +11,16 @@
 [![Protocol Buffers](https://img.shields.io/badge/protobuf-3-blue.svg)](https://protobuf.dev)
 [![MCP](https://img.shields.io/badge/MCP-enabled-purple.svg)](https://modelcontextprotocol.io)
 
-**A high-performance, version-controlled markdown database with vector search, full-text search, webhooks, and dual protocol support (HTTP/JSON + gRPC/Protobuf)**
+**A high-performance, version-controlled markdown database with vector search, full-text search, webhooks, and triple protocol support (HTTP/JSON + gRPC/Protobuf + GraphQL)**
 
-MDDB is a lightweight, embedded database specifically designed for storing and managing markdown documents with rich metadata. Built with Go and BoltDB, it provides blazing-fast document operations with full revision history, semantic vector search, full-text search, document TTL, webhooks, and URL import — making it perfect for content management systems, documentation platforms, knowledge bases, and RAG pipelines.
+MDDB is a lightweight, embedded database specifically designed for storing and managing markdown documents with rich metadata. Built with Go and BoltDB, it provides blazing-fast document operations with full revision history, semantic vector search, full-text search, GraphQL API, document TTL, webhooks, and URL import — making it perfect for content management systems, documentation platforms, knowledge bases, and RAG pipelines.
 
 ## 🎯 What is MDDB?
 
 MDDB (Markdown Database) is a specialized database server that treats markdown documents as first-class citizens. Unlike traditional databases that store markdown as plain text, MDDB provides:
 
 - **Native Markdown Support** - Store, version, and query markdown documents with their metadata
-- **Dual Protocol APIs** - Choose between HTTP/JSON (easy debugging) or gRPC/Protobuf (high performance)
+- **Triple Protocol APIs** - Choose between HTTP/JSON (easy debugging), gRPC/Protobuf (high performance), or GraphQL (flexible queries)
 - **Full Revision History** - Every document update creates a new revision with complete content snapshot
 - **Rich Metadata Indexing** - Fast searches using multi-value metadata tags
 - **Vector Search** - Semantic similarity search powered by embeddings (OpenAI, Cohere, Voyage AI, Ollama)
@@ -45,9 +45,9 @@ MDDB is purpose-built for markdown document management. Here's how it compares t
 
 ### vs Document Databases (MongoDB, CouchDB)
 - **Markdown-First Design** - Purpose-built for markdown workflows
-- **Dual Protocol** - HTTP/JSON for debugging, gRPC for performance
+- **Triple Protocol** - HTTP/JSON for debugging, gRPC for performance, GraphQL for flexibility
 - **Smaller Footprint** - Embedded BoltDB, no separate server
-- **Type-Safe gRPC** - Compile-time validation
+- **Type-Safe APIs** - Compile-time validation (gRPC), schema introspection (GraphQL)
 - **Simpler Operations** - No sharding or replication complexity
 
 ### vs File-Based Systems (Git, Filesystem)
@@ -431,12 +431,13 @@ See [Performance Tests](test/README.md) for detailed benchmarks.
 - **Collections** - Organize documents into logical groups
 
 ### APIs & Protocols
-- **Dual Protocol Support** - HTTP/JSON and gRPC/Protobuf simultaneously
+- **Triple Protocol Support** - HTTP/JSON, gRPC/Protobuf, and GraphQL available simultaneously
 - **RESTful HTTP API** - Easy debugging with curl, Postman
 - **High-Performance gRPC** - 16x faster, 70% smaller payload
+- **Modern GraphQL API** - Flexible field selection, schema introspection, interactive Playground
 - **gRPC Reflection** - Use grpcurl for debugging
-- **CLI Client** - Full-featured command-line interface
-- **Web Admin Panel** - Modern React-based UI for browsing and managing data
+- **CLI Client** - Full-featured command-line interface with GraphQL support
+- **Web Admin Panel** - Modern React-based UI with REST/GraphQL API toggle
 - **MCP Server** - Model Context Protocol for LLM integration (gRPC + REST fallback)
 - **Custom MCP Tools** - YAML-defined website-specific AI tools with preconfigured defaults
 
@@ -449,23 +450,24 @@ See [Performance Tests](test/README.md) for detailed benchmarks.
 - **Bulk Import** - Load entire folders of markdown files
 
 ### Developer Experience
-- **Single Binary** - No external dependencies
+- **Single Binary** - ~27MB standalone executable, no external dependencies
 - **Docker Support** - 15MB Alpine Linux images
 - **Hot Reload** - Development mode with automatic restart
 - **Monorepo Structure** - Shared protobuf definitions
 - **Multi-language Clients** - Generated code for Go, Python, Node.js, PHP
-- **Web Admin Panel** - Visual interface for data management
-- **Comprehensive Docs** - API reference, examples, guides
+- **Web Admin Panel** - Visual interface for data management with API mode selection
+- **Comprehensive Docs** - API reference, examples, guides (REST, gRPC, GraphQL)
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│              Client Applications                    │
-├──────────────┬──────────────┬──────────┬────────────┤
-│  HTTP/JSON   │ gRPC/Protobuf│ HTTP/3   │ MCP Server │
-│  Port 11023  │  Port 11024  │ 11443    │ Port 9000  │
-├──────────────┴──────────────┴──────────┴────────────┤
+┌────────────────────────────────────────────────────────────┐
+│                  Client Applications                       │
+├──────────────┬──────────────┬──────────┬────────┬──────────┤
+│  HTTP/JSON   │ gRPC/Protobuf│ GraphQL  │ HTTP/3 │   MCP    │
+│  Port 11023  │  Port 11024  │  11023   │ 11443  │  Port    │
+│              │              │/graphql  │        │  9000    │
+├──────────────┴──────────────┴──────────┴────────┴──────────┤
 │              MDDB Server (Go)                       │
 │  ┌─────────────────────────────────────────────┐   │
 │  │ Performance Layer (Extreme Mode)            │   │
@@ -626,14 +628,14 @@ MDDB includes a Model Context Protocol (MCP) server for seamless integration wit
 **Quick Start with Docker:**
 ```bash
 # Pull MCP image (uses same version as main MDDB)
-docker pull tradik/mddb:mcp-2.3.3
+docker pull tradik/mddb:mcp-2.5.0
 
 # For Windsurf/Claude Desktop (stdio mode)
 docker run -i --rm \
   -e MCP_MODE=stdio \
   -e MDDB_GRPC_ADDRESS=localhost:11024 \
   -e MDDB_REST_BASE_URL=http://localhost:11023 \
-  tradik/mddb:mcp-2.3.3
+  tradik/mddb:mcp-2.5.0
 
 # For HTTP mode
 docker run -d -p 9000:9000 \
@@ -1201,18 +1203,62 @@ Set `MDDB_METRICS=false` to disable.
 
 ## 🗺️ Roadmap
 
-### Implemented Features ✅
-- **Authentication** - JWT tokens and API keys with bcrypt password hashing
-- **Authorization** - Collection-level RBAC with Read/Write/Admin permissions
-- **User Management** - Multi-user support with admin roles
-- **Group-Based Permissions** - Organize users into groups with inherited permissions
-- **GraphQL API** - Modern GraphQL endpoint with full CRUD operations and authentication directives
-- ~~**Schema Validation** - JSON Schema validation for metadata~~ (Implemented in v2.3.1)
+### ✅ Implemented Features (v2.5.0)
 
-### Planned Features
-- **Streaming Export** - Memory-efficient ZIP export
-- **Replication** - Built-in replication support
-- **Plugins** - Plugin system for custom extensions
+**Core Database:**
+- ✅ **Document Management** - Full CRUD with metadata and collections (v1.0)
+- ✅ **Revision History** - Complete version control with content snapshots (v1.0)
+- ✅ **Metadata Search** - Indexed multi-value tag queries (v1.0)
+- ✅ **Multi-language Support** - Same key, multiple languages (v1.0)
+- ✅ **Template Variables** - Dynamic `{{variable}}` substitution (v1.2)
+- ✅ **Document TTL** - Auto-expiring documents with background cleanup (v2.0)
+- ✅ **Schema Validation** - Per-collection JSON Schema validation (v2.3.1)
+
+**Search & Discovery:**
+- ✅ **Vector Search** - Semantic similarity with auto-embeddings (OpenAI, Cohere, Voyage AI, Ollama) (v2.1)
+- ✅ **Full-Text Search** - Built-in inverted index with TF scoring (v2.2)
+
+**APIs & Protocols:**
+- ✅ **HTTP/JSON REST API** - RESTful API with full documentation (v1.0)
+- ✅ **gRPC/Protobuf API** - High-performance binary protocol (v1.5)
+- ✅ **GraphQL API** - Flexible queries with schema introspection and Playground (v2.5.0) 🆕
+- ✅ **MCP Server** - Model Context Protocol for LLM integration (v2.3)
+- ✅ **Custom MCP Tools** - YAML-defined website-specific AI tools (v2.3.2)
+
+**Security & Access Control:**
+- ✅ **Authentication** - JWT tokens and API keys with bcrypt hashing (v2.4)
+- ✅ **Authorization** - Collection-level RBAC (Read/Write/Admin) (v2.4)
+- ✅ **User Management** - Multi-user support with admin roles (v2.4)
+- ✅ **Group-Based Permissions** - Organize users into groups with inherited permissions (v2.4.1)
+
+**Integration & Automation:**
+- ✅ **Webhooks** - HTTP callbacks on document events with retry logic (v2.1)
+- ✅ **Import from URL** - Fetch markdown from URLs with frontmatter parsing (v2.2)
+- ✅ **Telemetry** - Prometheus-compatible `/metrics` endpoint (v2.3)
+- ✅ **Bulk Import** - Load entire folders of markdown files (v1.3)
+
+**Developer Tools:**
+- ✅ **CLI Client** - Full-featured command-line with GraphQL support (v2.5.0)
+- ✅ **Web Admin Panel** - React-based UI with REST/GraphQL toggle (v2.5.0) 🆕
+- ✅ **Docker Support** - Multi-arch images (15MB Alpine) (v1.0)
+- ✅ **Hot Reload** - Development mode with auto-restart (v1.4)
+
+### 🚧 Planned Features (Future Releases)
+
+**Performance & Scale:**
+- ⏳ **Streaming Export** - Memory-efficient ZIP export for large datasets
+- ⏳ **Read Replicas** - Built-in replication for horizontal scaling
+- ⏳ **Clustering** - Multi-node setup with consensus
+
+**Extensibility:**
+- ⏳ **Plugin System** - Custom extensions via Go plugins
+- ⏳ **Event Streaming** - Kafka/NATS integration for event-driven architectures
+- ⏳ **GraphQL Subscriptions** - Real-time updates via WebSocket
+
+**Advanced Features:**
+- ⏳ **Hybrid Search** - Combined vector + full-text search with ranking
+- ⏳ **Multi-tenancy** - Namespace isolation for SaaS deployments
+- ⏳ **Advanced Caching** - Redis/Memcached integration
 
 ## 📁 Monorepo Structure
 

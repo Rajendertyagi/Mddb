@@ -3,23 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="MDDB - High-performance markdown database with vector search, full-text search, webhooks, TTL, and dual protocol support (HTTP/JSON + gRPC/Protobuf). Perfect for CMS, RAG pipelines, and knowledge bases.">
-    <meta name="keywords" content="markdown database, document database, version control, gRPC, protobuf, embedded database, content management, CMS, BoltDB, Go">
+    <meta name="description" content="MDDB - High-performance markdown database with vector search, full-text search, webhooks, TTL, and triple protocol support (HTTP/JSON + gRPC/Protobuf + GraphQL). Perfect for CMS, RAG pipelines, and knowledge bases.">
+    <meta name="keywords" content="markdown database, document database, version control, gRPC, protobuf, graphql, embedded database, content management, CMS, BoltDB, Go">
     <meta name="author" content="MDDB Team">
     <meta name="robots" content="index, follow">
-    
+
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://tradik.github.io/mddb/">
     <meta property="og:title" content="MDDB - Markdown Database">
-    <meta property="og:description" content="High-performance markdown database with vector search, full-text search, webhooks, and dual protocol support">
+    <meta property="og:description" content="High-performance markdown database with vector search, full-text search, webhooks, and triple protocol support (REST, gRPC, GraphQL)">
     <meta property="og:image" content="https://tradik.github.io/mddb/og-image.png">
-    
+
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:url" content="https://tradik.github.io/mddb/">
     <meta property="twitter:title" content="MDDB - Markdown Database">
-    <meta property="twitter:description" content="High-performance markdown database with vector search, full-text search, webhooks, and dual protocol support">
+    <meta property="twitter:description" content="High-performance markdown database with vector search, full-text search, webhooks, and triple protocol support (REST, gRPC, GraphQL)">
     <meta property="twitter:image" content="https://tradik.github.io/mddb/og-image.png">
     
     <title>MDDB - High-Performance Markdown Database</title>
@@ -60,7 +60,7 @@
         "JWT authentication and RBAC authorization",
         "User and group-based permissions"
       ],
-      "datePublished": "2026-02-28",
+      "datePublished": "2026-03-02",
       "author": {
         "@type": "Organization",
         "name": "MDDB Team"
@@ -102,15 +102,15 @@
         <div class="container">
             <div class="hero-content">
                 <h1>High-Performance Markdown Database</h1>
-                <p class="hero-subtitle">Version-controlled, embedded database with vector search, full-text search, webhooks, TTL, and dual protocol support</p>
+                <p class="hero-subtitle">Version-controlled, embedded database with vector search, full-text search, GraphQL, webhooks, TTL, and triple protocol support</p>
                 <div class="hero-badges">
-                    <span class="badge">v2.3.3</span>
+                    <span class="badge">v2.5.0</span>
                     <span class="badge">Go 1.26+</span>
                     <span class="badge">BSD-3-Clause</span>
                     <span class="badge">Docker Ready</span>
                 </div>
                 <div class="hero-actions">
-                    <a href="#download" class="btn btn-primary">Download v2.3.3</a>
+                    <a href="#download" class="btn btn-primary">Download v2.5.0</a>
                     <a href="https://github.com/tradik/mddb" class="btn btn-secondary" target="_blank" rel="noopener">View on GitHub</a>
                 </div>
                 <div class="hero-quick-start">
@@ -137,8 +137,8 @@
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">🔌</div>
-                    <h3>Dual Protocol</h3>
-                    <p>HTTP/JSON for easy debugging, gRPC/Protobuf for high performance</p>
+                    <h3>Triple Protocol</h3>
+                    <p>HTTP/JSON REST for easy debugging, gRPC/Protobuf for high performance, GraphQL for flexible queries</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">🤖</div>
@@ -242,7 +242,7 @@ make docker-up
                 </div>
                 <div class="tab-pane" id="binary">
                     <pre><code># Download binary
-wget https://github.com/tradik/mddb/releases/download/v2.3.3/mddbd-linux-amd64
+wget https://github.com/tradik/mddb/releases/download/v2.5.0/mddbd-linux-amd64
 chmod +x mddbd-linux-amd64
 
 # Run server
@@ -272,35 +272,35 @@ make build
             <div class="download-grid">
                 <div class="download-card">
                     <h3>Latest Release</h3>
-                    <div class="version">v2.3.3</div>
-                    <p class="release-date">Released: February 28, 2026</p>
+                    <div class="version">v2.5.0</div>
+                    <p class="release-date">Released: March 2, 2026</p>
                     <div class="download-links">
-                        <a href="https://github.com/tradik/mddb/releases/download/v2.3.3/mddbd-linux-amd64" class="download-link">
+                        <a href="https://github.com/tradik/mddb/releases/download/v2.5.0/mddbd-linux-amd64" class="download-link">
                             <span class="platform">Linux AMD64</span>
-                            <span class="size">~8MB</span>
+                            <span class="size">~27MB</span>
                         </a>
-                        <a href="https://github.com/tradik/mddb/releases/download/v2.3.3/mddbd-linux-arm64" class="download-link">
+                        <a href="https://github.com/tradik/mddb/releases/download/v2.5.0/mddbd-linux-arm64" class="download-link">
                             <span class="platform">Linux ARM64</span>
-                            <span class="size">~8MB</span>
+                            <span class="size">~27MB</span>
                         </a>
-                        <a href="https://github.com/tradik/mddb/releases/download/v2.3.3/mddbd-darwin-amd64" class="download-link">
+                        <a href="https://github.com/tradik/mddb/releases/download/v2.5.0/mddbd-darwin-amd64" class="download-link">
                             <span class="platform">macOS AMD64</span>
-                            <span class="size">~8MB</span>
+                            <span class="size">~27MB</span>
                         </a>
-                        <a href="https://github.com/tradik/mddb/releases/download/v2.3.3/mddbd-darwin-arm64" class="download-link">
+                        <a href="https://github.com/tradik/mddb/releases/download/v2.5.0/mddbd-darwin-arm64" class="download-link">
                             <span class="platform">macOS ARM64</span>
-                            <span class="size">~8MB</span>
+                            <span class="size">~27MB</span>
                         </a>
-                        <a href="https://github.com/tradik/mddb/releases/download/v2.3.3/mddbd-freebsd-amd64" class="download-link">
+                        <a href="https://github.com/tradik/mddb/releases/download/v2.5.0/mddbd-freebsd-amd64" class="download-link">
                             <span class="platform">FreeBSD AMD64</span>
-                            <span class="size">~8MB</span>
+                            <span class="size">~27MB</span>
                         </a>
                     </div>
                     <div class="package-links">
-                        <a href="https://github.com/tradik/mddb/releases/download/v2.3.3/mddb_2.3.3_amd64.deb" class="package-link">
+                        <a href="https://github.com/tradik/mddb/releases/download/v2.5.0/mddb_2.3.3_amd64.deb" class="package-link">
                             📦 Debian/Ubuntu (.deb)
                         </a>
-                        <a href="https://github.com/tradik/mddb/releases/download/v2.3.3/mddb-2.3.3-1.x86_64.rpm" class="package-link">
+                        <a href="https://github.com/tradik/mddb/releases/download/v2.5.0/mddb-2.3.3-1.x86_64.rpm" class="package-link">
                             📦 RedHat/CentOS (.rpm)
                         </a>
                     </div>
@@ -315,16 +315,16 @@ docker pull tradik/mddb:2.3.3</code></pre>
                 </div>
             </div>
             <div class="release-notes">
-                <h3>What's New in v2.3.3</h3>
+                <h3>What's New in v2.5.0</h3>
                 <ul>
+                    <li>🆕 <strong>GraphQL API</strong> - Modern GraphQL endpoint with schema introspection, Playground, and auth directives</li>
+                    <li>🎛️ <strong>API Mode Toggle</strong> - Web panel supports switching between REST and GraphQL APIs</li>
+                    <li>💻 <strong>GraphQL CLI Commands</strong> - Execute queries and open Playground via mddb-cli</li>
+                    <li>🔐 <strong>GraphQL Authentication</strong> - Full JWT/API key integration with @auth and @hasRole directives</li>
                     <li>🛠️ <strong>Custom MCP Tools</strong> - Define website-specific AI tools in YAML with preconfigured defaults</li>
                     <li>📊 <strong>Telemetry</strong> - Prometheus-compatible /metrics endpoint (zero deps)</li>
                     <li>✅ <strong>Schema Validation</strong> - Per-collection JSON Schema for metadata (opt-in)</li>
                     <li>🔍 <strong>Vector Search</strong> - Semantic similarity with OpenAI, Ollama, Voyage AI</li>
-                    <li>📖 <strong>Full-Text Search</strong> - Built-in inverted index with TF scoring</li>
-                    <li>🔔 <strong>Webhooks</strong> - HTTP callbacks on doc events with retry logic</li>
-                    <li>⏱️ <strong>Document TTL</strong> - Auto-expiring documents with background cleanup</li>
-                    <li>🌐 <strong>Import from URL</strong> - Fetch markdown with frontmatter parsing</li>
                 </ul>
                 <a href="https://github.com/tradik/mddb/blob/main/CHANGELOG.md" target="_blank" rel="noopener">View Full Changelog →</a>
             </div>
