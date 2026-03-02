@@ -2,19 +2,23 @@ openapi: 3.0.3
 info:
   title: MDDB API
   description: |
-    MDDB (Markdown Database) is a high-performance, version-controlled markdown database with dual protocol support.
+    MDDB (Markdown Database) is a high-performance, version-controlled markdown database with triple protocol support.
 
     ## Features
     - Store and manage markdown documents with metadata
     - Full revision history for all documents
     - Multi-language support
     - Fast metadata-based search
-    - **Vector search** with embedding providers (OpenAI, Ollama)
+    - **Vector search** with embedding providers (OpenAI, Cohere, Voyage AI, Ollama)
     - **Full-text search** with TF-IDF scoring
     - **Webhooks** for real-time event notifications
     - **TTL** (time-to-live) support for automatic document expiration
     - **JSON Schema validation** for document metadata
     - **URL import** with YAML frontmatter parsing
+    - **Authentication** - JWT tokens and API keys
+    - **Authorization** - Collection-level RBAC (Read/Write/Admin)
+    - **User Management** - Multi-user with admin roles
+    - **Group Permissions** - Organize users into groups
     - Template variable substitution
     - Export capabilities (NDJSON, ZIP)
     - Backup and restore operations
@@ -22,12 +26,38 @@ info:
     ## Protocols
     - **HTTP/JSON** - Port 11023 (documented here)
     - **gRPC/Protobuf** - Port 11024 (see gRPC documentation)
+    - **GraphQL** - Port 11023/graphql (enable with MDDB_GRAPHQL_ENABLED=true)
     - **HTTP/3 + QUIC** - Port 11443 (extreme mode only)
 
     ## Authentication
-    Currently, MDDB does not have built-in authentication. Use a reverse proxy (Nginx, Caddy) for authentication and TLS.
+    MDDB supports JWT tokens and API keys for authentication with collection-level RBAC authorization.
 
-  version: 2.3.3
+    ### JWT Authentication
+    ```bash
+    # Login to get JWT token
+    curl -X POST http://localhost:11023/v1/auth/login \
+      -H "Content-Type: application/json" \
+      -d '{"username":"admin","password":"secret"}'
+
+    # Use token in requests
+    curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:11023/v1/stats
+    ```
+
+    ### API Key Authentication
+    ```bash
+    # Create API key (requires JWT first)
+    curl -X POST http://localhost:11023/v1/auth/api-key \
+      -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{"description":"My API key"}'
+
+    # Use API key in requests
+    curl -H "X-API-Key: YOUR_API_KEY" http://localhost:11023/v1/stats
+    ```
+
+    See authentication endpoints below for user management, groups, and permissions.
+
+  version: 2.5.0
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -44,6 +74,14 @@ servers:
 tags:
   - name: Health
     description: Health check and monitoring endpoints
+  - name: Authentication
+    description: User authentication with JWT tokens and API keys
+  - name: Users
+    description: User management (admin only)
+  - name: Groups
+    description: Group management and permissions (admin only)
+  - name: Embedding Config
+    description: Embedding provider configuration management
   - name: Documents
     description: Document management operations
   - name: Search

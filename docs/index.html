@@ -204,6 +204,49 @@
         </div>
     </section>
 
+    <!-- Web Panel Section -->
+    <section class="web-panel" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 80px 0; color: white;">
+        <div class="container">
+            <div style="text-align: center; margin-bottom: 50px;">
+                <h2 style="font-size: 2.5rem; margin-bottom: 20px;">🎨 Web Admin Panel</h2>
+                <p style="font-size: 1.2rem; max-width: 700px; margin: 0 auto; opacity: 0.95;">
+                    Modern React-based UI for managing documents, users, and search with REST/GraphQL API toggle
+                </p>
+            </div>
+            <div style="max-width: 1200px; margin: 0 auto; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+                <img src="panel.png" alt="MDDB Web Admin Panel" style="width: 100%; height: auto; display: block;">
+            </div>
+            <div style="text-align: center; margin-top: 40px;">
+                <div style="display: inline-grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; text-align: left; max-width: 900px;">
+                    <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; backdrop-filter: blur(10px);">
+                        <strong style="display: block; margin-bottom: 8px;">📊 Dashboard</strong>
+                        <span style="opacity: 0.9; font-size: 0.95rem;">Real-time statistics and metrics</span>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; backdrop-filter: blur(10px);">
+                        <strong style="display: block; margin-bottom: 8px;">🔍 Search</strong>
+                        <span style="opacity: 0.9; font-size: 0.95rem;">Metadata, vector, and full-text search</span>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; backdrop-filter: blur(10px);">
+                        <strong style="display: block; margin-bottom: 8px;">✏️ Editor</strong>
+                        <span style="opacity: 0.9; font-size: 0.95rem;">Live markdown preview and editing</span>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; backdrop-filter: blur(10px);">
+                        <strong style="display: block; margin-bottom: 8px;">👥 Users</strong>
+                        <span style="opacity: 0.9; font-size: 0.95rem;">User and group management</span>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; backdrop-filter: blur(10px);">
+                        <strong style="display: block; margin-bottom: 8px;">🔄 API Toggle</strong>
+                        <span style="opacity: 0.9; font-size: 0.95rem;">Switch between REST and GraphQL</span>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; backdrop-filter: blur(10px);">
+                        <strong style="display: block; margin-bottom: 8px;">🔐 Auth</strong>
+                        <span style="opacity: 0.9; font-size: 0.95rem;">JWT tokens and API keys</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Quick Start Section -->
     <section id="quick-start" class="quick-start">
         <div class="container">
@@ -307,7 +350,7 @@ make build
                 </div>
                 <div class="download-card">
                     <h3>Docker Image</h3>
-                    <div class="version">tradik/mddb:2.3.3</div>
+                    <div class="version">tradik/mddb:2.5.0</div>
                     <p class="release-date">Alpine-based (~15MB)</p>
                     <pre><code>docker pull tradik/mddb:latest
 docker pull tradik/mddb:2.3.3</code></pre>
@@ -657,7 +700,7 @@ $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
                 <div class="footer-section">
                     <h4>MDDB</h4>
                     <p>High-performance markdown database</p>
-                    <p class="footer-version">Version 2.3.3</p>
+                    <p class="footer-version">Version 2.5.0</p>
                 </div>
                 <div class="footer-section">
                     <h4>Documentation</h4>
