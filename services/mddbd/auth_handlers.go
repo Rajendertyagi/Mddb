@@ -101,7 +101,9 @@ func (s *Server) handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		http.Error(w, `{"error":"failed to encode response"}`, http.StatusInternalServerError)
+	}
 }
 
 // handleAuthRegister handles POST /v1/auth/register (admin only)
@@ -141,7 +143,9 @@ func (s *Server) handleAuthRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		http.Error(w, `{"error":"failed to encode response"}`, http.StatusInternalServerError)
+	}
 }
 
 // handleAuthAPIKey handles POST /v1/auth/api-key
@@ -179,7 +183,9 @@ func (s *Server) handleAuthAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		http.Error(w, `{"error":"failed to encode response"}`, http.StatusInternalServerError)
+	}
 }
 
 // handleAuthMe handles GET /v1/auth/me
@@ -208,7 +214,9 @@ func (s *Server) handleAuthMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		http.Error(w, `{"error":"failed to encode response"}`, http.StatusInternalServerError)
+	}
 }
 
 // handleAuthPermissions handles POST /v1/auth/permissions and GET /v1/auth/permissions
@@ -220,7 +228,8 @@ func (s *Server) handleAuthPermissions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.Method == "POST" {
+	switch r.Method {
+	case "POST":
 		// Set permissions
 		var req SetPermissionRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -243,9 +252,11 @@ func (s *Server) handleAuthPermissions(w http.ResponseWriter, r *http.Request) {
 
 		resp := SetPermissionResponse{Status: "ok"}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			http.Error(w, `{"error":"failed to encode response"}`, http.StatusInternalServerError)
+		}
 
-	} else if r.Method == "GET" {
+	case "GET":
 		// Get permissions
 		username := r.URL.Query().Get("username")
 		if username == "" {
@@ -255,9 +266,11 @@ func (s *Server) handleAuthPermissions(w http.ResponseWriter, r *http.Request) {
 
 		perms := s.AuthManager.GetPermissions(username)
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(perms)
+		if err := json.NewEncoder(w).Encode(perms); err != nil {
+			http.Error(w, `{"error":"failed to encode response"}`, http.StatusInternalServerError)
+		}
 
-	} else {
+	default:
 		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
 	}
 }
@@ -293,5 +306,7 @@ func (s *Server) handleAuthDeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
+	if err := json.NewEncoder(w).Encode(map[string]string{"status": "deleted"}); err != nil {
+		http.Error(w, `{"error":"failed to encode response"}`, http.StatusInternalServerError)
+	}
 }
