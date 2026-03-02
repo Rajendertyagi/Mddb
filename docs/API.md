@@ -22,6 +22,10 @@
   - [POST /v1/schema/delete](#post-v1schemadelete)
   - [POST /v1/schema/list](#post-v1schemalist)
   - [POST /v1/validate](#post-v1validate)
+  - [POST /v1/auth/login](#post-v1authlogin)
+  - [POST /v1/auth/api-key](#post-v1authapi-key)
+  - [GET /v1/auth/api-keys](#get-v1authapi-keys)
+  - [DELETE /v1/auth/api-keys/:keyHash](#delete-v1authapi-keyskeyhash)
 - [Data Models](#data-models)
 - [Error Handling](#error-handling)
 
@@ -901,6 +905,196 @@ curl -X POST http://localhost:11023/v1/validate \
     }
   }'
 ```
+
+---
+
+### POST /v1/auth/login
+
+Authenticate with username and password to receive a JWT token. The token must be included in the `Authorization` header for subsequent authenticated requests.
+
+**Request Body**:
+```json
+{
+  "username": "admin",
+  "password": "secret"
+}
+```
+
+**Response**:
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "expiresAt": 1709481200
+}
+```
+
+**cURL Example**:
+```bash
+curl -X POST http://localhost:11023/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"secret"}'
+```
+
+**Error Responses**:
+- `401 Unauthorized` - Invalid credentials
+- `400 Bad Request` - Invalid request format
+
+---
+
+### POST /v1/auth/api-key
+
+Create a new API key for programmatic access. Requires JWT authentication via `Authorization` header.
+
+**Authentication**: JWT token required
+
+**Request Body**:
+```json
+{
+  "description": "CI/CD pipeline",
+  "expiresAt": 0
+}
+```
+
+**Parameters**:
+- `description` (string, optional): Human-readable label for the API key
+- `expiresAt` (int64, optional): Unix timestamp when key expires (0 = never expires)
+
+**Response**:
+```json
+{
+  "key": "mddb_live_abc123def456...",
+  "description": "CI/CD pipeline",
+  "createdAt": 1709394600,
+  "expiresAt": 0
+}
+```
+
+**cURL Example**:
+```bash
+# First, login to get JWT token
+TOKEN=$(curl -s -X POST http://localhost:11023/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"secret"}' | jq -r .token)
+
+# Create API key
+curl -X POST http://localhost:11023/v1/auth/api-key \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"description":"Production deployment","expiresAt":0}'
+```
+
+**Important Notes**:
+- The full API key is **only shown once** in the response
+- Save the key securely - it cannot be retrieved again
+- API keys are hashed with SHA256 before storage
+- Use the key in subsequent requests via the `X-API-Key` header
+
+**Error Responses**:
+- `401 Unauthorized` - Missing or invalid JWT token
+- `400 Bad Request` - Invalid request format
+- `500 Internal Server Error` - Failed to create API key
+
+---
+
+### GET /v1/auth/api-keys
+
+List all API keys for the authenticated user. Returns metadata about each key (not the actual key values).
+
+**Authentication**: JWT token required
+
+**Response**:
+```json
+{
+  "keys": [
+    {
+      "keyHash": "abc123def456...",
+      "description": "Production deployment",
+      "createdAt": 1709394600,
+      "expiresAt": 0
+    },
+    {
+      "keyHash": "xyz789ghi012...",
+      "description": "Development testing",
+      "createdAt": 1709395200,
+      "expiresAt": 1740931200
+    }
+  ]
+}
+```
+
+**Response Fields**:
+- `keyHash` (string): SHA256 hash of the API key (use this to delete the key)
+- `description` (string): Key description
+- `createdAt` (int64): Unix timestamp of creation
+- `expiresAt` (int64): Unix timestamp of expiry (0 = never expires)
+
+**cURL Example**:
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:11023/v1/auth/api-keys
+```
+
+**Error Responses**:
+- `401 Unauthorized` - Missing or invalid JWT token
+- `500 Internal Server Error` - Failed to retrieve API keys
+
+---
+
+### DELETE /v1/auth/api-keys/:keyHash
+
+Delete an API key by its hash. Users can only delete their own API keys.
+
+**Authentication**: JWT token required
+
+**URL Parameters**:
+- `keyHash` (string, required): The SHA256 hash of the API key (from GET /v1/auth/api-keys)
+
+**Response**:
+```json
+{
+  "status": "deleted"
+}
+```
+
+**cURL Example**:
+```bash
+# Get list of keys to find the keyHash
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:11023/v1/auth/api-keys
+
+# Delete specific key
+curl -X DELETE -H "Authorization: Bearer $TOKEN" \
+  http://localhost:11023/v1/auth/api-keys/abc123def456...
+```
+
+**Error Responses**:
+- `401 Unauthorized` - Missing or invalid JWT token
+- `403 Forbidden` - Attempting to delete another user's API key
+- `404 Not Found` - API key not found
+- `400 Bad Request` - Missing keyHash parameter
+
+---
+
+### Using API Keys
+
+Once you have an API key, use it to authenticate requests instead of JWT tokens:
+
+**With HTTP Header**:
+```bash
+curl -H "X-API-Key: mddb_live_abc123def456..." \
+  http://localhost:11023/v1/search \
+  -H 'Content-Type: application/json' \
+  -d '{"collection":"blog","filterMeta":{"status":["published"]}}'
+```
+
+**With CLI**:
+```bash
+mddb-cli --api-key mddb_live_abc123def456... search blog -f "status=published"
+```
+
+**API Key vs JWT Token**:
+- **JWT Tokens**: Short-lived (default 24h), obtained via login, ideal for interactive sessions
+- **API Keys**: Long-lived or permanent, ideal for automation, CI/CD, and third-party integrations
 
 ---
 

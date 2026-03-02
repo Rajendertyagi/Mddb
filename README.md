@@ -252,6 +252,127 @@ curl -X POST http://localhost:11023/graphql \
 
 **Perfect for**: Modern web applications, mobile apps, flexible data requirements
 
+### API Key Management
+
+MDDB supports API keys for programmatic access alongside JWT tokens. API keys are ideal for:
+- **Long-running scripts** - No token expiry management needed
+- **CI/CD pipelines** - Stable credentials for automation
+- **Third-party integrations** - Distribute without sharing passwords
+- **Service accounts** - Non-interactive authentication
+
+**Creating an API Key (CLI):**
+```bash
+# Login first to get JWT token
+mddb-cli login admin secret
+
+# Create an API key (requires JWT authentication)
+mddb-cli api-key create --description "Production deployment" --token $TOKEN
+
+# Output:
+# ✓ API Key created successfully
+# Key:         mddb_live_abc123...
+# Description: Production deployment
+# Created:     2026-03-02T15:30:00Z
+# Expires:     Never
+#
+# ⚠️  IMPORTANT: Save this key now! You won't be able to see it again.
+# Use with: mddb-cli --api-key mddb_live_abc123... <command>
+```
+
+**Creating an API Key (HTTP):**
+```bash
+# Login and get JWT token
+TOKEN=$(curl -s -X POST http://localhost:11023/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"secret"}' | jq -r .token)
+
+# Create API key with JWT
+curl -X POST http://localhost:11023/v1/auth/api-key \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"description":"CI/CD pipeline","expiresAt":0}'
+
+# Response:
+# {
+#   "key": "mddb_live_xyz789...",
+#   "description": "CI/CD pipeline",
+#   "createdAt": 1709394600,
+#   "expiresAt": 0
+# }
+```
+
+**Using an API Key:**
+```bash
+# With CLI
+mddb-cli --api-key mddb_live_xyz789... search blog -f "status=published"
+
+# With HTTP
+curl -H "X-API-Key: mddb_live_xyz789..." http://localhost:11023/v1/search \
+  -H "Content-Type: application/json" \
+  -d '{"collection":"blog","filterMeta":{"status":["published"]}}'
+```
+
+**Listing API Keys (CLI):**
+```bash
+mddb-cli api-key list --token $TOKEN
+
+# Output:
+# Your API Keys (2 total)
+# ═══════════════════════════════════════
+#
+# 1. Key Hash: abc123...
+#    Description: Production deployment
+#    Created: 2026-03-02T15:30:00Z
+#    Expires: Never
+#    Delete with: mddb-cli api-key delete abc123... --token <token>
+#
+# 2. Key Hash: xyz789...
+#    Description: CI/CD pipeline
+#    Created: 2026-03-02T16:45:00Z
+#    Expires: Never
+```
+
+**Listing API Keys (HTTP):**
+```bash
+curl -H "Authorization: Bearer $TOKEN" http://localhost:11023/v1/auth/api-keys
+
+# Response:
+# {
+#   "keys": [
+#     {
+#       "keyHash": "abc123...",
+#       "description": "Production deployment",
+#       "createdAt": 1709394600,
+#       "expiresAt": 0
+#     }
+#   ]
+# }
+```
+
+**Deleting an API Key (CLI):**
+```bash
+mddb-cli api-key delete abc123... --token $TOKEN
+
+# Output:
+# ✓ API key deleted: abc123...
+```
+
+**Deleting an API Key (HTTP):**
+```bash
+curl -X DELETE -H "Authorization: Bearer $TOKEN" \
+  http://localhost:11023/v1/auth/api-keys/abc123...
+
+# Response:
+# {"status":"deleted"}
+```
+
+**API Key Security:**
+- API keys are hashed with SHA256 before storage (only you see the full key once)
+- Users can only list/delete their own API keys
+- API keys work with all HTTP and gRPC endpoints
+- Optional expiry timestamp for temporary keys
+- Revoke access instantly by deleting the key
+
 ## ⚡ Performance
 
 MDDB is designed for high-performance document operations with multiple optimization strategies:

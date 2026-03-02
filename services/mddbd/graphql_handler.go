@@ -16,9 +16,12 @@ import (
 
 // newGraphQLHandler creates the GraphQL HTTP handler
 func (s *Server) newGraphQLHandler() http.Handler {
+	// Create adapter to bridge Server and GraphQL resolvers
+	adapter := NewGraphQLServerAdapter(s)
+
 	// Create GraphQL server with generated schema
 	config := gql.Config{
-		Resolvers: &gql.Resolver{},
+		Resolvers: gql.NewResolver(adapter),
 	}
 
 	// Add directive implementations

@@ -22,7 +22,16 @@ func (r *mutationResolver) UpdateDocument(ctx context.Context, input UpdateDocum
 
 // DeleteDocument is the resolver for the deleteDocument field.
 func (r *mutationResolver) DeleteDocument(ctx context.Context, collection string, key string, lang string) (bool, error) {
-	panic(fmt.Errorf("not implemented: DeleteDocument - deleteDocument"))
+	if err := r.server.CheckPermission(ctx, collection, 1); err != nil { // 1 = Write
+		return false, fmt.Errorf("permission denied: %w", err)
+	}
+
+	err := r.server.DeleteDocument(ctx, collection, key, lang)
+	if err != nil {
+		return false, fmt.Errorf("failed to delete document: %w", err)
+	}
+
+	return true, nil
 }
 
 // DeleteCollection is the resolver for the deleteCollection field.
@@ -72,7 +81,20 @@ func (r *mutationResolver) ValidateDocument(ctx context.Context, collection stri
 
 // Login is the resolver for the login field.
 func (r *mutationResolver) Login(ctx context.Context, username string, password string) (*AuthPayload, error) {
-	panic(fmt.Errorf("not implemented: Login - login"))
+	userInfo, err := r.server.Authenticate(username, password)
+	if err != nil {
+		return nil, fmt.Errorf("authentication failed: %w", err)
+	}
+
+	token, expiresAt, err := r.server.GenerateJWT(userInfo.Username, userInfo.Admin)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate token: %w", err)
+	}
+
+	return &AuthPayload{
+		Token:     token,
+		ExpiresAt: expiresAt,
+	}, nil
 }
 
 // Register is the resolver for the register field.

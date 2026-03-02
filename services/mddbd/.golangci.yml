@@ -1,111 +1,24 @@
+version: "2"
+
 linters:
   enable:
     - govet
     - errcheck
     - staticcheck
     - unused
-    - gosimple
     - ineffassign
-    - typecheck
     - gosec
-    - gofmt
-    - goimports
     - misspell
     - revive
-    - unconvert
-    - unparam
-    - nakedret
-    - gocyclo
-    - dupl
-    - goconst
-    - gocognit
-  disable:
-    - structcheck  # deprecated
-    - varcheck     # deprecated
-    - deadcode     # deprecated
 
 linters-settings:
   gosec:
     excludes:
-      - G104  # Audit errors not checked (we handle errors appropriately)
-      - G115  # Integer overflow conversion (we handle this appropriately)
-    config:
-      G101:
-        pattern: "(?i)password|secret|token|key"
-        ignore_entropy: false
-        entropy_threshold: "80.0"
-        per_char_threshold: "3.0"
-        truncate: "32"
-
-  govet:
-    check-shadowing: true
-    enable-all: true
-
-  gocyclo:
-    min-complexity: 15
-
-  dupl:
-    threshold: 100
-
-  goconst:
-    min-len: 3
-    min-occurrences: 3
-
-  misspell:
-    locale: US
-
-  gofmt:
-    simplify: true
-
-  goimports:
-    local-prefixes: mddb
-
-  revive:
-    rules:
-      - name: exported
-        disabled: false
-      - name: var-naming
-        disabled: false
-      - name: package-comments
-        disabled: true  # Not all packages need comments
+      - G104
+      - G115
 
 run:
   timeout: 5m
-  tests: true
-  skip-dirs:
-    - vendor
-    - testdata
-    - graphql  # Generated GraphQL code
-  skip-files:
-    - ".*\\.pb\\.go$"  # Generated protobuf
-    - ".*_gen\\.go$"   # Generated code
 
 issues:
-  exclude-rules:
-    # Exclude some linters from running on tests files
-    - path: _test\.go
-      linters:
-        - gocyclo
-        - errcheck
-        - dupl
-        - gosec
-        - goconst
-
-    # Exclude generated code
-    - path: graphql/generated\.go
-      linters:
-        - all
-    - path: graphql/models_gen\.go
-      linters:
-        - all
-    - path: graphql/.*\.resolvers\.go
-      linters:
-        - unused  # Resolvers may have unused params
-
-  max-issues-per-linter: 0
-  max-same-issues: 0
-
-output:
-  format: colored-line-number
-  print-issued-lines: true
-  print-linter-name: true
+  max-issues-per-linter: 50

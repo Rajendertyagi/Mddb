@@ -18,7 +18,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-const VERSION = "2.4.0"
+const VERSION = "2.5.0"
 
 type AccessMode string
 
@@ -445,10 +445,10 @@ func main() {
 
 func (s *Server) ensureBuckets() error {
 	return s.DB.Update(func(tx *bolt.Tx) error {
-		_, _ = tx.CreateBucketIfNotExists(s.BucketNames.Docs)    // doc|collection|id -> json
-		_, _ = tx.CreateBucketIfNotExists(s.BucketNames.IdxMeta) // meta|collection|key|value|docID -> 1
-		_, _ = tx.CreateBucketIfNotExists(s.BucketNames.Rev)     // rev|collection|docID|ts -> json
-		_, _ = tx.CreateBucketIfNotExists(s.BucketNames.ByKey)   // bykey|collection|key|lang -> docID
+		_, _ = tx.CreateBucketIfNotExists(s.BucketNames.Docs)          // doc|collection|id -> json
+		_, _ = tx.CreateBucketIfNotExists(s.BucketNames.IdxMeta)       // meta|collection|key|value|docID -> 1
+		_, _ = tx.CreateBucketIfNotExists(s.BucketNames.Rev)           // rev|collection|docID|ts -> json
+		_, _ = tx.CreateBucketIfNotExists(s.BucketNames.ByKey)         // bykey|collection|key|lang -> docID
 		_, _ = tx.CreateBucketIfNotExists([]byte("embedding_configs")) // embedding model configurations
 		return nil
 	})

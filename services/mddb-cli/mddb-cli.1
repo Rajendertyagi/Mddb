@@ -203,6 +203,49 @@ mddb-cli stats
 mddb-cli stats -j  # JSON output
 .fi
 .RE
+.SH GRAPHQL SUPPORT
+MDDB provides a GraphQL API alongside the REST API (disabled by default).
+.SS Enabling GraphQL on Server
+.nf
+# Via environment variable
+export MDDB_GRAPHQL_ENABLED=true
+./mddbd
+
+# Via Docker
+docker run -e MDDB_GRAPHQL_ENABLED=true tradik/mddb
+.fi
+.SS GraphQL Endpoints
+.TP
+.B /graphql
+GraphQL API endpoint (POST requests)
+.TP
+.B /playground
+Interactive GraphQL Playground (development tool)
+.SS Example GraphQL Queries
+.nf
+# Login and get JWT token
+curl -X POST http://localhost:11023/graphql \\
+  -H "Content-Type: application/json" \\
+  -d '{"query": "mutation { login(username: \\"admin\\", password: \\"secret\\") { token } }"}'
+
+# Query with authentication
+curl -X POST http://localhost:11023/graphql \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"query": "{ me { username admin } }"}'
+
+# Get document
+curl -X POST http://localhost:11023/graphql \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"query": "{ document(collection: \\"blog\\", key: \\"post\\", lang: \\"en\\") { contentMd } }"}'
+.fi
+.PP
+For full GraphQL documentation, visit:
+.I http://localhost:11023/playground
+.br
+Or see:
+.I docs/GRAPHQL.md
 .SH ENVIRONMENT
 .TP
 .B MDDB_SERVER

@@ -19,7 +19,15 @@ type ServerInterface interface {
 	Authenticate(username, password string) (UserInfo, error)
 	GenerateJWT(username string, isAdmin bool) (string, int64, error)
 
-	// Add more methods as needed by resolvers
+	// Document methods (to be implemented by adapter)
+	GetDocument(ctx context.Context, collection, key, lang string, env map[string]string) (interface{}, error)
+	SearchDocuments(ctx context.Context, collection string, filterMeta map[string][]string, sort string, asc bool, limit, offset int) (interface{}, error)
+	AddDocument(ctx context.Context, collection, key, lang string, meta map[string][]string, contentMd string, ttl int64) (interface{}, bool, error)
+	DeleteDocument(ctx context.Context, collection, key, lang string) error
+
+	// Stats and search
+	GetStats(ctx context.Context) (interface{}, error)
+	VectorSearch(ctx context.Context, collection, query string, queryVector []float32, topK int, threshold float64, filterMeta map[string][]string, includeContent bool) (interface{}, error)
 }
 
 // Claims represents JWT token claims

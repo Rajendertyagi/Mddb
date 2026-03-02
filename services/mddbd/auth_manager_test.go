@@ -965,3 +965,286 @@ func TestAuthManager_ListAllUsers(t *testing.T) {
 		t.Fatalf("Expected 2 users, got %d", len(users))
 	}
 }
+
+// ---- API Key Management Tests ----
+
+func TestAuthManager_ListAPIKeys(t *testing.T) {
+	am, _, cleanup := setupTestAuthManager(t)
+	defer cleanup()
+
+	username := "testuser"
+
+	// Create user
+	_, err := am.CreateUser(username, "password123")
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+
+	// Initially no API keys
+	keys, err := am.ListAPIKeys(username)
+	if err != nil {
+		t.Fatalf("ListAPIKeys failed: %v", err)
+	}
+	if len(keys) != 0 {
+		t.Errorf("Expected 0 API keys initially, got %d", len(keys))
+	}
+
+	// Create multiple API keys
+	key1, err := am.CreateAPIKey(username, "Development key", 0)
+	if err != nil {
+		t.Fatalf("CreateAPIKey failed: %v", err)
+	}
+
+	key2, err := am.CreateAPIKey(username, "Production key", 0)
+	if err != nil {
+		t.Fatalf("CreateAPIKey failed: %v", err)
+	}
+
+	// List API keys
+	keys, err = am.ListAPIKeys(username)
+	if err != nil {
+		t.Fatalf("ListAPIKeys failed: %v", err)
+	}
+	if len(keys) != 2 {
+		t.Fatalf("Expected 2 API keys, got %d", len(keys))
+	}
+
+	// Verify keys are correct
+	descriptions := make(map[string]bool)
+	for _, key := range keys {
+		if key.Username != username {
+			t.Errorf("API key username = %s, want %s", key.Username, username)
+		}
+		descriptions[key.Description] = true
+	}
+
+	if !descriptions["Development key"] {
+		t.Error("Expected 'Development key' in API keys")
+	}
+	if !descriptions["Production key"] {
+		t.Error("Expected 'Production key' in API keys")
+	}
+
+	// Verify keys are not leaked
+	_ = key1
+	_ = key2
+}
+
+func TestAuthManager_ListAPIKeys_EmptyForOtherUser(t *testing.T) {
+	am, _, cleanup := setupTestAuthManager(t)
+	defer cleanup()
+
+	user1 := "alice"
+	user2 := "bob"
+
+	// Create both users
+	_, err := am.CreateUser(user1, "password123")
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+	_, err = am.CreateUser(user2, "password456")
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+
+	// Create API key for user1
+	_, err = am.CreateAPIKey(user1, "Alice's key", 0)
+	if err != nil {
+		t.Fatalf("CreateAPIKey failed: %v", err)
+	}
+
+	// User2 should see no keys
+	keys, err := am.ListAPIKeys(user2)
+	if err != nil {
+		t.Fatalf("ListAPIKeys failed: %v", err)
+	}
+	if len(keys) != 0 {
+		t.Errorf("Expected 0 API keys for user2, got %d", len(keys))
+	}
+
+	// User1 should see 1 key
+	keys, err = am.ListAPIKeys(user1)
+	if err != nil {
+		t.Fatalf("ListAPIKeys failed: %v", err)
+	}
+	if len(keys) != 1 {
+		t.Errorf("Expected 1 API key for user1, got %d", len(keys))
+	}
+}
+
+func TestAuthManager_DeleteAPIKey(t *testing.T) {
+	am, _, cleanup := setupTestAuthManager(t)
+	defer cleanup()
+
+	username := "testuser"
+
+	// Create user
+	_, err := am.CreateUser(username, "password123")
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+
+	// Create API key
+	key, err := am.CreateAPIKey(username, "Test key", 0)
+	if err != nil {
+		t.Fatalf("CreateAPIKey failed: %v", err)
+	}
+
+	// Verify key exists
+	keys, err := am.ListAPIKeys(username)
+	if err != nil {
+		t.Fatalf("ListAPIKeys failed: %v", err)
+	}
+	if len(keys) != 1 {
+		t.Fatalf("Expected 1 API key, got %d", len(keys))
+	}
+	keyHash := keys[0].KeyHash
+
+	// Delete the key
+	err = am.DeleteAPIKey(username, keyHash)
+	if err != nil {
+		t.Fatalf("DeleteAPIKey failed: %v", err)
+	}
+
+	// Verify key no longer exists
+	keys, err = am.ListAPIKeys(username)
+	if err != nil {
+		t.Fatalf("ListAPIKeys failed after delete: %v", err)
+	}
+	if len(keys) != 0 {
+		t.Errorf("Expected 0 API keys after delete, got %d", len(keys))
+	}
+
+	// Verify key can't be validated
+	_, err = am.ValidateAPIKey(key)
+	if err != ErrAPIKeyNotFound {
+		t.Errorf("ValidateAPIKey should fail with ErrAPIKeyNotFound after delete, got: %v", err)
+	}
+}
+
+func TestAuthManager_DeleteAPIKey_NotFound(t *testing.T) {
+	am, _, cleanup := setupTestAuthManager(t)
+	defer cleanup()
+
+	username := "testuser"
+
+	// Create user
+	_, err := am.CreateUser(username, "password123")
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+
+	// Try to delete non-existent key
+	err = am.DeleteAPIKey(username, "nonexistent_hash")
+	if err != ErrAPIKeyNotFound {
+		t.Errorf("DeleteAPIKey should fail with ErrAPIKeyNotFound, got: %v", err)
+	}
+}
+
+func TestAuthManager_DeleteAPIKey_Forbidden(t *testing.T) {
+	am, _, cleanup := setupTestAuthManager(t)
+	defer cleanup()
+
+	user1 := "alice"
+	user2 := "bob"
+
+	// Create both users
+	_, err := am.CreateUser(user1, "password123")
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+	_, err = am.CreateUser(user2, "password456")
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+
+	// Create API key for user1
+	_, err = am.CreateAPIKey(user1, "Alice's key", 0)
+	if err != nil {
+		t.Fatalf("CreateAPIKey failed: %v", err)
+	}
+
+	// Get user1's key hash
+	keys, err := am.ListAPIKeys(user1)
+	if err != nil {
+		t.Fatalf("ListAPIKeys failed: %v", err)
+	}
+	if len(keys) != 1 {
+		t.Fatalf("Expected 1 API key, got %d", len(keys))
+	}
+	keyHash := keys[0].KeyHash
+
+	// user2 should not be able to delete user1's key
+	err = am.DeleteAPIKey(user2, keyHash)
+	if err != ErrForbidden {
+		t.Errorf("DeleteAPIKey should fail with ErrForbidden, got: %v", err)
+	}
+
+	// Verify key still exists for user1
+	keys, err = am.ListAPIKeys(user1)
+	if err != nil {
+		t.Fatalf("ListAPIKeys failed after forbidden delete: %v", err)
+	}
+	if len(keys) != 1 {
+		t.Errorf("Expected 1 API key to still exist after forbidden delete, got %d", len(keys))
+	}
+}
+
+func TestAuthManager_DeleteAPIKey_MultiplKeys(t *testing.T) {
+	am, _, cleanup := setupTestAuthManager(t)
+	defer cleanup()
+
+	username := "testuser"
+
+	// Create user
+	_, err := am.CreateUser(username, "password123")
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+
+	// Create multiple API keys
+	_, err = am.CreateAPIKey(username, "Key 1", 0)
+	if err != nil {
+		t.Fatalf("CreateAPIKey failed: %v", err)
+	}
+	_, err = am.CreateAPIKey(username, "Key 2", 0)
+	if err != nil {
+		t.Fatalf("CreateAPIKey failed: %v", err)
+	}
+	_, err = am.CreateAPIKey(username, "Key 3", 0)
+	if err != nil {
+		t.Fatalf("CreateAPIKey failed: %v", err)
+	}
+
+	// Get all keys
+	keys, err := am.ListAPIKeys(username)
+	if err != nil {
+		t.Fatalf("ListAPIKeys failed: %v", err)
+	}
+	if len(keys) != 3 {
+		t.Fatalf("Expected 3 API keys, got %d", len(keys))
+	}
+
+	// Delete middle key
+	keyToDelete := keys[1].KeyHash
+	err = am.DeleteAPIKey(username, keyToDelete)
+	if err != nil {
+		t.Fatalf("DeleteAPIKey failed: %v", err)
+	}
+
+	// Verify 2 keys remain
+	keys, err = am.ListAPIKeys(username)
+	if err != nil {
+		t.Fatalf("ListAPIKeys failed after delete: %v", err)
+	}
+	if len(keys) != 2 {
+		t.Errorf("Expected 2 API keys after delete, got %d", len(keys))
+	}
+
+	// Verify deleted key hash is not in list
+	for _, key := range keys {
+		if key.KeyHash == keyToDelete {
+			t.Error("Deleted key still in list")
+		}
+	}
+}
