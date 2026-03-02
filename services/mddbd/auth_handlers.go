@@ -36,7 +36,7 @@ type CreateAPIKeyRequest struct {
 }
 
 type CreateAPIKeyResponse struct {
-	Key         string `json:"key"`         // shown only once!
+	Key         string `json:"key"` // shown only once!
 	Description string `json:"description"`
 	ExpiresAt   int64  `json:"expiresAt"`
 	CreatedAt   int64  `json:"createdAt"`

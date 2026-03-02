@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	bucketAuthUsers  = []byte("auth_users")
+	bucketAuthUsers   = []byte("auth_users")
 	bucketAuthAPIKeys = []byte("auth_apikeys")
 	bucketAuthPerms   = []byte("auth_permissions")
 )

@@ -48,8 +48,8 @@ type User struct {
 
 // APIKey represents an API key for authentication
 type APIKey struct {
-	KeyHash     string `json:"keyHash"`     // SHA256 of the API key
-	Username    string `json:"username"`    // owner
+	KeyHash     string `json:"keyHash"`  // SHA256 of the API key
+	Username    string `json:"username"` // owner
 	CreatedAt   int64  `json:"createdAt"`
 	ExpiresAt   int64  `json:"expiresAt"`   // 0 = never
 	Description string `json:"description"` // optional label

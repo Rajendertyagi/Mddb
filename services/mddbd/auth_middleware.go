@@ -9,10 +9,10 @@ import (
 
 // Public endpoints that don't require authentication
 var publicEndpoints = map[string]bool{
-	"/health":          true,
-	"/v1/health":       true,
-	"/v1/auth/login":   true,
-	"/metrics":         true, // configurable later
+	"/health":        true,
+	"/v1/health":     true,
+	"/v1/auth/login": true,
+	"/metrics":       true, // configurable later
 }
 
 // HTTPMiddleware wraps HTTP handlers with authentication
