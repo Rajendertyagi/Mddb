@@ -6,7 +6,7 @@
 import { authManager } from './auth';
 
 const API_BASE = import.meta.env.MODE === 'production'
-  ? `http://${import.meta.env.VITE_MDBB_SERVER || 'localhost:11023'}/v1`
+  ? `http://${import.meta.env.VITE_MDDB_SERVER || 'localhost:11023'}/v1`
   : '/v1';
 
 class MDDBClient {
@@ -34,11 +34,10 @@ class MDDBClient {
     try {
       const response = await fetch(url, config);
 
-      // Handle 401 Unauthorized - clear token and reload
+      // Handle 401 Unauthorized - just throw error, let App.jsx handle login
       if (response.status === 401) {
-        authManager.clearToken();
-        window.location.reload();
-        throw new Error('Unauthorized - please login again');
+        const error = await response.text();
+        throw new Error(`Unauthorized: ${error}`);
       }
 
       if (!response.ok) {
@@ -311,6 +310,42 @@ class MDDBClient {
     return this.request('/auth/users', { method: 'GET' });
   }
 
+  /**
+   * Create a new user (admin only)
+   */
+  async createUser({ username, password, admin = false }) {
+    return this.request('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ username, password, admin }),
+    });
+  }
+
+  /**
+   * Delete a user (admin only)
+   */
+  async deleteUser(username) {
+    return this.request(`/auth/users/${username}`, { method: 'DELETE' });
+  }
+
+  /**
+   * Set user permission
+   */
+  async setUserPermission({ username, collection, read, write, admin }) {
+    return this.request('/auth/permissions', {
+      method: 'POST',
+      body: JSON.stringify({ username, collection, read, write, admin }),
+    });
+  }
+
+  /**
+   * Get user permissions
+   */
+  async getUserPermissions(username) {
+    return this.request(`/auth/permissions?username=${username}`, {
+      method: 'GET',
+    });
+  }
+
   // ---- Group Management Methods ----
 
   /**
@@ -368,7 +403,7 @@ class MDDBClient {
    * Get group permissions
    */
   async getGroupPermissions(groupName) {
-    return this.request(`/auth/group-permissions?group=${groupName}`, {
+    return this.request(`/auth/group-permissions?group=${encodeURIComponent(groupName)}`, {
       method: 'GET',
     });
   }

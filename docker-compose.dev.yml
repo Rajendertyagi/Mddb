@@ -1,11 +1,9 @@
-version: '3.8'
-
 services:
   # MDDB Server (Backend)
   mddbd:
     build:
-      context: ./services/mddbd
-      dockerfile: Dockerfile.dev
+      context: .
+      dockerfile: services/mddbd/Dockerfile.dev
     container_name: mddb-server
     ports:
       - "11023:11023"  # HTTP API
@@ -50,7 +48,7 @@ services:
       - ./services/mddb-panel:/app
       - /app/node_modules
     environment:
-      - VITE_MDBB_SERVER=localhost:11023
+      - MDDB_SERVER=http://mddbd:11023
       - NODE_ENV=development
     networks:
       - mddb-network
@@ -62,14 +60,11 @@ services:
   # MDDB MCP Server
   mddb-mcp:
     build:
-      context: ./services/mddb-mcp
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/mddb-mcp/Dockerfile
     container_name: mddb-mcp
     ports:
       - "9000:9000"
-    volumes:
-      - ./services/mddb-mcp:/app
-      - ./services/mddb-mcp/config.yaml:/app/config.yaml:ro
     environment:
       - MCP_LISTEN_ADDRESS=0.0.0.0:9000
       - MDDB_GRPC_ADDRESS=mddbd:11024

@@ -1,4 +1,25 @@
-FROM node:24-alpine AS builder
+# Development stage
+FROM node:25-alpine AS development
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies (including dev dependencies)
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Expose port
+EXPOSE 3000
+
+# Start dev server with hot reload
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+
+# Builder stage
+FROM node:25-alpine AS builder
 
 WORKDIR /app
 
@@ -15,7 +36,7 @@ COPY . .
 RUN npm run build
 
 # Production image
-FROM node:24-alpine
+FROM node:25-alpine AS production
 
 WORKDIR /app
 
@@ -31,5 +52,5 @@ COPY --from=builder /app/dist ./dist
 # Expose port
 EXPOSE 3000
 
-# Start application
-CMD ["sh", "-c", "VITE_PROD=true VITE_MDBB_SERVER=localhost:11023 npm run preview -- --host 0.0.0.0 --port 3000"]
+# Start production preview server
+CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "3000"]

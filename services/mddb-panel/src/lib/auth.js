@@ -39,7 +39,7 @@ export const authManager = {
    * @returns {Promise<{token: string, expiresAt: number}>}
    */
   async login(username, password) {
-    const resp = await fetch('http://localhost:11023/v1/auth/login', {
+    const resp = await fetch('/v1/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
