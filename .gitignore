@@ -97,3 +97,4 @@ services/mddb-panel/dist/
 services/mddb-panel/.env
 services/mddb-panel/.env.local
 services/mddb-cli/mddb-cli
+services/mddbd/mddb-server

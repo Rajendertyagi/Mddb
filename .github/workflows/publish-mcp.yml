@@ -2,8 +2,6 @@ name: Publish MCP Docker Image
 
 on:
   push:
-    tags:
-      - 'v*'  # Use same version tags as main project
     branches:
       - main
     paths:

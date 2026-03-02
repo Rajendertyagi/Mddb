@@ -1,6 +1,9 @@
 name: Docker Build and Push
 
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 env:
@@ -15,6 +18,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
+      attestations: write
     
     steps:
       - name: Checkout code
@@ -64,6 +69,7 @@ jobs:
           echo "BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
 
       - name: Build and push server image
+        id: build-server
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -90,6 +96,101 @@ jobs:
             VERSION=${{ steps.meta.outputs.VERSION }}
             BUILD_DATE=${{ steps.meta.outputs.BUILD_DATE }}
             COMMIT_SHA=${{ steps.meta.outputs.COMMIT_SHA }}
+          cache-from: type=gha,scope=server
+          cache-to: type=gha,mode=max,scope=server
+
+      - name: Build and push panel image
+        id: build-panel
+        uses: docker/build-push-action@v6
+        with:
+          context: ./services/mddb-panel
+          file: ./services/mddb-panel/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:panel-${{ steps.meta.outputs.VERSION_NUM }}
+            ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:panel
+            ${{ env.GHCR_REGISTRY }}/${{ github.repository }}:panel-${{ steps.meta.outputs.VERSION_NUM }}
+            ${{ env.GHCR_REGISTRY }}/${{ github.repository }}:panel
+          labels: |
+            org.opencontainers.image.title=MDDB Panel
+            org.opencontainers.image.description=Web-based administration panel for MDDB
+            org.opencontainers.image.version=${{ steps.meta.outputs.VERSION_NUM }}
+            org.opencontainers.image.created=${{ steps.meta.outputs.BUILD_DATE }}
+            org.opencontainers.image.revision=${{ steps.meta.outputs.COMMIT_SHA }}
+            org.opencontainers.image.source=https://github.com/tradik/mddb
+            org.opencontainers.image.url=https://github.com/tradik/mddb
+            org.opencontainers.image.documentation=https://github.com/tradik/mddb/blob/main/services/mddb-panel/README.md
+            org.opencontainers.image.licenses=BSD-3-Clause
+            org.opencontainers.image.vendor=MDDB Team
+          build-args: |
+            VERSION=${{ steps.meta.outputs.VERSION }}
+            BUILD_DATE=${{ steps.meta.outputs.BUILD_DATE }}
+            COMMIT_SHA=${{ steps.meta.outputs.COMMIT_SHA }}
+          cache-from: type=gha,scope=panel
+          cache-to: type=gha,mode=max,scope=panel
+
+      - name: Build and push CLI image
+        id: build-cli
+        uses: docker/build-push-action@v6
+        with:
+          context: ./services/mddb-cli
+          file: ./services/mddb-cli/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:cli-${{ steps.meta.outputs.VERSION_NUM }}
+            ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:cli
+            ${{ env.GHCR_REGISTRY }}/${{ github.repository }}:cli-${{ steps.meta.outputs.VERSION_NUM }}
+            ${{ env.GHCR_REGISTRY }}/${{ github.repository }}:cli
+          labels: |
+            org.opencontainers.image.title=MDDB CLI
+            org.opencontainers.image.description=Command-line interface for MDDB
+            org.opencontainers.image.version=${{ steps.meta.outputs.VERSION_NUM }}
+            org.opencontainers.image.created=${{ steps.meta.outputs.BUILD_DATE }}
+            org.opencontainers.image.revision=${{ steps.meta.outputs.COMMIT_SHA }}
+            org.opencontainers.image.source=https://github.com/tradik/mddb
+            org.opencontainers.image.url=https://github.com/tradik/mddb
+            org.opencontainers.image.documentation=https://github.com/tradik/mddb/blob/main/services/mddb-cli/README.md
+            org.opencontainers.image.licenses=BSD-3-Clause
+            org.opencontainers.image.vendor=MDDB Team
+          build-args: |
+            VERSION=${{ steps.meta.outputs.VERSION }}
+            BUILD_DATE=${{ steps.meta.outputs.BUILD_DATE }}
+            COMMIT_SHA=${{ steps.meta.outputs.COMMIT_SHA }}
+          cache-from: type=gha,scope=cli
+          cache-to: type=gha,mode=max,scope=cli
+
+      - name: Build and push MCP image
+        id: build-mcp
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./services/mddb-mcp/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:mcp-${{ steps.meta.outputs.VERSION_NUM }}
+            ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:mcp
+            ${{ env.GHCR_REGISTRY }}/${{ github.repository }}:mcp-${{ steps.meta.outputs.VERSION_NUM }}
+            ${{ env.GHCR_REGISTRY }}/${{ github.repository }}:mcp
+          labels: |
+            org.opencontainers.image.title=MDDB MCP Server
+            org.opencontainers.image.description=Model Context Protocol server for MDDB - provides LLM-friendly access to markdown database
+            org.opencontainers.image.version=${{ steps.meta.outputs.VERSION_NUM }}
+            org.opencontainers.image.created=${{ steps.meta.outputs.BUILD_DATE }}
+            org.opencontainers.image.revision=${{ steps.meta.outputs.COMMIT_SHA }}
+            org.opencontainers.image.source=https://github.com/tradik/mddb
+            org.opencontainers.image.url=https://github.com/tradik/mddb
+            org.opencontainers.image.documentation=https://github.com/tradik/mddb/blob/main/services/mddb-mcp/README.md
+            org.opencontainers.image.licenses=BSD-3-Clause
+            org.opencontainers.image.vendor=MDDB Team
+          build-args: |
+            VERSION=${{ steps.meta.outputs.VERSION }}
+            BUILD_DATE=${{ steps.meta.outputs.BUILD_DATE }}
+            COMMIT_SHA=${{ steps.meta.outputs.COMMIT_SHA }}
+          cache-from: type=gha,scope=mcp
+          cache-to: type=gha,mode=max,scope=mcp
 
       # Docker Hub description update disabled - update manually on Docker Hub
       # Token needs additional permissions: https://hub.docker.com/settings/security
@@ -102,39 +203,110 @@ jobs:
       #     readme-filepath: ./docs/DOCKER_HUB.md
       #     short-description: "High-performance markdown database with dual protocol support (HTTP/JSON + gRPC/Protobuf) and full revision history"
 
+      - name: Generate artifact attestation for server
+        if: github.event_name != 'pull_request' && steps.meta.outputs.IS_RELEASE == 'true'
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.GHCR_REGISTRY }}/${{ github.repository }}
+          subject-digest: ${{ steps.build-server.outputs.digest }}
+          push-to-registry: true
+
+      - name: Generate artifact attestation for panel
+        if: github.event_name != 'pull_request' && steps.meta.outputs.IS_RELEASE == 'true'
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.GHCR_REGISTRY }}/${{ github.repository }}
+          subject-digest: ${{ steps.build-panel.outputs.digest }}
+          push-to-registry: true
+
+      - name: Generate artifact attestation for CLI
+        if: github.event_name != 'pull_request' && steps.meta.outputs.IS_RELEASE == 'true'
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.GHCR_REGISTRY }}/${{ github.repository }}
+          subject-digest: ${{ steps.build-cli.outputs.digest }}
+          push-to-registry: true
+
+      - name: Generate artifact attestation for MCP
+        if: github.event_name != 'pull_request' && steps.meta.outputs.IS_RELEASE == 'true'
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.GHCR_REGISTRY }}/${{ github.repository }}
+          subject-digest: ${{ steps.build-mcp.outputs.digest }}
+          push-to-registry: true
+
       - name: Create release summary
         if: steps.meta.outputs.IS_RELEASE == 'true'
         run: |
           cat >> $GITHUB_STEP_SUMMARY << 'EOF'
           ## 🐳 Docker Images Published
-          
-          ### Docker Hub
+
+          ### MDDB Server
+          **Docker Hub:**
           - `${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.VERSION_NUM }}`
           - `${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest`
-          
-          ### GitHub Container Registry
+
+          **GitHub Container Registry:**
           - `${{ env.GHCR_REGISTRY }}/${{ github.repository }}:${{ steps.meta.outputs.VERSION_NUM }}`
           - `${{ env.GHCR_REGISTRY }}/${{ github.repository }}:latest`
-          
+
+          ### MDDB Panel
+          **Docker Hub:**
+          - `${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:panel-${{ steps.meta.outputs.VERSION_NUM }}`
+          - `${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:panel`
+
+          **GitHub Container Registry:**
+          - `${{ env.GHCR_REGISTRY }}/${{ github.repository }}:panel-${{ steps.meta.outputs.VERSION_NUM }}`
+          - `${{ env.GHCR_REGISTRY }}/${{ github.repository }}:panel`
+
+          ### MDDB CLI
+          **Docker Hub:**
+          - `${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:cli-${{ steps.meta.outputs.VERSION_NUM }}`
+          - `${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:cli`
+
+          **GitHub Container Registry:**
+          - `${{ env.GHCR_REGISTRY }}/${{ github.repository }}:cli-${{ steps.meta.outputs.VERSION_NUM }}`
+          - `${{ env.GHCR_REGISTRY }}/${{ github.repository }}:cli`
+
+          ### MDDB MCP
+          **Docker Hub:**
+          - `${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:mcp-${{ steps.meta.outputs.VERSION_NUM }}`
+          - `${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:mcp`
+
+          **GitHub Container Registry:**
+          - `${{ env.GHCR_REGISTRY }}/${{ github.repository }}:mcp-${{ steps.meta.outputs.VERSION_NUM }}`
+          - `${{ env.GHCR_REGISTRY }}/${{ github.repository }}:mcp`
+
           ### Platforms
           - `linux/amd64` (Intel/AMD)
           - `linux/arm64` (ARM/Apple Silicon)
-          
+
           ### Quick Start
           ```bash
-          # Docker Hub
+          # Server
           docker pull ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.VERSION_NUM }}
-          
-          # Or GitHub Container Registry
-          docker pull ${{ env.GHCR_REGISTRY }}/${{ github.repository }}:${{ steps.meta.outputs.VERSION_NUM }}
-          
-          # Run
           docker run -d -p 11023:11023 -p 11024:11024 \
             -v mddb-data:/data \
             -e MDDB_EXTREME=true \
             ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.VERSION_NUM }}
+
+          # Panel
+          docker pull ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:panel
+          docker run -d -p 3000:3000 \
+            ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:panel
+
+          # CLI
+          docker run --rm \
+            ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:cli --help
+
+          # MCP
+          docker pull ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:mcp
+          docker run -d -p 9000:9000 \
+            -e MCP_MODE=http \
+            -e MDDB_GRPC_ADDRESS=localhost:11024 \
+            ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:mcp
           ```
-          
+
           ### Links
           - [Docker Hub](https://hub.docker.com/r/${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }})
           - [GitHub Packages](https://github.com/${{ github.repository }}/pkgs/container/${{ env.IMAGE_NAME }})
