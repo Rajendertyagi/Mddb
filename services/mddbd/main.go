@@ -15,6 +15,7 @@ import (
 
 	json "github.com/goccy/go-json"
 	bolt "go.etcd.io/bbolt"
+	"google.golang.org/grpc"
 )
 
 type AccessMode string
@@ -56,6 +57,7 @@ type Server struct {
 	WebhookManager *WebhookManager // Webhook subscriptions and delivery
 	SchemaManager  *SchemaManager  // Per-collection metadata schema validation
 	Metrics        *Metrics        // Prometheus-compatible telemetry
+	AuthManager    *AuthManager    // Authentication and authorization
 }
 
 // BucketNames caches bucket name byte slices to avoid repeated allocations
@@ -276,6 +278,40 @@ func main() {
 		log.Println("Prometheus metrics enabled (GET /metrics)")
 	}
 
+	// Initialize authentication (disabled by default)
+	authEnabled := env("MDDB_AUTH_ENABLED", "false") == "true"
+	if authEnabled {
+		jwtSecret := env("MDDB_AUTH_JWT_SECRET", "")
+		if jwtSecret == "" {
+			log.Fatal("MDDB_AUTH_ENABLED=true requires MDDB_AUTH_JWT_SECRET to be set")
+		}
+
+		jwtExpiryStr := env("MDDB_AUTH_JWT_EXPIRY", "24h")
+		jwtExpiry, err := time.ParseDuration(jwtExpiryStr)
+		if err != nil {
+			log.Fatalf("Invalid MDDB_AUTH_JWT_EXPIRY: %v", err)
+		}
+
+		s.AuthManager = NewAuthManager(db, AuthConfig{
+			JWTSecret:     jwtSecret,
+			JWTExpiry:     jwtExpiry,
+			AdminUsername: env("MDDB_AUTH_ADMIN_USERNAME", "admin"),
+			AdminPassword: env("MDDB_AUTH_ADMIN_PASSWORD", ""),
+		})
+
+		if err := s.AuthManager.EnsureBuckets(); err != nil {
+			log.Fatal(err)
+		}
+		if err := s.AuthManager.LoadAll(); err != nil {
+			log.Fatal(err)
+		}
+		if err := s.AuthManager.BootstrapAdmin(); err != nil {
+			log.Fatal(err)
+		}
+
+		log.Println("✓ Authentication enabled")
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/v1/health", s.handleHealth)
@@ -304,12 +340,25 @@ func main() {
 	mux.HandleFunc("/v1/validate", s.handleValidate)
 	mux.HandleFunc("/metrics", s.Metrics.HandleMetrics)
 
+	// Auth endpoints (if enabled)
+	if authEnabled {
+		mux.HandleFunc("/v1/auth/login", s.handleAuthLogin)
+		mux.HandleFunc("/v1/auth/register", s.handleAuthRegister)
+		mux.HandleFunc("/v1/auth/api-key", s.handleAuthAPIKey)
+		mux.HandleFunc("/v1/auth/me", s.handleAuthMe)
+		mux.HandleFunc("/v1/auth/permissions", s.handleAuthPermissions)
+		mux.HandleFunc("/v1/auth/users/", s.handleAuthDeleteUser) // Note: trailing slash for DELETE /v1/auth/users/:username
+	}
+
 	httpAddr := env("MDDB_ADDR", ":11023")
 	grpcAddr := env("MDDB_GRPC_ADDR", ":11024")
 
-	// Wrap mux: metrics middleware → JSON content type → routes
+	// Wrap mux: auth middleware → metrics middleware → JSON content type → routes
 	handler := withJSON(mux)
 	handler = s.Metrics.Middleware(handler)
+	if authEnabled && s.AuthManager != nil {
+		handler = s.AuthManager.HTTPMiddleware(handler)
+	}
 
 	// Start HTTP server
 	go func() {
@@ -336,7 +385,11 @@ func main() {
 
 	// Start gRPC server
 	log.Printf("mddb gRPC listening on %s (mode=%s, db=%s)", grpcAddr, s.Mode, dbPath)
-	if err := startGRPCServer(s, grpcAddr); err != nil {
+	var grpcOpts []grpc.ServerOption
+	if authEnabled && s.AuthManager != nil {
+		grpcOpts = append(grpcOpts, grpc.UnaryInterceptor(s.AuthManager.GRPCUnaryInterceptor()))
+	}
+	if err := startGRPCServer(s, grpcAddr, grpcOpts...); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -571,6 +624,14 @@ func (s *Server) handleAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check write permission
+	if s.AuthManager != nil {
+		if err := s.AuthManager.CheckPermission(r.Context(), req.Collection, PermWrite); err != nil {
+			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+			return
+		}
+	}
+
 	if err := s.SchemaManager.Validate(req.Collection, req.Meta); err != nil {
 		bad(w, err)
 		return
@@ -593,6 +654,14 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 	if req.Collection == "" || req.Key == "" || req.Lang == "" {
 		bad(w, errors.New("missing fields"))
 		return
+	}
+
+	// Check read permission
+	if s.AuthManager != nil {
+		if err := s.AuthManager.CheckPermission(r.Context(), req.Collection, PermRead); err != nil {
+			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+			return
+		}
 	}
 
 	var doc Doc
@@ -635,6 +704,14 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Limit <= 0 {
 		req.Limit = 50
+	}
+
+	// Check read permission
+	if s.AuthManager != nil {
+		if err := s.AuthManager.CheckPermission(r.Context(), req.Collection, PermRead); err != nil {
+			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+			return
+		}
 	}
 
 	type row struct{ Doc Doc }
@@ -754,6 +831,14 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 		req.Format = "ndjson"
 	}
 
+	// Check read permission
+	if s.AuthManager != nil {
+		if err := s.AuthManager.CheckPermission(r.Context(), req.Collection, PermRead); err != nil {
+			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+			return
+		}
+	}
+
 	// Reużyj /search
 	sr := SearchRequest{Collection: req.Collection, FilterMeta: req.FilterMeta, Limit: 1 << 30}
 	buf := new(bytes.Buffer)
@@ -796,6 +881,14 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleBackup(w http.ResponseWriter, r *http.Request) {
+	// Check admin permission (database-wide operation)
+	if s.AuthManager != nil {
+		if err := s.AuthManager.CheckPermission(r.Context(), "*", PermAdmin); err != nil {
+			http.Error(w, `{"error":"admin access required"}`, http.StatusForbidden)
+			return
+		}
+	}
+
 	// snapshot = copy pliku DB (najprościej)
 	dst := r.URL.Query().Get("to")
 	if dst == "" {
@@ -819,6 +912,14 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 	if body.From == "" {
 		bad(w, errors.New("missing from"))
 		return
+	}
+
+	// Check admin permission (database-wide operation)
+	if s.AuthManager != nil {
+		if err := s.AuthManager.CheckPermission(r.Context(), "*", PermAdmin); err != nil {
+			http.Error(w, `{"error":"admin access required"}`, http.StatusForbidden)
+			return
+		}
 	}
 
 	// zamknij db, podmień plik, otwórz ponownie
@@ -846,6 +947,14 @@ func (s *Server) handleTruncate(w http.ResponseWriter, r *http.Request) {
 	if req.Collection == "" {
 		bad(w, errors.New("missing collection"))
 		return
+	}
+
+	// Check write permission
+	if s.AuthManager != nil {
+		if err := s.AuthManager.CheckPermission(r.Context(), req.Collection, PermWrite); err != nil {
+			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+			return
+		}
 	}
 
 	err := s.DB.Update(func(tx *bolt.Tx) error {
@@ -924,6 +1033,14 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		DocumentCount  int    `json:"documentCount"`
 		RevisionCount  int    `json:"revisionCount"`
 		MetaIndexCount int    `json:"metaIndexCount"`
+	}
+
+	// Check read permission (database-wide stats)
+	if s.AuthManager != nil {
+		if err := s.AuthManager.CheckPermission(r.Context(), "*", PermRead); err != nil {
+			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+			return
+		}
 	}
 
 	type Stats struct {
@@ -1161,6 +1278,14 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check write permission
+	if s.AuthManager != nil {
+		if err := s.AuthManager.CheckPermission(r.Context(), req.Collection, PermWrite); err != nil {
+			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+			return
+		}
+	}
+
 	if err := s.deleteDocumentInternal(req.Collection, req.Key, req.Lang); err != nil {
 		bad(w, err)
 		return
@@ -1184,6 +1309,14 @@ func (s *Server) handleDeleteCollection(w http.ResponseWriter, r *http.Request) 
 	if req.Collection == "" {
 		bad(w, errors.New("missing collection"))
 		return
+	}
+
+	// Check write permission
+	if s.AuthManager != nil {
+		if err := s.AuthManager.CheckPermission(r.Context(), req.Collection, PermWrite); err != nil {
+			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+			return
+		}
 	}
 
 	var deletedCount int

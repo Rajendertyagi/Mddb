@@ -3,8 +3,10 @@
  * Simple client for interacting with MDDB HTTP API
  */
 
-const API_BASE = import.meta.env.MODE === 'production' 
-  ? `http://${import.meta.env.VITE_MDBB_SERVER || 'localhost:11023'}/v1` 
+import { authManager } from './auth';
+
+const API_BASE = import.meta.env.MODE === 'production'
+  ? `http://${import.meta.env.VITE_MDBB_SERVER || 'localhost:11023'}/v1`
   : '/v1';
 
 class MDDBClient {
@@ -14,6 +16,8 @@ class MDDBClient {
 
   async request(endpoint, options = {}) {
     const url = `${this.baseUrl}${endpoint}`;
+    const token = authManager.getToken();
+
     const config = {
       headers: {
         'Content-Type': 'application/json',
@@ -22,9 +26,21 @@ class MDDBClient {
       ...options,
     };
 
+    // Add authentication header if token exists
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+
     try {
       const response = await fetch(url, config);
-      
+
+      // Handle 401 Unauthorized - clear token and reload
+      if (response.status === 401) {
+        authManager.clearToken();
+        window.location.reload();
+        throw new Error('Unauthorized - please login again');
+      }
+
       if (!response.ok) {
         const error = await response.text();
         throw new Error(`API Error (${response.status}): ${error}`);

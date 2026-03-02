@@ -1,11 +1,13 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from './lib/store';
 import mddbClient from './lib/mddb-client';
+import { authManager } from './lib/auth';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import DocumentList from './components/DocumentList';
 import DocumentViewer from './components/DocumentViewer';
 import VectorSearchPanel from './components/VectorSearchPanel';
+import LoginForm from './components/LoginForm';
 
 function App() {
   const {
@@ -18,9 +20,37 @@ function App() {
     searchMode,
   } = useStore();
 
+  const [isAuthenticated, setIsAuthenticated] = useState(authManager.isAuthenticated());
+  const [needsAuth, setNeedsAuth] = useState(false);
+
   useEffect(() => {
-    loadStats();
+    checkAuthAndLoadStats();
   }, []);
+
+  const checkAuthAndLoadStats = async () => {
+    setStatsLoading(true);
+    setStatsError(null);
+    try {
+      const data = await mddbClient.getStats();
+      setStats(data);
+      setIsAuthenticated(true);
+      setNeedsAuth(false);
+    } catch (error) {
+      // If we get Unauthorized error, auth is enabled
+      if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+        setNeedsAuth(true);
+        setIsAuthenticated(false);
+      } else {
+        // Other errors - auth might be disabled
+        setStatsError(error.message);
+        setIsAuthenticated(true); // Assume auth is disabled
+        setNeedsAuth(false);
+      }
+      console.error('Failed to load stats:', error);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
 
   const loadStats = async () => {
     setStatsLoading(true);
@@ -35,6 +65,15 @@ function App() {
       setStatsLoading(false);
     }
   };
+
+  // Show login form if authentication is required and user is not authenticated
+  if (needsAuth && !isAuthenticated) {
+    return <LoginForm onSuccess={() => {
+      setIsAuthenticated(true);
+      setNeedsAuth(false);
+      loadStats();
+    }} />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

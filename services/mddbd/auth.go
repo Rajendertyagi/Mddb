@@ -1,0 +1,178 @@
+package main
+
+import (
+	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
+)
+
+// Authentication errors
+var (
+	ErrInvalidCredentials = errors.New("invalid credentials")
+	ErrUserNotFound       = errors.New("user not found")
+	ErrUserExists         = errors.New("user already exists")
+	ErrAPIKeyNotFound     = errors.New("api key not found")
+	ErrAPIKeyExpired      = errors.New("api key expired")
+	ErrForbidden          = errors.New("forbidden")
+	ErrUnauthorized       = errors.New("unauthorized")
+)
+
+// Permission types
+type PermissionType int
+
+const (
+	PermRead PermissionType = iota
+	PermWrite
+	PermAdmin
+)
+
+// Auth context key
+type contextKey string
+
+const authContextKey contextKey = "auth_claims"
+
+// User represents a user account
+type User struct {
+	Username     string `json:"username"`
+	PasswordHash string `json:"passwordHash"`
+	CreatedAt    int64  `json:"createdAt"`
+	Disabled     bool   `json:"disabled"`
+}
+
+// APIKey represents an API key for authentication
+type APIKey struct {
+	KeyHash     string `json:"keyHash"`     // SHA256 of the API key
+	Username    string `json:"username"`    // owner
+	CreatedAt   int64  `json:"createdAt"`
+	ExpiresAt   int64  `json:"expiresAt"`   // 0 = never
+	Description string `json:"description"` // optional label
+}
+
+// Permission represents a user permission for a collection
+type Permission struct {
+	Username   string `json:"username"`
+	Collection string `json:"collection"` // "*" = all collections
+	Read       bool   `json:"read"`
+	Write      bool   `json:"write"`
+	Admin      bool   `json:"admin"` // can manage users/permissions
+}
+
+// JWTClaims represents JWT token claims
+type JWTClaims struct {
+	Username string `json:"username"`
+	Admin    bool   `json:"admin"` // cached admin flag
+	jwt.RegisteredClaims
+}
+
+// AuthConfig holds authentication configuration
+type AuthConfig struct {
+	JWTSecret     string
+	JWTExpiry     time.Duration
+	AdminUsername string
+	AdminPassword string
+}
+
+// ---- Helper functions ----
+
+// HashPassword hashes a password using bcrypt
+func HashPassword(password string) (string, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hash), nil
+}
+
+// VerifyPassword verifies a password against a hash
+func VerifyPassword(password, hash string) error {
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+}
+
+// GenerateAPIKey generates a new API key with format: mddb_live_{48 hex chars}
+func GenerateAPIKey() (string, error) {
+	b := make([]byte, 24) // 24 bytes = 48 hex chars
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return "mddb_live_" + hex.EncodeToString(b), nil
+}
+
+// HashAPIKey hashes an API key using SHA256
+func HashAPIKey(key string) string {
+	hash := sha256.Sum256([]byte(key))
+	return hex.EncodeToString(hash[:])
+}
+
+// HasPermission checks if permission has the required operation
+func (p *Permission) HasPermission(op PermissionType) bool {
+	switch op {
+	case PermRead:
+		return p.Read
+	case PermWrite:
+		return p.Write
+	case PermAdmin:
+		return p.Admin
+	default:
+		return false
+	}
+}
+
+// IsExpired checks if API key has expired
+func (k *APIKey) IsExpired() bool {
+	if k.ExpiresAt == 0 {
+		return false // never expires
+	}
+	return time.Now().Unix() > k.ExpiresAt
+}
+
+// GetClaimsFromContext retrieves JWT claims from context
+func GetClaimsFromContext(ctx context.Context) (*JWTClaims, bool) {
+	claims, ok := ctx.Value(authContextKey).(*JWTClaims)
+	return claims, ok
+}
+
+// ---- JWT generation and validation ----
+
+// GenerateJWT generates a JWT token for a user
+func GenerateJWT(username string, isAdmin bool, secret string, expiry time.Duration) (string, error) {
+	now := time.Now()
+	claims := &JWTClaims{
+		Username: username,
+		Admin:    isAdmin,
+		RegisteredClaims: jwt.RegisteredClaims{
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(expiry)),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(secret))
+}
+
+// ValidateJWT validates a JWT token and returns the claims
+func ValidateJWT(tokenString, secret string) (*JWTClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
+		// Validate signing method
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(secret), nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if claims, ok := token.Claims.(*JWTClaims); ok && token.Valid {
+		return claims, nil
+	}
+
+	return nil, errors.New("invalid token")
+}

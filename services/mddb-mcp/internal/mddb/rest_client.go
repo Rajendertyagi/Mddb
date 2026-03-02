@@ -14,13 +14,15 @@ import (
 // RESTClient implements Client via HTTP/JSON API.
 type RESTClient struct {
 	baseURL string
+	apiKey  string // NEW: API key for authentication
 	client  *http.Client
 }
 
 // NewRESTClient creates new REST client.
-func NewRESTClient(baseURL string, timeout time.Duration) *RESTClient {
+func NewRESTClient(baseURL, apiKey string, timeout time.Duration) *RESTClient {
 	return &RESTClient{
 		baseURL: baseURL,
+		apiKey:  apiKey, // NEW
 		client: &http.Client{
 			Timeout: timeout,
 		},
@@ -286,6 +288,10 @@ func (c *RESTClient) get(ctx context.Context, path string, result interface{}) e
 	if err != nil {
 		return fmt.Errorf("create request: %w", err)
 	}
+	// NEW: Add API key if configured
+	if c.apiKey != "" {
+		req.Header.Set("X-API-Key", c.apiKey)
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -318,6 +324,10 @@ func (c *RESTClient) post(ctx context.Context, path string, body, result interfa
 		return fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	// NEW: Add API key if configured
+	if c.apiKey != "" {
+		req.Header.Set("X-API-Key", c.apiKey)
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {

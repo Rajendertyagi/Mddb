@@ -1,8 +1,10 @@
-import { Database, RefreshCw, Search, Brain } from 'lucide-react';
+import { Database, RefreshCw, Search, Brain, LogOut } from 'lucide-react';
 import { useStore } from '../lib/store';
+import { authManager } from '../lib/auth';
 
 export default function Header({ onRefresh }) {
   const { searchMode, setSearchMode } = useStore();
+  const isAuthenticated = authManager.isAuthenticated();
 
   return (
     <header className="bg-white border-b border-gray-200 h-16">
@@ -49,6 +51,17 @@ export default function Header({ onRefresh }) {
             <RefreshCw className="w-4 h-4" />
             <span className="text-sm font-medium">Refresh</span>
           </button>
+
+          {isAuthenticated && (
+            <button
+              onClick={() => authManager.logout()}
+              className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Logout"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="text-sm font-medium">Logout</span>
+            </button>
+          )}
         </div>
       </div>
     </header>

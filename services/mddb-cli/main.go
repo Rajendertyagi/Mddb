@@ -17,6 +17,8 @@ var (
 	serverURL  string
 	outputJSON bool
 	verbose    bool
+	apiKey     string // API key for authentication
+	token      string // JWT token for authentication
 )
 
 type Client struct {
@@ -55,6 +57,13 @@ func (c *Client) request(method, path string, body interface{}) ([]byte, error) 
 		req.Header.Set("Content-Type", "application/json")
 	}
 
+	// Add authentication headers
+	if apiKey != "" {
+		req.Header.Set("X-API-Key", apiKey)
+	} else if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
 	resp, err := c.Client.Do(req)
 	if err != nil {
 		return nil, err
@@ -85,6 +94,8 @@ It provides an interface similar to mysql-client for managing markdown documents
 	rootCmd.PersistentFlags().StringVarP(&serverURL, "server", "s", "http://localhost:11023", "MDDB server URL")
 	rootCmd.PersistentFlags().BoolVarP(&outputJSON, "json", "j", false, "Output raw JSON")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Verbose output")
+	rootCmd.PersistentFlags().StringVar(&apiKey, "api-key", "", "API key for authentication")
+	rootCmd.PersistentFlags().StringVar(&token, "token", "", "JWT token for authentication")
 
 	// Add command
 	addCmd := &cobra.Command{
@@ -1176,7 +1187,45 @@ Reads content from stdin or file.`,
 	validateCmd.Flags().StringP("collection", "c", "", "Collection name (required)")
 	validateCmd.Flags().StringP("meta", "m", "", "Metadata as JSON string (required)")
 
-	rootCmd.AddCommand(addCmd, getCmd, searchCmd, exportCmd, backupCmd, restoreCmd, truncateCmd, statsCmd, vectorSearchCmd, vectorReindexCmd, vectorStatsCmd, importURLCmd, setTTLCmd, ftsCmd, webhookCmd, schemaCmd, validateCmd)
+	// Login command
+	loginCmd := &cobra.Command{
+		Use:   "login [username] [password]",
+		Short: "Login and get JWT token",
+		Long:  `Authenticate with MDDB server using username and password, receive JWT token.`,
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			username, password := args[0], args[1]
+
+			client := NewClient(serverURL)
+			body := map[string]interface{}{
+				"username": username,
+				"password": password,
+			}
+
+			resp, err := client.request("POST", "/v1/auth/login", body)
+			if err != nil {
+				return fmt.Errorf("login failed: %w", err)
+			}
+
+			if outputJSON {
+				fmt.Println(string(resp))
+			} else {
+				var result map[string]interface{}
+				json.Unmarshal(resp, &result)
+
+				tokenStr, _ := result["token"].(string)
+				expiresAt, _ := result["expiresAt"].(float64)
+
+				fmt.Printf("✓ Login successful\n")
+				fmt.Printf("Token: %s\n", tokenStr)
+				fmt.Printf("Expires: %v\n", time.Unix(int64(expiresAt), 0).Format(time.RFC3339))
+				fmt.Printf("\nUse with: mddb-cli --token %s <command>\n", tokenStr)
+			}
+			return nil
+		},
+	}
+
+	rootCmd.AddCommand(addCmd, getCmd, searchCmd, exportCmd, backupCmd, restoreCmd, truncateCmd, statsCmd, vectorSearchCmd, vectorReindexCmd, vectorStatsCmd, importURLCmd, setTTLCmd, ftsCmd, webhookCmd, schemaCmd, validateCmd, loginCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

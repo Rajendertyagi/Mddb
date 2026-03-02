@@ -56,16 +56,22 @@ func NewGRPCServer(s *Server) *GRPCServer {
 }
 
 // startGRPCServer starts the gRPC server on the specified address
-func startGRPCServer(s *Server, addr string) error {
+func startGRPCServer(s *Server, addr string, opts ...grpc.ServerOption) error {
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		return err
 	}
 
-	grpcServer := grpc.NewServer(
-		grpc.MaxRecvMsgSize(10*1024*1024), // 10MB
-		grpc.MaxSendMsgSize(10*1024*1024), // 10MB
-	)
+	// Default options
+	defaultOpts := []grpc.ServerOption{
+		grpc.MaxRecvMsgSize(10 * 1024 * 1024), // 10MB
+		grpc.MaxSendMsgSize(10 * 1024 * 1024), // 10MB
+	}
+
+	// Merge with provided options
+	allOpts := append(defaultOpts, opts...)
+
+	grpcServer := grpc.NewServer(allOpts...)
 
 	proto.RegisterMDDBServer(grpcServer, NewGRPCServer(s))
 
@@ -79,6 +85,13 @@ func startGRPCServer(s *Server, addr string) error {
 func (g *GRPCServer) Add(ctx context.Context, req *proto.AddRequest) (*proto.Document, error) {
 	if g.server.Mode == ModeRead {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
+	}
+
+	// Check write permission
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermWrite); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
 	}
 
 	if req.Collection == "" || req.Key == "" || req.Lang == "" {
@@ -202,6 +215,13 @@ func (g *GRPCServer) AddBatch(ctx context.Context, req *proto.AddBatchRequest) (
 		return nil, status.Error(codes.InvalidArgument, "missing collection")
 	}
 
+	// Check write permission
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermWrite); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
 	if len(req.Documents) == 0 {
 		return &proto.AddBatchResponse{}, nil
 	}
@@ -227,6 +247,13 @@ func (g *GRPCServer) AddBatch(ctx context.Context, req *proto.AddBatchRequest) (
 func (g *GRPCServer) Get(ctx context.Context, req *proto.GetRequest) (*proto.Document, error) {
 	if req.Collection == "" || req.Key == "" || req.Lang == "" {
 		return nil, status.Error(codes.InvalidArgument, "missing required fields")
+	}
+
+	// Check read permission
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermRead); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
 	}
 
 	// Check cache first (use lock-free cache if extreme mode)
@@ -307,6 +334,13 @@ func (g *GRPCServer) Get(ctx context.Context, req *proto.GetRequest) (*proto.Doc
 func (g *GRPCServer) Search(ctx context.Context, req *proto.SearchRequest) (*proto.SearchResponse, error) {
 	if req.Collection == "" {
 		return nil, status.Error(codes.InvalidArgument, "missing collection")
+	}
+
+	// Check read permission
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermRead); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
 	}
 
 	// Convert proto filter to internal format
@@ -409,12 +443,26 @@ func (g *GRPCServer) Search(ctx context.Context, req *proto.SearchRequest) (*pro
 
 // Export implements the Export RPC (streaming)
 func (g *GRPCServer) Export(req *proto.ExportRequest, stream proto.MDDB_ExportServer) error {
+	// Check read permission
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(stream.Context(), req.Collection, PermRead); err != nil {
+			return status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
 	// Similar to HTTP export but streaming chunks
 	return status.Error(codes.Unimplemented, "export streaming not yet implemented")
 }
 
 // Backup implements the Backup RPC
 func (g *GRPCServer) Backup(ctx context.Context, req *proto.BackupRequest) (*proto.BackupResponse, error) {
+	// Check admin permission
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, "*", PermAdmin); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
 	filename := req.To
 	if filename == "" {
 		filename = fmt.Sprintf("backup-%d.db", time.Now().Unix())
@@ -437,6 +485,13 @@ func (g *GRPCServer) Restore(ctx context.Context, req *proto.RestoreRequest) (*p
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 
+	// Check admin permission
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, "*", PermAdmin); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
 	if req.From == "" {
 		return nil, status.Error(codes.InvalidArgument, "missing backup filename")
 	}
@@ -452,6 +507,13 @@ func (g *GRPCServer) Restore(ctx context.Context, req *proto.RestoreRequest) (*p
 func (g *GRPCServer) Truncate(ctx context.Context, req *proto.TruncateRequest) (*proto.TruncateResponse, error) {
 	if g.server.Mode == ModeRead {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
+	}
+
+	// Check write permission
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermWrite); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
 	}
 
 	if req.Collection == "" {
@@ -503,6 +565,13 @@ func (g *GRPCServer) Truncate(ctx context.Context, req *proto.TruncateRequest) (
 
 // Stats implements the Stats RPC
 func (g *GRPCServer) Stats(ctx context.Context, req *proto.StatsRequest) (*proto.StatsResponse, error) {
+	// Check admin permission
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, "*", PermAdmin); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
 	resp := &proto.StatsResponse{
 		DatabasePath: g.server.Path,
 		Mode:         string(g.server.Mode),
@@ -586,6 +655,13 @@ func (g *GRPCServer) Stats(ctx context.Context, req *proto.StatsRequest) (*proto
 
 // VectorSearch implements the VectorSearch RPC
 func (g *GRPCServer) VectorSearch(ctx context.Context, req *proto.VectorSearchRequest) (*proto.VectorSearchResponse, error) {
+	// Check read permission
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermRead); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
 	if req.Collection == "" {
 		return nil, status.Error(codes.InvalidArgument, "missing collection")
 	}
@@ -672,6 +748,14 @@ func (g *GRPCServer) VectorReindex(ctx context.Context, req *proto.VectorReindex
 	if g.server.Mode == ModeRead {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
+
+	// Check write permission
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermWrite); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
 	if req.Collection == "" {
 		return nil, status.Error(codes.InvalidArgument, "missing collection")
 	}
@@ -745,6 +829,13 @@ func (g *GRPCServer) VectorReindex(ctx context.Context, req *proto.VectorReindex
 
 // VectorStats implements the VectorStats RPC
 func (g *GRPCServer) VectorStats(ctx context.Context, req *proto.VectorStatsRequest) (*proto.VectorStatsResponse, error) {
+	// Check admin permission
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, "*", PermAdmin); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
 	resp := &proto.VectorStatsResponse{
 		Enabled:     g.server.Embedding != nil,
 		Collections: make(map[string]*proto.VectorCollectionStats),
@@ -817,6 +908,13 @@ func (g *GRPCServer) DeleteBatch(ctx context.Context, req *proto.DeleteBatchRequ
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 
+	// Check write permission
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermWrite); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
 	if req.Collection == "" {
 		return nil, status.Error(codes.InvalidArgument, "missing collection")
 	}
@@ -833,6 +931,13 @@ func (g *GRPCServer) DeleteBatch(ctx context.Context, req *proto.DeleteBatchRequ
 func (g *GRPCServer) UpdateBatch(ctx context.Context, req *proto.UpdateBatchRequest) (*proto.UpdateBatchResponse, error) {
 	if g.server.Mode == ModeRead {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
+	}
+
+	// Check write permission
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermWrite); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
 	}
 
 	if req.Collection == "" {
@@ -852,6 +957,14 @@ func (g *GRPCServer) ImportURL(ctx context.Context, req *proto.ImportURLRequest)
 	if g.server.Mode == ModeRead {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
+
+	// Check write permission
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermWrite); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
 	if req.Collection == "" || req.Url == "" || req.Lang == "" {
 		return nil, status.Error(codes.InvalidArgument, "missing required fields: collection, url, lang")
 	}
@@ -891,6 +1004,14 @@ func (g *GRPCServer) SetTTL(ctx context.Context, req *proto.SetTTLRequest) (*pro
 	if g.server.Mode == ModeRead {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
+
+	// Check write permission
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermWrite); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
 	if req.Collection == "" || req.Key == "" || req.Lang == "" {
 		return nil, status.Error(codes.InvalidArgument, "missing required fields")
 	}
@@ -941,6 +1062,13 @@ func (g *GRPCServer) SetTTL(ctx context.Context, req *proto.SetTTLRequest) (*pro
 
 // FTS implements the FTS RPC
 func (g *GRPCServer) FTS(ctx context.Context, req *proto.FTSRequest) (*proto.FTSResponse, error) {
+	// Check read permission
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermRead); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
 	if req.Collection == "" || req.Query == "" {
 		return nil, status.Error(codes.InvalidArgument, "missing required fields: collection, query")
 	}
@@ -993,6 +1121,14 @@ func (g *GRPCServer) RegisterWebhook(ctx context.Context, req *proto.RegisterWeb
 	if g.server.Mode == ModeRead {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
+
+	// Check write permission
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermWrite); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
 	if g.server.WebhookManager == nil {
 		return nil, status.Error(codes.FailedPrecondition, "webhooks not initialized")
 	}
@@ -1013,6 +1149,13 @@ func (g *GRPCServer) RegisterWebhook(ctx context.Context, req *proto.RegisterWeb
 
 // ListWebhooks implements the ListWebhooks RPC
 func (g *GRPCServer) ListWebhooks(ctx context.Context, req *proto.ListWebhooksRequest) (*proto.ListWebhooksResponse, error) {
+	// Check admin permission
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, "*", PermAdmin); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
 	if g.server.WebhookManager == nil {
 		return nil, status.Error(codes.FailedPrecondition, "webhooks not initialized")
 	}
@@ -1037,6 +1180,14 @@ func (g *GRPCServer) DeleteWebhook(ctx context.Context, req *proto.DeleteWebhook
 	if g.server.Mode == ModeRead {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
+
+	// Check write permission (using "*" since we need to find the webhook's collection)
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, "*", PermWrite); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
 	if g.server.WebhookManager == nil {
 		return nil, status.Error(codes.FailedPrecondition, "webhooks not initialized")
 	}
@@ -1056,6 +1207,14 @@ func (g *GRPCServer) SetSchema(ctx context.Context, req *proto.SetSchemaRequest)
 	if g.server.Mode == ModeRead {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
+
+	// Check write permission
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermWrite); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
 	if req.Collection == "" {
 		return nil, status.Error(codes.InvalidArgument, "missing collection")
 	}
@@ -1070,6 +1229,13 @@ func (g *GRPCServer) SetSchema(ctx context.Context, req *proto.SetSchemaRequest)
 
 // GetSchema implements the GetSchema RPC
 func (g *GRPCServer) GetSchema(ctx context.Context, req *proto.GetSchemaRequest) (*proto.GetSchemaResponse, error) {
+	// Check read permission
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermRead); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
 	if req.Collection == "" {
 		return nil, status.Error(codes.InvalidArgument, "missing collection")
 	}
@@ -1086,6 +1252,14 @@ func (g *GRPCServer) DeleteSchema(ctx context.Context, req *proto.DeleteSchemaRe
 	if g.server.Mode == ModeRead {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
+
+	// Check write permission
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermWrite); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
 	if req.Collection == "" {
 		return nil, status.Error(codes.InvalidArgument, "missing collection")
 	}
@@ -1097,6 +1271,13 @@ func (g *GRPCServer) DeleteSchema(ctx context.Context, req *proto.DeleteSchemaRe
 
 // ListSchemas implements the ListSchemas RPC
 func (g *GRPCServer) ListSchemas(ctx context.Context, req *proto.ListSchemasRequest) (*proto.ListSchemasResponse, error) {
+	// Check read permission for listing schemas (using "*" since it's a global operation)
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, "*", PermRead); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
 	schemas := g.server.SchemaManager.List()
 	var result []*proto.SchemaInfo
 	for col, raw := range schemas {
@@ -1110,6 +1291,13 @@ func (g *GRPCServer) ListSchemas(ctx context.Context, req *proto.ListSchemasRequ
 
 // ValidateDocument implements the ValidateDocument RPC
 func (g *GRPCServer) ValidateDocument(ctx context.Context, req *proto.ValidateDocumentRequest) (*proto.ValidateDocumentResponse, error) {
+	// Check read permission
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermRead); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
 	if req.Collection == "" {
 		return nil, status.Error(codes.InvalidArgument, "missing collection")
 	}

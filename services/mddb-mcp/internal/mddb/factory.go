@@ -11,6 +11,7 @@ type ClientConfig struct {
 	RESTBaseURL   string
 	TransportMode string
 	Timeout       time.Duration
+	APIKey        string // API key for authentication
 }
 
 // NewClient creates MDDB client based on configuration.
@@ -23,7 +24,7 @@ func NewClient(cfg ClientConfig) (Client, error) {
 	// Initialize clients depending on mode
 	switch mode {
 	case TransportGRPCOnly, TransportGRPCWithRESTFallback:
-		grpcClient, err = NewGRPCClient(cfg.GRPCAddress, cfg.Timeout)
+		grpcClient, err = NewGRPCClient(cfg.GRPCAddress, cfg.APIKey, cfg.Timeout)
 		if err != nil {
 			if mode == TransportGRPCOnly {
 				return nil, fmt.Errorf("create grpc client: %w", err)
@@ -35,7 +36,7 @@ func NewClient(cfg ClientConfig) (Client, error) {
 
 	switch mode {
 	case TransportRESTOnly, TransportRESTWithGRPCFallback, TransportGRPCWithRESTFallback:
-		restClient = NewRESTClient(cfg.RESTBaseURL, cfg.Timeout)
+		restClient = NewRESTClient(cfg.RESTBaseURL, cfg.APIKey, cfg.Timeout)
 	}
 
 	// If gRPC failed in fallback mode, use REST only

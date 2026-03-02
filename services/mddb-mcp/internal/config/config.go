@@ -57,6 +57,7 @@ type MDDBConfig struct {
 	TransportMode  string `yaml:"transportMode"`
 	TimeoutSeconds int    `yaml:"timeoutSeconds"`
 	MaxRetries     int    `yaml:"maxRetries"`
+	APIKey         string `yaml:"apiKey"` // NEW: API key for authentication
 }
 
 // envConfig maps environment variables.
@@ -68,6 +69,7 @@ type envConfig struct {
 	MDDBTransportMode string `envconfig:"MDDB_TRANSPORT_MODE"`
 	MDDBTimeoutSec    int    `envconfig:"MDDB_TIMEOUT_SECONDS"`
 	MDDBMaxRetries    int    `envconfig:"MDDB_MAX_RETRIES"`
+	MDDBAPIKey        string `envconfig:"MDDB_API_KEY"` // NEW: API key
 }
 
 // Load loads config in order: defaults -> YAML -> ENV (overrides).
@@ -147,6 +149,9 @@ func overrideFromEnv(cfg *Config) error {
 	}
 	if e.MDDBMaxRetries != 0 {
 		cfg.MDDB.MaxRetries = e.MDDBMaxRetries
+	}
+	if e.MDDBAPIKey != "" {
+		cfg.MDDB.APIKey = e.MDDBAPIKey
 	}
 
 	return nil

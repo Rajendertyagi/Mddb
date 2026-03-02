@@ -8,6 +8,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 
 	pb "mddb/proto"
 )
@@ -16,10 +17,11 @@ import (
 type GRPCClient struct {
 	conn   *grpc.ClientConn
 	client pb.MDDBClient
+	apiKey string // API key for authentication
 }
 
 // NewGRPCClient creates new gRPC client.
-func NewGRPCClient(address string, timeout time.Duration) (*GRPCClient, error) {
+func NewGRPCClient(address string, apiKey string, timeout time.Duration) (*GRPCClient, error) {
 	conn, err := grpc.NewClient(address,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
@@ -30,7 +32,17 @@ func NewGRPCClient(address string, timeout time.Duration) (*GRPCClient, error) {
 	return &GRPCClient{
 		conn:   conn,
 		client: pb.NewMDDBClient(conn),
+		apiKey: apiKey,
 	}, nil
+}
+
+// withAuth injects authentication metadata into context if API key is configured.
+func (c *GRPCClient) withAuth(ctx context.Context) context.Context {
+	if c.apiKey == "" {
+		return ctx
+	}
+	md := metadata.Pairs("x-api-key", c.apiKey)
+	return metadata.NewOutgoingContext(ctx, md)
 }
 
 func (c *GRPCClient) Health(ctx context.Context) (*Health, error) {
@@ -43,7 +55,7 @@ func (c *GRPCClient) Health(ctx context.Context) (*Health, error) {
 }
 
 func (c *GRPCClient) Stats(ctx context.Context) (*Stats, error) {
-	resp, err := c.client.Stats(ctx, &pb.StatsRequest{})
+	resp, err := c.client.Stats(c.withAuth(ctx), &pb.StatsRequest{})
 	if err != nil {
 		return nil, fmt.Errorf("stats: %w", err)
 	}
@@ -79,7 +91,7 @@ func (c *GRPCClient) Add(ctx context.Context, req *AddRequest) (*Document, error
 		SaveRevision: req.SaveRevision,
 	}
 
-	doc, err := c.client.Add(ctx, pbReq)
+	doc, err := c.client.Add(c.withAuth(ctx), pbReq)
 	if err != nil {
 		return nil, fmt.Errorf("add: %w", err)
 	}
@@ -104,7 +116,7 @@ func (c *GRPCClient) AddBatch(ctx context.Context, req *AddBatchRequest) (*AddBa
 		Documents:  docs,
 	}
 
-	resp, err := c.client.AddBatch(ctx, pbReq)
+	resp, err := c.client.AddBatch(c.withAuth(ctx), pbReq)
 	if err != nil {
 		return nil, fmt.Errorf("add batch: %w", err)
 	}
@@ -134,7 +146,7 @@ func (c *GRPCClient) UpdateBatch(ctx context.Context, req *UpdateBatchRequest) (
 		Documents:  docs,
 	}
 
-	resp, err := c.client.UpdateBatch(ctx, pbReq)
+	resp, err := c.client.UpdateBatch(c.withAuth(ctx), pbReq)
 	if err != nil {
 		return nil, fmt.Errorf("update batch: %w", err)
 	}
@@ -161,7 +173,7 @@ func (c *GRPCClient) DeleteBatch(ctx context.Context, req *DeleteBatchRequest) (
 		Documents:  docs,
 	}
 
-	resp, err := c.client.DeleteBatch(ctx, pbReq)
+	resp, err := c.client.DeleteBatch(c.withAuth(ctx), pbReq)
 	if err != nil {
 		return nil, fmt.Errorf("delete batch: %w", err)
 	}
@@ -182,7 +194,7 @@ func (c *GRPCClient) Get(ctx context.Context, req *GetRequest) (*Document, error
 		Env:        req.Env,
 	}
 
-	doc, err := c.client.Get(ctx, pbReq)
+	doc, err := c.client.Get(c.withAuth(ctx), pbReq)
 	if err != nil {
 		return nil, fmt.Errorf("get: %w", err)
 	}
@@ -200,7 +212,7 @@ func (c *GRPCClient) Search(ctx context.Context, req *SearchRequest) (*SearchRes
 		Offset:     int32(req.Offset),
 	}
 
-	resp, err := c.client.Search(ctx, pbReq)
+	resp, err := c.client.Search(c.withAuth(ctx), pbReq)
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
 	}
@@ -264,7 +276,7 @@ func (c *GRPCClient) Export(ctx context.Context, req *ExportRequest) (io.ReadClo
 		Format:     req.Format,
 	}
 
-	stream, err := c.client.Export(ctx, pbReq)
+	stream, err := c.client.Export(c.withAuth(ctx), pbReq)
 	if err != nil {
 		return nil, fmt.Errorf("export: %w", err)
 	}
@@ -296,7 +308,7 @@ func (c *GRPCClient) Export(ctx context.Context, req *ExportRequest) (io.ReadClo
 
 func (c *GRPCClient) Backup(ctx context.Context, req *BackupRequest) (*BackupResponse, error) {
 	pbReq := &pb.BackupRequest{To: req.To}
-	resp, err := c.client.Backup(ctx, pbReq)
+	resp, err := c.client.Backup(c.withAuth(ctx), pbReq)
 	if err != nil {
 		return nil, fmt.Errorf("backup: %w", err)
 	}
@@ -305,7 +317,7 @@ func (c *GRPCClient) Backup(ctx context.Context, req *BackupRequest) (*BackupRes
 
 func (c *GRPCClient) Restore(ctx context.Context, req *RestoreRequest) (*RestoreResponse, error) {
 	pbReq := &pb.RestoreRequest{From: req.From}
-	resp, err := c.client.Restore(ctx, pbReq)
+	resp, err := c.client.Restore(c.withAuth(ctx), pbReq)
 	if err != nil {
 		return nil, fmt.Errorf("restore: %w", err)
 	}
@@ -318,7 +330,7 @@ func (c *GRPCClient) Truncate(ctx context.Context, req *TruncateRequest) (*Trunc
 		KeepRevs:   int32(req.KeepRevs),
 		DropCache:  req.DropCache,
 	}
-	resp, err := c.client.Truncate(ctx, pbReq)
+	resp, err := c.client.Truncate(c.withAuth(ctx), pbReq)
 	if err != nil {
 		return nil, fmt.Errorf("truncate: %w", err)
 	}
@@ -336,7 +348,7 @@ func (c *GRPCClient) VectorSearch(ctx context.Context, req *VectorSearchRequest)
 		IncludeContent: req.IncludeContent,
 	}
 
-	resp, err := c.client.VectorSearch(ctx, pbReq)
+	resp, err := c.client.VectorSearch(c.withAuth(ctx), pbReq)
 	if err != nil {
 		return nil, fmt.Errorf("vector search: %w", err)
 	}
@@ -364,7 +376,7 @@ func (c *GRPCClient) VectorReindex(ctx context.Context, req *VectorReindexReques
 		Force:      req.Force,
 	}
 
-	resp, err := c.client.VectorReindex(ctx, pbReq)
+	resp, err := c.client.VectorReindex(c.withAuth(ctx), pbReq)
 	if err != nil {
 		return nil, fmt.Errorf("vector reindex: %w", err)
 	}
@@ -378,7 +390,7 @@ func (c *GRPCClient) VectorReindex(ctx context.Context, req *VectorReindexReques
 }
 
 func (c *GRPCClient) VectorStats(ctx context.Context) (*VectorStatsResponse, error) {
-	resp, err := c.client.VectorStats(ctx, &pb.VectorStatsRequest{})
+	resp, err := c.client.VectorStats(c.withAuth(ctx), &pb.VectorStatsRequest{})
 	if err != nil {
 		return nil, fmt.Errorf("vector stats: %w", err)
 	}
@@ -409,7 +421,7 @@ func (c *GRPCClient) ImportURL(ctx context.Context, req *ImportURLRequest) (*Doc
 		Meta:       convertMetaToProto(req.Meta),
 		Ttl:        req.TTL,
 	}
-	doc, err := c.client.ImportURL(ctx, pbReq)
+	doc, err := c.client.ImportURL(c.withAuth(ctx), pbReq)
 	if err != nil {
 		return nil, fmt.Errorf("import url: %w", err)
 	}
@@ -423,7 +435,7 @@ func (c *GRPCClient) SetTTL(ctx context.Context, req *SetTTLRequest) (*Document,
 		Lang:       req.Lang,
 		Ttl:        req.TTL,
 	}
-	doc, err := c.client.SetTTL(ctx, pbReq)
+	doc, err := c.client.SetTTL(c.withAuth(ctx), pbReq)
 	if err != nil {
 		return nil, fmt.Errorf("set ttl: %w", err)
 	}
@@ -436,7 +448,7 @@ func (c *GRPCClient) FTSSearch(ctx context.Context, req *FTSSearchRequest) (*FTS
 		Query:      req.Query,
 		Limit:      int32(req.Limit),
 	}
-	resp, err := c.client.FTS(ctx, pbReq)
+	resp, err := c.client.FTS(c.withAuth(ctx), pbReq)
 	if err != nil {
 		return nil, fmt.Errorf("fts search: %w", err)
 	}
@@ -457,7 +469,7 @@ func (c *GRPCClient) RegisterWebhook(ctx context.Context, req *RegisterWebhookRe
 		Events:     req.Events,
 		Collection: req.Collection,
 	}
-	resp, err := c.client.RegisterWebhook(ctx, pbReq)
+	resp, err := c.client.RegisterWebhook(c.withAuth(ctx), pbReq)
 	if err != nil {
 		return nil, fmt.Errorf("register webhook: %w", err)
 	}
@@ -471,7 +483,7 @@ func (c *GRPCClient) RegisterWebhook(ctx context.Context, req *RegisterWebhookRe
 }
 
 func (c *GRPCClient) ListWebhooks(ctx context.Context) ([]Webhook, error) {
-	resp, err := c.client.ListWebhooks(ctx, &pb.ListWebhooksRequest{})
+	resp, err := c.client.ListWebhooks(c.withAuth(ctx), &pb.ListWebhooksRequest{})
 	if err != nil {
 		return nil, fmt.Errorf("list webhooks: %w", err)
 	}
@@ -489,7 +501,7 @@ func (c *GRPCClient) ListWebhooks(ctx context.Context) ([]Webhook, error) {
 }
 
 func (c *GRPCClient) DeleteWebhook(ctx context.Context, req *DeleteWebhookRequest) error {
-	_, err := c.client.DeleteWebhook(ctx, &pb.DeleteWebhookRequest{Id: req.ID})
+	_, err := c.client.DeleteWebhook(c.withAuth(ctx), &pb.DeleteWebhookRequest{Id: req.ID})
 	if err != nil {
 		return fmt.Errorf("delete webhook: %w", err)
 	}
@@ -525,7 +537,7 @@ func convertMetaFromProto(meta map[string]*pb.MetaValues) map[string][]string {
 }
 
 func (c *GRPCClient) SetSchema(ctx context.Context, req *SetSchemaRequest) error {
-	_, err := c.client.SetSchema(ctx, &pb.SetSchemaRequest{
+	_, err := c.client.SetSchema(c.withAuth(ctx), &pb.SetSchemaRequest{
 		Collection: req.Collection,
 		Schema:     req.Schema,
 	})
@@ -533,7 +545,7 @@ func (c *GRPCClient) SetSchema(ctx context.Context, req *SetSchemaRequest) error
 }
 
 func (c *GRPCClient) GetSchema(ctx context.Context, collection string) (*SchemaResponse, error) {
-	resp, err := c.client.GetSchema(ctx, &pb.GetSchemaRequest{Collection: collection})
+	resp, err := c.client.GetSchema(c.withAuth(ctx), &pb.GetSchemaRequest{Collection: collection})
 	if err != nil {
 		return nil, err
 	}
@@ -545,12 +557,12 @@ func (c *GRPCClient) GetSchema(ctx context.Context, collection string) (*SchemaR
 }
 
 func (c *GRPCClient) DeleteSchema(ctx context.Context, collection string) error {
-	_, err := c.client.DeleteSchema(ctx, &pb.DeleteSchemaRequest{Collection: collection})
+	_, err := c.client.DeleteSchema(c.withAuth(ctx), &pb.DeleteSchemaRequest{Collection: collection})
 	return err
 }
 
 func (c *GRPCClient) ListSchemas(ctx context.Context) (*ListSchemasResponse, error) {
-	resp, err := c.client.ListSchemas(ctx, &pb.ListSchemasRequest{})
+	resp, err := c.client.ListSchemas(c.withAuth(ctx), &pb.ListSchemasRequest{})
 	if err != nil {
 		return nil, err
 	}
@@ -562,7 +574,7 @@ func (c *GRPCClient) ListSchemas(ctx context.Context) (*ListSchemasResponse, err
 }
 
 func (c *GRPCClient) ValidateDocument(ctx context.Context, req *ValidateRequest) (*ValidateResponse, error) {
-	resp, err := c.client.ValidateDocument(ctx, &pb.ValidateDocumentRequest{
+	resp, err := c.client.ValidateDocument(c.withAuth(ctx), &pb.ValidateDocumentRequest{
 		Collection: req.Collection,
 		Meta:       convertMetaToProto(req.Meta),
 	})
