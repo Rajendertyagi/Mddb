@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Folder, Database, HardDrive, FileText, Trash2, Brain, Server, Settings, Code, Network, Users, UsersIcon } from 'lucide-react';
+import { Folder, Database, HardDrive, FileText, Trash2, Brain, Server, Settings, Code, Network, Users, UsersIcon, Upload, FolderPlus } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
+import UploadModal from './UploadModal';
+import CreateCollectionModal from './CreateCollectionModal';
 
-export default function Sidebar({ stats, statsError }) {
-  const { currentCollection, setCurrentCollection, vectorStats, setVectorStats, viewMode, setViewMode } = useStore();
+export default function Sidebar({ stats, statsError, onStatsRefresh }) {
+  const { currentCollection, setCurrentCollection, vectorStats, setVectorStats, viewMode, setViewMode, setStats } = useStore();
   const [deletingCollection, setDeletingCollection] = useState(null);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
     loadVectorStats();
@@ -123,9 +127,28 @@ export default function Sidebar({ stats, statsError }) {
 
       {/* Collections List */}
       <div className="p-4">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-          Collections ({collections.length})
-        </h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            Collections ({collections.length})
+          </h3>
+          {currentCollection ? (
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="p-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              title="Upload documents to collection"
+            >
+              <Upload className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="p-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              title="Create new collection"
+            >
+              <FolderPlus className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
         <div className="space-y-1">
           {statsError ? (
             <div className="text-sm text-red-600 text-center py-8 px-4">
@@ -267,19 +290,50 @@ export default function Sidebar({ stats, statsError }) {
             <Database className="w-4 h-4" />
             <span className="text-sm font-medium">Vector Search</span>
           </button>
-          <button
-            onClick={() => setViewMode('documents')}
-            className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-              viewMode === 'documents'
-                ? 'bg-blue-100 text-blue-700'
-                : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            <span className="text-sm font-medium">Documents</span>
-          </button>
         </div>
       </div>
+
+      {/* Create Collection Modal */}
+      {showCreateModal && (
+        <CreateCollectionModal
+          onClose={() => setShowCreateModal(false)}
+          onCreate={(collectionName) => {
+            setShowCreateModal(false);
+            setCurrentCollection(collectionName);
+            // Optionally show upload modal after creating collection
+            setShowUploadModal(true);
+          }}
+        />
+      )}
+
+      {/* Upload Modal */}
+      {showUploadModal && (
+        <UploadModal
+          collection={currentCollection}
+          onClose={() => setShowUploadModal(false)}
+          onSuccess={async (uploadedCollection) => {
+            setShowUploadModal(false);
+
+            // Refresh stats to show new collection in sidebar
+            try {
+              const newStats = await mddbClient.getStats();
+              setStats(newStats);
+
+              // If no collection was selected, select the uploaded collection
+              if (!currentCollection && uploadedCollection) {
+                setCurrentCollection(uploadedCollection);
+              }
+
+              // Trigger refresh callback if provided
+              if (onStatsRefresh) {
+                onStatsRefresh();
+              }
+            } catch (error) {
+              console.error('Failed to refresh stats:', error);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
