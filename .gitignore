@@ -88,8 +88,10 @@ build/
 
 # Node.js
 node_modules/
-package-lock.json
 yarn.lock
+
+# Note: package-lock.json should be committed for applications (panel, cli)
+# to ensure reproducible builds in CI/CD. Only ignore for libraries.
 .windsurf/rules/*.md
 
 # Panel build artifacts
