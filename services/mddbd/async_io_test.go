@@ -369,9 +369,8 @@ func TestDirectIO(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
-	// DirectIO should return nil (stub implementation)
 	err = DirectIO(f)
 	if err != nil {
 		t.Errorf("expected nil error, got: %v", err)
@@ -430,9 +429,8 @@ func TestAsyncIOReadAsyncNilCallback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
-	// ReadAsync with nil callback should not panic
 	id := aio.ReadAsync(f, 4, 0, nil)
 	result, err := aio.Wait(id)
 	if err != nil {
@@ -452,7 +450,7 @@ func TestAsyncIOWriteAsyncNilCallback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	id := aio.WriteAsync(f, []byte("data"), 0, nil)
 	_, err = aio.Wait(id)

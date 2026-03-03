@@ -497,7 +497,7 @@ func TestWebhookFireNilDocument(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	wm.Register(ts.URL, []string{"doc.deleted"}, "")
+	_, _ = wm.Register(ts.URL, []string{"doc.deleted"}, "")
 
 	wm.Fire("doc.deleted", "blog", "key", "en", nil)
 
@@ -620,7 +620,7 @@ func TestWebhookConcurrentRegisterAndList(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			wm.Register("http://example.com/hook", []string{"doc.added"}, "")
+			_, _ = wm.Register("http://example.com/hook", []string{"doc.added"}, "")
 		}()
 	}
 

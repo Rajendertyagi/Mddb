@@ -43,9 +43,9 @@ func TestNewEmbeddingProvider_OpenAI_NoKey(t *testing.T) {
 func TestNewEmbeddingProvider_OpenAI_WithKey(t *testing.T) {
 	t.Setenv("MDDB_EMBEDDING_PROVIDER", "openai")
 	t.Setenv("MDDB_EMBEDDING_API_KEY", "sk-test-key")
-	os.Unsetenv("MDDB_EMBEDDING_API_URL")
-	os.Unsetenv("MDDB_EMBEDDING_MODEL")
-	os.Unsetenv("MDDB_EMBEDDING_DIMENSIONS")
+	_ = os.Unsetenv("MDDB_EMBEDDING_API_URL")
+	_ = os.Unsetenv("MDDB_EMBEDDING_MODEL")
+	_ = os.Unsetenv("MDDB_EMBEDDING_DIMENSIONS")
 	p := NewEmbeddingProvider()
 	if p == nil {
 		t.Fatal("expected non-nil provider for openai with key")

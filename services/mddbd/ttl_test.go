@@ -436,8 +436,12 @@ func TestTTLSetSameDocDifferentCollection(t *testing.T) {
 	exp2 := time.Now().Unix() + 7200
 
 	// Same docID in different collections
-	mgr.Set("blog", "doc1", exp1)
-	mgr.Set("docs", "doc1", exp2)
+	if err := mgr.Set("blog", "doc1", exp1); err != nil {
+		t.Fatalf("Set blog/doc1: %v", err)
+	}
+	if err := mgr.Set("docs", "doc1", exp2); err != nil {
+		t.Fatalf("Set docs/doc1: %v", err)
+	}
 
 	// Remove from one should not affect the other
 	if err := mgr.Remove("blog", "doc1"); err != nil {

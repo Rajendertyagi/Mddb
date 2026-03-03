@@ -34,8 +34,9 @@ type Binlog struct {
 	subMu       sync.RWMutex
 
 	// Periodic flush
-	flusher chan struct{}
-	done    chan struct{}
+	flusher   chan struct{}
+	done      chan struct{}
+	closeOnce sync.Once
 }
 
 // BinlogConfig holds configuration for the binlog
@@ -418,26 +419,31 @@ func (b *Binlog) Rotate(keepFromLSN uint64) error {
 	return b.flush()
 }
 
-// Close flushes and closes the binlog
+// Close flushes and closes the binlog. It is safe to call Close more than once.
 func (b *Binlog) Close() error {
-	close(b.done)
+	var closeErr error
+	b.closeOnce.Do(func() {
+		close(b.done)
 
-	b.mu.Lock()
-	defer b.mu.Unlock()
+		b.mu.Lock()
+		defer b.mu.Unlock()
 
-	if err := b.flush(); err != nil {
-		return err
-	}
+		if err := b.flush(); err != nil {
+			closeErr = err
+			return
+		}
 
-	// Close all subscriber channels
-	b.subMu.Lock()
-	for id, ch := range b.subscribers {
-		close(ch)
-		delete(b.subscribers, id)
-	}
-	b.subMu.Unlock()
+		// Close all subscriber channels
+		b.subMu.Lock()
+		for id, ch := range b.subscribers {
+			close(ch)
+			delete(b.subscribers, id)
+		}
+		b.subMu.Unlock()
 
-	return b.file.Close()
+		closeErr = b.file.Close()
+	})
+	return closeErr
 }
 
 // Stats returns binlog statistics

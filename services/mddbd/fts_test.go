@@ -401,8 +401,8 @@ func TestFTSSearchSorting(t *testing.T) {
 	defer cleanup()
 
 	// doc1 has "golang" once, doc2 has it multiple times
-	idx.Index("col", "doc1", "golang tutorial")
-	idx.Index("col", "doc2", "golang golang golang advanced golang")
+	_ = idx.Index("col", "doc1", "golang tutorial")
+	_ = idx.Index("col", "doc2", "golang golang golang advanced golang")
 
 	results, err := idx.Search("col", "golang", 10)
 	if err != nil {
@@ -426,7 +426,9 @@ func TestFTSIndexUpdate(t *testing.T) {
 	defer cleanup()
 
 	// Index initially
-	idx.Index("blog", "doc1", "golang programming language")
+	if err := idx.Index("blog", "doc1", "golang programming language"); err != nil {
+		t.Fatalf("Index: %v", err)
+	}
 
 	results, _ := idx.Search("blog", "golang", 10)
 	if len(results) != 1 {
