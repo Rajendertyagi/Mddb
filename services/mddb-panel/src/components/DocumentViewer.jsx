@@ -193,7 +193,7 @@ export default function DocumentViewer() {
               {currentDocument.updatedAt && (
                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <Calendar style={{ width: '16px', height: '16px' }} />
-                  <span>{format(new Date(currentDocument.updatedAt), 'PPpp')}</span>
+                  <span>{format(new Date(currentDocument.updatedAt * 1000), 'PPpp')}</span>
                 </span>
               )}
             </div>
@@ -336,7 +336,7 @@ export default function DocumentViewer() {
             <span style={{ color: '#6b7280' }}>Added:</span>
             <span style={{ marginLeft: '8px', fontWeight: '500', color: '#111827' }}>
               {currentDocument.addedAt 
-                ? format(new Date(currentDocument.addedAt), 'PP')
+                ? format(new Date(currentDocument.addedAt * 1000), 'PP')
                 : 'N/A'}
             </span>
           </div>

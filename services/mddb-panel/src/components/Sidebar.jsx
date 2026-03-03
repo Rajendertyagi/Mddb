@@ -30,6 +30,7 @@ export default function Sidebar({ stats, statsError, onStatsRefresh, onCollapse 
 
   const collections = stats?.collections || [];
   const authEnabled = config?.authEnabled ?? false;
+  const clusterEnabled = !!config?.replicationRole;
 
   const handleDeleteCollection = async (collectionName, e) => {
     e.stopPropagation();
@@ -149,12 +150,6 @@ export default function Sidebar({ stats, statsError, onStatsRefresh, onCollapse 
                 <span className="text-gray-600">Dimensions</span>
                 <span className="font-medium text-gray-900">{vectorStats.dimensions}</span>
               </div>
-              {vectorStats.index_ready === false && (
-                <div className="flex items-center space-x-2 text-xs text-amber-600 bg-amber-50 rounded p-1.5">
-                  <RefreshCw className="w-3 h-3 animate-spin flex-shrink-0" />
-                  <span>Index loading...</span>
-                </div>
-              )}
             </div>
           ) : (
             <p className="text-xs text-gray-400">Disabled</p>
@@ -254,7 +249,9 @@ export default function Sidebar({ stats, statsError, onStatsRefresh, onCollapse 
         </h3>
         <div className="space-y-1">
           <NavButton mode="system" icon={Server} label="System Info" />
-          <NavButton mode="cluster" icon={GitBranch} label="Cluster" />
+          {clusterEnabled && (
+            <NavButton mode="cluster" icon={GitBranch} label="Cluster" />
+          )}
           <NavButton mode="config" icon={Settings} label="Configuration" />
           <NavButton mode="mcp" icon={Code} label="MCP Config" />
           <NavButton mode="endpoints" icon={Network} label="API Endpoints" />

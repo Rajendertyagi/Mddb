@@ -10,15 +10,16 @@ import (
 // ---- Request/Response types ----
 
 type ConfigResponse struct {
-	DatabasePath   string        `json:"databasePath"`
-	Mode           string        `json:"mode"`
-	HTTPAddr       string        `json:"httpAddr"`
-	GRPCAddr       string        `json:"grpcAddr"`
-	HTTP3Addr      string        `json:"http3Addr,omitempty"`
-	AuthEnabled    bool          `json:"authEnabled"`
-	MetricsEnabled bool          `json:"metricsEnabled"`
-	ExtremeMode    bool          `json:"extremeMode"`
-	VectorConfig   *VectorConfig `json:"vectorConfig,omitempty"`
+	DatabasePath    string        `json:"databasePath"`
+	Mode            string        `json:"mode"`
+	HTTPAddr        string        `json:"httpAddr"`
+	GRPCAddr        string        `json:"grpcAddr"`
+	HTTP3Addr       string        `json:"http3Addr,omitempty"`
+	AuthEnabled     bool          `json:"authEnabled"`
+	MetricsEnabled  bool          `json:"metricsEnabled"`
+	ExtremeMode     bool          `json:"extremeMode"`
+	ReplicationRole string        `json:"replicationRole"`
+	VectorConfig    *VectorConfig `json:"vectorConfig,omitempty"`
 }
 
 type VectorConfig struct {
@@ -40,13 +41,14 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 
 	// Build configuration response
 	response := ConfigResponse{
-		DatabasePath:   s.Path,
-		Mode:           string(s.Mode),
-		HTTPAddr:       env("MDDB_ADDR", ":11023"),
-		GRPCAddr:       env("MDDB_GRPC_ADDR", ":11024"),
-		AuthEnabled:    env("MDDB_AUTH_ENABLED", "false") == "true",
-		MetricsEnabled: env("MDDB_METRICS", "true") != "false",
-		ExtremeMode:    s.UseExtreme,
+		DatabasePath:    s.Path,
+		Mode:            string(s.Mode),
+		HTTPAddr:        env("MDDB_ADDR", ":11023"),
+		GRPCAddr:        env("MDDB_GRPC_ADDR", ":11024"),
+		AuthEnabled:     env("MDDB_AUTH_ENABLED", "false") == "true",
+		MetricsEnabled:  env("MDDB_METRICS", "true") != "false",
+		ExtremeMode:     s.UseExtreme,
+		ReplicationRole: s.ReplicationRole,
 	}
 
 	// Add HTTP/3 address if extreme mode is enabled

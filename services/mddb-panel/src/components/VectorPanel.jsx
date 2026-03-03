@@ -149,10 +149,11 @@ export default function VectorPanel() {
     );
   }
 
-  // Calculate totals
-  const collections = Object.keys(stats.docCounts || {});
-  const totalDocs = Object.values(stats.docCounts || {}).reduce((a, b) => a + b, 0);
-  const totalVectors = Object.values(stats.vectorCounts || {}).reduce((a, b) => a + b, 0);
+  // Calculate totals from collections map (API returns snake_case fields)
+  const collectionsMap = stats.collections || {};
+  const collections = Object.keys(collectionsMap);
+  const totalDocs = collections.reduce((a, c) => a + (collectionsMap[c]?.total_documents || 0), 0);
+  const totalVectors = collections.reduce((a, c) => a + (collectionsMap[c]?.embedded_documents || 0), 0);
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
@@ -233,8 +234,8 @@ export default function VectorPanel() {
             ) : (
               <div className="divide-y divide-gray-200">
                 {collections.map((collection) => {
-                  const docCount = stats.docCounts[collection] || 0;
-                  const vectorCount = stats.vectorCounts[collection] || 0;
+                  const docCount = collectionsMap[collection]?.total_documents || 0;
+                  const vectorCount = collectionsMap[collection]?.embedded_documents || 0;
                   const coverage = docCount > 0 ? ((vectorCount / docCount) * 100).toFixed(1) : 0;
                   const isReindexing = reindexing[collection];
                   const status = reindexStatus[collection];

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FileText, Calendar, Tag, Trash2, Upload, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FileText, Calendar, Tag, Trash2, Upload, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
@@ -10,6 +10,7 @@ export default function DocumentList() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [offset, setOffset] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
+  const [filterText, setFilterText] = useState('');
   const {
     currentCollection,
     documents,
@@ -174,6 +175,16 @@ export default function DocumentList() {
             </button>
           </div>
         </div>
+        <div className="relative mt-2">
+          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
+            placeholder="Filter by key..."
+            className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          />
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -186,7 +197,7 @@ export default function DocumentList() {
           </div>
         ) : (
           <div className="divide-y divide-gray-200">
-            {documents.map((doc) => (
+            {documents.filter(doc => !filterText || doc.key.toLowerCase().includes(filterText.toLowerCase())).map((doc) => (
               <button
                 key={`${doc.key}-${doc.lang}`}
                 onClick={() => handleDocumentClick(doc)}
@@ -216,7 +227,7 @@ export default function DocumentList() {
                   <div className="flex items-center space-x-1">
                     <Calendar className="w-3 h-3" />
                     <span>
-                      {doc.updatedAt ? format(new Date(doc.updatedAt), 'MMM d, yyyy') : 'N/A'}
+                      {doc.updatedAt ? format(new Date(doc.updatedAt * 1000), 'MMM d, yyyy') : 'N/A'}
                     </span>
                   </div>
                   {doc.meta && Object.keys(doc.meta).length > 0 && (
