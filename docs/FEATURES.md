@@ -31,14 +31,20 @@ Complete list of MDDB features organized by category.
 - **Auto-embeddings** - Documents embedded automatically in background
 - **Multiple Providers** - OpenAI, Cohere, Voyage AI, Ollama
 - **Similarity Search** - Find documents by meaning, not keywords
+- **Multiple Algorithms** - Flat (exact), HNSW (approximate), IVF (clustered), PQ (compressed)
+- **Query-time Algorithm Selection** - Choose algorithm per request via `algorithm` parameter
 - **Threshold Filtering** - Minimum similarity score
 - **Metadata Filtering** - Combine semantic + metadata filters
 - **Configurable Models** - Switch providers/models without code changes
 - **Background Indexing** - Non-blocking embedding generation
+- **Automatic Fallback** - Falls back to flat if ANN index not ready
 
 #### Full-Text Search
 - **Built-in Inverted Index** - No external dependencies (Elasticsearch, etc.)
-- **TF Scoring** - Term frequency ranking
+- **TF-IDF Scoring** - Classic term frequency-inverse document frequency ranking
+- **BM25 Scoring** - Okapi BM25 with document length normalization (k1=1.2, b=0.75)
+- **Query-time Algorithm Selection** - Choose TF-IDF or BM25 per request via `algorithm` parameter
+- **Typo Tolerance** - Fuzzy matching with configurable edit distance (0-2) via `fuzzy` parameter
 - **Stop Word Filtering** - Remove common words
 - **Multi-field Search** - Search in content and metadata
 - **Language-aware** - Per-language stop words

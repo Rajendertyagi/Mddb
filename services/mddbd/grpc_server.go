@@ -683,7 +683,20 @@ func (g *GRPCServer) VectorSearch(ctx context.Context, req *proto.VectorSearchRe
 		return nil, status.Error(codes.InvalidArgument, "either query or query_vector is required")
 	}
 
-	if !g.server.VectorIndex.IsReady() {
+	// Select algorithm
+	algo := req.Algorithm
+	if algo == "" {
+		algo = "flat"
+	}
+	searcher, algoOk := g.server.VectorSearchers[algo]
+	if !algoOk {
+		return nil, status.Error(codes.InvalidArgument, "unknown algorithm: "+algo)
+	}
+	if !searcher.IsReady() {
+		searcher = g.server.VectorSearchers["flat"]
+		algo = "flat"
+	}
+	if !searcher.IsReady() {
 		return nil, status.Error(codes.Unavailable, "vector index is loading")
 	}
 
@@ -715,9 +728,9 @@ func (g *GRPCServer) VectorSearch(ctx context.Context, req *proto.VectorSearchRe
 	var results []VectorResult
 	if len(filterMeta) > 0 {
 		allowedIDs := g.server.getDocIDsByMeta(req.Collection, filterMeta)
-		results = g.server.VectorIndex.SearchWithFilter(req.Collection, queryVector, topK, req.Threshold, allowedIDs)
+		results = searcher.SearchWithFilter(req.Collection, queryVector, topK, req.Threshold, allowedIDs)
 	} else {
-		results = g.server.VectorIndex.Search(req.Collection, queryVector, topK, req.Threshold)
+		results = searcher.Search(req.Collection, queryVector, topK, req.Threshold)
 	}
 
 	// Load documents
@@ -746,8 +759,9 @@ func (g *GRPCServer) VectorSearch(ctx context.Context, req *proto.VectorSearchRe
 	})
 
 	resp := &proto.VectorSearchResponse{
-		Results: protoResults,
-		Total:   int32(len(protoResults)),
+		Results:   protoResults,
+		Total:     int32(len(protoResults)),
+		Algorithm: algo,
 	}
 	if g.server.Embedding != nil {
 		resp.Model = g.server.Embedding.Model()
@@ -1095,7 +1109,37 @@ func (g *GRPCServer) FTS(ctx context.Context, req *proto.FTSRequest) (*proto.FTS
 		limit = 50
 	}
 
-	results, err := g.server.FTSIndex.Search(req.Collection, req.Query, limit)
+	algo := req.Algorithm
+	if algo == "" {
+		algo = "tfidf"
+	}
+
+	fuzzy := int(req.Fuzzy)
+	if fuzzy < 0 {
+		fuzzy = 0
+	}
+	if fuzzy > 2 {
+		fuzzy = 2
+	}
+
+	var results []FTSResult
+	var err error
+	switch algo {
+	case "bm25":
+		if fuzzy > 0 {
+			results, err = g.server.FTSIndex.SearchBM25Fuzzy(req.Collection, req.Query, limit, fuzzy)
+		} else {
+			results, err = g.server.FTSIndex.SearchBM25(req.Collection, req.Query, limit)
+		}
+	case "tfidf":
+		if fuzzy > 0 {
+			results, err = g.server.FTSIndex.SearchFuzzy(req.Collection, req.Query, limit, fuzzy)
+		} else {
+			results, err = g.server.FTSIndex.Search(req.Collection, req.Query, limit)
+		}
+	default:
+		return nil, status.Error(codes.InvalidArgument, "unknown algorithm: "+algo+", available: tfidf, bm25")
+	}
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1125,8 +1169,10 @@ func (g *GRPCServer) FTS(ctx context.Context, req *proto.FTSRequest) (*proto.FTS
 	})
 
 	return &proto.FTSResponse{
-		Results: protoResults,
-		Total:   int32(len(protoResults)),
+		Results:   protoResults,
+		Total:     int32(len(protoResults)),
+		Algorithm: algo,
+		Fuzzy:     int32(fuzzy),
 	}, nil
 }
 

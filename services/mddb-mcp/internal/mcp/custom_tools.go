@@ -72,6 +72,7 @@ func builtinTools() []Tool {
 					"top_k":       map[string]interface{}{"type": "integer", "description": "Number of results to return (default: 5)"},
 					"threshold":   map[string]interface{}{"type": "number", "description": "Minimum similarity score 0-1 (default: 0.0)"},
 					"filter_meta": map[string]interface{}{"type": "object", "description": "Optional metadata filter to combine with semantic search"},
+					"algorithm":   map[string]interface{}{"type": "string", "description": "Vector search algorithm: flat (exact, default), hnsw (approximate), ivf (clustered), pq (compressed)"},
 				},
 				"required": []string{"collection", "query"},
 			},
@@ -127,13 +128,15 @@ func builtinTools() []Tool {
 		},
 		{
 			Name:        "full_text_search",
-			Description: "Search documents by text content using full-text search with term matching and relevance scoring.",
+			Description: "Search documents by text content using full-text search with term matching and relevance scoring. Supports typo tolerance via fuzzy parameter.",
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
 					"collection": map[string]interface{}{"type": "string", "description": "Collection to search in"},
 					"query":      map[string]interface{}{"type": "string", "description": "Search query text"},
 					"limit":      map[string]interface{}{"type": "integer", "description": "Max results (default: 50)"},
+					"algorithm":  map[string]interface{}{"type": "string", "description": "Scoring algorithm: tfidf (default) or bm25"},
+					"fuzzy":      map[string]interface{}{"type": "integer", "description": "Typo tolerance: 0 (off, default), 1 (1 char typo), 2 (2 char typos)"},
 				},
 				"required": []string{"collection", "query"},
 			},

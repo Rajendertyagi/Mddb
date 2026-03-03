@@ -18,8 +18,8 @@ MDDB treats markdown documents as first-class citizens, providing:
 - **Native Markdown Support** - Store, version, and query markdown with metadata
 - **Triple Protocol APIs** - HTTP/JSON (easy), gRPC (fast), or GraphQL (flexible)
 - **Full Revision History** - Every update creates a new revision
-- **Vector Search** - Semantic similarity (OpenAI, Cohere, Voyage AI, Ollama)
-- **Full-Text Search** - Built-in inverted index, no external dependencies
+- **Vector Search** - Semantic similarity with multiple algorithms (Flat, HNSW, IVF, PQ)
+- **Full-Text Search** - Built-in inverted index with TF-IDF and BM25, typo tolerance, no external dependencies
 - **Document TTL** - Auto-expiring documents like Redis
 - **Webhooks** - HTTP callbacks on document events
 - **Zero Configuration** - Single ~27MB binary, embedded database
@@ -28,16 +28,57 @@ MDDB treats markdown documents as first-class citizens, providing:
 
 ## 🚀 Quick Start
 
-### Docker (Recommended)
+### Docker Compose (Recommended) - Full Stack
+
+Start all services with one command:
 
 ```bash
-# Run MDDB server
-docker run -d \
-  --name mddb \
-  -p 11023:11023 \
-  -p 11024:11024 \
+git clone https://github.com/tradik/mddb.git
+cd mddb
+
+# Production mode (all services)
+docker compose up -d
+
+# Development mode (with hot reload)
+make dev-start
+
+# Development + Ollama for embeddings
+make dev-start-with-ollama
+```
+
+**Services started:**
+
+| Service | Port | Image | Description |
+|---------|------|-------|-------------|
+| **mddbd** | 11023 (HTTP), 11024 (gRPC) | `tradik/mddb:latest` | Database server |
+| **mddb-panel** | 3000 | `tradik/mddb:panel` | React web admin UI |
+| **mddb-mcp** | 9000 | `tradik/mddb:mcp` | MCP server for LLM integration |
+
+### Docker - Individual Services
+
+```bash
+# MDDB Server only
+docker run -d --name mddb \
+  -p 11023:11023 -p 11024:11024 \
   -v mddb-data:/data \
   tradik/mddb:latest
+
+# Web Panel (connect to existing server)
+docker run -d --name mddb-panel \
+  -p 3000:3000 \
+  -e VITE_MDDB_SERVER=host.docker.internal:11023 \
+  tradik/mddb:panel
+
+# MCP Server (for Windsurf, Claude Desktop, etc.)
+docker run -d --name mddb-mcp \
+  -p 9000:9000 \
+  -e MDDB_GRPC_ADDRESS=host.docker.internal:11024 \
+  tradik/mddb:mcp
+
+# MCP stdio mode (for IDE integration)
+docker run -i --rm --network host \
+  -e MDDB_GRPC_ADDRESS=localhost:11024 \
+  tradik/mddb:mcp-stdio
 
 # Test it
 curl http://localhost:11023/health
@@ -62,6 +103,19 @@ sudo mv mddbd-latest-darwin-arm64/mddbd /usr/local/bin/
 mddbd
 ```
 
+**CLI Client:**
+```bash
+# Linux
+wget https://github.com/tradik/mddb/releases/latest/download/mddb-cli-latest-linux-amd64.deb
+sudo dpkg -i mddb-cli-latest-linux-amd64.deb
+
+# Usage
+mddb-cli stats
+mddb-cli add blog hello en_US -f post.md
+mddb-cli search blog -f "tags=tutorial"
+mddb-cli fts blog --query="getting started" --algorithm=bm25
+```
+
 **Other platforms:** See [Installation Guide](docs/INSTALLATION.md)
 
 ### Build from Source
@@ -73,6 +127,74 @@ make build
 ./services/mddbd/mddbd
 ```
 
+## 📦 Packages & Client Libraries
+
+MDDB ships as a monorepo with multiple packages:
+
+### Server & Tools
+
+| Package | Language | Location | Description |
+|---------|----------|----------|-------------|
+| **mddbd** | Go | `services/mddbd/` | Database server (HTTP + gRPC + GraphQL) |
+| **mddb-panel** | React/JS | `services/mddb-panel/` | Web admin panel |
+| **mddb-mcp** | Go | `services/mddb-mcp/` | MCP server (HTTP + stdio) for LLM integration |
+| **mddb-cli** | Go | `services/mddb-cli/` | Command-line client with GraphQL support |
+
+### Client Libraries (REST)
+
+Zero-dependency HTTP clients - copy a single file into your project:
+
+| Library | Language | Location | Install |
+|---------|----------|----------|---------|
+| **PHP Extension** | PHP 8.0+ | `services/php-extension/mddb.php` | Copy `mddb.php` into your project |
+| **Python Extension** | Python 3.8+ | `services/python-extension/mddb.py` | Copy `mddb.py` into your project |
+
+**PHP:**
+```php
+require_once 'mddb.php';
+$db = mddb::connect('localhost:11023', 'write');
+$db->collection('blog')->add('hello', 'en_US', ['author' => ['John']], '# Hello');
+$results = $db->collection('blog')->vectorSearch('cancel subscription', 5, 0.7);
+```
+
+**Python:**
+```python
+from mddb import MDDB
+db = MDDB.connect('localhost:11023', 'write').collection('blog')
+db.add('hello', 'en_US', {'author': ['John']}, '# Hello')
+results = db.vector_search('cancel subscription', top_k=5)
+```
+
+### Client Libraries (gRPC)
+
+High-performance clients generated from Protocol Buffers:
+
+| Library | Language | Location | Description |
+|---------|----------|----------|-------------|
+| **Go Client** | Go | `services/mddbd/proto/` | Native Go gRPC stubs |
+| **Python gRPC** | Python | `clients/python/` | Generated Python gRPC client |
+| **Node.js gRPC** | Node.js | `clients/nodejs/` | Uses `@grpc/grpc-js` |
+
+Proto definitions at `proto/mddb.proto` - generate clients for any language supported by protobuf.
+
+### Docker Images
+
+| Image | Size | Description |
+|-------|------|-------------|
+| `tradik/mddb:latest` | ~15MB | Database server (Alpine) |
+| `tradik/mddb:panel` | ~25MB | Web admin panel (Node Alpine) |
+| `tradik/mddb:mcp` | ~15MB | MCP HTTP server (Alpine) |
+| `tradik/mddb:mcp-stdio` | ~15MB | MCP stdio mode for IDE integration |
+| `tradik/mddb:cli` | ~15MB | CLI client (Alpine) |
+
+### System Packages
+
+| Format | Platform | Contents |
+|--------|----------|----------|
+| `.deb` | Debian/Ubuntu | mddbd + systemd unit + man page |
+| `.rpm` | RHEL/CentOS/Fedora | mddbd + systemd unit + man page |
+| `.tar.gz` | Any (Linux, macOS, FreeBSD) | Standalone binary |
+
 ## 💡 Key Features
 
 ### Core Functionality
@@ -80,7 +202,7 @@ make build
 - ✅ **Revision History** - Complete version control with snapshots
 - ✅ **Metadata Search** - Fast indexed queries with multi-value tags
 - ✅ **Vector Search** - Semantic similarity with auto-embeddings
-- ✅ **Full-Text Search** - Built-in inverted index with TF scoring
+- ✅ **Full-Text Search** - Built-in inverted index with TF-IDF and BM25 scoring, typo tolerance
 - ✅ **Document TTL** - Time-to-live with automatic cleanup
 - ✅ **Webhooks** - HTTP callbacks on events with retry logic
 - ✅ **Multi-language** - Same key, multiple languages
@@ -232,6 +354,7 @@ mddb-cli stats
 ### Features & Guides
 - **[Vector Search](docs/EMBEDDING_PROVIDERS.md)** - Semantic search setup (OpenAI, Cohere, Voyage, Ollama)
 - **[RAG Pipeline](docs/RAG-PIPELINE.md)** - Complete RAG implementation guide
+- **[Search Algorithms](docs/SEARCH.md)** - TF-IDF, BM25, Flat, HNSW, IVF, PQ
 - **[Full-Text Search](docs/FTS.md)** - Built-in inverted index
 - **[Webhooks](docs/WEBHOOKS.md)** - Event-driven integration
 - **[Authentication](docs/AUTH.md)** - JWT & API keys, RBAC
@@ -281,9 +404,9 @@ mddb-cli stats
 
 ## 🗺️ Roadmap
 
-### ✅ Implemented (v2.5.2)
+### ✅ Implemented (v2.5.3)
 - ✅ HTTP/JSON + gRPC/Protobuf + GraphQL APIs
-- ✅ Vector Search + Full-Text Search
+- ✅ Vector Search (Flat, HNSW, IVF, PQ) + Full-Text Search (TF-IDF, BM25)
 - ✅ Authentication + Authorization (JWT, API keys, RBAC)
 - ✅ Webhooks + Document TTL
 - ✅ CLI + Web Panel + MCP Server

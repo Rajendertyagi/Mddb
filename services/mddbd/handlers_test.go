@@ -60,6 +60,9 @@ func newHandlerTestServer(t *testing.T) (*Server, func()) {
 		t.Fatal(err)
 	}
 	s.VectorIndex = NewVectorIndex()
+	s.VectorSearchers = map[string]VectorSearcher{
+		"flat": s.VectorIndex,
+	}
 
 	// TTL
 	s.TTLManager = NewTTLManager(db, s)

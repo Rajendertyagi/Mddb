@@ -49,7 +49,7 @@
         "priceCurrency": "USD"
       },
       "description": "High-performance, version-controlled markdown database with dual protocol support (HTTP/JSON + gRPC/Protobuf + GraphQL)",
-      "softwareVersion": "2.5.2",
+      "softwareVersion": "2.5.3",
       "featureList": [
         "Markdown-native database",
         "Triple protocol support (HTTP/JSON + gRPC/Protobuf + GraphQL)",
@@ -113,13 +113,13 @@
                     <p class="hero-subtitle">Version-controlled, embedded database with vector search, full-text search,
                         GraphQL, webhooks, TTL, and triple protocol support</p>
                     <div class="hero-badges">
-                        <span class="badge">v2.5.2</span>
+                        <span class="badge">v2.5.3</span>
                         <span class="badge">Go 1.26+</span>
                         <span class="badge">BSD-3-Clause</span>
                         <span class="badge">Docker Ready</span>
                     </div>
                     <div class="hero-actions">
-                        <a href="#download" class="btn btn-primary">Download v2.5.2</a>
+                        <a href="#download" class="btn btn-primary">Download v2.5.3</a>
                         <a href="https://github.com/tradik/mddb" class="btn btn-secondary" target="_blank"
                             rel="noopener">View on GitHub</a>
                     </div>
@@ -165,12 +165,12 @@
                     <div class="feature-card">
                         <div class="feature-icon">🔍</div>
                         <h3>Vector Search</h3>
-                        <p>Semantic similarity search with auto-generated embeddings (OpenAI, Ollama, Voyage AI)</p>
+                        <p>Semantic similarity with multiple algorithms: Flat, HNSW, IVF, PQ (OpenAI, Ollama, Voyage AI)</p>
                     </div>
                     <div class="feature-card">
                         <div class="feature-icon">📖</div>
                         <h3>Full-Text Search</h3>
-                        <p>Built-in inverted index with TF scoring and stop word filtering</p>
+                        <p>Built-in inverted index with TF-IDF and BM25 scoring, typo tolerance</p>
                     </div>
                     <div class="feature-card">
                         <div class="feature-icon">🔔</div>
@@ -313,7 +313,7 @@ make docker-up
                     </div>
                     <div class="tab-pane" id="binary">
                         <pre><code># Download binary
-wget https://github.com/tradik/mddb/releases/download/v2.5.2/mddbd-linux-amd64
+wget https://github.com/tradik/mddb/releases/download/v2.5.3/mddbd-linux-amd64
 chmod +x mddbd-linux-amd64
 
 # Run server
@@ -343,30 +343,30 @@ make build
                 <div class="download-grid">
                     <div class="download-card">
                         <h3>Latest Release</h3>
-                        <div class="version">v2.5.2</div>
+                        <div class="version">v2.5.3</div>
                         <p class="release-date">Released: March 3, 2026</p>
                         <div class="download-links">
-                            <a href="https://github.com/tradik/mddb/releases/download/v2.5.2/mddbd-linux-amd64"
+                            <a href="https://github.com/tradik/mddb/releases/download/v2.5.3/mddbd-linux-amd64"
                                 class="download-link">
                                 <span class="platform">Linux AMD64</span>
                                 <span class="size">~27MB</span>
                             </a>
-                            <a href="https://github.com/tradik/mddb/releases/download/v2.5.2/mddbd-linux-arm64"
+                            <a href="https://github.com/tradik/mddb/releases/download/v2.5.3/mddbd-linux-arm64"
                                 class="download-link">
                                 <span class="platform">Linux ARM64</span>
                                 <span class="size">~27MB</span>
                             </a>
-                            <a href="https://github.com/tradik/mddb/releases/download/v2.5.2/mddbd-darwin-amd64"
+                            <a href="https://github.com/tradik/mddb/releases/download/v2.5.3/mddbd-darwin-amd64"
                                 class="download-link">
                                 <span class="platform">macOS AMD64</span>
                                 <span class="size">~27MB</span>
                             </a>
-                            <a href="https://github.com/tradik/mddb/releases/download/v2.5.2/mddbd-darwin-arm64"
+                            <a href="https://github.com/tradik/mddb/releases/download/v2.5.3/mddbd-darwin-arm64"
                                 class="download-link">
                                 <span class="platform">macOS ARM64</span>
                                 <span class="size">~27MB</span>
                             </a>
-                            <a href="https://github.com/tradik/mddb/releases/download/v2.5.2/mddbd-freebsd-amd64"
+                            <a href="https://github.com/tradik/mddb/releases/download/v2.5.3/mddbd-freebsd-amd64"
                                 class="download-link">
                                 <span class="platform">FreeBSD AMD64</span>
                                 <span class="size">~27MB</span>
@@ -385,7 +385,7 @@ make build
                     </div>
                     <div class="download-card">
                         <h3>Docker Image</h3>
-                        <div class="version">tradik/mddb:2.5.2</div>
+                        <div class="version">tradik/mddb:2.5.3</div>
                         <p class="release-date">Alpine-based (~15MB)</p>
                         <pre><code>docker pull tradik/mddb:latest
 docker pull tradik/mddb:2.3.3</code></pre>
@@ -394,22 +394,17 @@ docker pull tradik/mddb:2.3.3</code></pre>
                     </div>
                 </div>
                 <div class="release-notes">
-                    <h3>What's New in v2.5.2</h3>
+                    <h3>What's New in v2.5.3</h3>
                     <ul>
-                        <li>🔄 <strong>Leader-Follower Replication</strong> - Horizontal read scaling with binlog-based
-                            streaming replication</li>
-                        <li>📊 <strong>Cluster Dashboard</strong> - Web panel Cluster tab with node status, lag
-                            monitoring, and health indicators</li>
-                        <li>🔧 <strong>Replication Metrics</strong> - Prometheus metrics for LSN, binlog size, follower
-                            count</li>
-                        <li>🆕 <strong>GraphQL API</strong> - Modern GraphQL endpoint with schema introspection,
-                            Playground, and auth directives</li>
-                        <li>🔐 <strong>Authentication & RBAC</strong> - JWT tokens, API keys, collection-level
-                            permissions</li>
-                        <li>🛠️ <strong>Custom MCP Tools</strong> - Define website-specific AI tools in YAML with
-                            preconfigured defaults</li>
-                        <li>📊 <strong>Telemetry</strong> - Prometheus-compatible /metrics endpoint (zero deps)</li>
-                        <li>🔍 <strong>Vector Search</strong> - Semantic similarity with OpenAI, Ollama, Voyage AI</li>
+                        <li>🔍 <strong>Search Algorithms</strong> - BM25 for full-text search, HNSW/IVF/PQ for vector search with query-time algorithm selection</li>
+                        <li>🧠 <strong>ANN Vector Search</strong> - HNSW (approximate), IVF (clustered), PQ (compressed) algorithms alongside exact flat search</li>
+                        <li>📊 <strong>BM25 Scoring</strong> - Okapi BM25 with document length normalization for better full-text search ranking</li>
+                        <li>✏️ <strong>Typo Tolerance</strong> - Fuzzy full-text search with configurable edit distance (1-2 char typos)</li>
+                        <li>🎨 <strong>Full-Text Search Panel</strong> - New panel UI with algorithm selector, typo tolerance, score bars, and matched terms</li>
+                        <li>🔄 <strong>Leader-Follower Replication</strong> - Horizontal read scaling with binlog-based streaming replication</li>
+                        <li>🆕 <strong>GraphQL API</strong> - Modern GraphQL endpoint with schema introspection, Playground, and auth directives</li>
+                        <li>🔐 <strong>Authentication & RBAC</strong> - JWT tokens, API keys, collection-level permissions</li>
+                        <li>🛠️ <strong>Custom MCP Tools</strong> - Define website-specific AI tools in YAML with preconfigured defaults</li>
                     </ul>
                     <a href="https://github.com/tradik/mddb/blob/main/CHANGELOG.md" target="_blank" rel="noopener">View
                         Full Changelog →</a>
@@ -517,6 +512,12 @@ docker pull tradik/mddb:2.3.3</code></pre>
                         <p>Leader-follower setup, Docker Compose, monitoring</p>
                         <span class="badge-new">New</span>
                     </a>
+                    <a href="md-viewer.html?doc=SEARCH.md" class="doc-card featured">
+                        <div class="doc-icon">🔍</div>
+                        <h3>Search Algorithms</h3>
+                        <p>TF-IDF, BM25, Flat, HNSW, IVF, PQ comparison</p>
+                        <span class="badge-new">New</span>
+                    </a>
                 </div>
             </div>
         </section>
@@ -569,7 +570,7 @@ curl -X POST http://localhost:11023/v1/import-url \
   -d '{"collection":"docs", "url":"https://example.com/guide.md", "lang":"en_US"}'</code></pre>
                     </div>
                     <div class="example-pane" id="vector">
-                        <pre><code># Semantic search - finds docs by meaning, not exact keywords
+                        <pre><code># Semantic search - flat (exact, default)
 curl -X POST http://localhost:11023/v1/vector-search \
   -H "Content-Type: application/json" \
   -d '{
@@ -580,22 +581,36 @@ curl -X POST http://localhost:11023/v1/vector-search \
     "includeContent": true
   }'
 
-# Filter by metadata during vector search
+# HNSW - fast approximate nearest neighbor
 curl -X POST http://localhost:11023/v1/vector-search \
-  -d '{"collection":"kb", "query":"refund", "topK":3, "filterMeta":{"category":["billing"]}}'
+  -d '{"collection":"kb", "query":"refund", "topK":5, "algorithm":"hnsw"}'
 
-# Re-index embeddings after changing provider
-curl -X POST http://localhost:11023/v1/vector-reindex \
-  -d '{"collection": "kb", "force": true}'</code></pre>
+# IVF - clustered search for large collections
+curl -X POST http://localhost:11023/v1/vector-search \
+  -d '{"collection":"kb", "query":"refund", "topK":5, "algorithm":"ivf"}'
+
+# PQ - compressed, memory-efficient search
+curl -X POST http://localhost:11023/v1/vector-search \
+  -d '{"collection":"kb", "query":"refund", "topK":5, "algorithm":"pq"}'</code></pre>
                     </div>
                     <div class="example-pane" id="fts">
-                        <pre><code># Full-text search with TF scoring
+                        <pre><code># Full-text search with TF-IDF (default)
 curl -X POST http://localhost:11023/v1/fts \
   -H "Content-Type: application/json" \
   -d '{
     "collection": "blog",
     "query": "markdown database tutorial",
     "limit": 10
+  }'
+
+# Full-text search with BM25 scoring
+curl -X POST http://localhost:11023/v1/fts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "blog",
+    "query": "markdown database tutorial",
+    "limit": 10,
+    "algorithm": "bm25"
   }'
 
 # Register webhook for document changes
@@ -800,7 +815,7 @@ graph LR
                 <div class="footer-section">
                     <h4>MDDB</h4>
                     <p>High-performance markdown database</p>
-                    <p class="footer-version">Version 2.5.2</p>
+                    <p class="footer-version">Version 2.5.3</p>
                 </div>
                 <div class="footer-section">
                     <h4>Documentation</h4>

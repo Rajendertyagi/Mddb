@@ -9,6 +9,7 @@ export default function VectorSearchPanel() {
     vectorQuery, setVectorQuery,
     vectorTopK, setVectorTopK,
     vectorThreshold, setVectorThreshold,
+    vectorAlgorithm, setVectorAlgorithm,
     vectorResults, setVectorResults,
     vectorLoading, setVectorLoading,
     vectorError, setVectorError,
@@ -32,6 +33,7 @@ export default function VectorSearchPanel() {
         topK: vectorTopK,
         threshold: vectorThreshold,
         includeContent,
+        algorithm: vectorAlgorithm,
       });
       setVectorResults(data.results || []);
     } catch (error) {
@@ -143,8 +145,21 @@ export default function VectorSearchPanel() {
           </div>
         </div>
 
-        <div className="flex items-center justify-between">
-          <label className="flex items-center space-x-2 text-sm text-gray-600">
+        <div className="flex items-center space-x-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Algorithm</label>
+            <select
+              value={vectorAlgorithm}
+              onChange={(e) => setVectorAlgorithm(e.target.value)}
+              className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="flat">Flat (Exact)</option>
+              <option value="hnsw">HNSW (Approximate)</option>
+              <option value="ivf">IVF (Clustered)</option>
+              <option value="pq">PQ (Compressed)</option>
+            </select>
+          </div>
+          <label className="flex items-center space-x-2 text-sm text-gray-600 mt-4">
             <input
               type="checkbox"
               checked={includeContent}
@@ -153,6 +168,9 @@ export default function VectorSearchPanel() {
             />
             <span>Include content</span>
           </label>
+        </div>
+
+        <div className="flex items-center justify-end">
 
           <button
             onClick={handleSearch}

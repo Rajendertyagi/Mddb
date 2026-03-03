@@ -172,7 +172,7 @@ class MDDBClient {
   /**
    * Vector/semantic search
    */
-  async vectorSearch({ collection, query, topK = 5, threshold = 0.0, filterMeta = {}, includeContent = false }) {
+  async vectorSearch({ collection, query, topK = 5, threshold = 0.0, filterMeta = {}, includeContent = false, algorithm = 'flat' }) {
     return this.request('/vector-search', {
       method: 'POST',
       body: JSON.stringify({
@@ -182,6 +182,7 @@ class MDDBClient {
         threshold,
         filterMeta,
         includeContent,
+        algorithm,
       }),
     });
   }
@@ -230,10 +231,10 @@ class MDDBClient {
   /**
    * Full-text search
    */
-  async ftsSearch({ collection, query, limit = 50 }) {
+  async ftsSearch({ collection, query, limit = 50, algorithm = 'tfidf', fuzzy = 0 }) {
     return this.request('/fts', {
       method: 'POST',
-      body: JSON.stringify({ collection, query, limit }),
+      body: JSON.stringify({ collection, query, limit, algorithm, fuzzy }),
     });
   }
 

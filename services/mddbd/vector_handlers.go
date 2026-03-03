@@ -21,6 +21,7 @@ type VectorSearchRequest struct {
 	Threshold      float64             `json:"threshold"`
 	FilterMeta     map[string][]string `json:"filterMeta"`
 	IncludeContent bool                `json:"includeContent"`
+	Algorithm      string              `json:"algorithm"` // "flat" (default), "hnsw", "ivf", "pq"
 }
 
 // VectorSearchResultItem represents a single search result.
@@ -36,6 +37,7 @@ type VectorSearchResponseHTTP struct {
 	Total      int                      `json:"total"`
 	Model      string                   `json:"model"`
 	Dimensions int                      `json:"dimensions"`
+	Algorithm  string                   `json:"algorithm"`
 }
 
 // VectorReindexRequest represents a reindex request.
@@ -44,7 +46,7 @@ type VectorReindexRequestHTTP struct {
 	Force      bool   `json:"force"`
 }
 
-// loadVectorIndex loads all vectors from BoltDB into the in-memory index.
+// loadVectorIndex loads all vectors from BoltDB into all in-memory indexes.
 func (s *Server) loadVectorIndex() {
 	start := time.Now()
 
@@ -53,6 +55,9 @@ func (s *Server) loadVectorIndex() {
 	if err != nil {
 		log.Printf("ERROR: failed to count vector collections: %v", err)
 		s.VectorIndex.SetReady()
+		for _, searcher := range s.VectorSearchers {
+			searcher.SetReady()
+		}
 		return
 	}
 
@@ -63,14 +68,33 @@ func (s *Server) loadVectorIndex() {
 			log.Printf("ERROR: failed to load vectors for collection %q: %v", collection, err)
 			continue
 		}
+
+		// Collect vectors for trainable indexes
+		collVecs := make(map[string][]float32, len(records))
+
 		for docID, rec := range records {
-			s.VectorIndex.Add(collection, docID, rec.Vector)
+			// Add to all searchers
+			for _, searcher := range s.VectorSearchers {
+				searcher.Add(collection, docID, rec.Vector)
+			}
+			collVecs[docID] = rec.Vector
 		}
+
+		// Trigger training for trainable indexes (IVF, PQ)
+		for _, searcher := range s.VectorSearchers {
+			if trainer, ok := searcher.(Trainable); ok {
+				trainer.Train(collection, collVecs)
+			}
+		}
+
 		totalLoaded += count
 	}
 
-	s.VectorIndex.SetReady()
-	log.Printf("Vector index loaded: %d vectors across %d collections in %v",
+	// Mark all searchers as ready
+	for _, searcher := range s.VectorSearchers {
+		searcher.SetReady()
+	}
+	log.Printf("Vector index loaded: %d vectors across %d collections in %v (algorithms: flat, hnsw, ivf, pq)",
 		totalLoaded, len(counts), time.Since(start))
 }
 
@@ -90,7 +114,22 @@ func (s *Server) handleVectorSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !s.VectorIndex.IsReady() {
+	// Select algorithm
+	algo := req.Algorithm
+	if algo == "" {
+		algo = "flat"
+	}
+	searcher, ok2 := s.VectorSearchers[algo]
+	if !ok2 {
+		bad(w, errors.New("unknown algorithm: "+algo+", available: flat, hnsw, ivf, pq"))
+		return
+	}
+	if !searcher.IsReady() {
+		// Fallback to flat if the requested algorithm isn't ready
+		searcher = s.VectorSearchers["flat"]
+		algo = "flat"
+	}
+	if !searcher.IsReady() {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		_, _ = w.Write([]byte(`{"error":"vector index is loading, please retry"}`))
 		return
@@ -122,18 +161,18 @@ func (s *Server) handleVectorSearch(w http.ResponseWriter, r *http.Request) {
 	// Search: with or without metadata filter
 	var results []VectorResult
 	if len(req.FilterMeta) > 0 {
-		// Get doc IDs matching metadata filter first
 		allowedIDs := s.getDocIDsByMeta(req.Collection, req.FilterMeta)
 		if len(allowedIDs) == 0 {
 			ok(w, VectorSearchResponseHTTP{
-				Results: []VectorSearchResultItem{},
-				Total:   0,
+				Results:   []VectorSearchResultItem{},
+				Total:     0,
+				Algorithm: algo,
 			})
 			return
 		}
-		results = s.VectorIndex.SearchWithFilter(req.Collection, queryVector, topK, req.Threshold, allowedIDs)
+		results = searcher.SearchWithFilter(req.Collection, queryVector, topK, req.Threshold, allowedIDs)
 	} else {
-		results = s.VectorIndex.Search(req.Collection, queryVector, topK, req.Threshold)
+		results = searcher.Search(req.Collection, queryVector, topK, req.Threshold)
 	}
 
 	// Load full documents for results
@@ -165,8 +204,9 @@ func (s *Server) handleVectorSearch(w http.ResponseWriter, r *http.Request) {
 	})
 
 	resp := VectorSearchResponseHTTP{
-		Results: items,
-		Total:   len(items),
+		Results:   items,
+		Total:     len(items),
+		Algorithm: algo,
 	}
 	if s.Embedding != nil {
 		resp.Model = s.Embedding.Model()
@@ -258,8 +298,25 @@ func (s *Server) handleVectorReindex(w http.ResponseWriter, r *http.Request) {
 			errs = append(errs, d.ID+": store: "+err.Error())
 			continue
 		}
-		s.VectorIndex.Add(req.Collection, d.ID, vector)
+		for _, searcher := range s.VectorSearchers {
+			searcher.Add(req.Collection, d.ID, vector)
+		}
 		embedded++
+	}
+
+	// Trigger training for trainable indexes after reindex
+	if embedded > 0 {
+		if records, loadErr := s.VectorStore.LoadCollection(req.Collection); loadErr == nil {
+			collVecs := make(map[string][]float32, len(records))
+			for docID, rec := range records {
+				collVecs[docID] = rec.Vector
+			}
+			for _, searcher := range s.VectorSearchers {
+				if trainer, isTrainable := searcher.(Trainable); isTrainable {
+					go trainer.Train(req.Collection, collVecs)
+				}
+			}
+		}
 	}
 
 	ok(w, map[string]interface{}{

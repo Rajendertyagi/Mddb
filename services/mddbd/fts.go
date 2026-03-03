@@ -44,12 +44,16 @@ type FTSSearchRequest struct {
 	Collection string `json:"collection"`
 	Query      string `json:"query"`
 	Limit      int    `json:"limit"`
+	Algorithm  string `json:"algorithm"` // "tfidf" (default) or "bm25"
+	Fuzzy      int    `json:"fuzzy"`     // typo tolerance: 0 (off), 1 (1 edit), 2 (2 edits)
 }
 
 // FTSSearchResponse is the HTTP response for full-text search.
 type FTSSearchResponse struct {
-	Results []FTSResultWithDoc `json:"results"`
-	Total   int                `json:"total"`
+	Results   []FTSResultWithDoc `json:"results"`
+	Total     int                `json:"total"`
+	Algorithm string             `json:"algorithm"`
+	Fuzzy     int                `json:"fuzzy"`
 }
 
 // FTSResultWithDoc includes the full document in the result.
@@ -147,7 +151,16 @@ func (f *FTSIndex) Index(collection, docID, content string) error {
 		// Store reverse index
 		revVal := []byte(strings.Join(termList, ","))
 		bo.Put("ftsrev", revKey, revVal)
-		return bRev.Put(revKey, revVal)
+		if err := bRev.Put(revKey, revVal); err != nil {
+			return err
+		}
+
+		// Store BM25 metadata (document length = sum of term frequencies)
+		var docLength uint32
+		for _, count := range terms {
+			docLength += uint32(count)
+		}
+		return f.IndexBM25Meta(tx, collection, docID, docLength)
 	})
 	if err == nil {
 		bo.FlushTo(f.binlog)
@@ -172,6 +185,10 @@ func (f *FTSIndex) Remove(collection, docID string) error {
 					bo.Delete("fts", k)
 				}
 			}
+		}
+		// Clean up BM25 metadata
+		if err := f.RemoveBM25Meta(tx, collection, docID); err != nil {
+			return err
 		}
 		bo.Delete("ftsrev", revKey)
 		return bRev.Delete(revKey)
@@ -293,7 +310,37 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	results, err := s.FTSIndex.Search(req.Collection, req.Query, req.Limit)
+	algo := req.Algorithm
+	if algo == "" {
+		algo = "tfidf"
+	}
+	fuzzy := req.Fuzzy
+	if fuzzy < 0 {
+		fuzzy = 0
+	}
+	if fuzzy > 2 {
+		fuzzy = 2
+	}
+
+	var results []FTSResult
+	var err error
+	switch algo {
+	case "bm25":
+		if fuzzy > 0 {
+			results, err = s.FTSIndex.SearchBM25Fuzzy(req.Collection, req.Query, req.Limit, fuzzy)
+		} else {
+			results, err = s.FTSIndex.SearchBM25(req.Collection, req.Query, req.Limit)
+		}
+	case "tfidf":
+		if fuzzy > 0 {
+			results, err = s.FTSIndex.SearchFuzzy(req.Collection, req.Query, req.Limit, fuzzy)
+		} else {
+			results, err = s.FTSIndex.Search(req.Collection, req.Query, req.Limit)
+		}
+	default:
+		bad(w, fmt.Errorf("unknown algorithm: %s, available: tfidf, bm25", algo))
+		return
+	}
 	if err != nil {
 		bad(w, err)
 		return
@@ -301,6 +348,8 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 
 	// Load full documents
 	var resp FTSSearchResponse
+	resp.Algorithm = algo
+	resp.Fuzzy = fuzzy
 	resp.Results = make([]FTSResultWithDoc, 0, len(results))
 	_ = s.DB.View(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))

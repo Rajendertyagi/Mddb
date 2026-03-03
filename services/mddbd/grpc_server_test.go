@@ -72,6 +72,9 @@ func newTestGRPCServer(t *testing.T) (*GRPCServer, *Server, func()) {
 	}
 	s.VectorIndex = NewVectorIndex()
 	s.VectorIndex.SetReady()
+	s.VectorSearchers = map[string]VectorSearcher{
+		"flat": s.VectorIndex,
+	}
 
 	// TTL
 	s.TTLManager = NewTTLManager(db, s)
@@ -1658,6 +1661,9 @@ func TestGRPCVectorSearch_IndexNotReady(t *testing.T) {
 
 	// Create a new index that is NOT ready
 	s.VectorIndex = NewVectorIndex() // ready defaults to false
+	s.VectorSearchers = map[string]VectorSearcher{
+		"flat": s.VectorIndex,
+	}
 
 	_, err := gs.VectorSearch(context.Background(), &pb.VectorSearchRequest{
 		Collection:  "blog",

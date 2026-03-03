@@ -42,6 +42,9 @@ func newTestServerForMetrics(t *testing.T) (*Server, func()) {
 	s.VectorStore = NewVectorStore(db)
 	_ = s.VectorStore.EnsureBucket()
 	s.VectorIndex = NewVectorIndex()
+	s.VectorSearchers = map[string]VectorSearcher{
+		"flat": s.VectorIndex,
+	}
 	s.WebhookManager = NewWebhookManager(db)
 	_ = s.WebhookManager.EnsureBucket()
 	_ = s.WebhookManager.LoadAll()
@@ -308,6 +311,9 @@ func BenchmarkMetricsHandler(b *testing.B) {
 	s.VectorStore = NewVectorStore(db)
 	_ = s.VectorStore.EnsureBucket()
 	s.VectorIndex = NewVectorIndex()
+	s.VectorSearchers = map[string]VectorSearcher{
+		"flat": s.VectorIndex,
+	}
 	s.WebhookManager = NewWebhookManager(db)
 	_ = s.WebhookManager.EnsureBucket()
 	_ = s.WebhookManager.LoadAll()

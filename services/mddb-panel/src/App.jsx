@@ -7,6 +7,7 @@ import Sidebar from './components/Sidebar';
 import DocumentList from './components/DocumentList';
 import DocumentViewer from './components/DocumentViewer';
 import VectorSearchPanel from './components/VectorSearchPanel';
+import FTSSearchPanel from './components/FTSSearchPanel';
 import LoginForm from './components/LoginForm';
 import SystemInfo from './components/SystemInfo';
 import ConfigPanel from './components/ConfigPanel';
@@ -150,6 +151,17 @@ function App() {
                 <>
                   <div className="flex-1 border-l border-gray-200">
                     <VectorSearchPanel />
+                  </div>
+                  {currentDocument && (
+                    <div className="flex-1 border-l border-gray-200">
+                      <DocumentViewer />
+                    </div>
+                  )}
+                </>
+              ) : searchMode === 'fulltext' ? (
+                <>
+                  <div className="flex-1 border-l border-gray-200">
+                    <FTSSearchPanel />
                   </div>
                   {currentDocument && (
                     <div className="flex-1 border-l border-gray-200">

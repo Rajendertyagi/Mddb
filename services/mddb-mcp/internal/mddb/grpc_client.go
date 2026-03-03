@@ -346,6 +346,7 @@ func (c *GRPCClient) VectorSearch(ctx context.Context, req *VectorSearchRequest)
 		Threshold:      req.Threshold,
 		FilterMeta:     convertMetaToProto(req.FilterMeta),
 		IncludeContent: req.IncludeContent,
+		Algorithm:      req.Algorithm,
 	}
 
 	resp, err := c.client.VectorSearch(c.withAuth(ctx), pbReq)
@@ -367,6 +368,7 @@ func (c *GRPCClient) VectorSearch(ctx context.Context, req *VectorSearchRequest)
 		Total:      int(resp.Total),
 		Model:      resp.Model,
 		Dimensions: int(resp.Dimensions),
+		Algorithm:  resp.Algorithm,
 	}, nil
 }
 
@@ -447,6 +449,8 @@ func (c *GRPCClient) FTSSearch(ctx context.Context, req *FTSSearchRequest) (*FTS
 		Collection: req.Collection,
 		Query:      req.Query,
 		Limit:      int32(req.Limit),
+		Algorithm:  req.Algorithm,
+		Fuzzy:      int32(req.Fuzzy),
 	}
 	resp, err := c.client.FTS(c.withAuth(ctx), pbReq)
 	if err != nil {
@@ -460,7 +464,7 @@ func (c *GRPCClient) FTSSearch(ctx context.Context, req *FTSSearchRequest) (*FTS
 			MatchedTerms: r.MatchedTerms,
 		}
 	}
-	return &FTSSearchResponse{Results: results, Total: int(resp.Total)}, nil
+	return &FTSSearchResponse{Results: results, Total: int(resp.Total), Algorithm: resp.Algorithm, Fuzzy: int(resp.Fuzzy)}, nil
 }
 
 func (c *GRPCClient) RegisterWebhook(ctx context.Context, req *RegisterWebhookRequest) (*Webhook, error) {
