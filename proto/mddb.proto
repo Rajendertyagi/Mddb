@@ -359,6 +359,7 @@ message FTSRequest {
   string query = 2;
   int32 limit = 3;
   string algorithm = 4;                          // "tfidf" (default) or "bm25"
+  int32 fuzzy = 5;                               // typo tolerance: 0 (off), 1 (1 edit), 2 (2 edits)
 }
 
 message FTSResult {
@@ -371,6 +372,7 @@ message FTSResponse {
   repeated FTSResult results = 1;
   int32 total = 2;
   string algorithm = 3;                          // algorithm used for this search
+  int32 fuzzy = 4;                               // typo tolerance level used
 }
 
 // --- Webhooks ---

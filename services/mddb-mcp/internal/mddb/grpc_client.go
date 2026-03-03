@@ -450,6 +450,7 @@ func (c *GRPCClient) FTSSearch(ctx context.Context, req *FTSSearchRequest) (*FTS
 		Query:      req.Query,
 		Limit:      int32(req.Limit),
 		Algorithm:  req.Algorithm,
+		Fuzzy:      int32(req.Fuzzy),
 	}
 	resp, err := c.client.FTS(c.withAuth(ctx), pbReq)
 	if err != nil {
@@ -463,7 +464,7 @@ func (c *GRPCClient) FTSSearch(ctx context.Context, req *FTSSearchRequest) (*FTS
 			MatchedTerms: r.MatchedTerms,
 		}
 	}
-	return &FTSSearchResponse{Results: results, Total: int(resp.Total), Algorithm: resp.Algorithm}, nil
+	return &FTSSearchResponse{Results: results, Total: int(resp.Total), Algorithm: resp.Algorithm, Fuzzy: int(resp.Fuzzy)}, nil
 }
 
 func (c *GRPCClient) RegisterWebhook(ctx context.Context, req *RegisterWebhookRequest) (*Webhook, error) {

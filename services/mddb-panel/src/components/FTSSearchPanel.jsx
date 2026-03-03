@@ -8,6 +8,7 @@ export default function FTSSearchPanel() {
     ftsQuery, setFtsQuery,
     ftsLimit, setFtsLimit,
     ftsAlgorithm, setFtsAlgorithm,
+    ftsFuzzy, setFtsFuzzy,
     ftsResults, setFtsResults,
     ftsLoading, setFtsLoading,
     ftsError, setFtsError,
@@ -25,6 +26,7 @@ export default function FTSSearchPanel() {
         query: ftsQuery.trim(),
         limit: ftsLimit,
         algorithm: ftsAlgorithm,
+        fuzzy: ftsFuzzy,
       });
       setFtsResults(data.results || []);
     } catch (error) {
@@ -93,7 +95,7 @@ export default function FTSSearchPanel() {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Algorithm</label>
             <select
@@ -103,6 +105,18 @@ export default function FTSSearchPanel() {
             >
               <option value="tfidf">TF-IDF</option>
               <option value="bm25">BM25</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Typo Tolerance</label>
+            <select
+              value={ftsFuzzy}
+              onChange={(e) => setFtsFuzzy(parseInt(e.target.value))}
+              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value={0}>Off</option>
+              <option value={1}>Low (1 edit)</option>
+              <option value={2}>Medium (2 edits)</option>
             </select>
           </div>
           <div>

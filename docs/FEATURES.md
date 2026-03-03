@@ -44,6 +44,7 @@ Complete list of MDDB features organized by category.
 - **TF-IDF Scoring** - Classic term frequency-inverse document frequency ranking
 - **BM25 Scoring** - Okapi BM25 with document length normalization (k1=1.2, b=0.75)
 - **Query-time Algorithm Selection** - Choose TF-IDF or BM25 per request via `algorithm` parameter
+- **Typo Tolerance** - Fuzzy matching with configurable edit distance (0-2) via `fuzzy` parameter
 - **Stop Word Filtering** - Remove common words
 - **Multi-field Search** - Search in content and metadata
 - **Language-aware** - Per-language stop words

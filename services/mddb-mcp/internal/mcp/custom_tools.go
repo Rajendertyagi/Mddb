@@ -128,7 +128,7 @@ func builtinTools() []Tool {
 		},
 		{
 			Name:        "full_text_search",
-			Description: "Search documents by text content using full-text search with term matching and relevance scoring.",
+			Description: "Search documents by text content using full-text search with term matching and relevance scoring. Supports typo tolerance via fuzzy parameter.",
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
@@ -136,6 +136,7 @@ func builtinTools() []Tool {
 					"query":      map[string]interface{}{"type": "string", "description": "Search query text"},
 					"limit":      map[string]interface{}{"type": "integer", "description": "Max results (default: 50)"},
 					"algorithm":  map[string]interface{}{"type": "string", "description": "Scoring algorithm: tfidf (default) or bm25"},
+					"fuzzy":      map[string]interface{}{"type": "integer", "description": "Typo tolerance: 0 (off, default), 1 (1 char typo), 2 (2 char typos)"},
 				},
 				"required": []string{"collection", "query"},
 			},

@@ -362,6 +362,7 @@ func (s *Server) toolFTSSearch(ctx context.Context, args map[string]interface{})
 		Query:      getString(args, "query"),
 		Limit:      getInt(args, "limit"),
 		Algorithm:  getString(args, "algorithm"),
+		Fuzzy:      getInt(args, "fuzzy"),
 	}
 
 	resp, err := s.client.FTSSearch(ctx, req)

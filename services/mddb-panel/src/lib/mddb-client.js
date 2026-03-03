@@ -231,10 +231,10 @@ class MDDBClient {
   /**
    * Full-text search
    */
-  async ftsSearch({ collection, query, limit = 50, algorithm = 'tfidf' }) {
+  async ftsSearch({ collection, query, limit = 50, algorithm = 'tfidf', fuzzy = 0 }) {
     return this.request('/fts', {
       method: 'POST',
-      body: JSON.stringify({ collection, query, limit, algorithm }),
+      body: JSON.stringify({ collection, query, limit, algorithm, fuzzy }),
     });
   }
 

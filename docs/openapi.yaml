@@ -1513,6 +1513,16 @@ components:
             - **bm25**: Okapi BM25 with document length normalization (k1=1.2, b=0.75)
           default: tfidf
           example: tfidf
+        fuzzy:
+          type: integer
+          enum: [0, 1, 2]
+          description: |
+            Typo tolerance level (default 0).
+            - **0**: Off — exact term matching only
+            - **1**: Low — matches terms within 1 edit distance (e.g. "javascrip" → "javascript")
+            - **2**: Medium — matches terms within 2 edit distances
+          default: 0
+          example: 0
 
     FTSSearchResponse:
       type: object
@@ -1529,6 +1539,10 @@ components:
           type: string
           description: Algorithm used for this search
           example: tfidf
+        fuzzy:
+          type: integer
+          description: Typo tolerance level used
+          example: 0
 
     FTSResultItem:
       type: object

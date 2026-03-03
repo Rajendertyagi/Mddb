@@ -170,7 +170,7 @@
                     <div class="feature-card">
                         <div class="feature-icon">📖</div>
                         <h3>Full-Text Search</h3>
-                        <p>Built-in inverted index with TF-IDF and BM25 scoring algorithms</p>
+                        <p>Built-in inverted index with TF-IDF and BM25 scoring, typo tolerance</p>
                     </div>
                     <div class="feature-card">
                         <div class="feature-icon">🔔</div>
@@ -399,7 +399,8 @@ docker pull tradik/mddb:2.3.3</code></pre>
                         <li>🔍 <strong>Search Algorithms</strong> - BM25 for full-text search, HNSW/IVF/PQ for vector search with query-time algorithm selection</li>
                         <li>🧠 <strong>ANN Vector Search</strong> - HNSW (approximate), IVF (clustered), PQ (compressed) algorithms alongside exact flat search</li>
                         <li>📊 <strong>BM25 Scoring</strong> - Okapi BM25 with document length normalization for better full-text search ranking</li>
-                        <li>🎨 <strong>Full-Text Search Panel</strong> - New panel UI with algorithm selector, score bars, and matched terms</li>
+                        <li>✏️ <strong>Typo Tolerance</strong> - Fuzzy full-text search with configurable edit distance (1-2 char typos)</li>
+                        <li>🎨 <strong>Full-Text Search Panel</strong> - New panel UI with algorithm selector, typo tolerance, score bars, and matched terms</li>
                         <li>🔄 <strong>Leader-Follower Replication</strong> - Horizontal read scaling with binlog-based streaming replication</li>
                         <li>🆕 <strong>GraphQL API</strong> - Modern GraphQL endpoint with schema introspection, Playground, and auth directives</li>
                         <li>🔐 <strong>Authentication & RBAC</strong> - JWT tokens, API keys, collection-level permissions</li>

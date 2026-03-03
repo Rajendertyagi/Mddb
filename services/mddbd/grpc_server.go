@@ -1114,13 +1114,29 @@ func (g *GRPCServer) FTS(ctx context.Context, req *proto.FTSRequest) (*proto.FTS
 		algo = "tfidf"
 	}
 
+	fuzzy := int(req.Fuzzy)
+	if fuzzy < 0 {
+		fuzzy = 0
+	}
+	if fuzzy > 2 {
+		fuzzy = 2
+	}
+
 	var results []FTSResult
 	var err error
 	switch algo {
 	case "bm25":
-		results, err = g.server.FTSIndex.SearchBM25(req.Collection, req.Query, limit)
+		if fuzzy > 0 {
+			results, err = g.server.FTSIndex.SearchBM25Fuzzy(req.Collection, req.Query, limit, fuzzy)
+		} else {
+			results, err = g.server.FTSIndex.SearchBM25(req.Collection, req.Query, limit)
+		}
 	case "tfidf":
-		results, err = g.server.FTSIndex.Search(req.Collection, req.Query, limit)
+		if fuzzy > 0 {
+			results, err = g.server.FTSIndex.SearchFuzzy(req.Collection, req.Query, limit, fuzzy)
+		} else {
+			results, err = g.server.FTSIndex.Search(req.Collection, req.Query, limit)
+		}
 	default:
 		return nil, status.Error(codes.InvalidArgument, "unknown algorithm: "+algo+", available: tfidf, bm25")
 	}
@@ -1156,6 +1172,7 @@ func (g *GRPCServer) FTS(ctx context.Context, req *proto.FTSRequest) (*proto.FTS
 		Results:   protoResults,
 		Total:     int32(len(protoResults)),
 		Algorithm: algo,
+		Fuzzy:     int32(fuzzy),
 	}, nil
 }
 

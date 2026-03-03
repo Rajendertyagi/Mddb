@@ -45,6 +45,7 @@ type FTSSearchRequest struct {
 	Query      string `json:"query"`
 	Limit      int    `json:"limit"`
 	Algorithm  string `json:"algorithm"` // "tfidf" (default) or "bm25"
+	Fuzzy      int    `json:"fuzzy"`     // typo tolerance: 0 (off), 1 (1 edit), 2 (2 edits)
 }
 
 // FTSSearchResponse is the HTTP response for full-text search.
@@ -52,6 +53,7 @@ type FTSSearchResponse struct {
 	Results   []FTSResultWithDoc `json:"results"`
 	Total     int                `json:"total"`
 	Algorithm string             `json:"algorithm"`
+	Fuzzy     int                `json:"fuzzy"`
 }
 
 // FTSResultWithDoc includes the full document in the result.
@@ -312,14 +314,29 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 	if algo == "" {
 		algo = "tfidf"
 	}
+	fuzzy := req.Fuzzy
+	if fuzzy < 0 {
+		fuzzy = 0
+	}
+	if fuzzy > 2 {
+		fuzzy = 2
+	}
 
 	var results []FTSResult
 	var err error
 	switch algo {
 	case "bm25":
-		results, err = s.FTSIndex.SearchBM25(req.Collection, req.Query, req.Limit)
+		if fuzzy > 0 {
+			results, err = s.FTSIndex.SearchBM25Fuzzy(req.Collection, req.Query, req.Limit, fuzzy)
+		} else {
+			results, err = s.FTSIndex.SearchBM25(req.Collection, req.Query, req.Limit)
+		}
 	case "tfidf":
-		results, err = s.FTSIndex.Search(req.Collection, req.Query, req.Limit)
+		if fuzzy > 0 {
+			results, err = s.FTSIndex.SearchFuzzy(req.Collection, req.Query, req.Limit, fuzzy)
+		} else {
+			results, err = s.FTSIndex.Search(req.Collection, req.Query, req.Limit)
+		}
 	default:
 		bad(w, fmt.Errorf("unknown algorithm: %s, available: tfidf, bm25", algo))
 		return
@@ -332,6 +349,7 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 	// Load full documents
 	var resp FTSSearchResponse
 	resp.Algorithm = algo
+	resp.Fuzzy = fuzzy
 	resp.Results = make([]FTSResultWithDoc, 0, len(results))
 	_ = s.DB.View(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))

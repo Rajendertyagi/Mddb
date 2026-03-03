@@ -45,6 +45,20 @@ where:
 
 **When to use:** When documents vary significantly in length (e.g., mix of short FAQs and long guides). BM25 prevents long documents from dominating results.
 
+### Typo Tolerance (Fuzzy Search)
+
+Both TF-IDF and BM25 support typo tolerance via the `fuzzy` parameter. When enabled, the search finds indexed terms within Levenshtein edit distance of each query term.
+
+| `fuzzy` | Tolerance | Example |
+|---------|-----------|---------|
+| `0` (default) | Off — exact matching only | "javascrip" → no match |
+| `1` | 1 edit (insert, delete, or substitute) | "javascrip" → "javascript" |
+| `2` | 2 edits | "javasript" → "javascript" |
+
+**Scoring:** Fuzzy matches receive a 0.8x score penalty compared to exact matches, so exact results always rank higher.
+
+**Matched terms format:** Fuzzy matches appear as `queryTerm~indexedTerm` (e.g., `javascrip~javascript`) in the `matchedTerms` array, making it easy to distinguish exact vs fuzzy matches.
+
 ### API Examples
 
 ```bash
@@ -66,6 +80,17 @@ curl -X POST http://localhost:11023/v1/fts \
     "limit": 10,
     "algorithm": "bm25"
   }'
+
+# With typo tolerance (works with any algorithm)
+curl -X POST http://localhost:11023/v1/fts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "blog",
+    "query": "markdwn datbase tutrial",
+    "limit": 10,
+    "algorithm": "bm25",
+    "fuzzy": 1
+  }'
 ```
 
 ### MCP Tool
@@ -77,6 +102,7 @@ curl -X POST http://localhost:11023/v1/fts \
     "collection": "blog",
     "query": "markdown database",
     "algorithm": "bm25",
+    "fuzzy": 1,
     "limit": 10
   }
 }

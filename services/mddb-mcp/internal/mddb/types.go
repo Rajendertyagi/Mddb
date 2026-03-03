@@ -275,6 +275,7 @@ type FTSSearchRequest struct {
 	Query      string `json:"query"`
 	Limit      int    `json:"limit,omitempty"`
 	Algorithm  string `json:"algorithm,omitempty"` // "tfidf" (default) or "bm25"
+	Fuzzy      int    `json:"fuzzy,omitempty"`     // typo tolerance: 0 (off), 1 (1 edit), 2 (2 edits)
 }
 
 // FTSResult represents a single FTS result.
@@ -289,6 +290,7 @@ type FTSSearchResponse struct {
 	Results   []FTSResult `json:"results"`
 	Total     int         `json:"total"`
 	Algorithm string      `json:"algorithm"`
+	Fuzzy     int         `json:"fuzzy"`
 }
 
 // Webhook represents a webhook subscription.
