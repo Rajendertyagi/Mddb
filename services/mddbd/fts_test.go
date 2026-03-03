@@ -539,8 +539,8 @@ func TestFTSSearchScore(t *testing.T) {
 	idx, cleanup := newTestFTSIndex(t)
 	defer cleanup()
 
-	idx.Index("col", "doc1", "golang programming") // matches 1 of 2 query terms
-	idx.Index("col", "doc2", "golang tutorial")    // matches 2 of 2 query terms
+	_ = idx.Index("col", "doc1", "golang programming") // matches 1 of 2 query terms
+	_ = idx.Index("col", "doc2", "golang tutorial")    // matches 2 of 2 query terms
 
 	results, err := idx.Search("col", "golang tutorial", 10)
 	if err != nil {
@@ -597,7 +597,7 @@ func TestFTSSearchZeroLimit(t *testing.T) {
 	defer cleanup()
 
 	for i := 0; i < 5; i++ {
-		idx.Index("col", strings.Repeat("d", i+2), "common term repeated")
+		_ = idx.Index("col", strings.Repeat("d", i+2), "common term repeated")
 	}
 
 	// limit=0 should return all results (no truncation)

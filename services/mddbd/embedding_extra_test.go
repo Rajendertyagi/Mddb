@@ -95,7 +95,7 @@ func TestNewEmbeddingProvider_Ollama(t *testing.T) {
 
 func TestNewEmbeddingProvider_Voyage_NoKey(t *testing.T) {
 	t.Setenv("MDDB_EMBEDDING_PROVIDER", "voyage")
-	os.Unsetenv("MDDB_EMBEDDING_API_KEY")
+	_ = os.Unsetenv("MDDB_EMBEDDING_API_KEY")
 	p := NewEmbeddingProvider()
 	if p != nil {
 		t.Error("expected nil when voyage key not set")
@@ -105,9 +105,9 @@ func TestNewEmbeddingProvider_Voyage_NoKey(t *testing.T) {
 func TestNewEmbeddingProvider_Voyage_WithKey(t *testing.T) {
 	t.Setenv("MDDB_EMBEDDING_PROVIDER", "voyage")
 	t.Setenv("MDDB_EMBEDDING_API_KEY", "vo-test")
-	os.Unsetenv("MDDB_EMBEDDING_API_URL")
-	os.Unsetenv("MDDB_EMBEDDING_MODEL")
-	os.Unsetenv("MDDB_EMBEDDING_DIMENSIONS")
+	_ = os.Unsetenv("MDDB_EMBEDDING_API_URL")
+	_ = os.Unsetenv("MDDB_EMBEDDING_MODEL")
+	_ = os.Unsetenv("MDDB_EMBEDDING_DIMENSIONS")
 	p := NewEmbeddingProvider()
 	if p == nil {
 		t.Fatal("expected non-nil provider for voyage with key")
@@ -122,7 +122,7 @@ func TestNewEmbeddingProvider_Voyage_WithKey(t *testing.T) {
 
 func TestNewEmbeddingProvider_Cohere_NoKey(t *testing.T) {
 	t.Setenv("MDDB_EMBEDDING_PROVIDER", "cohere")
-	os.Unsetenv("MDDB_EMBEDDING_API_KEY")
+	_ = os.Unsetenv("MDDB_EMBEDDING_API_KEY")
 	p := NewEmbeddingProvider()
 	if p != nil {
 		t.Error("expected nil when cohere key not set")
@@ -132,9 +132,9 @@ func TestNewEmbeddingProvider_Cohere_NoKey(t *testing.T) {
 func TestNewEmbeddingProvider_Cohere_WithKey(t *testing.T) {
 	t.Setenv("MDDB_EMBEDDING_PROVIDER", "cohere")
 	t.Setenv("MDDB_EMBEDDING_API_KEY", "co-test")
-	os.Unsetenv("MDDB_EMBEDDING_API_URL")
-	os.Unsetenv("MDDB_EMBEDDING_MODEL")
-	os.Unsetenv("MDDB_EMBEDDING_DIMENSIONS")
+	_ = os.Unsetenv("MDDB_EMBEDDING_API_URL")
+	_ = os.Unsetenv("MDDB_EMBEDDING_MODEL")
+	_ = os.Unsetenv("MDDB_EMBEDDING_DIMENSIONS")
 	p := NewEmbeddingProvider()
 	if p == nil {
 		t.Fatal("expected non-nil provider for cohere with key")
