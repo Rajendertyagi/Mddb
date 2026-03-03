@@ -486,13 +486,13 @@ func TestBM25Helper(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = f.Close()
-	defer os.Remove(f.Name())
+	defer func() { _ = os.Remove(f.Name()) }()
 
 	db, err := bolt.Open(f.Name(), 0600, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	idx := NewFTSIndex(db)
 	if err := idx.EnsureBuckets(); err != nil {
