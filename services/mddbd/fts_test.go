@@ -436,7 +436,9 @@ func TestFTSIndexUpdate(t *testing.T) {
 	}
 
 	// Update the document - old terms should be removed
-	idx.Index("blog", "doc1", "python scripting language")
+	if err := idx.Index("blog", "doc1", "python scripting language"); err != nil {
+		t.Fatalf("Index: %v", err)
+	}
 
 	// "golang" should no longer match
 	results, _ = idx.Search("blog", "golang", 10)
@@ -455,7 +457,9 @@ func TestFTSRemove(t *testing.T) {
 	idx, cleanup := newTestFTSIndex(t)
 	defer cleanup()
 
-	idx.Index("blog", "doc1", "golang programming language")
+	if err := idx.Index("blog", "doc1", "golang programming language"); err != nil {
+		t.Fatalf("Index: %v", err)
+	}
 
 	// Verify it's indexed
 	results, _ := idx.Search("blog", "golang", 10)
@@ -506,7 +510,9 @@ func TestFTSSearchResultMatchedTerms(t *testing.T) {
 	idx, cleanup := newTestFTSIndex(t)
 	defer cleanup()
 
-	idx.Index("col", "doc1", "golang programming language tutorial advanced")
+	if err := idx.Index("col", "doc1", "golang programming language tutorial advanced"); err != nil {
+		t.Fatalf("Index: %v", err)
+	}
 
 	results, err := idx.Search("col", "golang tutorial", 10)
 	if err != nil {

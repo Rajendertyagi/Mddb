@@ -16,7 +16,7 @@ func newTestServerForIndexQueue(t *testing.T) (*Server, func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.Close()
+	_ = f.Close()
 
 	db, err := bolt.Open(f.Name(), 0600, &bolt.Options{Timeout: 1 * time.Second})
 	if err != nil {

@@ -78,9 +78,9 @@ func TestNewEmbeddingProvider_OpenAI_CustomSettings(t *testing.T) {
 
 func TestNewEmbeddingProvider_Ollama(t *testing.T) {
 	t.Setenv("MDDB_EMBEDDING_PROVIDER", "ollama")
-	os.Unsetenv("MDDB_EMBEDDING_API_URL")
-	os.Unsetenv("MDDB_EMBEDDING_MODEL")
-	os.Unsetenv("MDDB_EMBEDDING_DIMENSIONS")
+	_ = os.Unsetenv("MDDB_EMBEDDING_API_URL")
+	_ = os.Unsetenv("MDDB_EMBEDDING_MODEL")
+	_ = os.Unsetenv("MDDB_EMBEDDING_DIMENSIONS")
 	p := NewEmbeddingProvider()
 	if p == nil {
 		t.Fatal("expected non-nil provider for ollama")

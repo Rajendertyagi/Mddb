@@ -485,7 +485,7 @@ func TestAsyncIOConcurrentOperations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// Launch multiple concurrent reads
 	var wg sync.WaitGroup

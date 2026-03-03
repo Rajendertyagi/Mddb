@@ -383,10 +383,8 @@ func (b *Binlog) Rotate(keepFromLSN uint64) error {
 			break
 		}
 		if entry.LSN >= keepFromLSN {
-			if keepData == nil {
-				keepData = allData[pos:]
-				break
-			}
+			keepData = allData[pos:]
+			break
 		}
 		pos += n
 	}
