@@ -302,7 +302,9 @@ func TestFTSSearchNoResults(t *testing.T) {
 	idx, cleanup := newTestFTSIndex(t)
 	defer cleanup()
 
-	idx.Index("blog", "doc1", "golang programming language")
+	if err := idx.Index("blog", "doc1", "golang programming language"); err != nil {
+		t.Fatalf("Index: %v", err)
+	}
 
 	results, err := idx.Search("blog", "javascript", 10)
 	if err != nil {
@@ -317,7 +319,9 @@ func TestFTSSearchEmptyQuery(t *testing.T) {
 	idx, cleanup := newTestFTSIndex(t)
 	defer cleanup()
 
-	idx.Index("blog", "doc1", "golang programming")
+	if err := idx.Index("blog", "doc1", "golang programming"); err != nil {
+		t.Fatalf("Index: %v", err)
+	}
 
 	results, err := idx.Search("blog", "", 10)
 	if err != nil {
@@ -332,7 +336,9 @@ func TestFTSSearchOnlyStopWords(t *testing.T) {
 	idx, cleanup := newTestFTSIndex(t)
 	defer cleanup()
 
-	idx.Index("blog", "doc1", "golang programming")
+	if err := idx.Index("blog", "doc1", "golang programming"); err != nil {
+		t.Fatalf("Index: %v", err)
+	}
 
 	results, err := idx.Search("blog", "the and or", 10)
 	if err != nil {
@@ -348,7 +354,7 @@ func TestFTSSearchLimit(t *testing.T) {
 	defer cleanup()
 
 	for i := 0; i < 20; i++ {
-		idx.Index("col", strings.Repeat("x", i+2), "common search term repeated")
+		_ = idx.Index("col", strings.Repeat("x", i+2), "common search term repeated")
 	}
 
 	results, err := idx.Search("col", "common search term", 5)
@@ -364,8 +370,12 @@ func TestFTSSearchDifferentCollections(t *testing.T) {
 	idx, cleanup := newTestFTSIndex(t)
 	defer cleanup()
 
-	idx.Index("blog", "doc1", "golang programming")
-	idx.Index("docs", "doc1", "golang programming")
+	if err := idx.Index("blog", "doc1", "golang programming"); err != nil {
+		t.Fatalf("Index blog: %v", err)
+	}
+	if err := idx.Index("docs", "doc1", "golang programming"); err != nil {
+		t.Fatalf("Index docs: %v", err)
+	}
 
 	// Search in "blog" only
 	results, err := idx.Search("blog", "golang", 10)

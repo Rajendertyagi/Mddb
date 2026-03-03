@@ -238,7 +238,7 @@ func TestWebhookDeletePreservesOthers(t *testing.T) {
 	defer cleanup()
 
 	wh1, _ := wm.Register("http://example.com/hook1", []string{"doc.added"}, "")
-	wm.Register("http://example.com/hook2", []string{"doc.updated"}, "")
+	_, _ = wm.Register("http://example.com/hook2", []string{"doc.updated"}, "")
 
 	if err := wm.Delete(wh1.ID); err != nil {
 		t.Fatalf("Delete: %v", err)
@@ -375,7 +375,7 @@ func TestWebhookFire(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	wm.Register(ts.URL, []string{"doc.added"}, "")
+	_, _ = wm.Register(ts.URL, []string{"doc.added"}, "")
 
 	doc := &Doc{
 		ID:        "test-id",
@@ -421,7 +421,7 @@ func TestWebhookFireNoMatch(t *testing.T) {
 	defer ts.Close()
 
 	// Register for doc.deleted only
-	wm.Register(ts.URL, []string{"doc.deleted"}, "")
+	_, _ = wm.Register(ts.URL, []string{"doc.deleted"}, "")
 
 	// Fire doc.added - should not match
 	wm.Fire("doc.added", "blog", "key", "en", nil)
@@ -445,7 +445,7 @@ func TestWebhookFireCollectionFilter(t *testing.T) {
 	defer ts.Close()
 
 	// Register for blog collection only
-	wm.Register(ts.URL, []string{"doc.added"}, "blog")
+	_, _ = wm.Register(ts.URL, []string{"doc.added"}, "blog")
 
 	// Fire for docs collection - should not match
 	wm.Fire("doc.added", "docs", "key", "en", nil)
@@ -469,8 +469,8 @@ func TestWebhookFireMultipleHooks(t *testing.T) {
 	defer ts.Close()
 
 	// Register two hooks for the same event
-	wm.Register(ts.URL+"/hook1", []string{"doc.added"}, "")
-	wm.Register(ts.URL+"/hook2", []string{"doc.added"}, "")
+	_, _ = wm.Register(ts.URL+"/hook1", []string{"doc.added"}, "")
+	_, _ = wm.Register(ts.URL+"/hook2", []string{"doc.added"}, "")
 
 	wm.Fire("doc.added", "blog", "key", "en", nil)
 

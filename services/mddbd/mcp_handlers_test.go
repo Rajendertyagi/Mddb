@@ -60,8 +60,8 @@ func TestHandleMCPConfig_DefaultGRPCAddr(t *testing.T) {
 	s, cleanup := newHandlerTestServer(t)
 	defer cleanup()
 
-	os.Unsetenv("MDDB_GRPC_ADDR")
-	os.Unsetenv("MDDB_ADDR")
+	_ = os.Unsetenv("MDDB_GRPC_ADDR")
+	_ = os.Unsetenv("MDDB_ADDR")
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/v1/mcp/config", nil)
@@ -139,10 +139,10 @@ func TestHandleMCPConfig_CustomAddresses(t *testing.T) {
 	s, cleanup := newHandlerTestServer(t)
 	defer cleanup()
 
-	os.Setenv("MDDB_ADDR", ":9999")
-	os.Setenv("MDDB_GRPC_ADDR", ":8888")
-	defer os.Unsetenv("MDDB_ADDR")
-	defer os.Unsetenv("MDDB_GRPC_ADDR")
+	_ = os.Setenv("MDDB_ADDR", ":9999")
+	_ = os.Setenv("MDDB_GRPC_ADDR", ":8888")
+	defer func() { _ = os.Unsetenv("MDDB_ADDR") }()
+	defer func() { _ = os.Unsetenv("MDDB_GRPC_ADDR") }()
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/v1/mcp/config", nil)

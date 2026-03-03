@@ -321,7 +321,7 @@ func TestHandleReplicationStatus_BinlogStats(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create binlog: %v", err)
 	}
-	defer bl.Close()
+	defer func() { _ = bl.Close() }()
 	s.Binlog = bl
 
 	rec := httptest.NewRecorder()
@@ -354,7 +354,7 @@ func TestHandleReplicationStatus_MultipleFollowers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create binlog: %v", err)
 	}
-	defer bl.Close()
+	defer func() { _ = bl.Close() }()
 	s.Binlog = bl
 
 	rs := &ReplicationServer{

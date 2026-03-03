@@ -154,10 +154,10 @@ func TestHandleConfig_VectorConfigOllama(t *testing.T) {
 	defer cleanup()
 
 	_ = os.Setenv("MDDB_EMBEDDING_PROVIDER", "ollama")
-	defer os.Unsetenv("MDDB_EMBEDDING_PROVIDER")
-	os.Unsetenv("MDDB_EMBEDDING_API_URL")
-	os.Unsetenv("MDDB_EMBEDDING_MODEL")
-	os.Unsetenv("MDDB_EMBEDDING_DIMENSIONS")
+	defer func() { _ = os.Unsetenv("MDDB_EMBEDDING_PROVIDER") }()
+	_ = os.Unsetenv("MDDB_EMBEDDING_API_URL")
+	_ = os.Unsetenv("MDDB_EMBEDDING_MODEL")
+	_ = os.Unsetenv("MDDB_EMBEDDING_DIMENSIONS")
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/v1/config", nil)
@@ -189,10 +189,10 @@ func TestHandleConfig_VectorConfigVoyage(t *testing.T) {
 	defer cleanup()
 
 	_ = os.Setenv("MDDB_EMBEDDING_PROVIDER", "voyage")
-	defer os.Unsetenv("MDDB_EMBEDDING_PROVIDER")
-	os.Unsetenv("MDDB_EMBEDDING_API_URL")
-	os.Unsetenv("MDDB_EMBEDDING_MODEL")
-	os.Unsetenv("MDDB_EMBEDDING_DIMENSIONS")
+	defer func() { _ = os.Unsetenv("MDDB_EMBEDDING_PROVIDER") }()
+	_ = os.Unsetenv("MDDB_EMBEDDING_API_URL")
+	_ = os.Unsetenv("MDDB_EMBEDDING_MODEL")
+	_ = os.Unsetenv("MDDB_EMBEDDING_DIMENSIONS")
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/v1/config", nil)
@@ -273,7 +273,7 @@ func TestHandleConfig_AuthDisabledByDefault(t *testing.T) {
 	s, cleanup := newHandlerTestServer(t)
 	defer cleanup()
 
-	os.Unsetenv("MDDB_AUTH_ENABLED")
+	_ = os.Unsetenv("MDDB_AUTH_ENABLED")
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/v1/config", nil)

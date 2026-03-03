@@ -312,7 +312,7 @@ func TestZeroCopyReaderReadSmallInternalBuffer(t *testing.T) {
 	r := strings.NewReader(content)
 	// Small internal buffer forces multiple refills
 	zcr := NewZeroCopyReader(r, 4)
-	defer zcr.Close()
+	defer func() { _ = zcr.Close() }()
 
 	var result []byte
 	buf := make([]byte, 100)

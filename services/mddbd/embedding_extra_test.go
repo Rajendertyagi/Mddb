@@ -8,7 +8,7 @@ import (
 // Tests for embedding.go: NewEmbeddingProvider, envDefault, envDefaultInt
 
 func TestNewEmbeddingProvider_Empty(t *testing.T) {
-	os.Unsetenv("MDDB_EMBEDDING_PROVIDER")
+	_ = os.Unsetenv("MDDB_EMBEDDING_PROVIDER")
 	p := NewEmbeddingProvider()
 	if p != nil {
 		t.Error("expected nil for empty provider env")
@@ -33,7 +33,7 @@ func TestNewEmbeddingProvider_Unknown(t *testing.T) {
 
 func TestNewEmbeddingProvider_OpenAI_NoKey(t *testing.T) {
 	t.Setenv("MDDB_EMBEDDING_PROVIDER", "openai")
-	os.Unsetenv("MDDB_EMBEDDING_API_KEY")
+	_ = os.Unsetenv("MDDB_EMBEDDING_API_KEY")
 	p := NewEmbeddingProvider()
 	if p != nil {
 		t.Error("expected nil when openai key not set")

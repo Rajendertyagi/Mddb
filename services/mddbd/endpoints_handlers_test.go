@@ -15,7 +15,7 @@ func TestHandleEndpoints_Success(t *testing.T) {
 	s, cleanup := newHandlerTestServer(t)
 	defer cleanup()
 
-	os.Unsetenv("MDDB_AUTH_ENABLED")
+	_ = os.Unsetenv("MDDB_AUTH_ENABLED")
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/v1/endpoints", nil)
@@ -70,7 +70,7 @@ func TestHandleEndpoints_ContainsCoreEndpoints(t *testing.T) {
 	s, cleanup := newHandlerTestServer(t)
 	defer cleanup()
 
-	os.Unsetenv("MDDB_AUTH_ENABLED")
+	_ = os.Unsetenv("MDDB_AUTH_ENABLED")
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/v1/endpoints", nil)
@@ -83,16 +83,16 @@ func TestHandleEndpoints_ContainsCoreEndpoints(t *testing.T) {
 
 	// Check for essential HTTP endpoints
 	expectedPaths := map[string]bool{
-		"/v1/health":         false,
-		"/v1/stats":          false,
-		"/v1/add":            false,
-		"/v1/get":            false,
-		"/v1/search":         false,
-		"/v1/delete":         false,
-		"/v1/vector-search":  false,
-		"/v1/endpoints":      false,
-		"/v1/system/info":    false,
-		"/v1/config":         false,
+		"/v1/health":        false,
+		"/v1/stats":         false,
+		"/v1/add":           false,
+		"/v1/get":           false,
+		"/v1/search":        false,
+		"/v1/delete":        false,
+		"/v1/vector-search": false,
+		"/v1/endpoints":     false,
+		"/v1/system/info":   false,
+		"/v1/config":        false,
 	}
 
 	for _, ep := range resp.HTTP {
@@ -114,8 +114,8 @@ func TestHandleEndpoints_HealthNoAuth(t *testing.T) {
 	s, cleanup := newHandlerTestServer(t)
 	defer cleanup()
 
-	os.Setenv("MDDB_AUTH_ENABLED", "true")
-	defer os.Unsetenv("MDDB_AUTH_ENABLED")
+	_ = os.Setenv("MDDB_AUTH_ENABLED", "true")
+	defer func() { _ = os.Unsetenv("MDDB_AUTH_ENABLED") }()
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/v1/endpoints", nil)
@@ -143,8 +143,8 @@ func TestHandleEndpoints_AuthEnabledAddsAuthEndpoints(t *testing.T) {
 	s, cleanup := newHandlerTestServer(t)
 	defer cleanup()
 
-	os.Setenv("MDDB_AUTH_ENABLED", "true")
-	defer os.Unsetenv("MDDB_AUTH_ENABLED")
+	_ = os.Setenv("MDDB_AUTH_ENABLED", "true")
+	defer func() { _ = os.Unsetenv("MDDB_AUTH_ENABLED") }()
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/v1/endpoints", nil)
@@ -181,7 +181,7 @@ func TestHandleEndpoints_AuthDisabledNoAuthEndpoints(t *testing.T) {
 	s, cleanup := newHandlerTestServer(t)
 	defer cleanup()
 
-	os.Unsetenv("MDDB_AUTH_ENABLED")
+	_ = os.Unsetenv("MDDB_AUTH_ENABLED")
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/v1/endpoints", nil)
@@ -252,11 +252,11 @@ func TestHandleEndpoints_MCPTools(t *testing.T) {
 	}
 
 	expectedMCP := map[string]bool{
-		"add_document":      false,
-		"search_documents":  false,
-		"delete_document":   false,
-		"semantic_search":   false,
-		"get_stats":         false,
+		"add_document":     false,
+		"search_documents": false,
+		"delete_document":  false,
+		"semantic_search":  false,
+		"get_stats":        false,
 	}
 
 	for _, tool := range resp.MCP {
@@ -278,8 +278,8 @@ func TestHandleEndpoints_SelfNoAuth(t *testing.T) {
 	s, cleanup := newHandlerTestServer(t)
 	defer cleanup()
 
-	os.Setenv("MDDB_AUTH_ENABLED", "true")
-	defer os.Unsetenv("MDDB_AUTH_ENABLED")
+	_ = os.Setenv("MDDB_AUTH_ENABLED", "true")
+	defer func() { _ = os.Unsetenv("MDDB_AUTH_ENABLED") }()
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/v1/endpoints", nil)

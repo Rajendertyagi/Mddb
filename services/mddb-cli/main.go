@@ -391,7 +391,9 @@ Reads content from stdin or file.`,
 				fmt.Println(string(resp))
 			} else {
 				var result map[string]string
-				json.Unmarshal(resp, &result)
+				if err := json.Unmarshal(resp, &result); err != nil {
+					return fmt.Errorf("parse response: %w", err)
+				}
 				fmt.Printf("✓ Backup created: %s\n", result["backup"])
 			}
 
@@ -419,7 +421,9 @@ Reads content from stdin or file.`,
 				fmt.Println(string(resp))
 			} else {
 				var result map[string]string
-				json.Unmarshal(resp, &result)
+				if err := json.Unmarshal(resp, &result); err != nil {
+					return fmt.Errorf("parse response: %w", err)
+				}
 				fmt.Printf("✓ Restored from: %s\n", result["restored"])
 			}
 
@@ -480,7 +484,9 @@ Reads content from stdin or file.`,
 				fmt.Println(string(resp))
 			} else {
 				var stats map[string]interface{}
-				json.Unmarshal(resp, &stats)
+				if err := json.Unmarshal(resp, &stats); err != nil {
+					return fmt.Errorf("parse response: %w", err)
+				}
 
 				fmt.Printf("MDDB Server Statistics\n")
 				fmt.Printf("═══════════════════════════════════════\n\n")
@@ -565,7 +571,9 @@ Reads content from stdin or file.`,
 				fmt.Println(string(resp))
 			} else {
 				var result map[string]interface{}
-				json.Unmarshal(resp, &result)
+				if err := json.Unmarshal(resp, &result); err != nil {
+					return fmt.Errorf("parse response: %w", err)
+				}
 
 				results, _ := result["results"].([]interface{})
 				model, _ := result["model"].(string)
@@ -640,7 +648,9 @@ Reads content from stdin or file.`,
 				fmt.Println(string(resp))
 			} else {
 				var result map[string]interface{}
-				json.Unmarshal(resp, &result)
+				if err := json.Unmarshal(resp, &result); err != nil {
+					return fmt.Errorf("parse response: %w", err)
+				}
 				embedded := int(result["embedded"].(float64))
 				skipped := int(result["skipped"].(float64))
 				failed := int(result["failed"].(float64))
@@ -680,7 +690,9 @@ Reads content from stdin or file.`,
 				fmt.Println(string(resp))
 			} else {
 				var result map[string]interface{}
-				json.Unmarshal(resp, &result)
+				if err := json.Unmarshal(resp, &result); err != nil {
+					return fmt.Errorf("parse response: %w", err)
+				}
 
 				enabled, _ := result["enabled"].(bool)
 				fmt.Printf("Vector Search Statistics\n")
@@ -769,7 +781,9 @@ Reads content from stdin or file.`,
 				fmt.Println(string(resp))
 			} else {
 				var doc map[string]interface{}
-				json.Unmarshal(resp, &doc)
+				if err := json.Unmarshal(resp, &doc); err != nil {
+					return fmt.Errorf("parse response: %w", err)
+				}
 				fmt.Printf("Document imported from URL: %s\n", doc["id"])
 			}
 			return nil
@@ -847,7 +861,9 @@ Reads content from stdin or file.`,
 				fmt.Println(string(resp))
 			} else {
 				var result map[string]interface{}
-				json.Unmarshal(resp, &result)
+				if err := json.Unmarshal(resp, &result); err != nil {
+					return fmt.Errorf("parse response: %w", err)
+				}
 
 				results, _ := result["results"].([]interface{})
 				total, _ := result["total"].(float64)
@@ -922,7 +938,9 @@ Reads content from stdin or file.`,
 				fmt.Println(string(resp))
 			} else {
 				var wh map[string]interface{}
-				json.Unmarshal(resp, &wh)
+				if err := json.Unmarshal(resp, &wh); err != nil {
+					return fmt.Errorf("parse response: %w", err)
+				}
 				fmt.Printf("Webhook registered: %s\n", wh["id"])
 				fmt.Printf("  URL: %s\n", wh["url"])
 				fmt.Printf("  Events: %v\n", wh["events"])
@@ -948,7 +966,9 @@ Reads content from stdin or file.`,
 				fmt.Println(string(resp))
 			} else {
 				var hooks []map[string]interface{}
-				json.Unmarshal(resp, &hooks)
+				if err := json.Unmarshal(resp, &hooks); err != nil {
+					return fmt.Errorf("parse response: %w", err)
+				}
 				if len(hooks) == 0 {
 					fmt.Println("No webhooks registered.")
 				} else {
@@ -1055,7 +1075,9 @@ Reads content from stdin or file.`,
 				fmt.Println(string(resp))
 			} else {
 				var result map[string]interface{}
-				json.Unmarshal(resp, &result)
+				if err := json.Unmarshal(resp, &result); err != nil {
+					return fmt.Errorf("parse response: %w", err)
+				}
 				if schema, ok := result["schema"].(string); ok {
 					fmt.Printf("Schema for collection %q:\n%s\n", collection, schema)
 				} else {
@@ -1115,7 +1137,9 @@ Reads content from stdin or file.`,
 				fmt.Println(string(resp))
 			} else {
 				var result map[string]interface{}
-				json.Unmarshal(resp, &result)
+				if err := json.Unmarshal(resp, &result); err != nil {
+					return fmt.Errorf("parse response: %w", err)
+				}
 
 				if schemas, ok := result["schemas"].(map[string]interface{}); ok && len(schemas) > 0 {
 					fmt.Printf("Schemas:\n")
@@ -1173,7 +1197,9 @@ Reads content from stdin or file.`,
 				fmt.Println(string(resp))
 			} else {
 				var result map[string]interface{}
-				json.Unmarshal(resp, &result)
+				if err := json.Unmarshal(resp, &result); err != nil {
+					return fmt.Errorf("parse response: %w", err)
+				}
 
 				if valid, ok := result["valid"].(bool); ok && valid {
 					fmt.Printf("Metadata is valid for collection: %s\n", collection)
@@ -1219,7 +1245,9 @@ Reads content from stdin or file.`,
 				fmt.Println(string(resp))
 			} else {
 				var result map[string]interface{}
-				json.Unmarshal(resp, &result)
+				if err := json.Unmarshal(resp, &result); err != nil {
+					return fmt.Errorf("parse response: %w", err)
+				}
 
 				tokenStr, _ := result["token"].(string)
 				expiresAt, _ := result["expiresAt"].(float64)
@@ -1269,7 +1297,9 @@ Reads content from stdin or file.`,
 				fmt.Println(string(resp))
 			} else {
 				var result map[string]interface{}
-				json.Unmarshal(resp, &result)
+				if err := json.Unmarshal(resp, &result); err != nil {
+					return fmt.Errorf("parse response: %w", err)
+				}
 
 				key, _ := result["key"].(string)
 				desc, _ := result["description"].(string)
@@ -1314,7 +1344,9 @@ Reads content from stdin or file.`,
 				fmt.Println(string(resp))
 			} else {
 				var result map[string]interface{}
-				json.Unmarshal(resp, &result)
+				if err := json.Unmarshal(resp, &result); err != nil {
+					return fmt.Errorf("parse response: %w", err)
+				}
 
 				keys, _ := result["keys"].([]interface{})
 				if len(keys) == 0 {

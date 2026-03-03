@@ -20,7 +20,7 @@ func newTestServerForIndexQueue(t *testing.T) (*Server, func()) {
 
 	db, err := bolt.Open(f.Name(), 0600, &bolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
-		os.Remove(f.Name())
+		_ = os.Remove(f.Name())
 		t.Fatal(err)
 	}
 

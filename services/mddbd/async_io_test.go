@@ -264,7 +264,7 @@ func TestAsyncIOBatchReadAsync(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	requests := []ReadRequest{
 		{Offset: 0, Size: 5},
@@ -312,7 +312,7 @@ func TestAsyncIOBatchReadAsyncEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var batchResults []ReadResult
 	var wg sync.WaitGroup
@@ -343,9 +343,8 @@ func TestAsyncIOOperationIDs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
-	// IDs should be sequential
 	var wg sync.WaitGroup
 	wg.Add(2)
 

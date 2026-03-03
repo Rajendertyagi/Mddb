@@ -242,10 +242,14 @@ func TestTTLSetNegativeRemovesTTL(t *testing.T) {
 	defer cleanup()
 
 	expiresAt := time.Now().Unix() + 3600
-	mgr.Set("blog", "doc1", expiresAt)
+	if err := mgr.Set("blog", "doc1", expiresAt); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
 
 	// Negative expiresAt should also remove TTL
-	mgr.Set("blog", "doc1", -1)
+	if err := mgr.Set("blog", "doc1", -1); err != nil {
+		t.Fatalf("Set negative: %v", err)
+	}
 
 	err := db.View(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket(bucketTTLRev)
@@ -264,7 +268,9 @@ func TestTTLRemove(t *testing.T) {
 	defer cleanup()
 
 	expiresAt := time.Now().Unix() + 3600
-	mgr.Set("blog", "doc1", expiresAt)
+	if err := mgr.Set("blog", "doc1", expiresAt); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
 
 	if err := mgr.Remove("blog", "doc1"); err != nil {
 		t.Fatalf("Remove failed: %v", err)
@@ -306,8 +312,12 @@ func TestTTLRemoveMultiple(t *testing.T) {
 	exp1 := time.Now().Unix() + 3600
 	exp2 := time.Now().Unix() + 7200
 
-	mgr.Set("blog", "doc1", exp1)
-	mgr.Set("blog", "doc2", exp2)
+	if err := mgr.Set("blog", "doc1", exp1); err != nil {
+		t.Fatalf("Set doc1: %v", err)
+	}
+	if err := mgr.Set("blog", "doc2", exp2); err != nil {
+		t.Fatalf("Set doc2: %v", err)
+	}
 
 	// Remove only doc1
 	if err := mgr.Remove("blog", "doc1"); err != nil {
@@ -389,9 +399,15 @@ func TestTTLSetMultipleCollections(t *testing.T) {
 
 	exp := time.Now().Unix() + 3600
 
-	mgr.Set("blog", "doc1", exp)
-	mgr.Set("docs", "doc1", exp)
-	mgr.Set("blog", "doc2", exp+100)
+	if err := mgr.Set("blog", "doc1", exp); err != nil {
+		t.Fatalf("Set blog/doc1: %v", err)
+	}
+	if err := mgr.Set("docs", "doc1", exp); err != nil {
+		t.Fatalf("Set docs/doc1: %v", err)
+	}
+	if err := mgr.Set("blog", "doc2", exp+100); err != nil {
+		t.Fatalf("Set blog/doc2: %v", err)
+	}
 
 	// Verify all three entries exist
 	err := db.View(func(tx *bolt.Tx) error {

@@ -32,7 +32,7 @@ author: Alice
 
 Body content here.`
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, mdContent)
+		_, _ = fmt.Fprint(w, mdContent)
 	}))
 	defer ts.Close()
 
@@ -65,7 +65,7 @@ func TestMainHandleImportURL_WithExplicitKey(t *testing.T) {
 	defer cleanup()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "# Hello World")
+		_, _ = fmt.Fprint(w, "# Hello World")
 	}))
 	defer ts.Close()
 
@@ -130,7 +130,7 @@ func TestMainHandleImportURL_CannotDeriveKey(t *testing.T) {
 
 	// URL with root path -- cannot derive key
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "# Hello")
+		_, _ = fmt.Fprint(w, "# Hello")
 	}))
 	defer ts.Close()
 
@@ -171,7 +171,7 @@ func TestMainHandleImportURL_WithTTL(t *testing.T) {
 	defer cleanup()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "# TTL Content")
+		_, _ = fmt.Fprint(w, "# TTL Content")
 	}))
 	defer ts.Close()
 
@@ -205,7 +205,7 @@ category: original
 ---
 Body`
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, mdContent)
+		_, _ = fmt.Fprint(w, mdContent)
 	}))
 	defer ts.Close()
 
@@ -1483,8 +1483,8 @@ func TestMainEnv(t *testing.T) {
 	}
 
 	// Set and read
-	os.Setenv("MDDB_TEST_ENV_VAR_12345", "custom")
-	defer os.Unsetenv("MDDB_TEST_ENV_VAR_12345")
+	_ = os.Setenv("MDDB_TEST_ENV_VAR_12345", "custom")
+	defer func() { _ = os.Unsetenv("MDDB_TEST_ENV_VAR_12345") }()
 	result = env("MDDB_TEST_ENV_VAR_12345", "default")
 	if result != "custom" {
 		t.Errorf("expected custom, got %s", result)
