@@ -28,12 +28,14 @@ export default function Sidebar({ stats, statsError, onStatsRefresh }) {
   const handleReindex = async (collectionName, e) => {
     e.stopPropagation();
     setReindexingCollection(collectionName);
+    const pollInterval = setInterval(() => loadVectorStats(), 2000);
     try {
       await mddbClient.reindexVectors(collectionName);
       await loadVectorStats();
     } catch (error) {
       console.error('Reindex error:', error);
     } finally {
+      clearInterval(pollInterval);
       setReindexingCollection(null);
     }
   };
