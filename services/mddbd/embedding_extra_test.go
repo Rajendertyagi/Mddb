@@ -158,7 +158,7 @@ func TestEnvDefault_Set(t *testing.T) {
 }
 
 func TestEnvDefault_Unset(t *testing.T) {
-	os.Unsetenv("MDDB_TEST_KEY_UNSET")
+	_ = os.Unsetenv("MDDB_TEST_KEY_UNSET")
 	v := envDefault("MDDB_TEST_KEY_UNSET", "default-value")
 	if v != "default-value" {
 		t.Errorf("got %q, want default-value", v)
@@ -174,7 +174,7 @@ func TestEnvDefaultInt_Set(t *testing.T) {
 }
 
 func TestEnvDefaultInt_Unset(t *testing.T) {
-	os.Unsetenv("MDDB_TEST_INT_UNSET")
+	_ = os.Unsetenv("MDDB_TEST_INT_UNSET")
 	v := envDefaultInt("MDDB_TEST_INT_UNSET", 100)
 	if v != 100 {
 		t.Errorf("got %d, want 100", v)
