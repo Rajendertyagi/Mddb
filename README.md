@@ -281,7 +281,7 @@ mddb-cli stats
 
 ## 🗺️ Roadmap
 
-### ✅ Implemented (v2.5.1)
+### ✅ Implemented (v2.5.2)
 - ✅ HTTP/JSON + gRPC/Protobuf + GraphQL APIs
 - ✅ Vector Search + Full-Text Search
 - ✅ Authentication + Authorization (JWT, API keys, RBAC)

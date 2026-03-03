@@ -2,7 +2,7 @@
 
 Detailed roadmap showing implemented features and future plans.
 
-## ✅ Implemented Features (v2.5.1)
+## ✅ Implemented Features (v2.5.2)
 
 ### Core Database (v1.0 - v2.3)
 
@@ -282,7 +282,7 @@ Vote on features: [GitHub Discussions](https://github.com/tradik/mddb/discussion
 
 ## 🛠️ Development Status
 
-**Current Focus:** v2.5.1 Release (GraphQL API)
+**Current Focus:** v2.5.2 Release (CORS support)
 - ✅ GraphQL schema design
 - ✅ Resolver implementation
 - ✅ Authentication directives

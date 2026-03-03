@@ -19,7 +19,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-const VERSION = "2.5.1"
+const VERSION = "2.5.2"
 
 type AccessMode string
 
@@ -462,12 +462,13 @@ func main() {
 	httpAddr := env("MDDB_ADDR", ":11023")
 	grpcAddr := env("MDDB_GRPC_ADDR", ":11024")
 
-	// Wrap mux: auth middleware → metrics middleware → JSON content type → routes
+	// Wrap mux: CORS → auth middleware → metrics middleware → JSON content type → routes
 	handler := withJSON(mux)
 	handler = s.Metrics.Middleware(handler)
 	if authEnabled && s.AuthManager != nil {
 		handler = s.AuthManager.HTTPMiddleware(handler)
 	}
+	handler = withCORS(handler)
 
 	// Start HTTP server
 	go func() {
@@ -558,6 +559,21 @@ func kMetaKeyPrefix(coll, mk, mv string) []byte {
 }
 
 // --- middleware
+
+func withCORS(h http.Handler) http.Handler {
+	origin := env("MDDB_CORS_ORIGIN", "*")
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
+		w.Header().Set("Access-Control-Max-Age", "86400")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		h.ServeHTTP(w, r)
+	})
+}
 
 func withJSON(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
