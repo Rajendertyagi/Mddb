@@ -100,7 +100,31 @@ make build
 - ✅ **User Management** - Multi-user with admin roles
 - ✅ **Group Permissions** - Organize users into groups
 
+### Replication & High Availability
+- ✅ **Leader-Follower Replication** - Binlog streaming for read scaling
+- ✅ **Automatic Catch-up** - Followers pull missing transactions
+- ✅ **Zero-Downtime Snapshots** - Full sync for new followers
+- ✅ **Cluster Monitoring** - Web panel with health and lag metrics
+
 **[→ See all features](docs/FEATURES.md)** | **[→ Compare with alternatives](docs/COMPARISON.md)** | **[→ Performance benchmarks](docs/PERFORMANCE.md)**
+
+## 🔄 Replication Architecture
+
+MDDB supports leader-follower replication allowing you to scale read operations horizontally.
+
+```mermaid
+graph LR
+    C[Clients] -->|Writes/Reads| L[Leader]
+    C -->|Reads| F1[Follower 1]
+    C -->|Reads| F2[Follower 2]
+    L -->|gRPC StreamBinlog| F1
+    L -->|gRPC StreamBinlog| F2
+```
+
+- **Leader**: Handles writes, maintains changes in a binary log, and streams them via gRPC.
+- **Followers**: Read-only, pulls transactions, reconnects automatically.
+
+**[→ Read Full Replication Guide](docs/REPLICATION.md)**
 
 ## 🎨 Web Admin Panel
 
@@ -257,7 +281,7 @@ mddb-cli stats
 
 ## 🗺️ Roadmap
 
-### ✅ Implemented (v2.5.0)
+### ✅ Implemented (v2.5.1)
 - ✅ HTTP/JSON + gRPC/Protobuf + GraphQL APIs
 - ✅ Vector Search + Full-Text Search
 - ✅ Authentication + Authorization (JWT, API keys, RBAC)

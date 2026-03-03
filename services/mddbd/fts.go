@@ -24,6 +24,12 @@ var (
 type FTSIndex struct {
 	db        *bolt.DB
 	stopWords map[string]bool
+	binlog    *Binlog
+}
+
+// SetBinlog sets the binlog for replication logging.
+func (f *FTSIndex) SetBinlog(bl *Binlog) {
+	f.binlog = bl
 }
 
 // FTSResult represents a full-text search result.
@@ -107,7 +113,8 @@ func (f *FTSIndex) Index(collection, docID, content string) error {
 		return nil
 	}
 
-	return f.db.Update(func(tx *bolt.Tx) error {
+	var bo BinlogOps
+	err := f.db.Update(func(tx *bolt.Tx) error {
 		bFTS := tx.Bucket(bucketFTS)
 		bRev := tx.Bucket(bucketFTSRev)
 
@@ -117,7 +124,9 @@ func (f *FTSIndex) Index(collection, docID, content string) error {
 			oldTerms := strings.Split(string(old), ",")
 			for _, term := range oldTerms {
 				if term != "" {
-					_ = bFTS.Delete(ftsKey(collection, term, docID))
+					k := ftsKey(collection, term, docID)
+					_ = bFTS.Delete(k)
+					bo.Delete("fts", k)
 				}
 			}
 		}
@@ -127,20 +136,29 @@ func (f *FTSIndex) Index(collection, docID, content string) error {
 		for term, count := range terms {
 			var buf [4]byte
 			binary.LittleEndian.PutUint32(buf[:], uint32(count))
-			if err := bFTS.Put(ftsKey(collection, term, docID), buf[:]); err != nil {
+			k := ftsKey(collection, term, docID)
+			if err := bFTS.Put(k, buf[:]); err != nil {
 				return err
 			}
+			bo.Put("fts", k, buf[:])
 			termList = append(termList, term)
 		}
 
 		// Store reverse index
-		return bRev.Put(revKey, []byte(strings.Join(termList, ",")))
+		revVal := []byte(strings.Join(termList, ","))
+		bo.Put("ftsrev", revKey, revVal)
+		return bRev.Put(revKey, revVal)
 	})
+	if err == nil {
+		bo.FlushTo(f.binlog)
+	}
+	return err
 }
 
 // Remove deletes all FTS entries for a document.
 func (f *FTSIndex) Remove(collection, docID string) error {
-	return f.db.Update(func(tx *bolt.Tx) error {
+	var bo BinlogOps
+	err := f.db.Update(func(tx *bolt.Tx) error {
 		bFTS := tx.Bucket(bucketFTS)
 		bRev := tx.Bucket(bucketFTSRev)
 
@@ -149,12 +167,19 @@ func (f *FTSIndex) Remove(collection, docID string) error {
 			oldTerms := strings.Split(string(old), ",")
 			for _, term := range oldTerms {
 				if term != "" {
-					_ = bFTS.Delete(ftsKey(collection, term, docID))
+					k := ftsKey(collection, term, docID)
+					_ = bFTS.Delete(k)
+					bo.Delete("fts", k)
 				}
 			}
 		}
+		bo.Delete("ftsrev", revKey)
 		return bRev.Delete(revKey)
 	})
+	if err == nil {
+		bo.FlushTo(f.binlog)
+	}
+	return err
 }
 
 // Search performs a full-text search and returns matching document IDs with scores.

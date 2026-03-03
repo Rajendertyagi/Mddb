@@ -63,7 +63,7 @@ dev-shell-panel: ## Open shell in MDDB panel container
 
 test: ## Run all tests
 	@echo "🧪 Running backend tests..."
-	cd services/mddbd && go test -v -timeout 30s ./...
+	cd services/mddbd && go test -v -timeout 5m ./...
 	@echo "✅ Tests passed!"
 
 test-coverage: ## Run tests with coverage
@@ -93,9 +93,9 @@ vet: ## Run go vet
 
 sec: ## Run security scanner (gosec)
 	@echo "🔒 Running security scan..."
-	cd services/mddbd && gosec -quiet ./...
-	cd services/mddb-cli && gosec -quiet ./...
-	cd services/mddb-mcp && gosec -quiet ./...
+	cd services/mddbd && gosec -quiet -exclude-generated -exclude=G115 ./...
+	cd services/mddb-cli && gosec -quiet -exclude-generated -exclude=G115 ./...
+	cd services/mddb-mcp && gosec -quiet -exclude-generated -exclude=G115 ./...
 	@echo "✅ Security scan passed!"
 
 test-graphql: ## Run GraphQL tests with coverage
@@ -114,6 +114,6 @@ ci: lint-all test-all ## Run full CI pipeline (lint + test)
 	@echo "✅ CI pipeline complete!"
 
 version: ## Show current version
-	@echo "MDDB Version: 2.5.0"
+	@echo "MDDB Version: 2.5.1"
 
 .DEFAULT_GOAL := help

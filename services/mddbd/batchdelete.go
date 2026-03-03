@@ -128,6 +128,7 @@ func (bd *BatchDeleter) lookupDocument(collection string, deleteDoc *proto.Delet
 func (bd *BatchDeleter) commitDelete(collection string, deleted []*DeletedDoc) *proto.DeleteBatchResponse {
 	resp := &proto.DeleteBatchResponse{}
 
+	var bo BinlogOps
 	// Single transaction for all deletions
 	err := bd.server.DB.Update(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(bd.server.BucketNames.Docs)
@@ -154,10 +155,12 @@ func (bd *BatchDeleter) commitDelete(collection string, deleted []*DeletedDoc) *
 				resp.Errors = append(resp.Errors, fmt.Sprintf("%s/%s: delete error: %v", d.Key, d.Lang, err))
 				continue
 			}
+			bo.Delete("docs", docKey)
 
 			// Delete bykey index
 			byKeyKey := kByKey(collection, d.Key, d.Lang)
 			_ = bByK.Delete(byKeyKey)
+			bo.Delete("bykey", byKeyKey)
 
 			// Delete metadata indices
 			if d.OldMeta != nil {
@@ -165,6 +168,7 @@ func (bd *BatchDeleter) commitDelete(collection string, deleted []*DeletedDoc) *
 					for _, mv := range vals {
 						metaKey := append(kMetaKeyPrefix(collection, mk, mv), []byte(d.DocID)...)
 						_ = bIdx.Delete(metaKey)
+						bo.Delete("idxmeta", metaKey)
 					}
 				}
 			}
@@ -177,6 +181,7 @@ func (bd *BatchDeleter) commitDelete(collection string, deleted []*DeletedDoc) *
 					break
 				}
 				_ = bRev.Delete(k)
+				bo.Delete("rev", k)
 			}
 
 			// Invalidate cache
@@ -192,6 +197,8 @@ func (bd *BatchDeleter) commitDelete(collection string, deleted []*DeletedDoc) *
 	if err != nil {
 		resp.Failed++
 		resp.Errors = append(resp.Errors, fmt.Sprintf("transaction error: %v", err))
+	} else {
+		bo.FlushTo(bd.server.Binlog)
 	}
 
 	return resp

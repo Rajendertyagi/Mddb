@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Folder, Database, HardDrive, FileText, Trash2, Brain, Server, Settings, Code, Network, Users, UsersIcon, Upload, FolderPlus, Sliders } from 'lucide-react';
+import { Folder, Database, HardDrive, FileText, Trash2, Brain, Server, Settings, Code, Network, Users, UsersIcon, Upload, FolderPlus, Sliders, GitBranch } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
 import UploadModal from './UploadModal';
@@ -241,6 +241,17 @@ export default function Sidebar({ stats, statsError, onStatsRefresh }) {
           >
             <Server className="w-4 h-4" />
             <span className="text-sm font-medium">System Info</span>
+          </button>
+          <button
+            onClick={() => setViewMode('cluster')}
+            className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+              viewMode === 'cluster'
+                ? 'bg-blue-100 text-blue-700'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <GitBranch className="w-4 h-4" />
+            <span className="text-sm font-medium">Cluster</span>
           </button>
           <button
             onClick={() => setViewMode('config')}

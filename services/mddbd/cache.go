@@ -2,6 +2,7 @@ package main
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -49,17 +50,17 @@ func (dc *DocumentCache) Get(key string) ([]byte, bool) {
 
 	entry, exists := dc.cache[key]
 	if !exists {
-		dc.misses++
+		atomic.AddUint64(&dc.misses, 1)
 		return nil, false
 	}
 
 	// Check if expired
 	if time.Now().Unix() > entry.ExpiresAt {
-		dc.misses++
+		atomic.AddUint64(&dc.misses, 1)
 		return nil, false
 	}
 
-	dc.hits++
+	atomic.AddUint64(&dc.hits, 1)
 	return entry.Data, true
 }
 

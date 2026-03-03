@@ -25,7 +25,8 @@ type EmbeddingConfig struct {
 
 // SaveEmbeddingConfig saves an embedding configuration to the database
 func (s *Server) SaveEmbeddingConfig(config *EmbeddingConfig) error {
-	return s.DB.Update(func(tx *bolt.Tx) error {
+	var bo BinlogOps
+	err := s.DB.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte("embedding_configs"))
 		if bucket == nil {
 			return fmt.Errorf("embedding_configs bucket not found")
@@ -42,7 +43,8 @@ func (s *Server) SaveEmbeddingConfig(config *EmbeddingConfig) error {
 				if existing.IsDefault && existing.ID != config.ID {
 					existing.IsDefault = false
 					data, _ := json.Marshal(existing)
-					_ = bucket.Put([]byte(existing.ID), data) // Best-effort update of old default
+					_ = bucket.Put([]byte(existing.ID), data)
+					bo.Put("embedding_configs", []byte(existing.ID), data)
 				}
 			}
 		}
@@ -52,8 +54,13 @@ func (s *Server) SaveEmbeddingConfig(config *EmbeddingConfig) error {
 			return err
 		}
 
+		bo.Put("embedding_configs", []byte(config.ID), data)
 		return bucket.Put([]byte(config.ID), data)
 	})
+	if err == nil {
+		bo.FlushTo(s.Binlog)
+	}
+	return err
 }
 
 // GetEmbeddingConfig retrieves an embedding configuration by ID
@@ -117,14 +124,19 @@ func (s *Server) GetDefaultEmbeddingConfig() (*EmbeddingConfig, error) {
 
 // DeleteEmbeddingConfig deletes an embedding configuration
 func (s *Server) DeleteEmbeddingConfig(id string) error {
-	return s.DB.Update(func(tx *bolt.Tx) error {
+	key := []byte(id)
+	err := s.DB.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte("embedding_configs"))
 		if bucket == nil {
 			return fmt.Errorf("embedding_configs bucket not found")
 		}
 
-		return bucket.Delete([]byte(id))
+		return bucket.Delete(key)
 	})
+	if err == nil && s.Binlog != nil {
+		_ = s.Binlog.Append(&BinlogEntry{Type: BinlogDelete, BucketName: "embedding_configs", Key: copyBytes(key)})
+	}
+	return err
 }
 
 // HTTP Handlers

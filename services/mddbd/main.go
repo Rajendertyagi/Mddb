@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -18,7 +19,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-const VERSION = "2.5.0"
+const VERSION = "2.5.1"
 
 type AccessMode string
 
@@ -60,6 +61,12 @@ type Server struct {
 	SchemaManager  *SchemaManager  // Per-collection metadata schema validation
 	Metrics        *Metrics        // Prometheus-compatible telemetry
 	AuthManager    *AuthManager    // Authentication and authorization
+	// Replication
+	Binlog          *Binlog            // Binary replication log
+	ReplicationRole string             // "leader", "follower", or "" (standalone)
+	NodeID          string             // Unique node identifier
+	replServer      *ReplicationServer // Leader-side gRPC replication service
+	replClient      *ReplicationClient // Follower-side replication client
 }
 
 // BucketNames caches bucket name byte slices to avoid repeated allocations
@@ -290,6 +297,58 @@ func main() {
 		log.Println("Prometheus metrics enabled (GET /metrics)")
 	}
 
+	// Initialize replication
+	s.ReplicationRole = env("MDDB_REPLICATION_ROLE", "") // "leader", "follower", ""
+	s.NodeID = env("MDDB_NODE_ID", "")
+	if s.NodeID == "" && s.ReplicationRole != "" {
+		s.NodeID = fmt.Sprintf("node-%d", time.Now().UnixNano()%100000)
+	}
+
+	// Force follower to read-only mode
+	if s.ReplicationRole == "follower" {
+		s.Mode = ModeRead
+		log.Println("Replication: follower mode — forced read-only")
+	}
+
+	// Initialize binlog (auto-enabled for leader, opt-in for standalone)
+	binlogEnabled := env("MDDB_BINLOG_ENABLED", "false") == "true" || s.ReplicationRole == "leader"
+	if binlogEnabled {
+		bl, err := NewBinlog(dbPath, BinlogConfig{
+			Path:    env("MDDB_BINLOG_PATH", ""),
+			MaxSize: 256 * 1024 * 1024, // 256MB
+			MaxAge:  24 * time.Hour,
+		})
+		if err != nil {
+			log.Fatalf("Failed to initialize binlog: %v", err)
+		}
+		s.Binlog = bl
+		log.Printf("Binlog enabled (LSN=%d)", bl.CurrentLSN())
+	}
+
+	// Set binlog on all subsystems
+	if s.Binlog != nil {
+		s.VectorStore.SetBinlog(s.Binlog)
+		s.FTSIndex.SetBinlog(s.Binlog)
+		s.TTLManager.SetBinlog(s.Binlog)
+		s.WebhookManager.SetBinlog(s.Binlog)
+		s.SchemaManager.SetBinlog(s.Binlog)
+	}
+
+	// Follower: disable background writers (data comes from binlog)
+	if s.ReplicationRole == "follower" {
+		s.TTLManager.Stop() // don't run TTL cleanup, leader handles it
+		s.TTLManager = NewTTLManager(db, s)
+		_ = s.TTLManager.EnsureBuckets()
+		// Don't start cleanup — deletes come from binlog
+
+		// Don't start embedding worker — embeddings come from leader
+		if s.EmbeddingWorker != nil {
+			s.EmbeddingWorker.Stop()
+			s.EmbeddingWorker = nil
+		}
+		log.Println("Replication: disabled TTL cleanup and embedding worker on follower")
+	}
+
 	// Initialize authentication (disabled by default)
 	authEnabled := env("MDDB_AUTH_ENABLED", "false") == "true"
 	if authEnabled {
@@ -355,6 +414,9 @@ func main() {
 	mux.HandleFunc("/v1/validate", s.handleValidate)
 	mux.HandleFunc("/metrics", s.Metrics.HandleMetrics)
 
+	// Replication status endpoint
+	mux.HandleFunc("/v1/replication/status", s.handleReplicationStatus)
+
 	// System info and config endpoints
 	mux.HandleFunc("/v1/system/info", s.handleSystemInfo)
 	mux.HandleFunc("/v1/config", s.handleConfig)
@@ -410,7 +472,15 @@ func main() {
 	// Start HTTP server
 	go func() {
 		log.Printf("mddb HTTP listening on %s (mode=%s, db=%s)", httpAddr, s.Mode, dbPath)
-		if err := http.ListenAndServe(httpAddr, handler); err != nil {
+		server := &http.Server{
+			Addr:              httpAddr,
+			Handler:           handler,
+			ReadHeaderTimeout: 10 * time.Second,
+			ReadTimeout:       30 * time.Second,
+			WriteTimeout:      30 * time.Second,
+			IdleTimeout:       120 * time.Second,
+		}
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatal(err)
 		}
 	}()
@@ -428,6 +498,32 @@ func main() {
 				log.Printf("⚠️  HTTP/3 server error: %v", err)
 			}
 		}()
+	}
+
+	// Start replication client (follower mode)
+	var replClient *ReplicationClient
+	if s.ReplicationRole == "follower" {
+		leaderAddr := env("MDDB_REPLICATION_LEADER_ADDR", "")
+		if leaderAddr == "" {
+			log.Fatal("MDDB_REPLICATION_ROLE=follower requires MDDB_REPLICATION_LEADER_ADDR")
+		}
+		replClient = NewReplicationClient(s, ReplicationClientConfig{
+			LeaderAddr: leaderAddr,
+			FollowerID: s.NodeID,
+		})
+		s.replClient = replClient
+		replClient.Start()
+		defer replClient.Stop()
+		log.Printf("Replication client started (leader=%s, follower=%s)", leaderAddr, s.NodeID)
+	}
+
+	if s.ReplicationRole == "leader" {
+		log.Printf("Replication leader started (node=%s, binlog LSN=%d)", s.NodeID, s.Binlog.CurrentLSN())
+	}
+
+	// Close binlog on shutdown
+	if s.Binlog != nil {
+		defer func() { _ = s.Binlog.Close() }()
 	}
 
 	// Start gRPC server
@@ -490,6 +586,7 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 
 	var saved Doc
 	var isNew bool
+	var bo BinlogOps
 	err := s.DB.Update(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bIdx := tx.Bucket([]byte("idxmeta"))
@@ -517,12 +614,17 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 		}
 
 		buf, _ := json.Marshal(doc)
-		if err := bDocs.Put(kDoc(collection, docID), buf); err != nil {
+		docKey := kDoc(collection, docID)
+		if err := bDocs.Put(docKey, buf); err != nil {
 			return err
 		}
-		if err := bByK.Put(kByKey(collection, key, lang), []byte(docID)); err != nil {
+		bo.Put("docs", docKey, buf)
+
+		byKeyK := kByKey(collection, key, lang)
+		if err := bByK.Put(byKeyK, []byte(docID)); err != nil {
 			return err
 		}
+		bo.Put("bykey", byKeyK, []byte(docID))
 
 		if metadataChanged(existing.Meta, doc.Meta) {
 			if existing.ID != "" && existing.Meta != nil {
@@ -530,6 +632,7 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 					for _, mv := range vals {
 						prefix := append(kMetaKeyPrefix(collection, mk, mv), []byte(existing.ID)...)
 						_ = bIdx.Delete(prefix)
+						bo.Delete("idxmeta", prefix)
 					}
 				}
 			}
@@ -539,6 +642,7 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 					if err := bIdx.Put(mkey, []byte("1")); err != nil {
 						return err
 					}
+					bo.Put("idxmeta", mkey, []byte("1"))
 				}
 			}
 		}
@@ -547,10 +651,14 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 		if err := bRev.Put(rkey, buf); err != nil {
 			return err
 		}
+		bo.Put("rev", rkey, buf)
 
 		saved = doc
 		return nil
 	})
+	if err == nil {
+		bo.FlushTo(s.Binlog)
+	}
 	if err != nil {
 		return Doc{}, false, err
 	}
@@ -590,6 +698,7 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 func (s *Server) deleteDocumentInternal(collection, key, lang string) error {
 	docID := genID(collection, key, lang)
 
+	var bo BinlogOps
 	err := s.DB.Update(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bIdx := tx.Bucket([]byte("idxmeta"))
@@ -605,12 +714,17 @@ func (s *Server) deleteDocumentInternal(collection, key, lang string) error {
 			return err
 		}
 
-		if err := bDocs.Delete(kDoc(collection, docID)); err != nil {
+		docKey := kDoc(collection, docID)
+		if err := bDocs.Delete(docKey); err != nil {
 			return err
 		}
-		if err := bByK.Delete(kByKey(collection, key, lang)); err != nil {
+		bo.Delete("docs", docKey)
+
+		byKeyK := kByKey(collection, key, lang)
+		if err := bByK.Delete(byKeyK); err != nil {
 			return err
 		}
+		bo.Delete("bykey", byKeyK)
 
 		c := bRev.Cursor()
 		rp := kRevPrefix(collection, docID)
@@ -618,6 +732,7 @@ func (s *Server) deleteDocumentInternal(collection, key, lang string) error {
 			if err := bRev.Delete(k); err != nil {
 				return err
 			}
+			bo.Delete("rev", k)
 		}
 
 		for mk, vals := range doc.Meta {
@@ -626,11 +741,15 @@ func (s *Server) deleteDocumentInternal(collection, key, lang string) error {
 				if err := bIdx.Delete(mkey); err != nil {
 					return err
 				}
+				bo.Delete("idxmeta", mkey)
 			}
 		}
 
 		return nil
 	})
+	if err == nil {
+		bo.FlushTo(s.Binlog)
+	}
 	if err != nil {
 		return err
 	}
@@ -1268,13 +1387,15 @@ func intersect(sets ...[]string) []string {
 	return out
 }
 func copyFile(src, dst string) error {
-	in, err := os.Open(src)
+	// #nosec G304 -- Function intentionally copies provided path
+	in, err := os.Open(filepath.Clean(src))
 	if err != nil {
 		return err
 	}
 	defer func() { _ = in.Close() }()
 	tmp := dst + ".tmp"
-	out, err := os.Create(tmp)
+	// #nosec G304 -- Subpath created securely
+	out, err := os.Create(filepath.Clean(tmp))
 	if err != nil {
 		return err
 	}

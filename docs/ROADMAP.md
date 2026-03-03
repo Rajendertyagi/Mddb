@@ -2,7 +2,7 @@
 
 Detailed roadmap showing implemented features and future plans.
 
-## ✅ Implemented Features (v2.5.0)
+## ✅ Implemented Features (v2.5.1)
 
 ### Core Database (v1.0 - v2.3)
 
@@ -70,7 +70,7 @@ Detailed roadmap showing implemented features and future plans.
 
 ### Modern APIs (v2.5) 🆕
 
-**v2.5.0 - GraphQL & Enhanced Tooling**
+**v2.5.1 - GraphQL & Enhanced Tooling**
 - ✅ GraphQL API - Flexible queries with schema introspection
 - ✅ GraphQL Playground - Interactive development tool
 - ✅ Authentication Directives - @auth, @hasRole, @hasPermission
@@ -227,7 +227,7 @@ Vote on features: [GitHub Discussions](https://github.com/tradik/mddb/discussion
 
 ### Latest Releases
 
-**v2.5.0** (2026-03-02) - GraphQL & Enhanced Tooling
+**v2.5.1** (2026-03-02) - GraphQL & Enhanced Tooling
 - Added GraphQL API with Playground
 - Added CLI GraphQL support (--graphql, graphql command, playground command)
 - Added Web Panel GraphQL toggle and settings
@@ -282,7 +282,7 @@ Vote on features: [GitHub Discussions](https://github.com/tradik/mddb/discussion
 
 ## 🛠️ Development Status
 
-**Current Focus:** v2.5.0 Release (GraphQL API)
+**Current Focus:** v2.5.1 Release (GraphQL API)
 - ✅ GraphQL schema design
 - ✅ Resolver implementation
 - ✅ Authentication directives

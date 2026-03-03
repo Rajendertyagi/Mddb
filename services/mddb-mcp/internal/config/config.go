@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/kelseyhightower/envconfig"
 	"gopkg.in/yaml.v3"
@@ -109,7 +110,8 @@ func defaultConfig() *Config {
 }
 
 func loadYAML(path string, cfg *Config) error {
-	data, err := os.ReadFile(path)
+	// #nosec G304 -- Expected configuration dynamically loaded by MCP execution
+	data, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			// brak pliku konfiguracyjnego jest akceptowalny

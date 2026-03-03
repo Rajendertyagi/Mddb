@@ -60,6 +60,13 @@ class MDDBClient {
   }
 
   /**
+   * Get replication/cluster status
+   */
+  async getReplicationStatus() {
+    return this.request('/replication/status', { method: 'GET' });
+  }
+
+  /**
    * Search documents in a collection
    */
   async search({ collection, filterMeta = {}, sort = 'addedAt', asc = false, limit = 100 }) {

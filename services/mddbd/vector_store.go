@@ -24,6 +24,7 @@ type EmbeddingRecord struct {
 type VectorStore struct {
 	db         *bolt.DB
 	bucketName []byte
+	binlog     *Binlog
 }
 
 // NewVectorStore creates a new vector store backed by BoltDB.
@@ -32,6 +33,11 @@ func NewVectorStore(db *bolt.DB) *VectorStore {
 		db:         db,
 		bucketName: []byte("vectors"),
 	}
+}
+
+// SetBinlog sets the binlog for replication logging.
+func (vs *VectorStore) SetBinlog(bl *Binlog) {
+	vs.binlog = bl
 }
 
 // EnsureBucket creates the vectors bucket if it doesn't exist.
@@ -54,13 +60,17 @@ func (vs *VectorStore) Put(collection, docID string, vector []float32, model str
 		ContentHash: contentHash,
 	})
 
-	return vs.db.Update(func(tx *bolt.Tx) error {
+	err := vs.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(vs.bucketName)
 		if b == nil {
 			return fmt.Errorf("vectors bucket not found")
 		}
 		return b.Put(key, data)
 	})
+	if err == nil && vs.binlog != nil {
+		_ = vs.binlog.Append(&BinlogEntry{Type: BinlogPut, BucketName: "vectors", Key: copyBytes(key), Value: copyBytes(data)})
+	}
+	return err
 }
 
 // Get retrieves an embedding record for a document.
@@ -88,13 +98,17 @@ func (vs *VectorStore) Get(collection, docID string) (*EmbeddingRecord, error) {
 // Delete removes an embedding record for a document.
 func (vs *VectorStore) Delete(collection, docID string) error {
 	key := buildVecKey(collection, docID)
-	return vs.db.Update(func(tx *bolt.Tx) error {
+	err := vs.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(vs.bucketName)
 		if b == nil {
 			return nil
 		}
 		return b.Delete(key)
 	})
+	if err == nil && vs.binlog != nil {
+		_ = vs.binlog.Append(&BinlogEntry{Type: BinlogDelete, BucketName: "vectors", Key: copyBytes(key)})
+	}
+	return err
 }
 
 // LoadCollection loads all embedding records for a collection.

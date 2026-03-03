@@ -57,7 +57,8 @@ const (
 func NewWAL(dbPath string, policy SyncPolicy) (*WAL, error) {
 	walPath := filepath.Join(filepath.Dir(dbPath), "mddb.wal")
 
-	file, err := os.OpenFile(walPath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
+	// #nosec G304 -- Path is constructed safely from dbPath
+	file, err := os.OpenFile(filepath.Clean(walPath), os.O_CREATE|os.O_RDWR|os.O_APPEND, 0600)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open WAL: %w", err)
 	}
@@ -240,7 +241,8 @@ func (w *WAL) Truncate() error {
 	}
 
 	// Recreate empty file
-	file, err := os.OpenFile(w.path, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0644)
+	// #nosec G304 -- Path is constructed safely
+	file, err := os.OpenFile(filepath.Clean(w.path), os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0600)
 	if err != nil {
 		return fmt.Errorf("failed to truncate WAL: %w", err)
 	}

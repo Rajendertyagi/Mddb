@@ -1,10 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="MDDB - High-performance markdown database with vector search, full-text search, webhooks, TTL, and triple protocol support (HTTP/JSON + gRPC/Protobuf + GraphQL). Perfect for CMS, RAG pipelines, and knowledge bases.">
-    <meta name="keywords" content="markdown database, document database, version control, gRPC, protobuf, graphql, embedded database, content management, CMS, BoltDB, Go">
+    <meta name="description"
+        content="MDDB - High-performance markdown database with vector search, full-text search, webhooks, TTL, and triple protocol support (HTTP/JSON + gRPC/Protobuf + GraphQL). Perfect for CMS, RAG pipelines, and knowledge bases.">
+    <meta name="keywords"
+        content="markdown database, document database, version control, gRPC, protobuf, graphql, embedded database, content management, CMS, BoltDB, Go">
     <meta name="author" content="MDDB Team">
     <meta name="robots" content="index, follow">
 
@@ -12,23 +15,26 @@
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://tradik.github.io/mddb/">
     <meta property="og:title" content="MDDB - Markdown Database">
-    <meta property="og:description" content="High-performance markdown database with vector search, full-text search, webhooks, and triple protocol support (REST, gRPC, GraphQL)">
+    <meta property="og:description"
+        content="High-performance markdown database with vector search, full-text search, webhooks, and triple protocol support (REST, gRPC, GraphQL)">
     <meta property="og:image" content="https://tradik.github.io/mddb/og-image.png">
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:url" content="https://tradik.github.io/mddb/">
     <meta property="twitter:title" content="MDDB - Markdown Database">
-    <meta property="twitter:description" content="High-performance markdown database with vector search, full-text search, webhooks, and triple protocol support (REST, gRPC, GraphQL)">
+    <meta property="twitter:description"
+        content="High-performance markdown database with vector search, full-text search, webhooks, and triple protocol support (REST, gRPC, GraphQL)">
     <meta property="twitter:image" content="https://tradik.github.io/mddb/og-image.png">
-    
+
     <title>MDDB - High-Performance Markdown Database</title>
     <link rel="canonical" href="https://tradik.github.io/mddb/">
     <link rel="stylesheet" href="styles.css">
-    
+
     <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📝</text></svg>">
-    
+    <link rel="icon" type="image/svg+xml"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📝</text></svg>">
+
     <!-- Structured Data -->
     <script type="application/ld+json">
     {
@@ -43,7 +49,7 @@
         "priceCurrency": "USD"
       },
       "description": "High-performance, version-controlled markdown database with dual protocol support (HTTP/JSON + gRPC/Protobuf + GraphQL)",
-      "softwareVersion": "2.5.0",
+      "softwareVersion": "2.5.1",
       "featureList": [
         "Markdown-native database",
         "Triple protocol support (HTTP/JSON + gRPC/Protobuf + GraphQL)",
@@ -58,7 +64,8 @@
         "Multi-language support",
         "PHP and Python client libraries",
         "JWT authentication and RBAC authorization",
-        "User and group-based permissions"
+        "User and group-based permissions",
+        "Leader-follower replication for horizontal scaling"
       ],
       "datePublished": "2026-03-02",
       "author": {
@@ -70,6 +77,7 @@
     }
     </script>
 </head>
+
 <body>
     <a href="#main-content" class="skip-to-main">Skip to main content</a>
     <!-- Navigation -->
@@ -97,169 +105,189 @@
 
     <!-- Main Content -->
     <main id="main-content">
-    <!-- Hero Section -->
-    <header class="hero">
-        <div class="container">
-            <div class="hero-content">
-                <h1>High-Performance Markdown Database</h1>
-                <p class="hero-subtitle">Version-controlled, embedded database with vector search, full-text search, GraphQL, webhooks, TTL, and triple protocol support</p>
-                <div class="hero-badges">
-                    <span class="badge">v2.5.0</span>
-                    <span class="badge">Go 1.26+</span>
-                    <span class="badge">BSD-3-Clause</span>
-                    <span class="badge">Docker Ready</span>
-                </div>
-                <div class="hero-actions">
-                    <a href="#download" class="btn btn-primary">Download v2.5.0</a>
-                    <a href="https://github.com/tradik/mddb" class="btn btn-secondary" target="_blank" rel="noopener">View on GitHub</a>
-                </div>
-                <div class="hero-quick-start">
-                    <code>docker run -p 11023:11023 tradik/mddb:latest</code>
+        <!-- Hero Section -->
+        <header class="hero">
+            <div class="container">
+                <div class="hero-content">
+                    <h1>High-Performance Markdown Database</h1>
+                    <p class="hero-subtitle">Version-controlled, embedded database with vector search, full-text search,
+                        GraphQL, webhooks, TTL, and triple protocol support</p>
+                    <div class="hero-badges">
+                        <span class="badge">v2.5.1</span>
+                        <span class="badge">Go 1.26+</span>
+                        <span class="badge">BSD-3-Clause</span>
+                        <span class="badge">Docker Ready</span>
+                    </div>
+                    <div class="hero-actions">
+                        <a href="#download" class="btn btn-primary">Download v2.5.1</a>
+                        <a href="https://github.com/tradik/mddb" class="btn btn-secondary" target="_blank"
+                            rel="noopener">View on GitHub</a>
+                    </div>
+                    <div class="hero-quick-start">
+                        <code>docker run -p 11023:11023 tradik/mddb:latest</code>
+                    </div>
                 </div>
             </div>
-        </div>
-    </header>
+        </header>
 
-    <!-- Features Section -->
-    <section id="features" class="features">
-        <div class="container">
-            <h2>Why MDDB? <a href="#features" class="anchor-link" aria-label="Link to Features section">#</a></h2>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">🚀</div>
-                    <h3>High Performance</h3>
-                    <p>Optimized for speed with embedded BoltDB, binary protocol support, and advanced caching strategies</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">📚</div>
-                    <h3>Version Control</h3>
-                    <p>Full revision history for every document with complete content snapshots</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🔌</div>
-                    <h3>Triple Protocol</h3>
-                    <p>HTTP/JSON REST for easy debugging, gRPC/Protobuf for high performance, GraphQL for flexible queries</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🤖</div>
-                    <h3>MCP Integration</h3>
-                    <p>Model Context Protocol server for seamless LLM integration (Windsurf, Claude Desktop)</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🌍</div>
-                    <h3>Multi-Language</h3>
-                    <p>Store documents in multiple languages with the same key</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🔍</div>
-                    <h3>Vector Search</h3>
-                    <p>Semantic similarity search with auto-generated embeddings (OpenAI, Ollama, Voyage AI)</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">📖</div>
-                    <h3>Full-Text Search</h3>
-                    <p>Built-in inverted index with TF scoring and stop word filtering</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🔔</div>
-                    <h3>Webhooks</h3>
-                    <p>HTTP callbacks on document events with exponential backoff retry</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">⏱️</div>
-                    <h3>Document TTL</h3>
-                    <p>Auto-expiring documents with background cleanup, like Redis</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🌐</div>
-                    <h3>Import from URL</h3>
-                    <p>Fetch markdown from any URL with frontmatter parsing</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">⚡</div>
-                    <h3>Zero Config</h3>
-                    <p>Single binary, embedded database, no external dependencies</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🐳</div>
-                    <h3>Docker Ready</h3>
-                    <p>~15MB Alpine-based image with health checks</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🔒</div>
-                    <h3>ACID Transactions</h3>
-                    <p>Guaranteed data consistency with BoltDB transactions</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🛠️</div>
-                    <h3>Custom MCP Tools</h3>
-                    <p>Define website-specific AI tools in YAML with preconfigured defaults</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🔐</div>
-                    <h3>Authentication & RBAC</h3>
-                    <p>JWT tokens, API keys, per-collection permissions (opt-in)</p>
+        <!-- Features Section -->
+        <section id="features" class="features">
+            <div class="container">
+                <h2>Why MDDB? <a href="#features" class="anchor-link" aria-label="Link to Features section">#</a></h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">🚀</div>
+                        <h3>High Performance</h3>
+                        <p>Optimized for speed with embedded BoltDB, binary protocol support, and advanced caching
+                            strategies</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📚</div>
+                        <h3>Version Control</h3>
+                        <p>Full revision history for every document with complete content snapshots</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔌</div>
+                        <h3>Triple Protocol</h3>
+                        <p>HTTP/JSON REST for easy debugging, gRPC/Protobuf for high performance, GraphQL for flexible
+                            queries</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🤖</div>
+                        <h3>MCP Integration</h3>
+                        <p>Model Context Protocol server for seamless LLM integration (Windsurf, Claude Desktop)</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🌍</div>
+                        <h3>Multi-Language</h3>
+                        <p>Store documents in multiple languages with the same key</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔍</div>
+                        <h3>Vector Search</h3>
+                        <p>Semantic similarity search with auto-generated embeddings (OpenAI, Ollama, Voyage AI)</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📖</div>
+                        <h3>Full-Text Search</h3>
+                        <p>Built-in inverted index with TF scoring and stop word filtering</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔔</div>
+                        <h3>Webhooks</h3>
+                        <p>HTTP callbacks on document events with exponential backoff retry</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">⏱️</div>
+                        <h3>Document TTL</h3>
+                        <p>Auto-expiring documents with background cleanup, like Redis</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🌐</div>
+                        <h3>Import from URL</h3>
+                        <p>Fetch markdown from any URL with frontmatter parsing</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">⚡</div>
+                        <h3>Zero Config</h3>
+                        <p>Single binary, embedded database, no external dependencies</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🐳</div>
+                        <h3>Docker Ready</h3>
+                        <p>~15MB Alpine-based image with health checks</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔒</div>
+                        <h3>ACID Transactions</h3>
+                        <p>Guaranteed data consistency with BoltDB transactions</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🛠️</div>
+                        <h3>Custom MCP Tools</h3>
+                        <p>Define website-specific AI tools in YAML with preconfigured defaults</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔐</div>
+                        <h3>Authentication & RBAC</h3>
+                        <p>JWT tokens, API keys, per-collection permissions (opt-in)</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔄</div>
+                        <h3>Replication</h3>
+                        <p>Leader-follower replication with binlog streaming for horizontal read scaling</p>
+                    </div>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Web Panel Section -->
-    <section class="web-panel" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 80px 0; color: white;">
-        <div class="container">
-            <div style="text-align: center; margin-bottom: 50px;">
-                <h2 style="font-size: 2.5rem; margin-bottom: 20px;">🎨 Web Admin Panel</h2>
-                <p style="font-size: 1.2rem; max-width: 700px; margin: 0 auto; opacity: 0.95;">
-                    Modern React-based UI for managing documents, users, and search with REST/GraphQL API toggle
-                </p>
-            </div>
-            <div style="max-width: 1200px; margin: 0 auto; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
-                <img src="panel.png" alt="MDDB Web Admin Panel" style="width: 100%; height: auto; display: block;">
-            </div>
-            <div style="text-align: center; margin-top: 40px;">
-                <div style="display: inline-grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; text-align: left; max-width: 900px;">
-                    <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; backdrop-filter: blur(10px);">
-                        <strong style="display: block; margin-bottom: 8px;">📊 Dashboard</strong>
-                        <span style="opacity: 0.9; font-size: 0.95rem;">Real-time statistics and metrics</span>
-                    </div>
-                    <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; backdrop-filter: blur(10px);">
-                        <strong style="display: block; margin-bottom: 8px;">🔍 Search</strong>
-                        <span style="opacity: 0.9; font-size: 0.95rem;">Metadata, vector, and full-text search</span>
-                    </div>
-                    <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; backdrop-filter: blur(10px);">
-                        <strong style="display: block; margin-bottom: 8px;">✏️ Editor</strong>
-                        <span style="opacity: 0.9; font-size: 0.95rem;">Live markdown preview and editing</span>
-                    </div>
-                    <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; backdrop-filter: blur(10px);">
-                        <strong style="display: block; margin-bottom: 8px;">👥 Users</strong>
-                        <span style="opacity: 0.9; font-size: 0.95rem;">User and group management</span>
-                    </div>
-                    <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; backdrop-filter: blur(10px);">
-                        <strong style="display: block; margin-bottom: 8px;">🔄 API Toggle</strong>
-                        <span style="opacity: 0.9; font-size: 0.95rem;">Switch between REST and GraphQL</span>
-                    </div>
-                    <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; backdrop-filter: blur(10px);">
-                        <strong style="display: block; margin-bottom: 8px;">🔐 Auth</strong>
-                        <span style="opacity: 0.9; font-size: 0.95rem;">JWT tokens and API keys</span>
+        <!-- Web Panel Section -->
+        <section class="web-panel"
+            style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 80px 0; color: white;">
+            <div class="container">
+                <div style="text-align: center; margin-bottom: 50px;">
+                    <h2 style="font-size: 2.5rem; margin-bottom: 20px;">🎨 Web Admin Panel</h2>
+                    <p style="font-size: 1.2rem; max-width: 700px; margin: 0 auto; opacity: 0.95;">
+                        Modern React-based UI for managing documents, users, and search with REST/GraphQL API toggle
+                    </p>
+                </div>
+                <div
+                    style="max-width: 1200px; margin: 0 auto; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+                    <img src="panel.png" alt="MDDB Web Admin Panel" style="width: 100%; height: auto; display: block;">
+                </div>
+                <div style="text-align: center; margin-top: 40px;">
+                    <div
+                        style="display: inline-grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; text-align: left; max-width: 900px;">
+                        <div
+                            style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; backdrop-filter: blur(10px);">
+                            <strong style="display: block; margin-bottom: 8px;">📊 Dashboard</strong>
+                            <span style="opacity: 0.9; font-size: 0.95rem;">Real-time statistics and metrics</span>
+                        </div>
+                        <div
+                            style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; backdrop-filter: blur(10px);">
+                            <strong style="display: block; margin-bottom: 8px;">🔍 Search</strong>
+                            <span style="opacity: 0.9; font-size: 0.95rem;">Metadata, vector, and full-text
+                                search</span>
+                        </div>
+                        <div
+                            style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; backdrop-filter: blur(10px);">
+                            <strong style="display: block; margin-bottom: 8px;">✏️ Editor</strong>
+                            <span style="opacity: 0.9; font-size: 0.95rem;">Live markdown preview and editing</span>
+                        </div>
+                        <div
+                            style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; backdrop-filter: blur(10px);">
+                            <strong style="display: block; margin-bottom: 8px;">👥 Users</strong>
+                            <span style="opacity: 0.9; font-size: 0.95rem;">User and group management</span>
+                        </div>
+                        <div
+                            style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; backdrop-filter: blur(10px);">
+                            <strong style="display: block; margin-bottom: 8px;">🔄 API Toggle</strong>
+                            <span style="opacity: 0.9; font-size: 0.95rem;">Switch between REST and GraphQL</span>
+                        </div>
+                        <div
+                            style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; backdrop-filter: blur(10px);">
+                            <strong style="display: block; margin-bottom: 8px;">🔐 Auth</strong>
+                            <span style="opacity: 0.9; font-size: 0.95rem;">JWT tokens and API keys</span>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Quick Start Section -->
-    <section id="quick-start" class="quick-start">
-        <div class="container">
-            <h2>Quick Start <a href="#quick-start" class="anchor-link" aria-label="Link to Quick Start section">#</a></h2>
-            <div class="tabs">
-                <button class="tab-btn active" data-tab="docker">Docker (Recommended)</button>
-                <button class="tab-btn" data-tab="docker-compose">Docker Compose</button>
-                <button class="tab-btn" data-tab="binary">Binary</button>
-                <button class="tab-btn" data-tab="source">From Source</button>
-            </div>
-            <div class="tab-content">
-                <div class="tab-pane active" id="docker">
-                    <pre><code># Run MDDB server
+        <!-- Quick Start Section -->
+        <section id="quick-start" class="quick-start">
+            <div class="container">
+                <h2>Quick Start <a href="#quick-start" class="anchor-link"
+                        aria-label="Link to Quick Start section">#</a></h2>
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="docker">Docker (Recommended)</button>
+                    <button class="tab-btn" data-tab="docker-compose">Docker Compose</button>
+                    <button class="tab-btn" data-tab="binary">Binary</button>
+                    <button class="tab-btn" data-tab="source">From Source</button>
+                </div>
+                <div class="tab-content">
+                    <div class="tab-pane active" id="docker">
+                        <pre><code># Run MDDB server
 docker run -d \
   -p 11023:11023 \
   -p 11024:11024 \
@@ -268,9 +296,9 @@ docker run -d \
 
 # Test the API
 curl http://localhost:11023/health</code></pre>
-                </div>
-                <div class="tab-pane" id="docker-compose">
-                    <pre><code># Clone repository
+                    </div>
+                    <div class="tab-pane" id="docker-compose">
+                        <pre><code># Clone repository
 git clone https://github.com/tradik/mddb.git
 cd mddb
 
@@ -282,19 +310,19 @@ make docker-up
 # - MDDB gRPC: localhost:11024
 # - Web Panel: http://localhost:3000
 # - MCP Server: http://localhost:9000</code></pre>
-                </div>
-                <div class="tab-pane" id="binary">
-                    <pre><code># Download binary
-wget https://github.com/tradik/mddb/releases/download/v2.5.0/mddbd-linux-amd64
+                    </div>
+                    <div class="tab-pane" id="binary">
+                        <pre><code># Download binary
+wget https://github.com/tradik/mddb/releases/download/v2.5.1/mddbd-linux-amd64
 chmod +x mddbd-linux-amd64
 
 # Run server
 ./mddbd-linux-amd64
 
 # Server starts on http://localhost:11023</code></pre>
-                </div>
-                <div class="tab-pane" id="source">
-                    <pre><code># Clone repository
+                    </div>
+                    <div class="tab-pane" id="source">
+                        <pre><code># Clone repository
 git clone https://github.com/tradik/mddb.git
 cd mddb
 
@@ -303,189 +331,225 @@ make build
 
 # Run
 ./bin/mddbd</code></pre>
+                    </div>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Download Section -->
-    <section id="download" class="download">
-        <div class="container">
-            <h2>Download <a href="#download" class="anchor-link" aria-label="Link to Download section">#</a></h2>
-            <div class="download-grid">
-                <div class="download-card">
-                    <h3>Latest Release</h3>
-                    <div class="version">v2.5.0</div>
-                    <p class="release-date">Released: March 2, 2026</p>
-                    <div class="download-links">
-                        <a href="https://github.com/tradik/mddb/releases/download/v2.5.0/mddbd-linux-amd64" class="download-link">
-                            <span class="platform">Linux AMD64</span>
-                            <span class="size">~27MB</span>
-                        </a>
-                        <a href="https://github.com/tradik/mddb/releases/download/v2.5.0/mddbd-linux-arm64" class="download-link">
-                            <span class="platform">Linux ARM64</span>
-                            <span class="size">~27MB</span>
-                        </a>
-                        <a href="https://github.com/tradik/mddb/releases/download/v2.5.0/mddbd-darwin-amd64" class="download-link">
-                            <span class="platform">macOS AMD64</span>
-                            <span class="size">~27MB</span>
-                        </a>
-                        <a href="https://github.com/tradik/mddb/releases/download/v2.5.0/mddbd-darwin-arm64" class="download-link">
-                            <span class="platform">macOS ARM64</span>
-                            <span class="size">~27MB</span>
-                        </a>
-                        <a href="https://github.com/tradik/mddb/releases/download/v2.5.0/mddbd-freebsd-amd64" class="download-link">
-                            <span class="platform">FreeBSD AMD64</span>
-                            <span class="size">~27MB</span>
-                        </a>
+        <!-- Download Section -->
+        <section id="download" class="download">
+            <div class="container">
+                <h2>Download <a href="#download" class="anchor-link" aria-label="Link to Download section">#</a></h2>
+                <div class="download-grid">
+                    <div class="download-card">
+                        <h3>Latest Release</h3>
+                        <div class="version">v2.5.1</div>
+                        <p class="release-date">Released: March 3, 2026</p>
+                        <div class="download-links">
+                            <a href="https://github.com/tradik/mddb/releases/download/v2.5.1/mddbd-linux-amd64"
+                                class="download-link">
+                                <span class="platform">Linux AMD64</span>
+                                <span class="size">~27MB</span>
+                            </a>
+                            <a href="https://github.com/tradik/mddb/releases/download/v2.5.1/mddbd-linux-arm64"
+                                class="download-link">
+                                <span class="platform">Linux ARM64</span>
+                                <span class="size">~27MB</span>
+                            </a>
+                            <a href="https://github.com/tradik/mddb/releases/download/v2.5.1/mddbd-darwin-amd64"
+                                class="download-link">
+                                <span class="platform">macOS AMD64</span>
+                                <span class="size">~27MB</span>
+                            </a>
+                            <a href="https://github.com/tradik/mddb/releases/download/v2.5.1/mddbd-darwin-arm64"
+                                class="download-link">
+                                <span class="platform">macOS ARM64</span>
+                                <span class="size">~27MB</span>
+                            </a>
+                            <a href="https://github.com/tradik/mddb/releases/download/v2.5.1/mddbd-freebsd-amd64"
+                                class="download-link">
+                                <span class="platform">FreeBSD AMD64</span>
+                                <span class="size">~27MB</span>
+                            </a>
+                        </div>
+                        <div class="package-links">
+                            <a href="https://github.com/tradik/mddb/releases/download/v2.5.0/mddb_2.3.3_amd64.deb"
+                                class="package-link">
+                                📦 Debian/Ubuntu (.deb)
+                            </a>
+                            <a href="https://github.com/tradik/mddb/releases/download/v2.5.0/mddb-2.3.3-1.x86_64.rpm"
+                                class="package-link">
+                                📦 RedHat/CentOS (.rpm)
+                            </a>
+                        </div>
                     </div>
-                    <div class="package-links">
-                        <a href="https://github.com/tradik/mddb/releases/download/v2.5.0/mddb_2.3.3_amd64.deb" class="package-link">
-                            📦 Debian/Ubuntu (.deb)
-                        </a>
-                        <a href="https://github.com/tradik/mddb/releases/download/v2.5.0/mddb-2.3.3-1.x86_64.rpm" class="package-link">
-                            📦 RedHat/CentOS (.rpm)
-                        </a>
-                    </div>
-                </div>
-                <div class="download-card">
-                    <h3>Docker Image</h3>
-                    <div class="version">tradik/mddb:2.5.0</div>
-                    <p class="release-date">Alpine-based (~15MB)</p>
-                    <pre><code>docker pull tradik/mddb:latest
+                    <div class="download-card">
+                        <h3>Docker Image</h3>
+                        <div class="version">tradik/mddb:2.5.1</div>
+                        <p class="release-date">Alpine-based (~15MB)</p>
+                        <pre><code>docker pull tradik/mddb:latest
 docker pull tradik/mddb:2.3.3</code></pre>
-                    <a href="https://hub.docker.com/r/tradik/mddb" class="btn btn-secondary" target="_blank" rel="noopener">View on Docker Hub</a>
+                        <a href="https://hub.docker.com/r/tradik/mddb" class="btn btn-secondary" target="_blank"
+                            rel="noopener">View on Docker Hub</a>
+                    </div>
+                </div>
+                <div class="release-notes">
+                    <h3>What's New in v2.5.1</h3>
+                    <ul>
+                        <li>🔄 <strong>Leader-Follower Replication</strong> - Horizontal read scaling with binlog-based
+                            streaming replication</li>
+                        <li>📊 <strong>Cluster Dashboard</strong> - Web panel Cluster tab with node status, lag
+                            monitoring, and health indicators</li>
+                        <li>🔧 <strong>Replication Metrics</strong> - Prometheus metrics for LSN, binlog size, follower
+                            count</li>
+                        <li>🆕 <strong>GraphQL API</strong> - Modern GraphQL endpoint with schema introspection,
+                            Playground, and auth directives</li>
+                        <li>🔐 <strong>Authentication & RBAC</strong> - JWT tokens, API keys, collection-level
+                            permissions</li>
+                        <li>🛠️ <strong>Custom MCP Tools</strong> - Define website-specific AI tools in YAML with
+                            preconfigured defaults</li>
+                        <li>📊 <strong>Telemetry</strong> - Prometheus-compatible /metrics endpoint (zero deps)</li>
+                        <li>🔍 <strong>Vector Search</strong> - Semantic similarity with OpenAI, Ollama, Voyage AI</li>
+                    </ul>
+                    <a href="https://github.com/tradik/mddb/blob/main/CHANGELOG.md" target="_blank" rel="noopener">View
+                        Full Changelog →</a>
                 </div>
             </div>
-            <div class="release-notes">
-                <h3>What's New in v2.5.0</h3>
-                <ul>
-                    <li>🆕 <strong>GraphQL API</strong> - Modern GraphQL endpoint with schema introspection, Playground, and auth directives</li>
-                    <li>🎛️ <strong>API Mode Toggle</strong> - Web panel supports switching between REST and GraphQL APIs</li>
-                    <li>💻 <strong>GraphQL CLI Commands</strong> - Execute queries and open Playground via mddb-cli</li>
-                    <li>🔐 <strong>GraphQL Authentication</strong> - Full JWT/API key integration with @auth and @hasRole directives</li>
-                    <li>🛠️ <strong>Custom MCP Tools</strong> - Define website-specific AI tools in YAML with preconfigured defaults</li>
-                    <li>📊 <strong>Telemetry</strong> - Prometheus-compatible /metrics endpoint (zero deps)</li>
-                    <li>✅ <strong>Schema Validation</strong> - Per-collection JSON Schema for metadata (opt-in)</li>
-                    <li>🔍 <strong>Vector Search</strong> - Semantic similarity with OpenAI, Ollama, Voyage AI</li>
-                </ul>
-                <a href="https://github.com/tradik/mddb/blob/main/CHANGELOG.md" target="_blank" rel="noopener">View Full Changelog →</a>
-            </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Documentation Section -->
-    <section id="docs" class="documentation">
-        <div class="container">
-            <h2>Documentation <a href="#docs" class="anchor-link" aria-label="Link to Documentation section">#</a></h2>
-            <div class="docs-grid">
-                <a href="md-viewer.html?doc=QUICKSTART.md" class="doc-card">
-                    <div class="doc-icon">🚀</div>
-                    <h3>Quick Start</h3>
-                    <p>Get up and running in 5 minutes</p>
-                </a>
-                <a href="/mddb/swagger.html" class="doc-card featured">
-                    <div class="doc-icon">📋</div>
-                    <h3>API Documentation</h3>
-                    <p>Interactive Swagger UI</p>
-                    <span class="badge-new">Interactive</span>
-                </a>
-                <a href="openapi.yaml" class="doc-card">
-                    <div class="doc-icon">📄</div>
-                    <h3>OpenAPI Spec</h3>
-                    <p>Machine-readable API specification</p>
-                </a>
-                <a href="md-viewer.html?doc=HEALTHCHECK.md" class="doc-card">
-                    <div class="doc-icon">💚</div>
-                    <h3>Health Checks</h3>
-                    <p>Docker & Kubernetes monitoring</p>
-                </a>
-                <a href="md-viewer.html?doc=GRPC.md" class="doc-card">
-                    <div class="doc-icon">⚡</div>
-                    <h3>gRPC Guide</h3>
-                    <p>High-performance protocol</p>
-                </a>
-                <a href="md-viewer.html?doc=EXAMPLES.md" class="doc-card">
-                    <div class="doc-icon">💡</div>
-                    <h3>Examples</h3>
-                    <p>Code examples and patterns</p>
-                </a>
-                <a href="md-viewer.html?doc=DOCKER.md" class="doc-card">
-                    <div class="doc-icon">🐳</div>
-                    <h3>Docker Guide</h3>
-                    <p>Container deployment</p>
-                </a>
-                <a href="md-viewer.html?doc=ARCHITECTURE.md" class="doc-card">
-                    <div class="doc-icon">🏗️</div>
-                    <h3>Architecture</h3>
-                    <p>System design and internals</p>
-                </a>
-                <a href="md-viewer.html?doc=RAG-PIPELINE.md" class="doc-card featured">
-                    <div class="doc-icon">🤖</div>
-                    <h3>RAG Pipeline</h3>
-                    <p>WordPress → MDDB → LLM guide</p>
-                    <span class="badge-new">New</span>
-                </a>
-                <a href="md-viewer.html?doc=SCHEMA-VALIDATION.md" class="doc-card">
-                    <div class="doc-icon">✅</div>
-                    <h3>Schema Validation</h3>
-                    <p>Enforce metadata structure per collection</p>
-                </a>
-                <a href="md-viewer.html?doc=TELEMETRY.md" class="doc-card featured">
-                    <div class="doc-icon">📊</div>
-                    <h3>Telemetry & Monitoring</h3>
-                    <p>Prometheus metrics, Grafana dashboards</p>
-                    <span class="badge-new">New</span>
-                </a>
-                <a href="md-viewer.html?doc=WORDPRESS-AGENT.md" class="doc-card featured">
-                    <div class="doc-icon">🌐</div>
-                    <h3>WordPress AI Agent</h3>
-                    <p>Build a chatbot for your WP site</p>
-                    <span class="badge-new">New</span>
-                </a>
-                <a href="https://github.com/tradik/mddb/tree/main/services/mddb-mcp" class="doc-card featured" target="_blank" rel="noopener">
-                    <div class="doc-icon">🤖</div>
-                    <h3>MCP Server</h3>
-                    <p>LLM integration for Windsurf & Claude</p>
-                    <span class="badge-new">New</span>
-                </a>
-                <a href="md-viewer.html?doc=CUSTOM-TOOLS.md" class="doc-card featured">
-                    <div class="doc-icon">🛠️</div>
-                    <h3>Custom MCP Tools</h3>
-                    <p>YAML-defined website-specific AI tools</p>
-                    <span class="badge-new">New</span>
-                </a>
-                <a href="md-viewer.html?doc=AUTHENTICATION.md" class="doc-card featured">
-                    <div class="doc-icon">🔐</div>
-                    <h3>Authentication & RBAC</h3>
-                    <p>JWT tokens, API keys, role-based access control</p>
-                    <span class="badge-new">New</span>
-                </a>
-                <a href="md-viewer.html?doc=AUTH_QUICKSTART.md" class="doc-card">
-                    <div class="doc-icon">⚡</div>
-                    <h3>Auth Quick Start</h3>
-                    <p>5-minute authentication setup guide</p>
-                </a>
+        <!-- Documentation Section -->
+        <section id="docs" class="documentation">
+            <div class="container">
+                <h2>Documentation <a href="#docs" class="anchor-link" aria-label="Link to Documentation section">#</a>
+                </h2>
+                <div class="docs-grid">
+                    <a href="md-viewer.html?doc=QUICKSTART.md" class="doc-card">
+                        <div class="doc-icon">🚀</div>
+                        <h3>Quick Start</h3>
+                        <p>Get up and running in 5 minutes</p>
+                    </a>
+                    <a href="/mddb/swagger.html" class="doc-card featured">
+                        <div class="doc-icon">📋</div>
+                        <h3>API Documentation</h3>
+                        <p>Interactive Swagger UI</p>
+                        <span class="badge-new">Interactive</span>
+                    </a>
+                    <a href="openapi.yaml" class="doc-card">
+                        <div class="doc-icon">📄</div>
+                        <h3>OpenAPI Spec</h3>
+                        <p>Machine-readable API specification</p>
+                    </a>
+                    <a href="md-viewer.html?doc=HEALTHCHECK.md" class="doc-card">
+                        <div class="doc-icon">💚</div>
+                        <h3>Health Checks</h3>
+                        <p>Docker & Kubernetes monitoring</p>
+                    </a>
+                    <a href="md-viewer.html?doc=GRPC.md" class="doc-card">
+                        <div class="doc-icon">⚡</div>
+                        <h3>gRPC Guide</h3>
+                        <p>High-performance protocol</p>
+                    </a>
+                    <a href="md-viewer.html?doc=EXAMPLES.md" class="doc-card">
+                        <div class="doc-icon">💡</div>
+                        <h3>Examples</h3>
+                        <p>Code examples and patterns</p>
+                    </a>
+                    <a href="md-viewer.html?doc=DOCKER.md" class="doc-card">
+                        <div class="doc-icon">🐳</div>
+                        <h3>Docker Guide</h3>
+                        <p>Container deployment</p>
+                    </a>
+                    <a href="md-viewer.html?doc=ARCHITECTURE.md" class="doc-card">
+                        <div class="doc-icon">🏗️</div>
+                        <h3>Architecture</h3>
+                        <p>System design and internals</p>
+                    </a>
+                    <a href="md-viewer.html?doc=RAG-PIPELINE.md" class="doc-card featured">
+                        <div class="doc-icon">🤖</div>
+                        <h3>RAG Pipeline</h3>
+                        <p>WordPress → MDDB → LLM guide</p>
+                        <span class="badge-new">New</span>
+                    </a>
+                    <a href="md-viewer.html?doc=SCHEMA-VALIDATION.md" class="doc-card">
+                        <div class="doc-icon">✅</div>
+                        <h3>Schema Validation</h3>
+                        <p>Enforce metadata structure per collection</p>
+                    </a>
+                    <a href="md-viewer.html?doc=TELEMETRY.md" class="doc-card featured">
+                        <div class="doc-icon">📊</div>
+                        <h3>Telemetry & Monitoring</h3>
+                        <p>Prometheus metrics, Grafana dashboards</p>
+                        <span class="badge-new">New</span>
+                    </a>
+                    <a href="md-viewer.html?doc=WORDPRESS-AGENT.md" class="doc-card featured">
+                        <div class="doc-icon">🌐</div>
+                        <h3>WordPress AI Agent</h3>
+                        <p>Build a chatbot for your WP site</p>
+                        <span class="badge-new">New</span>
+                    </a>
+                    <a href="https://github.com/tradik/mddb/tree/main/services/mddb-mcp" class="doc-card featured"
+                        target="_blank" rel="noopener">
+                        <div class="doc-icon">🤖</div>
+                        <h3>MCP Server</h3>
+                        <p>LLM integration for Windsurf & Claude</p>
+                        <span class="badge-new">New</span>
+                    </a>
+                    <a href="md-viewer.html?doc=CUSTOM-TOOLS.md" class="doc-card featured">
+                        <div class="doc-icon">🛠️</div>
+                        <h3>Custom MCP Tools</h3>
+                        <p>YAML-defined website-specific AI tools</p>
+                        <span class="badge-new">New</span>
+                    </a>
+                    <a href="md-viewer.html?doc=AUTHENTICATION.md" class="doc-card featured">
+                        <div class="doc-icon">🔐</div>
+                        <h3>Authentication & RBAC</h3>
+                        <p>JWT tokens, API keys, role-based access control</p>
+                        <span class="badge-new">New</span>
+                    </a>
+                    <a href="md-viewer.html?doc=AUTH_QUICKSTART.md" class="doc-card">
+                        <div class="doc-icon">⚡</div>
+                        <h3>Auth Quick Start</h3>
+                        <p>5-minute authentication setup guide</p>
+                    </a>
+                    <a href="md-viewer.html?doc=REPLICATION.md" class="doc-card featured">
+                        <div class="doc-icon">🔄</div>
+                        <h3>Replication Guide</h3>
+                        <p>Leader-follower setup, Docker Compose, monitoring</p>
+                        <span class="badge-new">New</span>
+                    </a>
+                </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Examples Section -->
-    <section id="examples" class="examples">
-        <div class="container">
-            <h2>Code Examples <a href="#examples" class="anchor-link" aria-label="Link to Examples section">#</a></h2>
-            <div class="example-tabs">
-                <button class="example-tab active" data-example="add" id="example-add">Add Document <a href="#example-add" class="anchor-link" aria-label="Link to Add Document example">#</a></button>
-                <button class="example-tab" data-example="vector" id="example-vector">Vector Search <a href="#example-vector" class="anchor-link" aria-label="Link to Vector Search example">#</a></button>
-                <button class="example-tab" data-example="fts" id="example-fts">Full-Text Search <a href="#example-fts" class="anchor-link" aria-label="Link to Full-Text Search example">#</a></button>
-                <button class="example-tab" data-example="search" id="example-search">Metadata Search <a href="#example-search" class="anchor-link" aria-label="Link to Metadata Search example">#</a></button>
-                <button class="example-tab" data-example="python" id="example-python">Python <a href="#example-python" class="anchor-link" aria-label="Link to Python example">#</a></button>
-                <button class="example-tab" data-example="php" id="example-php">PHP <a href="#example-php" class="anchor-link" aria-label="Link to PHP example">#</a></button>
-                <button class="example-tab" data-example="mcp" id="example-mcp">MCP Setup <a href="#example-mcp" class="anchor-link" aria-label="Link to MCP Setup example">#</a></button>
-            </div>
-            <div class="example-content">
-                <div class="example-pane active" id="add">
-                    <pre><code># Add document with TTL (expires in 1 hour)
+        <!-- Examples Section -->
+        <section id="examples" class="examples">
+            <div class="container">
+                <h2>Code Examples <a href="#examples" class="anchor-link" aria-label="Link to Examples section">#</a>
+                </h2>
+                <div class="example-tabs">
+                    <button class="example-tab active" data-example="add" id="example-add">Add Document <a
+                            href="#example-add" class="anchor-link"
+                            aria-label="Link to Add Document example">#</a></button>
+                    <button class="example-tab" data-example="vector" id="example-vector">Vector Search <a
+                            href="#example-vector" class="anchor-link"
+                            aria-label="Link to Vector Search example">#</a></button>
+                    <button class="example-tab" data-example="fts" id="example-fts">Full-Text Search <a
+                            href="#example-fts" class="anchor-link"
+                            aria-label="Link to Full-Text Search example">#</a></button>
+                    <button class="example-tab" data-example="search" id="example-search">Metadata Search <a
+                            href="#example-search" class="anchor-link"
+                            aria-label="Link to Metadata Search example">#</a></button>
+                    <button class="example-tab" data-example="python" id="example-python">Python <a
+                            href="#example-python" class="anchor-link"
+                            aria-label="Link to Python example">#</a></button>
+                    <button class="example-tab" data-example="php" id="example-php">PHP <a href="#example-php"
+                            class="anchor-link" aria-label="Link to PHP example">#</a></button>
+                    <button class="example-tab" data-example="mcp" id="example-mcp">MCP Setup <a href="#example-mcp"
+                            class="anchor-link" aria-label="Link to MCP Setup example">#</a></button>
+                </div>
+                <div class="example-content">
+                    <div class="example-pane active" id="add">
+                        <pre><code># Add document with TTL (expires in 1 hour)
 curl -X POST http://localhost:11023/v1/add \
   -H "Content-Type: application/json" \
   -d '{
@@ -503,9 +567,9 @@ curl -X POST http://localhost:11023/v1/add \
 # Import directly from URL
 curl -X POST http://localhost:11023/v1/import-url \
   -d '{"collection":"docs", "url":"https://example.com/guide.md", "lang":"en_US"}'</code></pre>
-                </div>
-                <div class="example-pane" id="vector">
-                    <pre><code># Semantic search - finds docs by meaning, not exact keywords
+                    </div>
+                    <div class="example-pane" id="vector">
+                        <pre><code># Semantic search - finds docs by meaning, not exact keywords
 curl -X POST http://localhost:11023/v1/vector-search \
   -H "Content-Type: application/json" \
   -d '{
@@ -523,9 +587,9 @@ curl -X POST http://localhost:11023/v1/vector-search \
 # Re-index embeddings after changing provider
 curl -X POST http://localhost:11023/v1/vector-reindex \
   -d '{"collection": "kb", "force": true}'</code></pre>
-                </div>
-                <div class="example-pane" id="fts">
-                    <pre><code># Full-text search with TF scoring
+                    </div>
+                    <div class="example-pane" id="fts">
+                        <pre><code># Full-text search with TF scoring
 curl -X POST http://localhost:11023/v1/fts \
   -H "Content-Type: application/json" \
   -d '{
@@ -541,9 +605,9 @@ curl -X POST http://localhost:11023/v1/webhooks \
 # Set TTL on existing document (0 = remove)
 curl -X POST http://localhost:11023/v1/set-ttl \
   -d '{"collection":"cache", "key":"temp", "lang":"en", "ttl":7200}'</code></pre>
-                </div>
-                <div class="example-pane" id="search">
-                    <pre><code>curl -X POST http://localhost:11023/v1/search \
+                    </div>
+                    <div class="example-pane" id="search">
+                        <pre><code>curl -X POST http://localhost:11023/v1/search \
   -H "Content-Type: application/json" \
   -d '{
     "collection": "blog",
@@ -554,9 +618,9 @@ curl -X POST http://localhost:11023/v1/set-ttl \
     "sort": "updatedAt",
     "limit": 10
   }'</code></pre>
-                </div>
-                <div class="example-pane" id="python">
-                    <pre><code>from mddb import MDDB
+                    </div>
+                    <div class="example-pane" id="python">
+                        <pre><code>from mddb import MDDB
 
 db = MDDB.connect('localhost:11023', 'write').collection('kb')
 
@@ -577,9 +641,9 @@ db.import_url('https://example.com/docs.md', 'en_US')
 
 # TTL
 db.set_ttl('temp-key', 'en', 3600)  # expires in 1h</code></pre>
-                </div>
-                <div class="example-pane" id="php">
-                    <pre><code>&lt;?php
+                    </div>
+                    <div class="example-pane" id="php">
+                        <pre><code>&lt;?php
 require_once 'mddb.php';
 
 $db = mddb::connect('localhost:11023', 'write');
@@ -601,9 +665,9 @@ $db->collection('docs')->importUrl('https://example.com/post.md', 'en_US');
 
 // TTL
 $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
-                </div>
-                <div class="example-pane" id="mcp">
-                    <pre><code># Docker (Easiest) - for Windsurf / Claude Desktop
+                    </div>
+                    <div class="example-pane" id="mcp">
+                        <pre><code># Docker (Easiest) - for Windsurf / Claude Desktop
 # Configure ~/.windsurf/mcp.json:
 {
   "mcpServers": {
@@ -625,72 +689,133 @@ $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
 # - import_url, set_ttl
 # - register_webhook, list_webhooks, delete_webhook
 # - export, backup, restore, stats</code></pre>
+                    </div>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Use Cases Section -->
-    <section id="use-cases" class="use-cases">
-        <div class="container">
-            <h2>Use Cases <a href="#use-cases" class="anchor-link" aria-label="Link to Use Cases section">#</a></h2>
-            <div class="use-cases-grid">
-                <div class="use-case">
-                    <h3>🤖 RAG / AI Pipelines</h3>
-                    <p>Semantic vector search + LLM integration via MCP. Build knowledge bases for AI assistants</p>
-                </div>
-                <div class="use-case">
-                    <h3>📝 Content Management</h3>
-                    <p>Blogs, docs, and knowledge bases with version control, webhooks, and TTL</p>
-                </div>
-                <div class="use-case">
-                    <h3>🔔 Event-Driven Apps</h3>
-                    <p>Webhooks trigger HTTP callbacks on doc changes for real-time sync and notifications</p>
-                </div>
-                <div class="use-case">
-                    <h3>🌐 Multi-language Sites</h3>
-                    <p>Store and manage content in multiple languages with the same document key</p>
-                </div>
-                <div class="use-case">
-                    <h3>⏱️ Cache / Temporary Data</h3>
-                    <p>Document TTL with auto-expiry for session data, cache layers, and temporary content</p>
-                </div>
-                <div class="use-case">
-                    <h3>📚 Documentation Platforms</h3>
-                    <p>Import from URLs, full-text search, revision history, and rich metadata</p>
+        <!-- Use Cases Section -->
+        <section id="use-cases" class="use-cases">
+            <div class="container">
+                <h2>Use Cases <a href="#use-cases" class="anchor-link" aria-label="Link to Use Cases section">#</a></h2>
+                <div class="use-cases-grid">
+                    <div class="use-case">
+                        <h3>🤖 RAG / AI Pipelines</h3>
+                        <p>Semantic vector search + LLM integration via MCP. Build knowledge bases for AI assistants</p>
+                    </div>
+                    <div class="use-case">
+                        <h3>📝 Content Management</h3>
+                        <p>Blogs, docs, and knowledge bases with version control, webhooks, and TTL</p>
+                    </div>
+                    <div class="use-case">
+                        <h3>🔔 Event-Driven Apps</h3>
+                        <p>Webhooks trigger HTTP callbacks on doc changes for real-time sync and notifications</p>
+                    </div>
+                    <div class="use-case">
+                        <h3>🌐 Multi-language Sites</h3>
+                        <p>Store and manage content in multiple languages with the same document key</p>
+                    </div>
+                    <div class="use-case">
+                        <h3>⏱️ Cache / Temporary Data</h3>
+                        <p>Document TTL with auto-expiry for session data, cache layers, and temporary content</p>
+                    </div>
+                    <div class="use-case">
+                        <h3>📚 Documentation Platforms</h3>
+                        <p>Import from URLs, full-text search, revision history, and rich metadata</p>
+                    </div>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Community Section -->
-    <section id="community" class="community">
-        <div class="container">
-            <h2>Community & Support <a href="#community" class="anchor-link" aria-label="Link to Community section">#</a></h2>
-            <div class="community-grid">
-                <a href="https://github.com/tradik/mddb" class="community-card" target="_blank" rel="noopener">
-                    <div class="community-icon">🐙</div>
-                    <h3>GitHub</h3>
-                    <p>Source code, issues, and discussions</p>
-                </a>
-                <a href="https://github.com/tradik/mddb/issues" class="community-card" target="_blank" rel="noopener">
-                    <div class="community-icon">🐛</div>
-                    <h3>Report Issues</h3>
-                    <p>Bug reports and feature requests</p>
-                </a>
-                <a href="https://github.com/tradik/mddb/discussions" class="community-card" target="_blank" rel="noopener">
-                    <div class="community-icon">💬</div>
-                    <h3>Discussions</h3>
-                    <p>Ask questions and share ideas</p>
-                </a>
-                <a href="https://github.com/tradik/mddb/blob/main/CONTRIBUTING.md" class="community-card" target="_blank" rel="noopener">
-                    <div class="community-icon">🤝</div>
-                    <h3>Contributing</h3>
-                    <p>Help improve MDDB</p>
-                </a>
+        <!-- Replication Section -->
+        <section id="replication" class="replication" style="background-color: #f8fafc; padding: 80px 0;">
+            <div class="container">
+                <div style="text-align: center; margin-bottom: 50px;">
+                    <h2 style="font-size: 2.5rem; margin-bottom: 20px;">🔄 Leader-Follower Replication <a
+                            href="#replication" class="anchor-link" aria-label="Link to Replication section">#</a></h2>
+                    <p style="font-size: 1.2rem; max-width: 700px; margin: 0 auto;">
+                        MDDB supports highly efficient binlog streaming replication. A single leader node handles all
+                        writes and automatically streams transactions to one or more read-only follower nodes for
+                        horizontal reading scaling and high availability.
+                    </p>
+                </div>
+                <div
+                    style="max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; align-items: center;">
+                    <pre class="mermaid"
+                        style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%;">
+graph LR
+    C[Clients] -->|Writes/Reads| L[Leader<br/>read-write]
+    C -->|Reads| F1[Follower 1<br/>read-only]
+    C -->|Reads| F2[Follower 2<br/>read-only]
+    L -->|gRPC StreamBinlog| F1
+    L -->|gRPC StreamBinlog| F2
+    L -.->|gRPC Snapshot<br/>(on first sync)| F1
+                </pre>
+                    <div
+                        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 40px; width: 100%;">
+                        <div
+                            style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                            <h4>📡 Binlog Streaming</h4>
+                            <p style="font-size: 0.95rem; opacity: 0.8;">Transactions are appended to a binary log and
+                                streamed real-time via gRPC.</p>
+                        </div>
+                        <div
+                            style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                            <h4>⚡ Automatic Catch-up</h4>
+                            <p style="font-size: 0.95rem; opacity: 0.8;">Followers track their Log Sequence Number (LSN)
+                                and automatically resume streaming after disconnects.</p>
+                        </div>
+                        <div
+                            style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                            <h4>📸 Hot Snapshots</h4>
+                            <p style="font-size: 0.95rem; opacity: 0.8;">New followers receive a full database snapshot
+                                via non-blocking transactions before tailing the binlog.</p>
+                        </div>
+                    </div>
+                    <div style="margin-top: 30px;">
+                        <a href="md-viewer.html?doc=REPLICATION.md" class="btn btn-secondary">Read Replication Guide</a>
+                    </div>
+                </div>
             </div>
-        </div>
-    </section>
+        </section>
+
+        <script type="module">
+            import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+            mermaid.initialize({ startOnLoad: true, theme: 'base' });
+        </script>
+
+        <!-- Community Section -->
+        <section id="community" class="community">
+            <div class="container">
+                <h2>Community & Support <a href="#community" class="anchor-link"
+                        aria-label="Link to Community section">#</a></h2>
+                <div class="community-grid">
+                    <a href="https://github.com/tradik/mddb" class="community-card" target="_blank" rel="noopener">
+                        <div class="community-icon">🐙</div>
+                        <h3>GitHub</h3>
+                        <p>Source code, issues, and discussions</p>
+                    </a>
+                    <a href="https://github.com/tradik/mddb/issues" class="community-card" target="_blank"
+                        rel="noopener">
+                        <div class="community-icon">🐛</div>
+                        <h3>Report Issues</h3>
+                        <p>Bug reports and feature requests</p>
+                    </a>
+                    <a href="https://github.com/tradik/mddb/discussions" class="community-card" target="_blank"
+                        rel="noopener">
+                        <div class="community-icon">💬</div>
+                        <h3>Discussions</h3>
+                        <p>Ask questions and share ideas</p>
+                    </a>
+                    <a href="https://github.com/tradik/mddb/blob/main/CONTRIBUTING.md" class="community-card"
+                        target="_blank" rel="noopener">
+                        <div class="community-icon">🤝</div>
+                        <h3>Contributing</h3>
+                        <p>Help improve MDDB</p>
+                    </a>
+                </div>
+            </div>
+        </section>
     </main>
 
     <!-- Footer -->
@@ -700,7 +825,7 @@ $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
                 <div class="footer-section">
                     <h4>MDDB</h4>
                     <p>High-performance markdown database</p>
-                    <p class="footer-version">Version 2.5.0</p>
+                    <p class="footer-version">Version 2.5.1</p>
                 </div>
                 <div class="footer-section">
                     <h4>Documentation</h4>
@@ -715,16 +840,21 @@ $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
                     <h4>Resources</h4>
                     <ul>
                         <li><a href="https://github.com/tradik/mddb" target="_blank" rel="noopener">GitHub</a></li>
-                        <li><a href="https://hub.docker.com/r/tradik/mddb" target="_blank" rel="noopener">Docker Hub</a></li>
-                        <li><a href="https://github.com/tradik/mddb/releases" target="_blank" rel="noopener">Releases</a></li>
-                        <li><a href="https://github.com/tradik/mddb/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a></li>
+                        <li><a href="https://hub.docker.com/r/tradik/mddb" target="_blank" rel="noopener">Docker Hub</a>
+                        </li>
+                        <li><a href="https://github.com/tradik/mddb/releases" target="_blank"
+                                rel="noopener">Releases</a></li>
+                        <li><a href="https://github.com/tradik/mddb/blob/main/CHANGELOG.md" target="_blank"
+                                rel="noopener">Changelog</a></li>
                     </ul>
                 </div>
                 <div class="footer-section">
                     <h4>Legal</h4>
                     <ul>
-                        <li><a href="https://github.com/tradik/mddb/blob/main/LICENSE" target="_blank" rel="noopener">BSD-3-Clause License</a></li>
-                        <li><a href="https://github.com/tradik/mddb/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a></li>
+                        <li><a href="https://github.com/tradik/mddb/blob/main/LICENSE" target="_blank"
+                                rel="noopener">BSD-3-Clause License</a></li>
+                        <li><a href="https://github.com/tradik/mddb/blob/main/CONTRIBUTING.md" target="_blank"
+                                rel="noopener">Contributing</a></li>
                     </ul>
                 </div>
             </div>
@@ -736,7 +866,7 @@ $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
 
     <script defer>
         // Mobile menu toggle
-        document.querySelector('.mobile-menu-toggle').addEventListener('click', function() {
+        document.querySelector('.mobile-menu-toggle').addEventListener('click', function () {
             const isExpanded = this.getAttribute('aria-expanded') === 'true';
             this.setAttribute('aria-expanded', !isExpanded);
             document.querySelector('.nav-links').classList.toggle('active');
@@ -745,7 +875,7 @@ $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
 
         // Tabs functionality
         document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
+            btn.addEventListener('click', function () {
                 const tab = this.dataset.tab;
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                 document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
@@ -765,7 +895,7 @@ $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
         }
 
         document.querySelectorAll('.example-tab').forEach(btn => {
-            btn.addEventListener('click', function(e) {
+            btn.addEventListener('click', function (e) {
                 const example = this.dataset.example;
                 activateExample(example);
                 history.replaceState(null, '', '#example-' + example);
@@ -774,7 +904,7 @@ $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
 
         // Handle anchor links inside example tabs
         document.querySelectorAll('.example-tab .anchor-link').forEach(link => {
-            link.addEventListener('click', function(e) {
+            link.addEventListener('click', function (e) {
                 e.stopPropagation();
                 e.preventDefault();
                 const href = this.getAttribute('href');
@@ -788,7 +918,7 @@ $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
         // Smooth scrolling
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             if (anchor.classList.contains('anchor-link') && anchor.closest('.example-tab')) return;
-            anchor.addEventListener('click', function(e) {
+            anchor.addEventListener('click', function (e) {
                 e.preventDefault();
                 const href = this.getAttribute('href');
                 history.replaceState(null, '', href);
@@ -800,19 +930,19 @@ $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
         });
 
         // On page load, activate example from hash
-        (function() {
+        (function () {
             const hash = window.location.hash;
             if (hash && hash.startsWith('#example-')) {
                 const exampleId = hash.replace('#example-', '');
                 activateExample(exampleId);
-                setTimeout(function() {
+                setTimeout(function () {
                     document.getElementById('examples').scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }, 100);
             }
         })();
 
         // Add scroll effect to navbar
-        window.addEventListener('scroll', function() {
+        window.addEventListener('scroll', function () {
             const navbar = document.querySelector('.navbar');
             if (window.scrollY > 50) {
                 navbar.classList.add('scrolled');
@@ -822,4 +952,5 @@ $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
         });
     </script>
 </body>
+
 </html>

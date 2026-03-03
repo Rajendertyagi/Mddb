@@ -75,6 +75,13 @@ func startGRPCServer(s *Server, addr string, opts ...grpc.ServerOption) error {
 
 	proto.RegisterMDDBServer(grpcServer, NewGRPCServer(s))
 
+	// Register replication service (available on all nodes for status queries)
+	if s.ReplicationRole == "leader" || s.ReplicationRole == "follower" {
+		rs := NewReplicationServer(s)
+		s.replServer = rs
+		proto.RegisterMDDBReplicationServer(grpcServer, rs)
+	}
+
 	// Register reflection service for grpcurl
 	reflection.Register(grpcServer)
 
@@ -117,6 +124,7 @@ func (g *GRPCServer) Add(ctx context.Context, req *proto.AddRequest) (*proto.Doc
 
 	var saved Doc
 	var cachedBuf []byte
+	var bo BinlogOps
 	err := g.server.DB.Update(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(g.server.BucketNames.Docs)
 		bRev := tx.Bucket(g.server.BucketNames.Rev)
@@ -152,11 +160,13 @@ func (g *GRPCServer) Add(ctx context.Context, req *proto.AddRequest) (*proto.Doc
 		if err := bDocs.Put(docKey, buf); err != nil {
 			return err
 		}
+		bo.Put("docs", docKey, buf)
 
 		byKeyKey := kb.BuildByKey(req.Collection, req.Key, req.Lang)
 		if err := bByK.Put(byKeyKey, []byte(docID)); err != nil {
 			return err
 		}
+		bo.Put("bykey", byKeyKey, []byte(docID))
 
 		// Lazy metadata indexing - queue for async processing
 		if metadataChanged(existing.Meta, doc.Meta) {
@@ -174,11 +184,15 @@ func (g *GRPCServer) Add(ctx context.Context, req *proto.AddRequest) (*proto.Doc
 			if err := bRev.Put(revKey, buf); err != nil {
 				return err
 			}
+			bo.Put("rev", revKey, buf)
 		}
 
 		saved = doc
 		return nil
 	})
+	if err == nil {
+		bo.FlushTo(g.server.Binlog)
+	}
 
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())

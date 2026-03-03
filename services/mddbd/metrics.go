@@ -298,6 +298,38 @@ func (m *Metrics) HandleMetrics(w http.ResponseWriter, r *http.Request) {
 	writef(&buf, "# TYPE mddb_schemas_total gauge\n")
 	writef(&buf, "mddb_schemas_total %d\n\n", ds.schemaCount)
 
+	// --- Replication ---
+	writef(&buf, "# HELP mddb_replication_role Replication role (0=standalone, 1=leader, 2=follower).\n")
+	writef(&buf, "# TYPE mddb_replication_role gauge\n")
+	switch m.server.ReplicationRole {
+	case "leader":
+		buf.WriteString("mddb_replication_role 1\n")
+	case "follower":
+		buf.WriteString("mddb_replication_role 2\n")
+	default:
+		buf.WriteString("mddb_replication_role 0\n")
+	}
+	buf.WriteString("\n")
+
+	if m.server.Binlog != nil {
+		bstats := m.server.Binlog.Stats()
+		writef(&buf, "# HELP mddb_replication_lsn Current Log Sequence Number.\n")
+		writef(&buf, "# TYPE mddb_replication_lsn gauge\n")
+		writef(&buf, "mddb_replication_lsn %d\n\n", bstats.CurrentLSN)
+
+		writef(&buf, "# HELP mddb_binlog_size_bytes Binlog file size in bytes.\n")
+		writef(&buf, "# TYPE mddb_binlog_size_bytes gauge\n")
+		writef(&buf, "mddb_binlog_size_bytes %d\n\n", bstats.FileSize)
+
+		writef(&buf, "# HELP mddb_binlog_oldest_lsn Oldest LSN still in the binlog.\n")
+		writef(&buf, "# TYPE mddb_binlog_oldest_lsn gauge\n")
+		writef(&buf, "mddb_binlog_oldest_lsn %d\n\n", bstats.OldestLSN)
+
+		writef(&buf, "# HELP mddb_replication_followers_connected Number of connected followers.\n")
+		writef(&buf, "# TYPE mddb_replication_followers_connected gauge\n")
+		writef(&buf, "mddb_replication_followers_connected %d\n\n", bstats.Subscribers)
+	}
+
 	// --- Go runtime ---
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)

@@ -7,9 +7,15 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
+// SafeBloomFilter wraps bloom.BloomFilter with a mutex
+type SafeBloomFilter struct {
+	filter *bloom.BloomFilter
+	mu     sync.RWMutex
+}
+
 // BloomFilterManager manages bloom filters per collection
 type BloomFilterManager struct {
-	filters sync.Map // collection -> *bloom.BloomFilter
+	filters sync.Map // collection -> *SafeBloomFilter
 	mu      sync.RWMutex
 }
 
@@ -19,43 +25,51 @@ func NewBloomFilterManager() *BloomFilterManager {
 }
 
 // GetOrCreate gets or creates a bloom filter for a collection
-func (bfm *BloomFilterManager) GetOrCreate(collection string, expectedItems uint) *bloom.BloomFilter {
-	if filter, ok := bfm.filters.Load(collection); ok {
-		return filter.(*bloom.BloomFilter)
+func (bfm *BloomFilterManager) GetOrCreate(collection string, expectedItems uint) *SafeBloomFilter {
+	if safeFilter, ok := bfm.filters.Load(collection); ok {
+		return safeFilter.(*SafeBloomFilter)
 	}
 
 	bfm.mu.Lock()
 	defer bfm.mu.Unlock()
 
 	// Double-check after acquiring lock
-	if filter, ok := bfm.filters.Load(collection); ok {
-		return filter.(*bloom.BloomFilter)
+	if safeFilter, ok := bfm.filters.Load(collection); ok {
+		return safeFilter.(*SafeBloomFilter)
 	}
 
 	// Create new bloom filter
 	// False positive rate: 0.01 (1%)
 	filter := bloom.NewWithEstimates(expectedItems, 0.01)
-	bfm.filters.Store(collection, filter)
+	safeFilter := &SafeBloomFilter{filter: filter}
+	bfm.filters.Store(collection, safeFilter)
 
-	return filter
+	return safeFilter
 }
 
 // Add adds a key to the bloom filter
 func (bfm *BloomFilterManager) Add(collection, key, lang string) {
-	filter := bfm.GetOrCreate(collection, 10000) // Default 10k items
+	safeFilter := bfm.GetOrCreate(collection, 10000) // Default 10k items
 	compositeKey := collection + "|" + key + "|" + lang
-	filter.Add([]byte(compositeKey))
+
+	safeFilter.mu.Lock()
+	safeFilter.filter.Add([]byte(compositeKey))
+	safeFilter.mu.Unlock()
 }
 
 // Test checks if a key might exist (false positives possible)
 func (bfm *BloomFilterManager) Test(collection, key, lang string) bool {
-	filter, ok := bfm.filters.Load(collection)
+	v, ok := bfm.filters.Load(collection)
 	if !ok {
 		return false // Collection doesn't exist
 	}
 
+	safeFilter := v.(*SafeBloomFilter)
 	compositeKey := collection + "|" + key + "|" + lang
-	return filter.(*bloom.BloomFilter).Test([]byte(compositeKey))
+
+	safeFilter.mu.RLock()
+	defer safeFilter.mu.RUnlock()
+	return safeFilter.filter.Test([]byte(compositeKey))
 }
 
 // Remove removes a key from the bloom filter
@@ -77,13 +91,15 @@ func (bfm *BloomFilterManager) Stats() map[string]BloomStats {
 
 	bfm.filters.Range(func(key, value interface{}) bool {
 		collection := key.(string)
-		filter := value.(*bloom.BloomFilter)
+		safeFilter := value.(*SafeBloomFilter)
 
+		safeFilter.mu.RLock()
 		stats[collection] = BloomStats{
-			Capacity: filter.Cap(),
-			Count:    filter.ApproximatedSize(),
+			Capacity: safeFilter.filter.Cap(),
+			Count:    safeFilter.filter.ApproximatedSize(),
 			FPRate:   0.01, // Our configured rate
 		}
+		safeFilter.mu.RUnlock()
 		return true
 	})
 
@@ -123,7 +139,7 @@ func (bfm *BloomFilterManager) Rebuild(s *Server, collection string) error {
 	}
 
 	// Create new filter with correct size
-	filter := bfm.GetOrCreate(collection, count+1000) // +1000 for growth
+	safeFilter := bfm.GetOrCreate(collection, count+1000) // +1000 for growth
 
 	// Populate filter
 	return s.DB.View(func(tx *bolt.Tx) error {
@@ -143,7 +159,9 @@ func (bfm *BloomFilterManager) Rebuild(s *Server, collection string) error {
 			}
 
 			compositeKey := collection + "|" + doc.Key + "|" + doc.Lang
-			filter.Add([]byte(compositeKey))
+			safeFilter.mu.Lock()
+			safeFilter.filter.Add([]byte(compositeKey))
+			safeFilter.mu.Unlock()
 		}
 		return nil
 	})
