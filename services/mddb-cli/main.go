@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -118,7 +119,8 @@ Reads content from stdin or file.`,
 
 			var content string
 			if contentFile != "" {
-				data, err := os.ReadFile(contentFile)
+				// #nosec G304 -- User supplied filename intended to be read literally
+				data, err := os.ReadFile(filepath.Clean(contentFile))
 				if err != nil {
 					return err
 				}
@@ -353,7 +355,7 @@ Reads content from stdin or file.`,
 			}
 
 			if output != "" {
-				err = os.WriteFile(output, resp, 0644)
+				err = os.WriteFile(filepath.Clean(output), resp, 0600)
 				if err != nil {
 					return err
 				}
@@ -1492,6 +1494,7 @@ The Playground provides an interactive GraphQL IDE for exploring the schema and 
 				return nil
 			}
 
+			// #nosec G204 -- The command is a safe system launcher executable
 			if err := exec.Command(openCmd, playgroundURL).Start(); err != nil {
 				fmt.Printf("\n⚠️  Failed to open browser: %v\n", err)
 				fmt.Printf("Please open manually: %s\n", playgroundURL)

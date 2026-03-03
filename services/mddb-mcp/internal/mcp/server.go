@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/tradik/mddb/services/mddb-mcp/internal/config"
 	"github.com/tradik/mddb/services/mddb-mcp/internal/mddb"
@@ -40,8 +41,12 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/health", s.handleHealth)
 
 	s.server = &http.Server{
-		Addr:    s.addr,
-		Handler: mux,
+		Addr:              s.addr,
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	go func() {
