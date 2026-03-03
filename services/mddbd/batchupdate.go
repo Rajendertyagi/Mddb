@@ -172,6 +172,7 @@ func (bu *BatchUpdater) processDocument(collection string, updateDoc *proto.Upda
 func (bu *BatchUpdater) commitUpdate(collection string, updated []*UpdatedDoc, now int64) *proto.UpdateBatchResponse {
 	resp := &proto.UpdateBatchResponse{}
 
+	var bo BinlogOps
 	// Single transaction for all updates
 	err := bu.server.DB.Update(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(bu.server.BucketNames.Docs)
@@ -195,6 +196,7 @@ func (bu *BatchUpdater) commitUpdate(collection string, updated []*UpdatedDoc, n
 				resp.Errors = append(resp.Errors, fmt.Sprintf("%s/%s: update error: %v", u.Key, u.Lang, err))
 				continue
 			}
+			bo.Put("docs", docKey, u.Buf)
 
 			// Queue metadata reindexing (lazy)
 			if metadataChanged(u.Existing.Meta, u.Doc.Meta) {
@@ -214,6 +216,7 @@ func (bu *BatchUpdater) commitUpdate(collection string, updated []*UpdatedDoc, n
 					resp.Errors = append(resp.Errors, fmt.Sprintf("%s/%s: revision error: %v", u.Key, u.Lang, err))
 					continue
 				}
+				bo.Put("rev", rkey, u.Buf)
 			}
 
 			// Update cache
@@ -229,6 +232,8 @@ func (bu *BatchUpdater) commitUpdate(collection string, updated []*UpdatedDoc, n
 	if err != nil {
 		resp.Failed++
 		resp.Errors = append(resp.Errors, fmt.Sprintf("transaction error: %v", err))
+	} else {
+		bo.FlushTo(bu.server.Binlog)
 	}
 
 	return resp

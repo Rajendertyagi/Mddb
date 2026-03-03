@@ -22,6 +22,12 @@ type SchemaManager struct {
 	db      *bolt.DB
 	schemas map[string]*MetaSchema // collection → parsed schema
 	mu      sync.RWMutex
+	binlog  *Binlog
+}
+
+// SetBinlog sets the binlog for replication logging.
+func (sm *SchemaManager) SetBinlog(bl *Binlog) {
+	sm.binlog = bl
 }
 
 // MetaSchema is a parsed JSON Schema subset for metadata validation.
@@ -85,12 +91,17 @@ func (sm *SchemaManager) Set(collection, schemaJSON string) error {
 		return fmt.Errorf("invalid schema: %w", err)
 	}
 
-	key := "schema|" + collection
+	key := []byte("schema|" + collection)
+	val := []byte(schemaJSON)
 	if err := sm.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(bucketSchemas)
-		return b.Put([]byte(key), []byte(schemaJSON))
+		return b.Put(key, val)
 	}); err != nil {
 		return err
+	}
+
+	if sm.binlog != nil {
+		_ = sm.binlog.Append(&BinlogEntry{Type: BinlogPut, BucketName: "schemas", Key: copyBytes(key), Value: copyBytes(val)})
 	}
 
 	sm.mu.Lock()
@@ -112,12 +123,16 @@ func (sm *SchemaManager) Get(collection string) (string, bool) {
 
 // Delete removes the schema for a collection (disables validation).
 func (sm *SchemaManager) Delete(collection string) error {
-	key := "schema|" + collection
+	key := []byte("schema|" + collection)
 	if err := sm.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(bucketSchemas)
-		return b.Delete([]byte(key))
+		return b.Delete(key)
 	}); err != nil {
 		return err
+	}
+
+	if sm.binlog != nil {
+		_ = sm.binlog.Append(&BinlogEntry{Type: BinlogDelete, BucketName: "schemas", Key: copyBytes(key)})
 	}
 
 	sm.mu.Lock()

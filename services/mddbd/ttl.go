@@ -22,6 +22,12 @@ type TTLManager struct {
 	db     *bolt.DB
 	server *Server
 	stopCh chan struct{}
+	binlog *Binlog
+}
+
+// SetBinlog sets the binlog for replication logging.
+func (t *TTLManager) SetBinlog(bl *Binlog) {
+	t.binlog = bl
 }
 
 // NewTTLManager creates a new TTL manager.
@@ -42,7 +48,8 @@ func (t *TTLManager) EnsureBuckets() error {
 
 // Set stores a TTL entry for a document. Removes any previous TTL first.
 func (t *TTLManager) Set(collection, docID string, expiresAt int64) error {
-	return t.db.Update(func(tx *bolt.Tx) error {
+	var bo BinlogOps
+	err := t.db.Update(func(tx *bolt.Tx) error {
 		bTTL := tx.Bucket(bucketTTL)
 		bRev := tx.Bucket(bucketTTLRev)
 
@@ -51,39 +58,56 @@ func (t *TTLManager) Set(collection, docID string, expiresAt int64) error {
 		// Remove old TTL entry if exists
 		if old := bRev.Get(revKey); old != nil {
 			oldExpiry := int64(binary.BigEndian.Uint64(old))
-			_ = bTTL.Delete(ttlKey(oldExpiry, collection, docID))
+			oldKey := ttlKey(oldExpiry, collection, docID)
+			_ = bTTL.Delete(oldKey)
+			bo.Delete("ttl", oldKey)
 		}
 
 		if expiresAt <= 0 {
-			// TTL removed
+			bo.Delete("ttlrev", revKey)
 			return bRev.Delete(revKey)
 		}
 
 		// Store forward key: expiresAt|collection|docID -> empty
-		if err := bTTL.Put(ttlKey(expiresAt, collection, docID), []byte{}); err != nil {
+		fwdKey := ttlKey(expiresAt, collection, docID)
+		if err := bTTL.Put(fwdKey, []byte{}); err != nil {
 			return err
 		}
+		bo.Put("ttl", fwdKey, []byte{})
 
 		// Store reverse key: collection|docID -> expiresAt (8 bytes)
 		var buf [8]byte
 		binary.BigEndian.PutUint64(buf[:], uint64(expiresAt))
+		bo.Put("ttlrev", revKey, buf[:])
 		return bRev.Put(revKey, buf[:])
 	})
+	if err == nil {
+		bo.FlushTo(t.binlog)
+	}
+	return err
 }
 
 // Remove deletes TTL entries for a document.
 func (t *TTLManager) Remove(collection, docID string) error {
-	return t.db.Update(func(tx *bolt.Tx) error {
+	var bo BinlogOps
+	err := t.db.Update(func(tx *bolt.Tx) error {
 		bTTL := tx.Bucket(bucketTTL)
 		bRev := tx.Bucket(bucketTTLRev)
 
 		revKey := ttlRevKey(collection, docID)
 		if old := bRev.Get(revKey); old != nil {
 			oldExpiry := int64(binary.BigEndian.Uint64(old))
-			_ = bTTL.Delete(ttlKey(oldExpiry, collection, docID))
+			oldKey := ttlKey(oldExpiry, collection, docID)
+			_ = bTTL.Delete(oldKey)
+			bo.Delete("ttl", oldKey)
 		}
+		bo.Delete("ttlrev", revKey)
 		return bRev.Delete(revKey)
 	})
+	if err == nil {
+		bo.FlushTo(t.binlog)
+	}
+	return err
 }
 
 // StartCleanup runs a background goroutine that reaps expired documents.
@@ -204,9 +228,11 @@ func (s *Server) handleSetTTL(w http.ResponseWriter, r *http.Request) {
 
 	// Update document in DB
 	var updated Doc
+	var bo BinlogOps
 	err := s.DB.Update(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
-		v := bDocs.Get(kDoc(req.Collection, docID))
+		dk := kDoc(req.Collection, docID)
+		v := bDocs.Get(dk)
 		if v == nil {
 			return fmt.Errorf("document not found")
 		}
@@ -215,8 +241,12 @@ func (s *Server) handleSetTTL(w http.ResponseWriter, r *http.Request) {
 		}
 		updated.ExpiresAt = expiresAt
 		buf, _ := json.Marshal(updated)
-		return bDocs.Put(kDoc(req.Collection, docID), buf)
+		bo.Put("docs", dk, buf)
+		return bDocs.Put(dk, buf)
 	})
+	if err == nil {
+		bo.FlushTo(s.Binlog)
+	}
 	if err != nil {
 		bad(w, err)
 		return

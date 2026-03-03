@@ -1089,3 +1089,234 @@ var MDDB_ServiceDesc = grpc.ServiceDesc{
 	},
 	Metadata: "proto/mddb.proto",
 }
+
+const (
+	MDDBReplication_RequestSnapshot_FullMethodName   = "/mddb.MDDBReplication/RequestSnapshot"
+	MDDBReplication_StreamBinlog_FullMethodName      = "/mddb.MDDBReplication/StreamBinlog"
+	MDDBReplication_ReplicationStatus_FullMethodName = "/mddb.MDDBReplication/ReplicationStatus"
+	MDDBReplication_AcknowledgeLSN_FullMethodName    = "/mddb.MDDBReplication/AcknowledgeLSN"
+)
+
+// MDDBReplicationClient is the client API for MDDBReplication service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type MDDBReplicationClient interface {
+	// RequestSnapshot streams a full database snapshot to a follower
+	RequestSnapshot(ctx context.Context, in *SnapshotRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SnapshotChunk], error)
+	// StreamBinlog streams binlog entries from a given LSN (long-lived server-stream)
+	StreamBinlog(ctx context.Context, in *StreamBinlogRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[BinlogEntryProto], error)
+	// ReplicationStatus returns the current replication state of this node
+	ReplicationStatus(ctx context.Context, in *ReplicationStatusRequest, opts ...grpc.CallOption) (*ReplicationStatusResponse, error)
+	// AcknowledgeLSN allows a follower to confirm it has applied up to a given LSN
+	AcknowledgeLSN(ctx context.Context, in *AcknowledgeLSNRequest, opts ...grpc.CallOption) (*AcknowledgeLSNResponse, error)
+}
+
+type mDDBReplicationClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewMDDBReplicationClient(cc grpc.ClientConnInterface) MDDBReplicationClient {
+	return &mDDBReplicationClient{cc}
+}
+
+func (c *mDDBReplicationClient) RequestSnapshot(ctx context.Context, in *SnapshotRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SnapshotChunk], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &MDDBReplication_ServiceDesc.Streams[0], MDDBReplication_RequestSnapshot_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[SnapshotRequest, SnapshotChunk]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type MDDBReplication_RequestSnapshotClient = grpc.ServerStreamingClient[SnapshotChunk]
+
+func (c *mDDBReplicationClient) StreamBinlog(ctx context.Context, in *StreamBinlogRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[BinlogEntryProto], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &MDDBReplication_ServiceDesc.Streams[1], MDDBReplication_StreamBinlog_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[StreamBinlogRequest, BinlogEntryProto]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type MDDBReplication_StreamBinlogClient = grpc.ServerStreamingClient[BinlogEntryProto]
+
+func (c *mDDBReplicationClient) ReplicationStatus(ctx context.Context, in *ReplicationStatusRequest, opts ...grpc.CallOption) (*ReplicationStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ReplicationStatusResponse)
+	err := c.cc.Invoke(ctx, MDDBReplication_ReplicationStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBReplicationClient) AcknowledgeLSN(ctx context.Context, in *AcknowledgeLSNRequest, opts ...grpc.CallOption) (*AcknowledgeLSNResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AcknowledgeLSNResponse)
+	err := c.cc.Invoke(ctx, MDDBReplication_AcknowledgeLSN_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// MDDBReplicationServer is the server API for MDDBReplication service.
+// All implementations must embed UnimplementedMDDBReplicationServer
+// for forward compatibility.
+type MDDBReplicationServer interface {
+	// RequestSnapshot streams a full database snapshot to a follower
+	RequestSnapshot(*SnapshotRequest, grpc.ServerStreamingServer[SnapshotChunk]) error
+	// StreamBinlog streams binlog entries from a given LSN (long-lived server-stream)
+	StreamBinlog(*StreamBinlogRequest, grpc.ServerStreamingServer[BinlogEntryProto]) error
+	// ReplicationStatus returns the current replication state of this node
+	ReplicationStatus(context.Context, *ReplicationStatusRequest) (*ReplicationStatusResponse, error)
+	// AcknowledgeLSN allows a follower to confirm it has applied up to a given LSN
+	AcknowledgeLSN(context.Context, *AcknowledgeLSNRequest) (*AcknowledgeLSNResponse, error)
+	mustEmbedUnimplementedMDDBReplicationServer()
+}
+
+// UnimplementedMDDBReplicationServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedMDDBReplicationServer struct{}
+
+func (UnimplementedMDDBReplicationServer) RequestSnapshot(*SnapshotRequest, grpc.ServerStreamingServer[SnapshotChunk]) error {
+	return status.Errorf(codes.Unimplemented, "method RequestSnapshot not implemented")
+}
+func (UnimplementedMDDBReplicationServer) StreamBinlog(*StreamBinlogRequest, grpc.ServerStreamingServer[BinlogEntryProto]) error {
+	return status.Errorf(codes.Unimplemented, "method StreamBinlog not implemented")
+}
+func (UnimplementedMDDBReplicationServer) ReplicationStatus(context.Context, *ReplicationStatusRequest) (*ReplicationStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReplicationStatus not implemented")
+}
+func (UnimplementedMDDBReplicationServer) AcknowledgeLSN(context.Context, *AcknowledgeLSNRequest) (*AcknowledgeLSNResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AcknowledgeLSN not implemented")
+}
+func (UnimplementedMDDBReplicationServer) mustEmbedUnimplementedMDDBReplicationServer() {}
+func (UnimplementedMDDBReplicationServer) testEmbeddedByValue()                         {}
+
+// UnsafeMDDBReplicationServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to MDDBReplicationServer will
+// result in compilation errors.
+type UnsafeMDDBReplicationServer interface {
+	mustEmbedUnimplementedMDDBReplicationServer()
+}
+
+func RegisterMDDBReplicationServer(s grpc.ServiceRegistrar, srv MDDBReplicationServer) {
+	// If the following call pancis, it indicates UnimplementedMDDBReplicationServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&MDDBReplication_ServiceDesc, srv)
+}
+
+func _MDDBReplication_RequestSnapshot_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(SnapshotRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(MDDBReplicationServer).RequestSnapshot(m, &grpc.GenericServerStream[SnapshotRequest, SnapshotChunk]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type MDDBReplication_RequestSnapshotServer = grpc.ServerStreamingServer[SnapshotChunk]
+
+func _MDDBReplication_StreamBinlog_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(StreamBinlogRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(MDDBReplicationServer).StreamBinlog(m, &grpc.GenericServerStream[StreamBinlogRequest, BinlogEntryProto]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type MDDBReplication_StreamBinlogServer = grpc.ServerStreamingServer[BinlogEntryProto]
+
+func _MDDBReplication_ReplicationStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReplicationStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBReplicationServer).ReplicationStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDBReplication_ReplicationStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBReplicationServer).ReplicationStatus(ctx, req.(*ReplicationStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDBReplication_AcknowledgeLSN_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AcknowledgeLSNRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBReplicationServer).AcknowledgeLSN(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDBReplication_AcknowledgeLSN_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBReplicationServer).AcknowledgeLSN(ctx, req.(*AcknowledgeLSNRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// MDDBReplication_ServiceDesc is the grpc.ServiceDesc for MDDBReplication service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var MDDBReplication_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "mddb.MDDBReplication",
+	HandlerType: (*MDDBReplicationServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ReplicationStatus",
+			Handler:    _MDDBReplication_ReplicationStatus_Handler,
+		},
+		{
+			MethodName: "AcknowledgeLSN",
+			Handler:    _MDDBReplication_AcknowledgeLSN_Handler,
+		},
+	},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "RequestSnapshot",
+			Handler:       _MDDBReplication_RequestSnapshot_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "StreamBinlog",
+			Handler:       _MDDBReplication_StreamBinlog_Handler,
+			ServerStreams: true,
+		},
+	},
+	Metadata: "proto/mddb.proto",
+}

@@ -92,7 +92,8 @@ func (iq *IndexQueue) worker(id int) {
 
 // processJob processes a single indexing job
 func (iq *IndexQueue) processJob(job *IndexJob) error {
-	return iq.server.DB.Update(func(tx *bolt.Tx) error {
+	var bo BinlogOps
+	err := iq.server.DB.Update(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket(iq.server.BucketNames.IdxMeta)
 
 		// Delete old indices
@@ -102,6 +103,7 @@ func (iq *IndexQueue) processJob(job *IndexJob) error {
 					key := kMetaKeyPrefix(job.Collection, mk, mv)
 					key = append(key, []byte(job.DocID)...)
 					_ = bIdx.Delete(key)
+					bo.Delete("idxmeta", key)
 				}
 			}
 		}
@@ -115,12 +117,17 @@ func (iq *IndexQueue) processJob(job *IndexJob) error {
 					if err := bIdx.Put(key, []byte("1")); err != nil {
 						return err
 					}
+					bo.Put("idxmeta", key, []byte("1"))
 				}
 			}
 		}
 
 		return nil
 	})
+	if err == nil {
+		bo.FlushTo(iq.server.Binlog)
+	}
+	return err
 }
 
 // Shutdown gracefully shuts down the index queue

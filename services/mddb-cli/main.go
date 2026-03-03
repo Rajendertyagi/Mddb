@@ -288,7 +288,9 @@ Reads content from stdin or file.`,
 				fmt.Println(string(resp))
 			} else {
 				var docs []map[string]interface{}
-				json.Unmarshal(resp, &docs)
+				if err := json.Unmarshal(resp, &docs); err != nil {
+					return fmt.Errorf("parse response: %w", err)
+				}
 				fmt.Printf("Found %d documents:\n\n", len(docs))
 				for i, doc := range docs {
 					fmt.Printf("%d. %s (%s)\n", i+1, doc["key"], doc["lang"])

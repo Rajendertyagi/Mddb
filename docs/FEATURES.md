@@ -194,6 +194,21 @@ Complete list of MDDB features organized by category.
 - **Source Maps** - JavaScript debugging
 - **Fast Builds** - Optimized for iteration
 
+## Horizontal Scaling
+
+### Leader-Follower Replication
+- **Single-leader Replication** - One write node, multiple read-only followers
+- **Binary Replication Log** - Compact binlog with LSN-based change tracking
+- **Real-time Streaming** - gRPC-based binlog streaming with sub-100ms lag
+- **Full Snapshot Sync** - Automatic snapshot transfer for new followers
+- **Automatic Reconnection** - Followers reconnect and catch up after disconnects
+- **Subsystem Replication** - Documents, vectors, FTS, webhooks, schemas, auth all replicated
+- **Cluster Dashboard** - Web panel shows node status, lag, and follower health
+- **Prometheus Metrics** - `mddb_replication_lsn`, `mddb_binlog_size_bytes`, follower count
+- **Zero Config Standalone** - Replication disabled by default, opt-in via `MDDB_REPLICATION_ROLE`
+
+See [Replication Guide](REPLICATION.md) for setup instructions and examples.
+
 ## Operations & Management
 
 ### Export & Backup
@@ -326,6 +341,10 @@ Enable with `MDDB_EXTREME=true`:
 - `MDDB_EMBEDDING_DIMENSIONS` - Vector dimensions
 - `MDDB_AUTH_ENABLED` - Enable authentication
 - `MDDB_JWT_SECRET` - JWT signing secret
+- `MDDB_REPLICATION_ROLE` - leader, follower, or empty (standalone)
+- `MDDB_REPLICATION_LEADER_ADDR` - Follower: gRPC address of the leader
+- `MDDB_BINLOG_ENABLED` - Enable binlog (auto-enabled for leader)
+- `MDDB_NODE_ID` - Unique node identifier
 
 ### CLI Flags
 - `--db` - Database file path

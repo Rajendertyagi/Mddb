@@ -1,0 +1,103 @@
+# MDDB Cluster Ring - Leader + 2 Followers + Panel
+#
+# Usage:
+#   docker compose -f docker-compose.ring.yml up --build
+#
+# Ports:
+#   Leader:     HTTP :11023, gRPC :11024
+#   Follower 1: HTTP :11033, gRPC :11034
+#   Follower 2: HTTP :11043, gRPC :11044
+#   Panel:      :3000
+
+services:
+  # ── Leader Node ──────────────────────────────────────────
+  leader:
+    build:
+      context: .
+      dockerfile: services/mddbd/Dockerfile
+    container_name: mddb-leader
+    ports:
+      - "11023:11023"
+      - "11024:11024"
+    environment:
+      MDDB_ADDR: ":11023"
+      MDDB_GRPC_ADDR: ":11024"
+      MDDB_PATH: "/app/data/mddb.db"
+      MDDB_MODE: "wr"
+      MDDB_REPLICATION_ROLE: "leader"
+      MDDB_NODE_ID: "leader-1"
+      MDDB_BINLOG_ENABLED: "true"
+    volumes:
+      - leader-data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:11023/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  # ── Follower 1 ──────────────────────────────────────────
+  follower-1:
+    build:
+      context: .
+      dockerfile: services/mddbd/Dockerfile
+    container_name: mddb-follower-1
+    ports:
+      - "11033:11033"
+      - "11034:11034"
+    environment:
+      MDDB_ADDR: ":11033"
+      MDDB_GRPC_ADDR: ":11034"
+      MDDB_PATH: "/app/data/mddb.db"
+      MDDB_MODE: "read"
+      MDDB_REPLICATION_ROLE: "follower"
+      MDDB_NODE_ID: "follower-1"
+      MDDB_REPLICATION_LEADER_ADDR: "leader:11024"
+    volumes:
+      - follower1-data:/app/data
+    depends_on:
+      leader:
+        condition: service_healthy
+
+  # ── Follower 2 ──────────────────────────────────────────
+  follower-2:
+    build:
+      context: .
+      dockerfile: services/mddbd/Dockerfile
+    container_name: mddb-follower-2
+    ports:
+      - "11043:11043"
+      - "11044:11044"
+    environment:
+      MDDB_ADDR: ":11043"
+      MDDB_GRPC_ADDR: ":11044"
+      MDDB_PATH: "/app/data/mddb.db"
+      MDDB_MODE: "read"
+      MDDB_REPLICATION_ROLE: "follower"
+      MDDB_NODE_ID: "follower-2"
+      MDDB_REPLICATION_LEADER_ADDR: "leader:11024"
+    volumes:
+      - follower2-data:/app/data
+    depends_on:
+      leader:
+        condition: service_healthy
+
+  # ── Panel (dev mode with API proxy to leader) ───────────
+  panel:
+    build:
+      context: services/mddb-panel
+      dockerfile: Dockerfile
+      target: development
+    container_name: mddb-panel
+    ports:
+      - "3000:3000"
+    environment:
+      MDDB_SERVER: "http://leader:11023"
+    depends_on:
+      leader:
+        condition: service_healthy
+
+volumes:
+  leader-data:
+  follower1-data:
+  follower2-data:

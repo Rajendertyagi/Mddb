@@ -22,6 +22,7 @@ info:
     - Template variable substitution
     - Export capabilities (NDJSON, ZIP)
     - Backup and restore operations
+    - **Replication** - Leader-follower replication with binlog streaming
 
     ## Protocols
     - **HTTP/JSON** - Port 11023 (documented here)
@@ -57,7 +58,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: 2.5.0
+  version: 2.5.1
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -104,6 +105,8 @@ tags:
     description: Database maintenance operations
   - name: Telemetry
     description: Prometheus-compatible metrics endpoint
+  - name: Replication
+    description: Leader-follower replication status and monitoring
 
 paths:
   /health:
@@ -1012,6 +1015,26 @@ paths:
         '404':
           description: Metrics disabled (MDDB_METRICS=false)
 
+  /v1/replication/status:
+    get:
+      tags:
+        - Replication
+      summary: Replication status
+      description: |
+        Returns the replication status of this node, including role, LSN, binlog stats,
+        and connected followers (leader only).
+
+        Available for all roles: standalone, leader, and follower.
+        See [Replication documentation](REPLICATION.md) for setup and monitoring.
+      operationId: getReplicationStatus
+      responses:
+        '200':
+          description: Replication status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplicationStatusResponse'
+
 components:
   schemas:
     Document:
@@ -1672,6 +1695,89 @@ components:
             type: string
           description: Validation error messages (empty if valid)
           example: []
+
+    ReplicationStatusResponse:
+      type: object
+      properties:
+        node_id:
+          type: string
+          description: Unique node identifier
+          example: leader-1
+        role:
+          type: string
+          enum: [standalone, leader, follower]
+          description: Replication role of this node
+          example: leader
+        current_lsn:
+          type: integer
+          format: uint64
+          description: Current Log Sequence Number
+          example: 45230
+        binlog_oldest_lsn:
+          type: integer
+          format: uint64
+          description: Oldest LSN still in the binlog (leader only)
+          example: 40000
+        binlog_size_bytes:
+          type: integer
+          format: int64
+          description: Binlog file size in bytes (leader only)
+          example: 15728640
+        leader_addr:
+          type: string
+          description: Address of the leader node (follower only)
+          example: leader:11024
+        replication_lag_ms:
+          type: integer
+          format: int64
+          description: Replication lag in milliseconds (follower only)
+          example: 12
+        healthy:
+          type: boolean
+          description: Whether this node is healthy
+          example: true
+        followers:
+          type: array
+          items:
+            $ref: '#/components/schemas/FollowerInfo'
+          description: Connected followers (leader only)
+        uptime_seconds:
+          type: integer
+          format: int64
+          description: Node uptime in seconds
+          example: 86400
+
+    FollowerInfo:
+      type: object
+      properties:
+        follower_id:
+          type: string
+          description: Follower node identifier
+          example: follower-1
+        address:
+          type: string
+          description: Follower network address
+          example: "10.0.0.2:11034"
+        confirmed_lsn:
+          type: integer
+          format: uint64
+          description: Last LSN confirmed by this follower
+          example: 45228
+        lag_ms:
+          type: integer
+          format: int64
+          description: Estimated replication lag in milliseconds
+          example: 12
+        last_seen_at:
+          type: integer
+          format: int64
+          description: Unix timestamp of last communication
+          example: 1709500000
+        status:
+          type: string
+          enum: [healthy, warning, unhealthy]
+          description: "Follower health status (healthy: <1s lag, warning: 1-30s, unhealthy: >30s)"
+          example: healthy
 
     ErrorResponse:
       type: object

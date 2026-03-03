@@ -43,7 +43,7 @@
         "priceCurrency": "USD"
       },
       "description": "High-performance, version-controlled markdown database with dual protocol support (HTTP/JSON + gRPC/Protobuf + GraphQL)",
-      "softwareVersion": "2.5.0",
+      "softwareVersion": "2.5.1",
       "featureList": [
         "Markdown-native database",
         "Triple protocol support (HTTP/JSON + gRPC/Protobuf + GraphQL)",
@@ -58,7 +58,8 @@
         "Multi-language support",
         "PHP and Python client libraries",
         "JWT authentication and RBAC authorization",
-        "User and group-based permissions"
+        "User and group-based permissions",
+        "Leader-follower replication for horizontal scaling"
       ],
       "datePublished": "2026-03-02",
       "author": {
@@ -104,13 +105,13 @@
                 <h1>High-Performance Markdown Database</h1>
                 <p class="hero-subtitle">Version-controlled, embedded database with vector search, full-text search, GraphQL, webhooks, TTL, and triple protocol support</p>
                 <div class="hero-badges">
-                    <span class="badge">v2.5.0</span>
+                    <span class="badge">v2.5.1</span>
                     <span class="badge">Go 1.26+</span>
                     <span class="badge">BSD-3-Clause</span>
                     <span class="badge">Docker Ready</span>
                 </div>
                 <div class="hero-actions">
-                    <a href="#download" class="btn btn-primary">Download v2.5.0</a>
+                    <a href="#download" class="btn btn-primary">Download v2.5.1</a>
                     <a href="https://github.com/tradik/mddb" class="btn btn-secondary" target="_blank" rel="noopener">View on GitHub</a>
                 </div>
                 <div class="hero-quick-start">
@@ -200,6 +201,11 @@
                     <h3>Authentication & RBAC</h3>
                     <p>JWT tokens, API keys, per-collection permissions (opt-in)</p>
                 </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔄</div>
+                    <h3>Replication</h3>
+                    <p>Leader-follower replication with binlog streaming for horizontal read scaling</p>
+                </div>
             </div>
         </div>
     </section>
@@ -285,7 +291,7 @@ make docker-up
                 </div>
                 <div class="tab-pane" id="binary">
                     <pre><code># Download binary
-wget https://github.com/tradik/mddb/releases/download/v2.5.0/mddbd-linux-amd64
+wget https://github.com/tradik/mddb/releases/download/v2.5.1/mddbd-linux-amd64
 chmod +x mddbd-linux-amd64
 
 # Run server
@@ -315,26 +321,26 @@ make build
             <div class="download-grid">
                 <div class="download-card">
                     <h3>Latest Release</h3>
-                    <div class="version">v2.5.0</div>
-                    <p class="release-date">Released: March 2, 2026</p>
+                    <div class="version">v2.5.1</div>
+                    <p class="release-date">Released: March 3, 2026</p>
                     <div class="download-links">
-                        <a href="https://github.com/tradik/mddb/releases/download/v2.5.0/mddbd-linux-amd64" class="download-link">
+                        <a href="https://github.com/tradik/mddb/releases/download/v2.5.1/mddbd-linux-amd64" class="download-link">
                             <span class="platform">Linux AMD64</span>
                             <span class="size">~27MB</span>
                         </a>
-                        <a href="https://github.com/tradik/mddb/releases/download/v2.5.0/mddbd-linux-arm64" class="download-link">
+                        <a href="https://github.com/tradik/mddb/releases/download/v2.5.1/mddbd-linux-arm64" class="download-link">
                             <span class="platform">Linux ARM64</span>
                             <span class="size">~27MB</span>
                         </a>
-                        <a href="https://github.com/tradik/mddb/releases/download/v2.5.0/mddbd-darwin-amd64" class="download-link">
+                        <a href="https://github.com/tradik/mddb/releases/download/v2.5.1/mddbd-darwin-amd64" class="download-link">
                             <span class="platform">macOS AMD64</span>
                             <span class="size">~27MB</span>
                         </a>
-                        <a href="https://github.com/tradik/mddb/releases/download/v2.5.0/mddbd-darwin-arm64" class="download-link">
+                        <a href="https://github.com/tradik/mddb/releases/download/v2.5.1/mddbd-darwin-arm64" class="download-link">
                             <span class="platform">macOS ARM64</span>
                             <span class="size">~27MB</span>
                         </a>
-                        <a href="https://github.com/tradik/mddb/releases/download/v2.5.0/mddbd-freebsd-amd64" class="download-link">
+                        <a href="https://github.com/tradik/mddb/releases/download/v2.5.1/mddbd-freebsd-amd64" class="download-link">
                             <span class="platform">FreeBSD AMD64</span>
                             <span class="size">~27MB</span>
                         </a>
@@ -350,7 +356,7 @@ make build
                 </div>
                 <div class="download-card">
                     <h3>Docker Image</h3>
-                    <div class="version">tradik/mddb:2.5.0</div>
+                    <div class="version">tradik/mddb:2.5.1</div>
                     <p class="release-date">Alpine-based (~15MB)</p>
                     <pre><code>docker pull tradik/mddb:latest
 docker pull tradik/mddb:2.3.3</code></pre>
@@ -358,15 +364,15 @@ docker pull tradik/mddb:2.3.3</code></pre>
                 </div>
             </div>
             <div class="release-notes">
-                <h3>What's New in v2.5.0</h3>
+                <h3>What's New in v2.5.1</h3>
                 <ul>
+                    <li>🔄 <strong>Leader-Follower Replication</strong> - Horizontal read scaling with binlog-based streaming replication</li>
+                    <li>📊 <strong>Cluster Dashboard</strong> - Web panel Cluster tab with node status, lag monitoring, and health indicators</li>
+                    <li>🔧 <strong>Replication Metrics</strong> - Prometheus metrics for LSN, binlog size, follower count</li>
                     <li>🆕 <strong>GraphQL API</strong> - Modern GraphQL endpoint with schema introspection, Playground, and auth directives</li>
-                    <li>🎛️ <strong>API Mode Toggle</strong> - Web panel supports switching between REST and GraphQL APIs</li>
-                    <li>💻 <strong>GraphQL CLI Commands</strong> - Execute queries and open Playground via mddb-cli</li>
-                    <li>🔐 <strong>GraphQL Authentication</strong> - Full JWT/API key integration with @auth and @hasRole directives</li>
+                    <li>🔐 <strong>Authentication & RBAC</strong> - JWT tokens, API keys, collection-level permissions</li>
                     <li>🛠️ <strong>Custom MCP Tools</strong> - Define website-specific AI tools in YAML with preconfigured defaults</li>
                     <li>📊 <strong>Telemetry</strong> - Prometheus-compatible /metrics endpoint (zero deps)</li>
-                    <li>✅ <strong>Schema Validation</strong> - Per-collection JSON Schema for metadata (opt-in)</li>
                     <li>🔍 <strong>Vector Search</strong> - Semantic similarity with OpenAI, Ollama, Voyage AI</li>
                 </ul>
                 <a href="https://github.com/tradik/mddb/blob/main/CHANGELOG.md" target="_blank" rel="noopener">View Full Changelog →</a>
@@ -465,6 +471,12 @@ docker pull tradik/mddb:2.3.3</code></pre>
                     <div class="doc-icon">⚡</div>
                     <h3>Auth Quick Start</h3>
                     <p>5-minute authentication setup guide</p>
+                </a>
+                <a href="md-viewer.html?doc=REPLICATION.md" class="doc-card featured">
+                    <div class="doc-icon">🔄</div>
+                    <h3>Replication Guide</h3>
+                    <p>Leader-follower setup, Docker Compose, monitoring</p>
+                    <span class="badge-new">New</span>
                 </a>
             </div>
         </div>
@@ -700,7 +712,7 @@ $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
                 <div class="footer-section">
                     <h4>MDDB</h4>
                     <p>High-performance markdown database</p>
-                    <p class="footer-version">Version 2.5.0</p>
+                    <p class="footer-version">Version 2.5.1</p>
                 </div>
                 <div class="footer-section">
                     <h4>Documentation</h4>

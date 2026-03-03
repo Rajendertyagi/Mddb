@@ -449,3 +449,79 @@ message ValidateDocumentResponse {
   bool valid = 1;
   repeated string errors = 2;
 }
+
+// ---- Replication Service ----
+
+service MDDBReplication {
+  // RequestSnapshot streams a full database snapshot to a follower
+  rpc RequestSnapshot(SnapshotRequest) returns (stream SnapshotChunk);
+
+  // StreamBinlog streams binlog entries from a given LSN (long-lived server-stream)
+  rpc StreamBinlog(StreamBinlogRequest) returns (stream BinlogEntryProto);
+
+  // ReplicationStatus returns the current replication state of this node
+  rpc ReplicationStatus(ReplicationStatusRequest) returns (ReplicationStatusResponse);
+
+  // AcknowledgeLSN allows a follower to confirm it has applied up to a given LSN
+  rpc AcknowledgeLSN(AcknowledgeLSNRequest) returns (AcknowledgeLSNResponse);
+}
+
+message SnapshotRequest {
+  string follower_id = 1;
+  uint64 current_lsn = 2;
+}
+
+message SnapshotChunk {
+  bytes data = 1;
+  uint64 offset = 2;
+  uint64 total_size = 3;
+  bool is_last = 4;
+  uint64 snapshot_lsn = 5;
+}
+
+message StreamBinlogRequest {
+  string follower_id = 1;
+  uint64 from_lsn = 2;
+}
+
+message BinlogEntryProto {
+  uint64 lsn = 1;
+  uint32 type = 2;
+  int64 timestamp = 3;
+  string bucket_name = 4;
+  bytes key = 5;
+  bytes value = 6;
+  uint32 checksum = 7;
+}
+
+message ReplicationStatusRequest {}
+
+message ReplicationStatusResponse {
+  string node_id = 1;
+  string role = 2;
+  uint64 current_lsn = 3;
+  string leader_addr = 4;
+  int64 last_applied_at = 5;
+  repeated FollowerInfo followers = 6;
+  int64 replication_lag_ms = 7;
+  uint64 binlog_oldest_lsn = 8;
+  int64 binlog_size_bytes = 9;
+}
+
+message FollowerInfo {
+  string follower_id = 1;
+  uint64 confirmed_lsn = 2;
+  int64 last_seen_at = 3;
+  string address = 4;
+  int64 lag_ms = 5;
+}
+
+message AcknowledgeLSNRequest {
+  string follower_id = 1;
+  uint64 confirmed_lsn = 2;
+}
+
+message AcknowledgeLSNResponse {
+  bool ok = 1;
+  uint64 leader_lsn = 2;
+}

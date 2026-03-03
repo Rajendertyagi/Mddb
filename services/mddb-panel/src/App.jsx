@@ -17,6 +17,7 @@ import GroupsPanel from './components/GroupsPanel';
 import VectorPanel from './components/VectorPanel';
 import EmbeddingModelsPanel from './components/EmbeddingModelsPanel';
 import SettingsPanel from './components/SettingsPanel';
+import ClusterPanel from './components/ClusterPanel';
 
 function App() {
   const {
@@ -93,6 +94,11 @@ function App() {
         <Sidebar stats={stats} statsError={statsError} />
 
         <div className="flex-1 flex">
+          {viewMode === 'cluster' && (
+            <div className="flex-1 border-l border-gray-200">
+              <ClusterPanel />
+            </div>
+          )}
           {viewMode === 'system' && (
             <div className="flex-1 border-l border-gray-200">
               <SystemInfo />

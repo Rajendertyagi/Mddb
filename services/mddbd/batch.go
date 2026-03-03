@@ -170,6 +170,7 @@ func (bp *BatchProcessor) processDocument(collection string, batchDoc *proto.Bat
 func (bp *BatchProcessor) commitBatch(collection string, processed []*ProcessedDoc, now int64) *proto.AddBatchResponse {
 	resp := &proto.AddBatchResponse{}
 
+	var bo BinlogOps
 	// Single transaction for all documents
 	err := bp.server.DB.Update(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(bp.server.BucketNames.Docs)
@@ -186,18 +187,22 @@ func (bp *BatchProcessor) commitBatch(collection string, processed []*ProcessedD
 			}
 
 			// Store document
-			if err := bDocs.Put(kDoc(collection, p.DocID), p.Buf); err != nil {
+			docKey := kDoc(collection, p.DocID)
+			if err := bDocs.Put(docKey, p.Buf); err != nil {
 				resp.Failed++
 				resp.Errors = append(resp.Errors, fmt.Sprintf("%s: put error: %v", p.Doc.Key, err))
 				continue
 			}
+			bo.Put("docs", docKey, p.Buf)
 
 			// Store key index
-			if err := bByK.Put(kByKey(collection, p.Doc.Key, p.Doc.Lang), []byte(p.DocID)); err != nil {
+			byKeyK := kByKey(collection, p.Doc.Key, p.Doc.Lang)
+			if err := bByK.Put(byKeyK, []byte(p.DocID)); err != nil {
 				resp.Failed++
 				resp.Errors = append(resp.Errors, fmt.Sprintf("%s: bykey error: %v", p.Doc.Key, err))
 				continue
 			}
+			bo.Put("bykey", byKeyK, []byte(p.DocID))
 
 			// Only reindex metadata if changed
 			if metadataChanged(p.Existing.Meta, p.Doc.Meta) {
@@ -207,6 +212,7 @@ func (bp *BatchProcessor) commitBatch(collection string, processed []*ProcessedD
 						for _, mv := range vals {
 							prefix := append(kMetaKeyPrefix(collection, mk, mv), []byte(p.Existing.ID)...)
 							_ = bIdx.Delete(prefix)
+							bo.Delete("idxmeta", prefix)
 						}
 					}
 				}
@@ -220,6 +226,7 @@ func (bp *BatchProcessor) commitBatch(collection string, processed []*ProcessedD
 							resp.Errors = append(resp.Errors, fmt.Sprintf("%s: index error: %v", p.Doc.Key, err))
 							continue
 						}
+						bo.Put("idxmeta", key, []byte("1"))
 					}
 				}
 			}
@@ -232,6 +239,7 @@ func (bp *BatchProcessor) commitBatch(collection string, processed []*ProcessedD
 					resp.Errors = append(resp.Errors, fmt.Sprintf("%s: revision error: %v", p.Doc.Key, err))
 					continue
 				}
+				bo.Put("rev", rkey, p.Buf)
 			}
 
 			// Count success
@@ -248,6 +256,8 @@ func (bp *BatchProcessor) commitBatch(collection string, processed []*ProcessedD
 	if err != nil {
 		resp.Failed = int32(len(processed))
 		resp.Errors = append(resp.Errors, fmt.Sprintf("transaction error: %v", err))
+	} else {
+		bo.FlushTo(bp.server.Binlog)
 	}
 
 	return resp

@@ -38,9 +38,15 @@ type WebhookPayload struct {
 
 // WebhookManager manages webhook registrations and delivery.
 type WebhookManager struct {
-	db    *bolt.DB
-	mu    sync.RWMutex
-	hooks []Webhook
+	db     *bolt.DB
+	mu     sync.RWMutex
+	hooks  []Webhook
+	binlog *Binlog
+}
+
+// SetBinlog sets the binlog for replication logging.
+func (wm *WebhookManager) SetBinlog(bl *Binlog) {
+	wm.binlog = bl
 }
 
 // NewWebhookManager creates a new webhook manager.
@@ -108,11 +114,16 @@ func (wm *WebhookManager) Register(url string, events []string, collection strin
 	}
 
 	data, _ := json.Marshal(wh)
+	whKey := []byte("wh|" + wh.ID)
 	if err := wm.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(bucketWebhooks)
-		return b.Put([]byte("wh|"+wh.ID), data)
+		return b.Put(whKey, data)
 	}); err != nil {
 		return nil, err
+	}
+
+	if wm.binlog != nil {
+		_ = wm.binlog.Append(&BinlogEntry{Type: BinlogPut, BucketName: "webhooks", Key: copyBytes(whKey), Value: copyBytes(data)})
 	}
 
 	wm.mu.Lock()
@@ -133,11 +144,16 @@ func (wm *WebhookManager) List() []Webhook {
 
 // Delete removes a webhook by ID.
 func (wm *WebhookManager) Delete(id string) error {
+	whKey := []byte("wh|" + id)
 	if err := wm.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(bucketWebhooks)
-		return b.Delete([]byte("wh|" + id))
+		return b.Delete(whKey)
 	}); err != nil {
 		return err
+	}
+
+	if wm.binlog != nil {
+		_ = wm.binlog.Append(&BinlogEntry{Type: BinlogDelete, BucketName: "webhooks", Key: copyBytes(whKey)})
 	}
 
 	wm.mu.Lock()
