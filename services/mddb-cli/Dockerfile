@@ -26,7 +26,7 @@ WORKDIR /app
 COPY --from=builder /build/mddb-cli .
 
 # Copy man page if needed
-COPY mddb-cli.1 /usr/share/man/man1/ || true
+COPY mddb-cli.1 /usr/share/man/man1/
 
 # Set CLI as entrypoint
 ENTRYPOINT ["./mddb-cli"]
