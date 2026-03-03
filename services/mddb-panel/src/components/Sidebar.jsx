@@ -11,6 +11,7 @@ export default function Sidebar({ stats, statsError, onStatsRefresh }) {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [reindexingCollection, setReindexingCollection] = useState(null);
+  const [reindexResult, setReindexResult] = useState(null);
 
   useEffect(() => {
     loadVectorStats();
@@ -28,12 +29,15 @@ export default function Sidebar({ stats, statsError, onStatsRefresh }) {
   const handleReindex = async (collectionName, e) => {
     e.stopPropagation();
     setReindexingCollection(collectionName);
+    setReindexResult(null);
     const pollInterval = setInterval(() => loadVectorStats(), 2000);
     try {
-      await mddbClient.reindexVectors(collectionName);
+      const result = await mddbClient.reindexVectors(collectionName);
       await loadVectorStats();
+      setReindexResult({ collection: collectionName, ...result });
     } catch (error) {
       console.error('Reindex error:', error);
+      setReindexResult({ collection: collectionName, failed: 0, errors: [error.message] });
     } finally {
       clearInterval(pollInterval);
       setReindexingCollection(null);
@@ -142,23 +146,33 @@ export default function Sidebar({ stats, statsError, onStatsRefresh }) {
                 <span className="font-medium text-gray-900">{vectorStats.dimensions}</span>
               </div>
               {vectorStats.collections && Object.entries(vectorStats.collections).map(([name, cs]) => (
-                <div key={name} className="flex items-center justify-between text-sm group/embed">
-                  <span className="text-gray-600 truncate max-w-[80px]" title={name}>{name}</span>
-                  <div className="flex items-center space-x-1">
-                    <span className={`font-medium ${cs.embeddedDocuments < cs.totalDocuments ? 'text-yellow-600' : 'text-gray-900'}`}>
-                      {cs.embeddedDocuments}/{cs.totalDocuments}
-                    </span>
-                    {cs.embeddedDocuments < cs.totalDocuments && (
-                      <button
-                        onClick={(e) => handleReindex(name, e)}
-                        disabled={reindexingCollection === name}
-                        className="p-0.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                        title={`Reindex ${name}`}
-                      >
-                        <RefreshCw className={`w-3 h-3 ${reindexingCollection === name ? 'animate-spin' : ''}`} />
-                      </button>
-                    )}
+                <div key={name}>
+                  <div className="flex items-center justify-between text-sm group/embed">
+                    <span className="text-gray-600 truncate max-w-[80px]" title={name}>{name}</span>
+                    <div className="flex items-center space-x-1">
+                      <span className={`font-medium ${cs.embeddedDocuments < cs.totalDocuments ? 'text-yellow-600' : 'text-gray-900'}`}>
+                        {cs.embeddedDocuments}/{cs.totalDocuments}
+                      </span>
+                      {cs.embeddedDocuments < cs.totalDocuments && (
+                        <button
+                          onClick={(e) => handleReindex(name, e)}
+                          disabled={reindexingCollection === name}
+                          className="p-0.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                          title={`Reindex ${name}`}
+                        >
+                          <RefreshCw className={`w-3 h-3 ${reindexingCollection === name ? 'animate-spin' : ''}`} />
+                        </button>
+                      )}
+                    </div>
                   </div>
+                  {reindexResult && reindexResult.collection === name && reindexResult.errors?.length > 0 && (
+                    <div className="mt-1 p-1.5 bg-red-50 rounded text-xs text-red-700 max-h-24 overflow-y-auto">
+                      <div className="font-medium mb-0.5">{reindexResult.failed} failed:</div>
+                      {reindexResult.errors.map((err, i) => (
+                        <div key={i} className="truncate" title={err}>{err}</div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
