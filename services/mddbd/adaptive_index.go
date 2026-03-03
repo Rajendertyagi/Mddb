@@ -56,15 +56,9 @@ func NewAdaptiveIndexManager() *AdaptiveIndexManager {
 func (aim *AdaptiveIndexManager) RecordQuery(collection, pattern string, duration time.Duration, resultCount int) {
 	key := collection + "|" + pattern
 
-	var stats *QueryStats
-	if value, ok := aim.queryStats.Load(key); ok {
-		stats = value.(*QueryStats)
-	} else {
-		stats = &QueryStats{
-			Pattern: pattern,
-		}
-		aim.queryStats.Store(key, stats)
-	}
+	newStats := &QueryStats{Pattern: pattern}
+	value, _ := aim.queryStats.LoadOrStore(key, newStats)
+	stats := value.(*QueryStats)
 
 	stats.Count.Add(1)
 	stats.TotalDuration.Add(int64(duration))
