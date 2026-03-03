@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Folder, Database, HardDrive, FileText, Trash2, Brain, Server, Settings, Code, Network, Users, UsersIcon, Upload, FolderPlus, Sliders, GitBranch } from 'lucide-react';
+import { Folder, Database, HardDrive, FileText, Trash2, Brain, Server, Settings, Code, Network, Users, UsersIcon, Upload, FolderPlus, Sliders, GitBranch, RefreshCw } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
 import UploadModal from './UploadModal';
@@ -10,6 +10,7 @@ export default function Sidebar({ stats, statsError, onStatsRefresh }) {
   const [deletingCollection, setDeletingCollection] = useState(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [reindexingCollection, setReindexingCollection] = useState(null);
 
   useEffect(() => {
     loadVectorStats();
@@ -21,6 +22,19 @@ export default function Sidebar({ stats, statsError, onStatsRefresh }) {
       setVectorStats(data);
     } catch {
       // Vector stats unavailable - not critical
+    }
+  };
+
+  const handleReindex = async (collectionName, e) => {
+    e.stopPropagation();
+    setReindexingCollection(collectionName);
+    try {
+      await mddbClient.reindexVectors(collectionName);
+      await loadVectorStats();
+    } catch (error) {
+      console.error('Reindex error:', error);
+    } finally {
+      setReindexingCollection(null);
     }
   };
 
@@ -126,11 +140,23 @@ export default function Sidebar({ stats, statsError, onStatsRefresh }) {
                 <span className="font-medium text-gray-900">{vectorStats.dimensions}</span>
               </div>
               {vectorStats.collections && Object.entries(vectorStats.collections).map(([name, cs]) => (
-                <div key={name} className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600 truncate max-w-[100px]" title={name}>{name}</span>
-                  <span className="font-medium text-gray-900">
-                    {cs.embeddedDocuments}/{cs.totalDocuments}
-                  </span>
+                <div key={name} className="flex items-center justify-between text-sm group/embed">
+                  <span className="text-gray-600 truncate max-w-[80px]" title={name}>{name}</span>
+                  <div className="flex items-center space-x-1">
+                    <span className={`font-medium ${cs.embeddedDocuments < cs.totalDocuments ? 'text-yellow-600' : 'text-gray-900'}`}>
+                      {cs.embeddedDocuments}/{cs.totalDocuments}
+                    </span>
+                    {cs.embeddedDocuments < cs.totalDocuments && (
+                      <button
+                        onClick={(e) => handleReindex(name, e)}
+                        disabled={reindexingCollection === name}
+                        className="p-0.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                        title={`Reindex ${name}`}
+                      >
+                        <RefreshCw className={`w-3 h-3 ${reindexingCollection === name ? 'animate-spin' : ''}`} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
