@@ -62,7 +62,8 @@ func NewBinlog(dbPath string, cfg BinlogConfig) (*Binlog, error) {
 		binlogPath = filepath.Join(filepath.Dir(dbPath), "mddb.binlog")
 	}
 
-	file, err := os.OpenFile(binlogPath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
+	// #nosec G304 -- Path is constructed safely
+	file, err := os.OpenFile(filepath.Clean(binlogPath), os.O_CREATE|os.O_RDWR|os.O_APPEND, 0600)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open binlog: %w", err)
 	}
@@ -394,7 +395,8 @@ func (b *Binlog) Rotate(keepFromLSN uint64) error {
 		return err
 	}
 
-	file, err := os.OpenFile(b.path, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0644)
+	// #nosec G304 -- Path is constructed safely
+	file, err := os.OpenFile(filepath.Clean(b.path), os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}
@@ -488,7 +490,8 @@ func (b *Binlog) truncate() error {
 		return err
 	}
 
-	file, err := os.OpenFile(b.path, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0644)
+	// #nosec G304 -- Path is constructed safely
+	file, err := os.OpenFile(filepath.Clean(b.path), os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0600)
 	if err != nil {
 		return fmt.Errorf("failed to truncate binlog: %w", err)
 	}

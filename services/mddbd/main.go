@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -471,7 +472,15 @@ func main() {
 	// Start HTTP server
 	go func() {
 		log.Printf("mddb HTTP listening on %s (mode=%s, db=%s)", httpAddr, s.Mode, dbPath)
-		if err := http.ListenAndServe(httpAddr, handler); err != nil {
+		server := &http.Server{
+			Addr:              httpAddr,
+			Handler:           handler,
+			ReadHeaderTimeout: 10 * time.Second,
+			ReadTimeout:       30 * time.Second,
+			WriteTimeout:      30 * time.Second,
+			IdleTimeout:       120 * time.Second,
+		}
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatal(err)
 		}
 	}()
@@ -1378,13 +1387,15 @@ func intersect(sets ...[]string) []string {
 	return out
 }
 func copyFile(src, dst string) error {
-	in, err := os.Open(src)
+	// #nosec G304 -- Function intentionally copies provided path
+	in, err := os.Open(filepath.Clean(src))
 	if err != nil {
 		return err
 	}
 	defer func() { _ = in.Close() }()
 	tmp := dst + ".tmp"
-	out, err := os.Create(tmp)
+	// #nosec G304 -- Subpath created securely
+	out, err := os.Create(filepath.Clean(tmp))
 	if err != nil {
 		return err
 	}

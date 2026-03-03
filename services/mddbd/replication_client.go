@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -235,7 +236,8 @@ func (rc *ReplicationClient) requestSnapshot(ctx context.Context) error {
 
 	// Write to temp file
 	tmpPath := rc.server.Path + ".snapshot.tmp"
-	tmpFile, err := os.Create(tmpPath)
+	// #nosec G304 -- Extension is hardcoded and safe
+	tmpFile, err := os.Create(filepath.Clean(tmpPath))
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}

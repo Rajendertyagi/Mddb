@@ -246,6 +246,7 @@ func AlignedBuffer(size int) []byte {
 	buf := make([]byte, size+alignment)
 
 	// Calculate aligned offset
+	// #nosec G103 -- Required for memory alignment
 	addr := uintptr(unsafe.Pointer(&buf[0]))
 	offset := int(alignment - (addr % alignment))
 

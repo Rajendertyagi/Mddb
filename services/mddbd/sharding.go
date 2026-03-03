@@ -148,7 +148,8 @@ func (ch *ConsistentHash) GetN(key string, n int) []int {
 // hash computes hash of a key
 func (ch *ConsistentHash) hash(key string) uint32 {
 	h := fnv.New32a()
-	h.Write([]byte(key))
+	// #nosec G104 -- fnv.New32a().Write never returns an error
+	_, _ = h.Write([]byte(key))
 	return h.Sum32()
 }
 
