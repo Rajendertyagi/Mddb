@@ -177,13 +177,13 @@ High-performance clients generated from Protocol Buffers:
 
 Proto definitions at `proto/mddb.proto` - generate clients for any language supported by protobuf.
 
-### Docker Images
+### Docker Images ([Docker Hub](https://hub.docker.com/r/tradik/mddb))
 
 | Image | Size | Description |
 |-------|------|-------------|
-| `tradik/mddb:latest` | ~15MB | Database server (Alpine) |
+| `tradik/mddb:latest` | ~18MB | Database server (Alpine) |
 | `tradik/mddb:panel` | ~25MB | Web admin panel (Node Alpine) |
-| `tradik/mddb:mcp` | ~15MB | MCP HTTP server (Alpine) |
+| `tradik/mddb:mcp` | ~18MB | MCP HTTP server (Alpine) |
 | `tradik/mddb:mcp-stdio` | ~15MB | MCP stdio mode for IDE integration |
 | `tradik/mddb:cli` | ~15MB | CLI client (Alpine) |
 
@@ -403,21 +403,6 @@ mddb-cli stats
 **[→ Detailed architecture](docs/ARCHITECTURE.md)**
 
 ## 🗺️ Roadmap
-
-### ✅ Implemented (v2.5.3)
-- ✅ HTTP/JSON + gRPC/Protobuf + GraphQL APIs
-- ✅ Vector Search (Flat, HNSW, IVF, PQ) + Full-Text Search (TF-IDF, BM25)
-- ✅ Authentication + Authorization (JWT, API keys, RBAC)
-- ✅ Webhooks + Document TTL
-- ✅ CLI + Web Panel + MCP Server
-- ✅ Docker + Multi-arch builds
-
-### 🚧 Planned
-- ⏳ Streaming Export (memory-efficient)
-- ⏳ Read Replicas (horizontal scaling)
-- ⏳ Plugin System (custom extensions)
-- ⏳ Hybrid Search (vector + full-text)
-- ⏳ GraphQL Subscriptions (real-time)
 
 **[→ Full roadmap](docs/ROADMAP.md)**
 
