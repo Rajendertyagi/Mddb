@@ -268,6 +268,30 @@ flowchart TD
 - If binlog still has the needed LSN: incremental catch-up
 - If LSN is too old (binlog rotated): full snapshot re-sync
 
+### Follower State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> STARTING : Initialization
+    STARTING --> CONNECTING : Connect to gRPC Leader
+    
+    CONNECTING --> REQUEST_SYNC : Connected
+    CONNECTING --> CONNECTING : Retry on failure
+    
+    REQUEST_SYNC --> SYNC_SNAPSHOT : Has no DB or LSN too old
+    REQUEST_SYNC --> SYNC_BINLOG : Has DB and LSN valid
+    
+    SYNC_SNAPSHOT --> RELOAD_DB : Snapshot downloaded
+    RELOAD_DB --> SYNC_BINLOG : DB reloaded in memory
+    
+    SYNC_BINLOG --> APPLY_TRANSACTIONS : Receive StreamBinlog chunk
+    APPLY_TRANSACTIONS --> ACKNOWLEDGE : Saved to BoltDB
+    ACKNOWLEDGE --> SYNC_BINLOG : Loop
+    
+    SYNC_BINLOG --> DISCONNECTED : Connection lost
+    DISCONNECTED --> CONNECTING : Wait retry interval
+```
+
 ## Monitoring
 
 ### HTTP Endpoint

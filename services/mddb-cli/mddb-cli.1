@@ -1,4 +1,4 @@
-.TH MDDB-CLI 1 "March 2026" "mddb-cli 2.5.0" "User Commands"
+.TH MDDB-CLI 1 "March 2026" "mddb-cli 2.5.1" "User Commands"
 .SH NAME
 mddb-cli \- command-line client for MDDB (Markdown Database)
 .SH SYNOPSIS
@@ -592,6 +592,23 @@ mddb-cli -s http://production.server:11023 playground
 .TP
 .B MDDB_SERVER
 Default server URL (overridden by \fB\-\-server\fR)
+.SH REPLICATION
+MDDB supports leader-follower replication allowing horizontal scaling of read operations.
+When configuring an MDDB server, you can set the node role using environment variables:
+
+.B MDDB_REPLICATION_ROLE=\fIROLE\fR
+  Set to 'leader' or 'follower' (empty means standalone).
+  
+.B MDDB_REPLICATION_LEADER_ADDR=\fIADDRESS\fR
+  For followers, the gRPC address of the leader (e.g., leader:11024).
+
+Followers automatically pull data via binlog streaming over gRPC. You can check the replication status via the HTTP API:
+.RS
+.nf
+curl http://localhost:11023/v1/replication/status
+.fi
+.RE
+For full setup instructions, see \fBdocs/REPLICATION.md\fR.
 .SH EXIT STATUS
 .TP
 .B 0

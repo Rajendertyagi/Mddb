@@ -117,7 +117,7 @@ paths:
       description: Simple health check endpoint that verifies database connectivity
       operationId: getHealth
       responses:
-        '200':
+        "200":
           description: Service is healthy
           content:
             application/json:
@@ -131,12 +131,12 @@ paths:
                     type: string
                     enum: [read, write, wr]
                     example: wr
-        '503':
+        "503":
           description: Service is unhealthy
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
 
   /v1/health:
     get:
@@ -146,7 +146,7 @@ paths:
       description: Alias for /health endpoint
       operationId: getHealthV1
       responses:
-        '200':
+        "200":
           description: Service is healthy
           content:
             application/json:
@@ -160,12 +160,12 @@ paths:
                     type: string
                     enum: [read, write, wr]
                     example: wr
-        '503':
+        "503":
           description: Service is unhealthy
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
 
   /v1/stats:
     get:
@@ -175,12 +175,12 @@ paths:
       description: Get detailed server and database statistics
       operationId: getStats
       responses:
-        '200':
+        "200":
           description: Statistics retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Stats'
+                $ref: "#/components/schemas/Stats"
 
   /v1/add:
     post:
@@ -195,26 +195,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AddRequest'
+              $ref: "#/components/schemas/AddRequest"
       responses:
-        '200':
+        "200":
           description: Document added/updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Document'
-        '400':
+                $ref: "#/components/schemas/Document"
+        "400":
           description: Invalid request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
           description: Read-only mode
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
 
   /v1/get:
     post:
@@ -229,26 +229,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/GetRequest'
+              $ref: "#/components/schemas/GetRequest"
       responses:
-        '200':
+        "200":
           description: Document retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Document'
-        '400':
+                $ref: "#/components/schemas/Document"
+        "400":
           description: Invalid request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
           description: Document not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
 
   /v1/search:
     post:
@@ -267,22 +267,22 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SearchRequest'
+              $ref: "#/components/schemas/SearchRequest"
       responses:
-        '200':
+        "200":
           description: Search results
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Document'
-        '400':
+                  $ref: "#/components/schemas/Document"
+        "400":
           description: Invalid request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
 
   /v1/delete:
     post:
@@ -296,9 +296,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DeleteRequest'
+              $ref: "#/components/schemas/DeleteRequest"
       responses:
-        '200':
+        "200":
           description: Document deleted successfully
           content:
             application/json:
@@ -308,18 +308,18 @@ paths:
                   deleted:
                     type: boolean
                     example: true
-        '400':
+        "400":
           description: Invalid request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
           description: Read-only mode
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
 
   /v1/delete-collection:
     post:
@@ -333,9 +333,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DeleteCollectionRequest'
+              $ref: "#/components/schemas/DeleteCollectionRequest"
       responses:
-        '200':
+        "200":
           description: Collection deleted successfully
           content:
             application/json:
@@ -346,18 +346,18 @@ paths:
                     type: integer
                     description: Number of documents deleted
                     example: 42
-        '400':
+        "400":
           description: Invalid request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
           description: Read-only mode
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
 
   /v1/export:
     post:
@@ -376,9 +376,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ExportRequest'
+              $ref: "#/components/schemas/ExportRequest"
       responses:
-        '200':
+        "200":
           description: Export file
           content:
             application/x-ndjson:
@@ -389,12 +389,12 @@ paths:
               schema:
                 type: string
                 format: binary
-        '400':
+        "400":
           description: Invalid request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
 
   /v1/backup:
     get:
@@ -412,7 +412,7 @@ paths:
             type: string
             example: backup-20250109.db
       responses:
-        '200':
+        "200":
           description: Backup created successfully
           content:
             application/json:
@@ -422,12 +422,12 @@ paths:
                   backup:
                     type: string
                     example: backup-20250109.db
-        '400':
+        "400":
           description: Invalid request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
 
   /v1/restore:
     post:
@@ -450,7 +450,7 @@ paths:
                   description: Path to backup file
                   example: backup-20250109.db
       responses:
-        '200':
+        "200":
           description: Database restored successfully
           content:
             application/json:
@@ -460,18 +460,18 @@ paths:
                   restored:
                     type: string
                     example: backup-20250109.db
-        '400':
+        "400":
           description: Invalid request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
           description: Read-only mode
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
 
   /v1/truncate:
     post:
@@ -488,9 +488,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TruncateRequest'
+              $ref: "#/components/schemas/TruncateRequest"
       responses:
-        '200':
+        "200":
           description: Revisions truncated successfully
           content:
             application/json:
@@ -501,18 +501,18 @@ paths:
                     type: integer
                     description: Number of revisions deleted
                     example: 150
-        '400':
+        "400":
           description: Invalid request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
           description: Read-only mode
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
 
   /v1/vector-search:
     post:
@@ -531,26 +531,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/VectorSearchRequest'
+              $ref: "#/components/schemas/VectorSearchRequest"
       responses:
-        '200':
+        "200":
           description: Vector search results
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VectorSearchResponse'
-        '400':
+                $ref: "#/components/schemas/VectorSearchResponse"
+        "400":
           description: Invalid request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '503':
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
           description: Vector index is still loading
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
 
   /v1/vector-reindex:
     post:
@@ -567,26 +567,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/VectorReindexRequest'
+              $ref: "#/components/schemas/VectorReindexRequest"
       responses:
-        '200':
+        "200":
           description: Reindex completed
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VectorReindexResponse'
-        '400':
+                $ref: "#/components/schemas/VectorReindexResponse"
+        "400":
           description: Invalid request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
           description: Read-only mode
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
 
   /v1/vector-stats:
     get:
@@ -596,12 +596,12 @@ paths:
       description: Get the current status of the vector search subsystem, including provider info, index readiness, and per-collection embedding counts.
       operationId: vectorStats
       responses:
-        '200':
+        "200":
           description: Vector stats retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VectorStatsResponse'
+                $ref: "#/components/schemas/VectorStatsResponse"
 
   /v1/fts:
     post:
@@ -618,20 +618,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/FTSSearchRequest'
+              $ref: "#/components/schemas/FTSSearchRequest"
       responses:
-        '200':
+        "200":
           description: Full-text search results
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/FTSSearchResponse'
-        '400':
+                $ref: "#/components/schemas/FTSSearchResponse"
+        "400":
           description: Invalid request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
 
   /v1/import-url:
     post:
@@ -648,26 +648,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ImportURLRequest'
+              $ref: "#/components/schemas/ImportURLRequest"
       responses:
-        '200':
+        "200":
           description: Document imported successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Document'
-        '400':
+                $ref: "#/components/schemas/Document"
+        "400":
           description: Invalid request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
           description: Read-only mode
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
 
   /v1/set-ttl:
     post:
@@ -684,26 +684,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SetTTLRequest'
+              $ref: "#/components/schemas/SetTTLRequest"
       responses:
-        '200':
+        "200":
           description: TTL set successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Document'
-        '400':
+                $ref: "#/components/schemas/Document"
+        "400":
           description: Invalid request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
           description: Read-only mode
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
 
   /v1/webhooks:
     get:
@@ -713,14 +713,14 @@ paths:
       description: List all registered webhooks.
       operationId: listWebhooks
       responses:
-        '200':
+        "200":
           description: List of registered webhooks
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Webhook'
+                  $ref: "#/components/schemas/Webhook"
     post:
       tags:
         - Webhooks
@@ -735,26 +735,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RegisterWebhookRequest'
+              $ref: "#/components/schemas/RegisterWebhookRequest"
       responses:
-        '200':
+        "200":
           description: Webhook registered successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Webhook'
-        '400':
+                $ref: "#/components/schemas/Webhook"
+        "400":
           description: Invalid request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
           description: Read-only mode
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
 
   /v1/webhooks/delete:
     post:
@@ -768,9 +768,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DeleteWebhookRequest'
+              $ref: "#/components/schemas/DeleteWebhookRequest"
       responses:
-        '200':
+        "200":
           description: Webhook deleted successfully
           content:
             application/json:
@@ -783,18 +783,18 @@ paths:
                   id:
                     type: string
                     example: abc123
-        '400':
+        "400":
           description: Invalid request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
           description: Read-only mode
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
 
   /v1/schema/set:
     post:
@@ -811,9 +811,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SetSchemaRequest'
+              $ref: "#/components/schemas/SetSchemaRequest"
       responses:
-        '200':
+        "200":
           description: Schema set successfully
           content:
             application/json:
@@ -826,18 +826,18 @@ paths:
                   collection:
                     type: string
                     example: blog
-        '400':
+        "400":
           description: Invalid request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
           description: Read-only mode
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
 
   /v1/schema/get:
     post:
@@ -860,18 +860,18 @@ paths:
                   description: Collection name
                   example: blog
       responses:
-        '200':
+        "200":
           description: Schema retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SchemaResponse'
-        '400':
+                $ref: "#/components/schemas/SchemaResponse"
+        "400":
           description: Invalid request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
 
   /v1/schema/delete:
     post:
@@ -894,7 +894,7 @@ paths:
                   description: Collection name
                   example: blog
       responses:
-        '200':
+        "200":
           description: Schema deleted successfully
           content:
             application/json:
@@ -907,18 +907,18 @@ paths:
                   collection:
                     type: string
                     example: blog
-        '400':
+        "400":
           description: Invalid request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
           description: Read-only mode
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
 
   /v1/schema/list:
     post:
@@ -934,7 +934,7 @@ paths:
             schema:
               type: object
       responses:
-        '200':
+        "200":
           description: List of schemas
           content:
             application/json:
@@ -969,20 +969,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ValidateRequest'
+              $ref: "#/components/schemas/ValidateRequest"
       responses:
-        '200':
+        "200":
           description: Validation result
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ValidateResponse'
-        '400':
+                $ref: "#/components/schemas/ValidateResponse"
+        "400":
           description: Invalid request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
 
   /metrics:
     get:
@@ -999,7 +999,7 @@ paths:
         See [Telemetry documentation](TELEMETRY.md) for Grafana dashboards and alerting rules.
       operationId: getMetrics
       responses:
-        '200':
+        "200":
           description: Prometheus metrics
           content:
             text/plain:
@@ -1012,7 +1012,7 @@ paths:
                   # HELP mddb_http_requests_total Total number of HTTP requests.
                   # TYPE mddb_http_requests_total counter
                   mddb_http_requests_total{method="POST",path="/v1/add",status="200"} 1523
-        '404':
+        "404":
           description: Metrics disabled (MDDB_METRICS=false)
 
   /v1/replication/status:
@@ -1025,15 +1025,25 @@ paths:
         and connected followers (leader only).
 
         Available for all roles: standalone, leader, and follower.
-        See [Replication documentation](REPLICATION.md) for setup and monitoring.
+
+        ### Replication Architecture
+        MDDB uses a pull-based, single-leader replication model. Wait for the `healthy` flag to determine if the node is fully synced.
+
+        ```mermaid
+        graph LR
+            L[Leader] -->|Binlog Stream| F1[Follower 1]
+            L -->|Binlog Stream| F2[Follower 2]
+        ```
+
+        See [Replication documentation](REPLICATION.md) for full setup instructions and monitoring.
       operationId: getReplicationStatus
       responses:
-        '200':
+        "200":
           description: Replication status
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ReplicationStatusResponse'
+                $ref: "#/components/schemas/ReplicationStatusResponse"
 
 components:
   schemas:
@@ -1349,7 +1359,7 @@ components:
         results:
           type: array
           items:
-            $ref: '#/components/schemas/VectorSearchResultItem'
+            $ref: "#/components/schemas/VectorSearchResultItem"
         total:
           type: integer
           description: Number of results returned
@@ -1367,7 +1377,7 @@ components:
       type: object
       properties:
         document:
-          $ref: '#/components/schemas/Document'
+          $ref: "#/components/schemas/Document"
         score:
           type: number
           format: float
@@ -1482,7 +1492,7 @@ components:
         results:
           type: array
           items:
-            $ref: '#/components/schemas/FTSResultItem'
+            $ref: "#/components/schemas/FTSResultItem"
         total:
           type: integer
           description: Number of results returned
@@ -1492,7 +1502,7 @@ components:
       type: object
       properties:
         document:
-          $ref: '#/components/schemas/Document'
+          $ref: "#/components/schemas/Document"
         score:
           type: number
           format: float
@@ -1739,7 +1749,7 @@ components:
         followers:
           type: array
           items:
-            $ref: '#/components/schemas/FollowerInfo'
+            $ref: "#/components/schemas/FollowerInfo"
           description: Connected followers (leader only)
         uptime_seconds:
           type: integer
