@@ -28,16 +28,25 @@ export const useStore = create((set, get) => ({
   sortAsc: false,
   limit: 100,
 
-  // Search mode
+  // Search mode ('metadata', 'fulltext', 'vector')
   searchMode: 'metadata',
 
   // API mode (rest or graphql)
   apiMode: localStorage.getItem('apiMode') || 'rest',
 
+  // Full-text search
+  ftsQuery: '',
+  ftsLimit: 50,
+  ftsAlgorithm: 'tfidf',
+  ftsResults: [],
+  ftsLoading: false,
+  ftsError: null,
+
   // Vector search
   vectorQuery: '',
   vectorTopK: 10,
   vectorThreshold: 0.0,
+  vectorAlgorithm: 'flat',
   vectorResults: [],
   vectorLoading: false,
   vectorError: null,
@@ -101,9 +110,17 @@ export const useStore = create((set, get) => ({
     localStorage.setItem('apiMode', mode);
     set({ apiMode: mode });
   },
+  setFtsQuery: (q) => set({ ftsQuery: q }),
+  setFtsLimit: (l) => set({ ftsLimit: l }),
+  setFtsAlgorithm: (a) => set({ ftsAlgorithm: a }),
+  setFtsResults: (r) => set({ ftsResults: r }),
+  setFtsLoading: (l) => set({ ftsLoading: l }),
+  setFtsError: (e) => set({ ftsError: e }),
+
   setVectorQuery: (q) => set({ vectorQuery: q }),
   setVectorTopK: (k) => set({ vectorTopK: k }),
   setVectorThreshold: (t) => set({ vectorThreshold: t }),
+  setVectorAlgorithm: (a) => set({ vectorAlgorithm: a }),
   setVectorResults: (r) => set({ vectorResults: r }),
   setVectorLoading: (l) => set({ vectorLoading: l }),
   setVectorError: (e) => set({ vectorError: e }),

@@ -10,7 +10,7 @@ info:
     - Multi-language support
     - Fast metadata-based search
     - **Vector search** with embedding providers (OpenAI, Cohere, Voyage AI, Ollama)
-    - **Full-text search** with TF-IDF scoring
+    - **Full-text search** with TF-IDF and BM25 scoring
     - **Webhooks** for real-time event notifications
     - **TTL** (time-to-live) support for automatic document expiration
     - **JSON Schema validation** for document metadata
@@ -58,7 +58,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: 2.5.2
+  version: 2.5.3
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -525,6 +525,8 @@ paths:
         Provide either a `query` string (which will be embedded automatically using the configured provider) or a raw `queryVector` array of floats.
 
         Results are ranked by cosine similarity score. Use `threshold` to filter out low-relevance results. Use `filterMeta` to narrow results by metadata before ranking.
+
+        Use `algorithm` to select the search strategy: `flat` (exact), `hnsw` (fast approximate), `ivf` (clustered), or `pq` (compressed). See [Search Algorithms](SEARCH.md) for details.
       operationId: vectorSearch
       requestBody:
         required: true
@@ -609,9 +611,11 @@ paths:
         - Full-Text Search
       summary: Full-text search
       description: |
-        Perform keyword-based full-text search across documents in a collection using TF-IDF scoring.
+        Perform keyword-based full-text search across documents in a collection using TF-IDF or BM25 scoring.
 
         The query is tokenized and matched against document content. Results include matched terms and relevance scores.
+
+        Use `algorithm: "bm25"` for Okapi BM25 scoring which considers document length normalization, or `algorithm: "tfidf"` (default) for classic TF-IDF.
       operationId: fullTextSearch
       requestBody:
         required: true
@@ -1352,6 +1356,17 @@ components:
           description: Whether to include document content in results (default false)
           default: false
           example: false
+        algorithm:
+          type: string
+          enum: [flat, hnsw, ivf, pq]
+          description: |
+            Search algorithm to use (default "flat").
+            - **flat**: Exact brute-force cosine similarity (most accurate, slower for large datasets)
+            - **hnsw**: Hierarchical Navigable Small World graph (fast approximate, best general-purpose)
+            - **ivf**: Inverted File Index with k-means clustering (good for large datasets)
+            - **pq**: Product Quantization (compressed, lowest memory, slightly less accurate)
+          default: flat
+          example: flat
 
     VectorSearchResponse:
       type: object
@@ -1372,6 +1387,10 @@ components:
           type: integer
           description: Embedding vector dimensions
           example: 1536
+        algorithm:
+          type: string
+          description: Algorithm used for this search
+          example: flat
 
     VectorSearchResultItem:
       type: object
@@ -1485,6 +1504,15 @@ components:
           description: Maximum number of results (default 50)
           default: 50
           example: 50
+        algorithm:
+          type: string
+          enum: [tfidf, bm25]
+          description: |
+            Scoring algorithm to use (default "tfidf").
+            - **tfidf**: Classic TF-IDF scoring
+            - **bm25**: Okapi BM25 with document length normalization (k1=1.2, b=0.75)
+          default: tfidf
+          example: tfidf
 
     FTSSearchResponse:
       type: object
@@ -1497,6 +1525,10 @@ components:
           type: integer
           description: Number of results returned
           example: 3
+        algorithm:
+          type: string
+          description: Algorithm used for this search
+          example: tfidf
 
     FTSResultItem:
       type: object

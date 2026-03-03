@@ -53,6 +53,9 @@ func applierExtraTestServer(t *testing.T) (*Server, func()) {
 	// VectorIndex
 	s.VectorIndex = NewVectorIndex()
 	s.VectorIndex.SetReady()
+	s.VectorSearchers = map[string]VectorSearcher{
+		"flat": s.VectorIndex,
+	}
 
 	// WebhookManager
 	s.WebhookManager = NewWebhookManager(db)

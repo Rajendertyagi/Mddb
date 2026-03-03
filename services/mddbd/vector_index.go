@@ -151,6 +151,11 @@ func (vi *VectorIndex) Collections() []string {
 	return names
 }
 
+// Name returns the algorithm name.
+func (vi *VectorIndex) Name() string {
+	return "flat"
+}
+
 // cosineSimilarity computes cosine similarity between two vectors.
 // Returns value between -1 and 1, where 1 = identical direction.
 func cosineSimilarity(a, b []float32) float32 {

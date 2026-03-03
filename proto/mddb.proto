@@ -280,6 +280,7 @@ message VectorSearchRequest {
   double threshold = 5;                          // minimum similarity 0-1 (default: 0.0)
   map<string, MetaValues> filter_meta = 6;       // optional metadata pre-filter
   bool include_content = 7;                      // include full content_md in results
+  string algorithm = 8;                          // "flat" (default), "hnsw", "ivf", "pq"
 }
 
 // Vector search result
@@ -295,6 +296,7 @@ message VectorSearchResponse {
   int32 total = 2;
   string model = 3;
   int32 dimensions = 4;
+  string algorithm = 5;                          // algorithm used for this search
 }
 
 // Vector reindex request
@@ -356,6 +358,7 @@ message FTSRequest {
   string collection = 1;
   string query = 2;
   int32 limit = 3;
+  string algorithm = 4;                          // "tfidf" (default) or "bm25"
 }
 
 message FTSResult {
@@ -367,6 +370,7 @@ message FTSResult {
 message FTSResponse {
   repeated FTSResult results = 1;
   int32 total = 2;
+  string algorithm = 3;                          // algorithm used for this search
 }
 
 // --- Webhooks ---

@@ -1,4 +1,4 @@
-import { Database, RefreshCw, Search, Brain, LogOut } from 'lucide-react';
+import { Database, RefreshCw, Search, Brain, Type, LogOut } from 'lucide-react';
 import { useStore } from '../lib/store';
 import { authManager } from '../lib/auth';
 
@@ -30,6 +30,17 @@ export default function Header({ onRefresh }) {
             >
               <Search className="w-3.5 h-3.5" />
               <span>Metadata</span>
+            </button>
+            <button
+              onClick={() => setSearchMode('fulltext')}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                searchMode === 'fulltext'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Type className="w-3.5 h-3.5" />
+              <span>Full-Text</span>
             </button>
             <button
               onClick={() => setSearchMode('vector')}

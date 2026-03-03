@@ -203,6 +203,7 @@ type VectorSearchRequest struct {
 	Threshold      float64             `json:"threshold,omitempty"`
 	FilterMeta     map[string][]string `json:"filterMeta,omitempty"`
 	IncludeContent bool                `json:"includeContent,omitempty"`
+	Algorithm      string              `json:"algorithm,omitempty"` // "flat" (default), "hnsw", "ivf", "pq"
 }
 
 // VectorSearchResult represents a single semantic search result.
@@ -218,6 +219,7 @@ type VectorSearchResponse struct {
 	Total      int                  `json:"total"`
 	Model      string               `json:"model"`
 	Dimensions int                  `json:"dimensions"`
+	Algorithm  string               `json:"algorithm"`
 }
 
 // VectorReindexRequest represents a reindex request.
@@ -272,6 +274,7 @@ type FTSSearchRequest struct {
 	Collection string `json:"collection"`
 	Query      string `json:"query"`
 	Limit      int    `json:"limit,omitempty"`
+	Algorithm  string `json:"algorithm,omitempty"` // "tfidf" (default) or "bm25"
 }
 
 // FTSResult represents a single FTS result.
@@ -283,8 +286,9 @@ type FTSResult struct {
 
 // FTSSearchResponse represents full-text search results.
 type FTSSearchResponse struct {
-	Results []FTSResult `json:"results"`
-	Total   int         `json:"total"`
+	Results   []FTSResult `json:"results"`
+	Total     int         `json:"total"`
+	Algorithm string      `json:"algorithm"`
 }
 
 // Webhook represents a webhook subscription.

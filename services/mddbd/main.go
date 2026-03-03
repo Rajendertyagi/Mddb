@@ -19,7 +19,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-const VERSION = "2.5.2"
+const VERSION = "2.5.3"
 
 type AccessMode string
 
@@ -50,10 +50,11 @@ type Server struct {
 	finalBatchProcessor *FinalBatchProcessor  // Final optimized batch processor
 	UseExtreme          bool                  // Enable extreme performance features
 	// Vector search
-	VectorStore     *VectorStore      // Persistent vector storage in BoltDB
-	VectorIndex     *VectorIndex      // In-memory vector index for fast search
-	EmbeddingWorker *EmbeddingWorker  // Background embedding processor
-	Embedding       EmbeddingProvider // Embedding generation provider
+	VectorStore     *VectorStore              // Persistent vector storage in BoltDB
+	VectorIndex     *VectorIndex              // In-memory flat vector index
+	VectorSearchers map[string]VectorSearcher // algorithm name -> searcher (flat, hnsw, ivf, pq)
+	EmbeddingWorker *EmbeddingWorker          // Background embedding processor
+	Embedding       EmbeddingProvider         // Embedding generation provider
 	// New features
 	TTLManager     *TTLManager     // Document TTL / auto-expiry
 	FTSIndex       *FTSIndex       // Full-text search index
@@ -231,6 +232,12 @@ func main() {
 		log.Fatal(err)
 	}
 	s.VectorIndex = NewVectorIndex()
+	s.VectorSearchers = map[string]VectorSearcher{
+		"flat": s.VectorIndex,
+		"hnsw": NewHNSWIndex(16, 200, 100),
+		"ivf":  NewIVFIndex(10, 20),
+		"pq":   NewPQIndex(8, 256, 20),
+	}
 
 	// Try to load embedding config from database first
 	defaultConfig, err := s.GetDefaultEmbeddingConfig()
@@ -773,8 +780,8 @@ func (s *Server) deleteDocumentInternal(collection, key, lang string) error {
 	// Clean up vector embedding
 	if s.VectorStore != nil {
 		_ = s.VectorStore.Delete(collection, docID)
-		if s.VectorIndex != nil {
-			s.VectorIndex.Remove(collection, docID)
+		for _, searcher := range s.VectorSearchers {
+			searcher.Remove(collection, docID)
 		}
 	}
 

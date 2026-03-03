@@ -1649,6 +1649,7 @@ type VectorSearchRequest struct {
 	Threshold      float64                `protobuf:"fixed64,5,opt,name=threshold,proto3" json:"threshold,omitempty"`                                                                                             // minimum similarity 0-1 (default: 0.0)
 	FilterMeta     map[string]*MetaValues `protobuf:"bytes,6,rep,name=filter_meta,json=filterMeta,proto3" json:"filter_meta,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // optional metadata pre-filter
 	IncludeContent bool                   `protobuf:"varint,7,opt,name=include_content,json=includeContent,proto3" json:"include_content,omitempty"`                                                              // include full content_md in results
+	Algorithm      string                 `protobuf:"bytes,8,opt,name=algorithm,proto3" json:"algorithm,omitempty"`                                                                                               // "flat" (default), "hnsw", "ivf", "pq"
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -1732,6 +1733,13 @@ func (x *VectorSearchRequest) GetIncludeContent() bool {
 	return false
 }
 
+func (x *VectorSearchRequest) GetAlgorithm() string {
+	if x != nil {
+		return x.Algorithm
+	}
+	return ""
+}
+
 // Vector search result
 type VectorSearchResult struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1800,6 +1808,7 @@ type VectorSearchResponse struct {
 	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
 	Model         string                 `protobuf:"bytes,3,opt,name=model,proto3" json:"model,omitempty"`
 	Dimensions    int32                  `protobuf:"varint,4,opt,name=dimensions,proto3" json:"dimensions,omitempty"`
+	Algorithm     string                 `protobuf:"bytes,5,opt,name=algorithm,proto3" json:"algorithm,omitempty"` // algorithm used for this search
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1860,6 +1869,13 @@ func (x *VectorSearchResponse) GetDimensions() int32 {
 		return x.Dimensions
 	}
 	return 0
+}
+
+func (x *VectorSearchResponse) GetAlgorithm() string {
+	if x != nil {
+		return x.Algorithm
+	}
+	return ""
 }
 
 // Vector reindex request
@@ -2316,6 +2332,7 @@ type FTSRequest struct {
 	Collection    string                 `protobuf:"bytes,1,opt,name=collection,proto3" json:"collection,omitempty"`
 	Query         string                 `protobuf:"bytes,2,opt,name=query,proto3" json:"query,omitempty"`
 	Limit         int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	Algorithm     string                 `protobuf:"bytes,4,opt,name=algorithm,proto3" json:"algorithm,omitempty"` // "tfidf" (default) or "bm25"
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2369,6 +2386,13 @@ func (x *FTSRequest) GetLimit() int32 {
 		return x.Limit
 	}
 	return 0
+}
+
+func (x *FTSRequest) GetAlgorithm() string {
+	if x != nil {
+		return x.Algorithm
+	}
+	return ""
 }
 
 type FTSResult struct {
@@ -2435,6 +2459,7 @@ type FTSResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Results       []*FTSResult           `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
 	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	Algorithm     string                 `protobuf:"bytes,3,opt,name=algorithm,proto3" json:"algorithm,omitempty"` // algorithm used for this search
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2481,6 +2506,13 @@ func (x *FTSResponse) GetTotal() int32 {
 		return x.Total
 	}
 	return 0
+}
+
+func (x *FTSResponse) GetAlgorithm() string {
+	if x != nil {
+		return x.Algorithm
+	}
+	return ""
 }
 
 type WebhookProto struct {
@@ -4076,7 +4108,7 @@ const file_proto_mddb_proto_rawDesc = "" +
 	"\aupdated\x18\x01 \x01(\x05R\aupdated\x12\x1b\n" +
 	"\tnot_found\x18\x02 \x01(\x05R\bnotFound\x12\x16\n" +
 	"\x06failed\x18\x03 \x01(\x05R\x06failed\x12\x16\n" +
-	"\x06errors\x18\x04 \x03(\tR\x06errors\"\xe7\x02\n" +
+	"\x06errors\x18\x04 \x03(\tR\x06errors\"\x85\x03\n" +
 	"\x13VectorSearchRequest\x12\x1e\n" +
 	"\n" +
 	"collection\x18\x01 \x01(\tR\n" +
@@ -4087,21 +4119,23 @@ const file_proto_mddb_proto_rawDesc = "" +
 	"\tthreshold\x18\x05 \x01(\x01R\tthreshold\x12J\n" +
 	"\vfilter_meta\x18\x06 \x03(\v2).mddb.VectorSearchRequest.FilterMetaEntryR\n" +
 	"filterMeta\x12'\n" +
-	"\x0finclude_content\x18\a \x01(\bR\x0eincludeContent\x1aO\n" +
+	"\x0finclude_content\x18\a \x01(\bR\x0eincludeContent\x12\x1c\n" +
+	"\talgorithm\x18\b \x01(\tR\talgorithm\x1aO\n" +
 	"\x0fFilterMetaEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12&\n" +
 	"\x05value\x18\x02 \x01(\v2\x10.mddb.MetaValuesR\x05value:\x028\x01\"j\n" +
 	"\x12VectorSearchResult\x12*\n" +
 	"\bdocument\x18\x01 \x01(\v2\x0e.mddb.DocumentR\bdocument\x12\x14\n" +
 	"\x05score\x18\x02 \x01(\x02R\x05score\x12\x12\n" +
-	"\x04rank\x18\x03 \x01(\x05R\x04rank\"\x96\x01\n" +
+	"\x04rank\x18\x03 \x01(\x05R\x04rank\"\xb4\x01\n" +
 	"\x14VectorSearchResponse\x122\n" +
 	"\aresults\x18\x01 \x03(\v2\x18.mddb.VectorSearchResultR\aresults\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\x12\x14\n" +
 	"\x05model\x18\x03 \x01(\tR\x05model\x12\x1e\n" +
 	"\n" +
 	"dimensions\x18\x04 \x01(\x05R\n" +
-	"dimensions\"L\n" +
+	"dimensions\x12\x1c\n" +
+	"\talgorithm\x18\x05 \x01(\tR\talgorithm\"L\n" +
 	"\x14VectorReindexRequest\x12\x1e\n" +
 	"\n" +
 	"collection\x18\x01 \x01(\tR\n" +
@@ -4146,21 +4180,23 @@ const file_proto_mddb_proto_rawDesc = "" +
 	"collection\x12\x10\n" +
 	"\x03key\x18\x02 \x01(\tR\x03key\x12\x12\n" +
 	"\x04lang\x18\x03 \x01(\tR\x04lang\x12\x10\n" +
-	"\x03ttl\x18\x04 \x01(\x03R\x03ttl\"X\n" +
+	"\x03ttl\x18\x04 \x01(\x03R\x03ttl\"v\n" +
 	"\n" +
 	"FTSRequest\x12\x1e\n" +
 	"\n" +
 	"collection\x18\x01 \x01(\tR\n" +
 	"collection\x12\x14\n" +
 	"\x05query\x18\x02 \x01(\tR\x05query\x12\x14\n" +
-	"\x05limit\x18\x03 \x01(\x05R\x05limit\"r\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x1c\n" +
+	"\talgorithm\x18\x04 \x01(\tR\talgorithm\"r\n" +
 	"\tFTSResult\x12*\n" +
 	"\bdocument\x18\x01 \x01(\v2\x0e.mddb.DocumentR\bdocument\x12\x14\n" +
 	"\x05score\x18\x02 \x01(\x01R\x05score\x12#\n" +
-	"\rmatched_terms\x18\x03 \x03(\tR\fmatchedTerms\"N\n" +
+	"\rmatched_terms\x18\x03 \x03(\tR\fmatchedTerms\"l\n" +
 	"\vFTSResponse\x12)\n" +
 	"\aresults\x18\x01 \x03(\v2\x0f.mddb.FTSResultR\aresults\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\"\x87\x01\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\x12\x1c\n" +
+	"\talgorithm\x18\x03 \x01(\tR\talgorithm\"\x87\x01\n" +
 	"\fWebhookProto\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x10\n" +
 	"\x03url\x18\x02 \x01(\tR\x03url\x12\x16\n" +

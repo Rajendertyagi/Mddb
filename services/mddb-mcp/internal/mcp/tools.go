@@ -256,6 +256,7 @@ func (s *Server) toolSemanticSearch(ctx context.Context, args map[string]interfa
 		TopK:           getInt(args, "top_k"),
 		IncludeContent: true,
 		FilterMeta:     getMetaMap(args, "filter_meta"),
+		Algorithm:      getString(args, "algorithm"),
 	}
 
 	if threshold, ok := args["threshold"].(float64); ok {
@@ -360,6 +361,7 @@ func (s *Server) toolFTSSearch(ctx context.Context, args map[string]interface{})
 		Collection: getString(args, "collection"),
 		Query:      getString(args, "query"),
 		Limit:      getInt(args, "limit"),
+		Algorithm:  getString(args, "algorithm"),
 	}
 
 	resp, err := s.client.FTSSearch(ctx, req)

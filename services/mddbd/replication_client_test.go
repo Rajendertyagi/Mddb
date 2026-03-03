@@ -325,6 +325,9 @@ func TestReplicationClientRebuildInMemoryState(t *testing.T) {
 	// Set up subsystems
 	s.VectorStore = NewVectorStore(s.DB)
 	s.VectorIndex = NewVectorIndex()
+	s.VectorSearchers = map[string]VectorSearcher{
+		"flat": s.VectorIndex,
+	}
 	s.WebhookManager = NewWebhookManager(s.DB)
 	_ = s.WebhookManager.EnsureBucket()
 	s.SchemaManager = NewSchemaManager(s.DB)
