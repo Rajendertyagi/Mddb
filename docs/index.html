@@ -730,50 +730,25 @@ $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
         <!-- Replication Section -->
         <section id="replication" class="replication" style="background-color: #f8fafc; padding: 80px 0;">
             <div class="container">
-                <div style="text-align: center; margin-bottom: 50px;">
+                <div style="text-align: center; margin-bottom: 40px;">
                     <h2 style="font-size: 2.5rem; margin-bottom: 20px;">🔄 Leader-Follower Replication <a
                             href="#replication" class="anchor-link" aria-label="Link to Replication section">#</a></h2>
                     <p style="font-size: 1.2rem; max-width: 700px; margin: 0 auto;">
-                        MDDB supports highly efficient binlog streaming replication. A single leader node handles all
-                        writes and automatically streams transactions to one or more read-only follower nodes for
-                        horizontal reading scaling and high availability.
+                        Scale reads horizontally with binlog-based streaming replication.
+                        A single leader handles writes and streams transactions in real-time to read-only followers via gRPC.
                     </p>
                 </div>
-                <div
-                    style="max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; align-items: center;">
-                    <pre class="mermaid"
-                        style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%;">
+                <div style="max-width: 700px; margin: 0 auto; text-align: center;">
+<pre class="mermaid" style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
 graph LR
-    C[Clients] -->|Writes/Reads| L[Leader<br/>read-write]
-    C -->|Reads| F1[Follower 1<br/>read-only]
-    C -->|Reads| F2[Follower 2<br/>read-only]
-    L -->|gRPC StreamBinlog| F1
-    L -->|gRPC StreamBinlog| F2
-    L -.->|gRPC Snapshot<br/>(on first sync)| F1
-                </pre>
-                    <div
-                        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 40px; width: 100%;">
-                        <div
-                            style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                            <h4>📡 Binlog Streaming</h4>
-                            <p style="font-size: 0.95rem; opacity: 0.8;">Transactions are appended to a binary log and
-                                streamed real-time via gRPC.</p>
-                        </div>
-                        <div
-                            style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                            <h4>⚡ Automatic Catch-up</h4>
-                            <p style="font-size: 0.95rem; opacity: 0.8;">Followers track their Log Sequence Number (LSN)
-                                and automatically resume streaming after disconnects.</p>
-                        </div>
-                        <div
-                            style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                            <h4>📸 Hot Snapshots</h4>
-                            <p style="font-size: 0.95rem; opacity: 0.8;">New followers receive a full database snapshot
-                                via non-blocking transactions before tailing the binlog.</p>
-                        </div>
-                    </div>
+    C[Clients] -->|Writes/Reads| L[Leader]
+    C -->|Reads| F1[Follower 1]
+    C -->|Reads| F2[Follower 2]
+    L -->|gRPC binlog stream| F1
+    L -->|gRPC binlog stream| F2
+</pre>
                     <div style="margin-top: 30px;">
-                        <a href="md-viewer.html?doc=REPLICATION.md" class="btn btn-secondary">Read Replication Guide</a>
+                        <a href="md-viewer.html?doc=REPLICATION.md" class="btn btn-primary">Read Replication Guide</a>
                     </div>
                 </div>
             </div>
