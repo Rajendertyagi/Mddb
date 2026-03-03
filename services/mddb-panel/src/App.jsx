@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useStore } from './lib/store';
 import mddbClient from './lib/mddb-client';
 import { authManager } from './lib/auth';
@@ -30,10 +30,16 @@ function App() {
     currentDocument,
     searchMode,
     viewMode,
+    sidebarWidth,
+    sidebarCollapsed,
+    setSidebarWidth,
+    setSidebarCollapsed,
+    setConfig,
   } = useStore();
 
   const [isAuthenticated, setIsAuthenticated] = useState(authManager.isAuthenticated());
   const [needsAuth, setNeedsAuth] = useState(false);
+  const isResizing = useRef(false);
 
   useEffect(() => {
     checkAuthAndLoadStats();
@@ -62,6 +68,14 @@ function App() {
     } finally {
       setStatsLoading(false);
     }
+
+    // Load config for auth status detection
+    try {
+      const cfg = await mddbClient.getConfig();
+      setConfig(cfg);
+    } catch {
+      // Config unavailable - not critical
+    }
   };
 
   const loadStats = async () => {
@@ -78,6 +92,31 @@ function App() {
     }
   };
 
+  // Sidebar resize handlers
+  const handleMouseDown = useCallback((e) => {
+    e.preventDefault();
+    isResizing.current = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const handleMouseMove = (e) => {
+      if (!isResizing.current) return;
+      const newWidth = Math.min(Math.max(e.clientX, 180), 480);
+      setSidebarWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      isResizing.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [setSidebarWidth]);
+
   // Show login form if authentication is required and user is not authenticated
   if (needsAuth && !isAuthenticated) {
     return <LoginForm onSuccess={() => {
@@ -87,14 +126,43 @@ function App() {
     }} />;
   }
 
+  const effectiveWidth = sidebarCollapsed ? 0 : sidebarWidth;
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header onRefresh={loadStats} />
 
       <div className="flex" style={{ height: 'calc(100vh - 64px)' }}>
-        <Sidebar stats={stats} statsError={statsError} />
+        {/* Sidebar */}
+        <div
+          className="relative flex-shrink-0 transition-[width] duration-150"
+          style={{ width: effectiveWidth }}
+        >
+          {!sidebarCollapsed && (
+            <Sidebar stats={stats} statsError={statsError} onCollapse={() => setSidebarCollapsed(true)} />
+          )}
+        </div>
 
-        <div className="flex-1 flex">
+        {/* Resize handle */}
+        {!sidebarCollapsed && (
+          <div
+            onMouseDown={handleMouseDown}
+            className="w-1 flex-shrink-0 cursor-col-resize bg-gray-200 hover:bg-primary-400 active:bg-primary-500 transition-colors"
+          />
+        )}
+
+        {/* Collapse toggle (shown when collapsed) */}
+        {sidebarCollapsed && (
+          <button
+            onClick={() => setSidebarCollapsed(false)}
+            className="flex-shrink-0 w-6 bg-gray-100 hover:bg-gray-200 border-r border-gray-200 flex items-center justify-center transition-colors"
+            title="Show sidebar"
+          >
+            <svg className="w-3 h-3 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+          </button>
+        )}
+
+        <div className="flex-1 flex overflow-hidden">
           {viewMode === 'cluster' && (
             <div className="flex-1 border-l border-gray-200">
               <ClusterPanel />

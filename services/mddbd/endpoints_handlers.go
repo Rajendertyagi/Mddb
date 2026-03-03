@@ -87,11 +87,28 @@ func (s *Server) handleEndpoints(w http.ResponseWriter, r *http.Request) {
 		{Method: "POST", Path: "/v1/schema/list", Description: "List all schemas", RequiresAuth: authEnabled},
 		{Method: "POST", Path: "/v1/validate", Description: "Validate document metadata", RequiresAuth: authEnabled},
 
+		// Embedding configuration
+		{Method: "GET", Path: "/v1/embedding-configs", Description: "List embedding configurations", RequiresAuth: authEnabled},
+		{Method: "POST", Path: "/v1/embedding-configs", Description: "Create embedding configuration", RequiresAuth: authEnabled},
+		{Method: "GET", Path: "/v1/embedding-configs/{id}", Description: "Get embedding configuration", RequiresAuth: authEnabled},
+		{Method: "PUT", Path: "/v1/embedding-configs/{id}", Description: "Update embedding configuration", RequiresAuth: authEnabled},
+		{Method: "DELETE", Path: "/v1/embedding-configs/{id}", Description: "Delete embedding configuration", RequiresAuth: authEnabled},
+		{Method: "POST", Path: "/v1/embedding-configs/set-default", Description: "Set default embedding config", RequiresAuth: authEnabled},
+
 		// System info
 		{Method: "GET", Path: "/v1/system/info", Description: "System information", RequiresAuth: authEnabled},
 		{Method: "GET", Path: "/v1/config", Description: "Server configuration", RequiresAuth: authEnabled},
 		{Method: "GET", Path: "/v1/mcp/config", Description: "MCP YAML configuration", RequiresAuth: authEnabled},
 		{Method: "GET", Path: "/v1/endpoints", Description: "List all endpoints", RequiresAuth: false},
+	}
+
+	// Add GraphQL endpoint if enabled
+	graphqlEnabled := env("MDDB_GRAPHQL_ENABLED", "false") == "true"
+	if graphqlEnabled {
+		httpEndpoints = append(httpEndpoints,
+			HTTPEndpoint{Method: "POST", Path: "/graphql", Description: "GraphQL API endpoint", RequiresAuth: authEnabled},
+			HTTPEndpoint{Method: "GET", Path: "/playground", Description: "GraphQL Playground", RequiresAuth: false},
+		)
 	}
 
 	// Add auth endpoints if auth is enabled

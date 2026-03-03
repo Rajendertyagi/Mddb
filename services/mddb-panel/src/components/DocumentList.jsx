@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FileText, Calendar, Tag, Trash2, Upload } from 'lucide-react';
+import { FileText, Calendar, Tag, Trash2, Upload, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
@@ -8,6 +8,8 @@ import UploadModal from './UploadModal';
 export default function DocumentList() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
   const {
     currentCollection,
     documents,
@@ -28,30 +30,31 @@ export default function DocumentList() {
   } = useStore();
 
   useEffect(() => {
+    setOffset(0);
+  }, [currentCollection, filters, sortBy, sortAsc, limit]);
+
+  useEffect(() => {
     if (currentCollection) {
       loadDocuments();
     }
-  }, [currentCollection, filters, sortBy, sortAsc, limit]);
+  }, [currentCollection, filters, sortBy, sortAsc, limit, offset]);
 
   const loadDocuments = async () => {
     setDocumentsLoading(true);
     setDocumentsError(null);
     try {
-      const data = await mddbClient.search({
+      const { documents: docs, totalCount: total } = await mddbClient.search({
         collection: currentCollection,
         filterMeta: filters,
         sort: sortBy,
         asc: sortAsc,
         limit,
+        offset,
       });
-      // API returns array directly, not { documents: [...] }
-      // Add collection field to each document for editing
-      const documentsWithCollection = Array.isArray(data) 
-        ? data.map(doc => ({ ...doc, collection: currentCollection }))
-        : [];
+      const documentsWithCollection = docs.map(doc => ({ ...doc, collection: currentCollection }));
       setDocuments(documentsWithCollection);
+      setTotalCount(total);
     } catch (error) {
-      // Handle corrupted data errors
       if (error.message.includes('invalid character')) {
         setDocumentsError('Collection contains corrupted data. This collection may need to be recreated.');
       } else {
@@ -59,6 +62,7 @@ export default function DocumentList() {
       }
       console.error('Failed to load documents:', error);
       setDocuments([]);
+      setTotalCount(0);
     } finally {
       setDocumentsLoading(false);
     }
@@ -138,12 +142,21 @@ export default function DocumentList() {
     );
   }
 
+  const currentPage = Math.floor(offset / limit) + 1;
+  const totalPages = Math.ceil(totalCount / limit);
+  const rangeStart = totalCount === 0 ? 0 : offset + 1;
+  const rangeEnd = Math.min(offset + limit, totalCount);
+
   return (
     <div className="h-full flex flex-col">
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-700">
-            {documents.length} Documents
+            {totalCount > 0 ? (
+              <>{rangeStart}–{rangeEnd} of {totalCount.toLocaleString()}</>
+            ) : (
+              <>0 Documents</>
+            )}
           </h3>
           <div className="flex items-center gap-2">
             <button
@@ -226,6 +239,31 @@ export default function DocumentList() {
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="p-3 border-t border-gray-200 flex items-center justify-between">
+          <span className="text-xs text-gray-500">
+            Page {currentPage} of {totalPages}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setOffset(Math.max(0, offset - limit))}
+              disabled={offset === 0}
+              className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setOffset(offset + limit)}
+              disabled={rangeEnd >= totalCount}
+              className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (

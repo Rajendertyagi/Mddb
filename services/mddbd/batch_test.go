@@ -286,8 +286,8 @@ func TestBatchProcessor_InvalidDocuments(t *testing.T) {
 
 	bp := NewBatchProcessor(srv, 4)
 	docs := []*proto.BatchDocument{
-		makeBatchDoc("", "en", "content", nil, false),    // missing key
-		makeBatchDoc("post1", "", "content", nil, false),  // missing lang
+		makeBatchDoc("", "en", "content", nil, false),      // missing key
+		makeBatchDoc("post1", "", "content", nil, false),   // missing lang
 		makeBatchDoc("", "", "content", nil, false),        // missing both
 		makeBatchDoc("post2", "en", "# Valid", nil, false), // valid
 	}
@@ -1003,9 +1003,9 @@ func TestBatchDeleter_MixedResults(t *testing.T) {
 	// Delete mix: existing + nonexistent + invalid
 	bd := NewBatchDeleter(srv, 4)
 	deletes := []*proto.DeleteDocument{
-		{Key: "real", Lang: "en"},    // should succeed
-		{Key: "ghost", Lang: "en"},   // not found
-		{Key: "", Lang: "en"},        // invalid
+		{Key: "real", Lang: "en"},  // should succeed
+		{Key: "ghost", Lang: "en"}, // not found
+		{Key: "", Lang: "en"},      // invalid
 	}
 
 	resp, err := bd.ProcessBatchDelete(context.Background(), "blog", deletes)

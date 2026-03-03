@@ -23,13 +23,7 @@ export default function MCPConfigPanel() {
     setMcpConfigLoading(true);
     setMcpConfigError(null);
     try {
-      const response = await fetch('/v1/mcp/config', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('mddb_auth_token')}`,
-        },
-      });
-      if (!response.ok) throw new Error('Failed to load MCP config');
-      const text = await response.text();
+      const text = await mddbClient.getMCPConfigText();
       setMcpConfig(text);
     } catch (error) {
       setMcpConfigError(error.message);

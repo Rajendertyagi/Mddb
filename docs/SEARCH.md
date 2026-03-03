@@ -261,14 +261,32 @@ If the selected algorithm's index is not yet ready (e.g., HNSW graph still build
 
 Metadata search uses BoltDB prefix indices for exact matching on document metadata tags. No algorithm selection is needed - it always uses the built-in index.
 
+### Pagination
+
+Use `offset` and `limit` for pagination. The response includes an `X-Total-Count` header with the total number of matching documents (before pagination).
+
 ```bash
-curl -X POST http://localhost:11023/v1/search \
+# First page
+curl -v -X POST http://localhost:11023/v1/search \
   -H "Content-Type: application/json" \
   -d '{
     "collection": "blog",
     "filterMeta": {"category": ["tutorial"], "status": ["published"]},
     "sort": "updatedAt",
-    "limit": 10
+    "limit": 10,
+    "offset": 0
+  }'
+# Response header: X-Total-Count: 234
+
+# Second page
+curl -X POST http://localhost:11023/v1/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "blog",
+    "filterMeta": {"category": ["tutorial"]},
+    "sort": "updatedAt",
+    "limit": 10,
+    "offset": 10
   }'
 ```
 

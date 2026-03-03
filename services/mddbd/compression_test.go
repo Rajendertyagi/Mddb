@@ -69,7 +69,7 @@ func TestCompressDocMediumIncompressible(t *testing.T) {
 	// Create incompressible data in medium range (random-looking bytes)
 	data := make([]byte, 2048)
 	for i := range data {
-		data[i] = byte((i * 7 + 13) % 251) // pseudo-random, hard to compress
+		data[i] = byte((i*7 + 13) % 251) // pseudo-random, hard to compress
 	}
 
 	compressed := compressDoc(data)
@@ -86,7 +86,7 @@ func TestCompressDocLargeIncompressible(t *testing.T) {
 	// Create data >10KB that is hard to compress
 	data := make([]byte, 15000)
 	for i := range data {
-		data[i] = byte((i * 31 + 97) % 256)
+		data[i] = byte((i*31 + 97) % 256)
 	}
 
 	compressed := compressDoc(data)
@@ -300,9 +300,9 @@ func TestDecompressDocFlagOnly(t *testing.T) {
 func TestCompressDecompressRoundTripExactThresholds(t *testing.T) {
 	// Test data at exact threshold boundaries
 	sizes := []int{
-		compressionThresholdSmall - 1, // just below small threshold
-		compressionThresholdSmall,     // exactly at small threshold
-		compressionThresholdSmall + 1, // just above small threshold
+		compressionThresholdSmall - 1,  // just below small threshold
+		compressionThresholdSmall,      // exactly at small threshold
+		compressionThresholdSmall + 1,  // just above small threshold
 		compressionThresholdMedium - 1, // just below medium threshold
 		compressionThresholdMedium,     // exactly at medium threshold
 		compressionThresholdMedium + 1, // just above medium threshold

@@ -58,7 +58,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: 2.5.3
+  version: 2.5.4
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -271,6 +271,12 @@ paths:
       responses:
         "200":
           description: Search results
+          headers:
+            X-Total-Count:
+              description: Total number of matching documents (before pagination)
+              schema:
+                type: integer
+                example: 234
           content:
             application/json:
               schema:

@@ -69,17 +69,24 @@ class MDDBClient {
   /**
    * Search documents in a collection
    */
-  async search({ collection, filterMeta = {}, sort = 'addedAt', asc = false, limit = 100 }) {
-    return this.request('/search', {
+  async search({ collection, filterMeta = {}, sort = 'addedAt', asc = false, limit = 100, offset = 0 }) {
+    const url = `${this.baseUrl}/search`;
+    const token = authManager.getToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await fetch(url, {
       method: 'POST',
-      body: JSON.stringify({
-        collection,
-        filterMeta,
-        sort,
-        asc,
-        limit,
-      }),
+      headers,
+      body: JSON.stringify({ collection, filterMeta, sort, asc, limit, offset }),
     });
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`API Error (${response.status}): ${error}`);
+    }
+    const totalCount = parseInt(response.headers.get('X-Total-Count') || '0', 10);
+    const documents = await response.json();
+    return { documents: Array.isArray(documents) ? documents : [], totalCount };
   }
 
   /**
@@ -226,6 +233,19 @@ class MDDBClient {
       method: 'POST',
       body: JSON.stringify({ collection, key, lang, ttl }),
     });
+  }
+
+  /**
+   * Get MCP configuration (returns YAML text, not JSON)
+   */
+  async getMCPConfigText() {
+    const url = `${this.baseUrl}/mcp/config`;
+    const token = authManager.getToken();
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const response = await fetch(url, { headers });
+    if (!response.ok) throw new Error('Failed to load MCP config');
+    return response.text();
   }
 
   /**

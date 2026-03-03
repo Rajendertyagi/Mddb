@@ -1,20 +1,22 @@
 import { useState, useEffect } from 'react';
-import { Folder, Database, HardDrive, FileText, Trash2, Brain, Server, Settings, Code, Network, Users, UsersIcon, Upload, FolderPlus, Sliders, GitBranch, RefreshCw } from 'lucide-react';
+import { Folder, Database, FileText, Trash2, Brain, Server, Settings, Code, Network, Users, UsersIcon, Upload, FolderPlus, Sliders, GitBranch, RefreshCw, PanelLeftClose } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
 import UploadModal from './UploadModal';
 import CreateCollectionModal from './CreateCollectionModal';
 
-export default function Sidebar({ stats, statsError, onStatsRefresh }) {
-  const { currentCollection, setCurrentCollection, vectorStats, setVectorStats, viewMode, setViewMode, setStats } = useStore();
+export default function Sidebar({ stats, statsError, onStatsRefresh, onCollapse }) {
+  const { currentCollection, setCurrentCollection, vectorStats, setVectorStats, config, viewMode, setViewMode, setStats } = useStore();
   const [deletingCollection, setDeletingCollection] = useState(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [reindexingCollection, setReindexingCollection] = useState(null);
-  const [reindexResult, setReindexResult] = useState(null);
 
   useEffect(() => {
     loadVectorStats();
+    const interval = setInterval(() => {
+      loadVectorStats();
+    }, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const loadVectorStats = async () => {
@@ -26,43 +28,24 @@ export default function Sidebar({ stats, statsError, onStatsRefresh }) {
     }
   };
 
-  const handleReindex = async (collectionName, e) => {
-    e.stopPropagation();
-    setReindexingCollection(collectionName);
-    setReindexResult(null);
-    const pollInterval = setInterval(() => loadVectorStats(), 2000);
-    try {
-      const result = await mddbClient.reindexVectors(collectionName);
-      await loadVectorStats();
-      setReindexResult({ collection: collectionName, ...result });
-    } catch (error) {
-      console.error('Reindex error:', error);
-      setReindexResult({ collection: collectionName, failed: 0, errors: [error.message] });
-    } finally {
-      clearInterval(pollInterval);
-      setReindexingCollection(null);
-    }
-  };
-
   const collections = stats?.collections || [];
+  const authEnabled = config?.authEnabled ?? false;
 
   const handleDeleteCollection = async (collectionName, e) => {
     e.stopPropagation();
-    
-    const message = `⚠️ WARNING: This will PERMANENTLY delete ALL documents in "${collectionName}"!\n\nThis action cannot be undone.\n\nAre you absolutely sure?`;
+
+    const message = `WARNING: This will PERMANENTLY delete ALL documents in "${collectionName}"!\n\nThis action cannot be undone.\n\nAre you absolutely sure?`;
     if (!confirm(message)) {
       return;
     }
 
     setDeletingCollection(collectionName);
     try {
-      const result = await mddbClient.deleteCollection({ 
-        collection: collectionName 
+      const result = await mddbClient.deleteCollection({
+        collection: collectionName
       });
 
-      alert(`✅ Collection "${collectionName}" has been deleted successfully!\n\nDeleted ${result.deletedCount} documents.`);
-      
-      // Reload page to refresh stats
+      alert(`Collection "${collectionName}" has been deleted successfully!\n\nDeleted ${result.deletedCount} documents.`);
       window.location.reload();
     } catch (error) {
       alert(`Failed to delete collection: ${error.message}`);
@@ -80,8 +63,33 @@ export default function Sidebar({ stats, statsError, onStatsRefresh }) {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
 
+  const NavButton = ({ mode, icon: Icon, label }) => (
+    <button
+      onClick={() => setViewMode(mode)}
+      className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+        viewMode === mode
+          ? 'bg-blue-100 text-blue-700'
+          : 'text-gray-700 hover:bg-gray-100'
+      }`}
+    >
+      <Icon className="w-4 h-4" />
+      <span className="text-sm font-medium">{label}</span>
+    </button>
+  );
+
   return (
-    <div className="w-64 bg-white border-r border-gray-200 overflow-y-auto">
+    <div className="h-full bg-white border-r border-gray-200 overflow-y-auto flex flex-col">
+      {/* Collapse button */}
+      <div className="p-2 border-b border-gray-200 flex justify-end">
+        <button
+          onClick={onCollapse}
+          className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+          title="Hide sidebar"
+        >
+          <PanelLeftClose className="w-4 h-4" />
+        </button>
+      </div>
+
       {/* Stats Summary */}
       <div className="p-4 border-b border-gray-200">
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
@@ -117,13 +125,9 @@ export default function Sidebar({ stats, statsError, onStatsRefresh }) {
               <Brain className="w-3 h-3" />
               <span>Embeddings</span>
               {vectorStats.enabled ? (
-                <span className="flex items-center">
-                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" title="Connected"></span>
-                </span>
+                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" title="Connected"></span>
               ) : (
-                <span className="flex items-center">
-                  <span className="w-2 h-2 bg-red-500 rounded-full" title="Disconnected"></span>
-                </span>
+                <span className="w-2 h-2 bg-red-500 rounded-full" title="Disconnected"></span>
               )}
             </span>
           </h3>
@@ -145,36 +149,12 @@ export default function Sidebar({ stats, statsError, onStatsRefresh }) {
                 <span className="text-gray-600">Dimensions</span>
                 <span className="font-medium text-gray-900">{vectorStats.dimensions}</span>
               </div>
-              {vectorStats.collections && Object.entries(vectorStats.collections).map(([name, cs]) => (
-                <div key={name}>
-                  <div className="flex items-center justify-between text-sm group/embed">
-                    <span className="text-gray-600 truncate max-w-[80px]" title={name}>{name}</span>
-                    <div className="flex items-center space-x-1">
-                      <span className={`font-medium ${cs.embeddedDocuments < cs.totalDocuments ? 'text-yellow-600' : 'text-gray-900'}`}>
-                        {cs.embeddedDocuments}/{cs.totalDocuments}
-                      </span>
-                      {cs.embeddedDocuments < cs.totalDocuments && (
-                        <button
-                          onClick={(e) => handleReindex(name, e)}
-                          disabled={reindexingCollection === name}
-                          className="p-0.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                          title={`Reindex ${name}`}
-                        >
-                          <RefreshCw className={`w-3 h-3 ${reindexingCollection === name ? 'animate-spin' : ''}`} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  {reindexResult && reindexResult.collection === name && reindexResult.errors?.length > 0 && (
-                    <div className="mt-1 p-1.5 bg-red-50 rounded text-xs text-red-700 max-h-24 overflow-y-auto">
-                      <div className="font-medium mb-0.5">{reindexResult.failed} failed:</div>
-                      {reindexResult.errors.map((err, i) => (
-                        <div key={i} className="truncate" title={err}>{err}</div>
-                      ))}
-                    </div>
-                  )}
+              {vectorStats.index_ready === false && (
+                <div className="flex items-center space-x-2 text-xs text-amber-600 bg-amber-50 rounded p-1.5">
+                  <RefreshCw className="w-3 h-3 animate-spin flex-shrink-0" />
+                  <span>Index loading...</span>
                 </div>
-              ))}
+              )}
             </div>
           ) : (
             <p className="text-xs text-gray-400">Disabled</p>
@@ -183,7 +163,7 @@ export default function Sidebar({ stats, statsError, onStatsRefresh }) {
       )}
 
       {/* Collections List */}
-      <div className="p-4">
+      <div className="p-4 flex-1">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
             Collections ({collections.length})
@@ -239,7 +219,7 @@ export default function Sidebar({ stats, statsError, onStatsRefresh }) {
                   }}
                   className="flex-1 flex items-center space-x-2 text-left"
                 >
-                  <Folder className="w-4 h-4" />
+                  <Folder className="w-4 h-4 flex-shrink-0" />
                   <span className="text-sm font-medium truncate">
                     {collection.name}
                   </span>
@@ -273,116 +253,20 @@ export default function Sidebar({ stats, statsError, onStatsRefresh }) {
           Administration
         </h3>
         <div className="space-y-1">
-          <button
-            onClick={() => setViewMode('system')}
-            className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-              viewMode === 'system'
-                ? 'bg-blue-100 text-blue-700'
-                : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <Server className="w-4 h-4" />
-            <span className="text-sm font-medium">System Info</span>
-          </button>
-          <button
-            onClick={() => setViewMode('cluster')}
-            className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-              viewMode === 'cluster'
-                ? 'bg-blue-100 text-blue-700'
-                : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <GitBranch className="w-4 h-4" />
-            <span className="text-sm font-medium">Cluster</span>
-          </button>
-          <button
-            onClick={() => setViewMode('config')}
-            className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-              viewMode === 'config'
-                ? 'bg-blue-100 text-blue-700'
-                : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <Settings className="w-4 h-4" />
-            <span className="text-sm font-medium">Configuration</span>
-          </button>
-          <button
-            onClick={() => setViewMode('mcp')}
-            className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-              viewMode === 'mcp'
-                ? 'bg-blue-100 text-blue-700'
-                : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <Code className="w-4 h-4" />
-            <span className="text-sm font-medium">MCP Config</span>
-          </button>
-          <button
-            onClick={() => setViewMode('endpoints')}
-            className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-              viewMode === 'endpoints'
-                ? 'bg-blue-100 text-blue-700'
-                : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <Network className="w-4 h-4" />
-            <span className="text-sm font-medium">API Endpoints</span>
-          </button>
-          <button
-            onClick={() => setViewMode('users')}
-            className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-              viewMode === 'users'
-                ? 'bg-blue-100 text-blue-700'
-                : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span className="text-sm font-medium">Users</span>
-          </button>
-          <button
-            onClick={() => setViewMode('groups')}
-            className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-              viewMode === 'groups'
-                ? 'bg-blue-100 text-blue-700'
-                : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <UsersIcon className="w-4 h-4" />
-            <span className="text-sm font-medium">Groups</span>
-          </button>
-          <button
-            onClick={() => setViewMode('vectors')}
-            className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-              viewMode === 'vectors'
-                ? 'bg-blue-100 text-blue-700'
-                : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <Database className="w-4 h-4" />
-            <span className="text-sm font-medium">Vector Search</span>
-          </button>
-          <button
-            onClick={() => setViewMode('embeddings')}
-            className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-              viewMode === 'embeddings'
-                ? 'bg-blue-100 text-blue-700'
-                : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <Brain className="w-4 h-4" />
-            <span className="text-sm font-medium">Embedding Models</span>
-          </button>
-          <button
-            onClick={() => setViewMode('settings')}
-            className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-              viewMode === 'settings'
-                ? 'bg-blue-100 text-blue-700'
-                : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <Sliders className="w-4 h-4" />
-            <span className="text-sm font-medium">Client Settings</span>
-          </button>
+          <NavButton mode="system" icon={Server} label="System Info" />
+          <NavButton mode="cluster" icon={GitBranch} label="Cluster" />
+          <NavButton mode="config" icon={Settings} label="Configuration" />
+          <NavButton mode="mcp" icon={Code} label="MCP Config" />
+          <NavButton mode="endpoints" icon={Network} label="API Endpoints" />
+          {authEnabled && (
+            <>
+              <NavButton mode="users" icon={Users} label="Users" />
+              <NavButton mode="groups" icon={UsersIcon} label="Groups" />
+            </>
+          )}
+          <NavButton mode="vectors" icon={Database} label="Vector Search" />
+          <NavButton mode="embeddings" icon={Brain} label="Embedding Models" />
+          <NavButton mode="settings" icon={Sliders} label="Client Settings" />
         </div>
       </div>
 
@@ -393,7 +277,6 @@ export default function Sidebar({ stats, statsError, onStatsRefresh }) {
           onCreate={(collectionName) => {
             setShowCreateModal(false);
             setCurrentCollection(collectionName);
-            // Optionally show upload modal after creating collection
             setShowUploadModal(true);
           }}
         />
@@ -406,18 +289,12 @@ export default function Sidebar({ stats, statsError, onStatsRefresh }) {
           onClose={() => setShowUploadModal(false)}
           onSuccess={async (uploadedCollection) => {
             setShowUploadModal(false);
-
-            // Refresh stats to show new collection in sidebar
             try {
               const newStats = await mddbClient.getStats();
               setStats(newStats);
-
-              // If no collection was selected, select the uploaded collection
               if (!currentCollection && uploadedCollection) {
                 setCurrentCollection(uploadedCollection);
               }
-
-              // Trigger refresh callback if provided
               if (onStatsRefresh) {
                 onStatsRefresh();
               }

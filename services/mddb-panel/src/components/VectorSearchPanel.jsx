@@ -20,7 +20,7 @@ export default function VectorSearchPanel() {
   const [reindexing, setReindexing] = useState(false);
   const [reindexResult, setReindexResult] = useState(null);
 
-  const handleSearch = async () => {
+  const handleSearch = async (retryCount = 0) => {
     if (!currentCollection || !vectorQuery.trim()) return;
 
     setVectorLoading(true);
@@ -37,10 +37,20 @@ export default function VectorSearchPanel() {
       });
       setVectorResults(data.results || []);
     } catch (error) {
-      setVectorError(error.message);
+      const isIndexLoading = error.message && error.message.includes('vector index is loading');
+      if (isIndexLoading && retryCount < 3) {
+        setVectorError(`Vector index is loading... retrying (${retryCount + 1}/3)`);
+        setTimeout(() => handleSearch(retryCount + 1), 2000);
+        return;
+      }
+      setVectorError(isIndexLoading
+        ? 'Vector index is still loading. Please wait a moment and try again.'
+        : error.message);
       setVectorResults([]);
     } finally {
-      setVectorLoading(false);
+      if (retryCount === 0 || retryCount >= 3) {
+        setVectorLoading(false);
+      }
     }
   };
 
@@ -189,10 +199,28 @@ export default function VectorSearchPanel() {
 
       {/* Results */}
       <div className="flex-1 overflow-y-auto">
+        {vectorResults.length > 0 && (
+          <div className="px-4 pt-3 pb-1">
+            <span className="text-xs font-medium text-gray-500">
+              {vectorResults.length} result{vectorResults.length !== 1 ? 's' : ''} found
+            </span>
+          </div>
+        )}
+
         {vectorError && (
-          <div className="m-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-2">
-            <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-red-700">{vectorError}</p>
+          <div className={`m-4 p-3 rounded-lg flex items-start space-x-2 ${
+            vectorError.includes('loading')
+              ? 'bg-amber-50 border border-amber-200'
+              : 'bg-red-50 border border-red-200'
+          }`}>
+            {vectorError.includes('loading') ? (
+              <RotateCcw className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0 animate-spin" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+            )}
+            <p className={`text-sm ${vectorError.includes('loading') ? 'text-amber-700' : 'text-red-700'}`}>
+              {vectorError}
+            </p>
           </div>
         )}
 

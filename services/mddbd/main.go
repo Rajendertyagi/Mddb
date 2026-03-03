@@ -19,7 +19,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-const VERSION = "2.5.3"
+const VERSION = "2.5.4"
 
 type AccessMode string
 
@@ -1008,6 +1008,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	for _, r := range rows[start:end] {
 		out = append(out, r.Doc)
 	}
+	w.Header().Set("X-Total-Count", fmt.Sprintf("%d", len(rows)))
 	ok(w, out)
 }
 

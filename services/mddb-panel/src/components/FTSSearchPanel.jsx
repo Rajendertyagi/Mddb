@@ -152,6 +152,14 @@ export default function FTSSearchPanel() {
 
       {/* Results */}
       <div className="flex-1 overflow-y-auto">
+        {ftsResults.length > 0 && (
+          <div className="px-4 pt-3 pb-1">
+            <span className="text-xs font-medium text-gray-500">
+              {ftsResults.length} result{ftsResults.length !== 1 ? 's' : ''} found
+            </span>
+          </div>
+        )}
+
         {ftsError && (
           <div className="m-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-2">
             <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />

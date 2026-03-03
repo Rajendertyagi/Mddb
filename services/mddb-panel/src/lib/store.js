@@ -53,6 +53,10 @@ export const useStore = create((set, get) => ({
   vectorError: null,
   vectorStats: null,
 
+  // Sidebar
+  sidebarWidth: parseInt(localStorage.getItem('sidebarWidth')) || 256,
+  sidebarCollapsed: localStorage.getItem('sidebarCollapsed') === 'true',
+
   // View mode (documents, system, config, mcp, endpoints, users, groups)
   viewMode: 'documents',
 
@@ -127,6 +131,10 @@ export const useStore = create((set, get) => ({
   setVectorLoading: (l) => set({ vectorLoading: l }),
   setVectorError: (e) => set({ vectorError: e }),
   setVectorStats: (s) => set({ vectorStats: s }),
+
+  // Sidebar actions
+  setSidebarWidth: (w) => { localStorage.setItem('sidebarWidth', w); set({ sidebarWidth: w }); },
+  setSidebarCollapsed: (c) => { localStorage.setItem('sidebarCollapsed', c); set({ sidebarCollapsed: c }); },
 
   // View mode actions
   setViewMode: (mode) => set({ viewMode: mode }),

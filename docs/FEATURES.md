@@ -179,10 +179,14 @@ Complete list of MDDB features organized by category.
 - **Markdown Toolbar** - Formatting buttons
 - **Templates** - Pre-built templates (blog, docs, README, API)
 - **Advanced Filtering** - Filter by metadata
+- **Pagination** - Offset-based pagination with total count for metadata search
+- **Result Counts** - Shows number of results for FTS and vector search
+- **Resizable Sidebar** - Drag to resize, collapsible with persist to localStorage
 - **API Mode Toggle** - Switch between REST and GraphQL
 - **Authentication** - Login with username/password
 - **User Management** - Manage users and groups (admin only)
-- **Vector Search** - Semantic search interface
+- **Conditional UI** - Users & Groups hidden when auth is disabled
+- **Vector Search** - Semantic search interface with auto-retry on index loading
 
 ### Docker Support
 - **Multi-arch Images** - amd64, arm64, armv7
