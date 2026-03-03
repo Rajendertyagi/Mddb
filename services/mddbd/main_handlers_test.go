@@ -153,9 +153,14 @@ func TestMainHandleImportURL_FetchError(t *testing.T) {
 	s, cleanup := newHandlerTestServer(t)
 	defer cleanup()
 
+	errTs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "broken", http.StatusInternalServerError)
+	}))
+	defer errTs.Close()
+
 	payload := ImportURLRequest{
 		Collection: "docs",
-		URL:        "http://127.0.0.1:1/nonexistent.md",
+		URL:        errTs.URL + "/nonexistent.md",
 		Key:        "test",
 		Lang:       "en",
 	}

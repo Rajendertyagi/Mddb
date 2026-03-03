@@ -18,7 +18,7 @@ type QueryStats struct {
 	TotalDuration  atomic.Int64 // nanoseconds
 	LastAccessed   atomic.Int64 // unix timestamp
 	Pattern        string
-	PreferredIndex IndexType
+	PreferredIndex atomic.Int32
 }
 
 // IndexType represents different index types
@@ -107,7 +107,7 @@ func (aim *AdaptiveIndexManager) analyzeQuery(collection, pattern string, durati
 
 	// Update preferred index if performance improved
 	if avgDuration < 10*time.Millisecond {
-		stats.PreferredIndex = preferredIndex
+		stats.PreferredIndex.Store(int32(preferredIndex))
 	}
 }
 
@@ -118,7 +118,7 @@ func (aim *AdaptiveIndexManager) GetOptimalIndex(collection, pattern string) Ind
 	if value, ok := aim.queryStats.Load(key); ok {
 		stats := value.(*QueryStats)
 		if stats.Count.Load() >= 10 {
-			return stats.PreferredIndex
+			return IndexType(stats.PreferredIndex.Load())
 		}
 	}
 
@@ -180,7 +180,7 @@ func (aim *AdaptiveIndexManager) optimize() {
 			collectionStats[collection] = make(map[IndexType]int)
 		}
 
-		collectionStats[collection][stats.PreferredIndex]++
+		collectionStats[collection][IndexType(stats.PreferredIndex.Load())]++
 
 		return true
 	})
