@@ -1,39 +1,38 @@
-package mcp
+package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
-
-	"github.com/tradik/mddb/services/mddb-mcp/internal/config"
-	"github.com/tradik/mddb/services/mddb-mcp/internal/mddb"
+	"log"
+	"os"
 )
 
-// Handler handles MCP requests via stdio.
-type Handler struct {
-	client      mddb.Client
-	customTools []config.CustomToolConfig
+// MCPHandler handles MCP JSON-RPC requests via stdio.
+type MCPHandler struct {
+	client      MCPClient
+	customTools []MCPCustomToolConfig
 }
 
-// NewHandler creates a new MCP handler.
-func NewHandler(client mddb.Client, customTools []config.CustomToolConfig) *Handler {
-	return &Handler{
+// NewMCPHandler creates a new MCP handler.
+func NewMCPHandler(client MCPClient, customTools []MCPCustomToolConfig) *MCPHandler {
+	return &MCPHandler{
 		client:      client,
 		customTools: customTools,
 	}
 }
 
 // Handle processes MCP request and returns response.
-func (h *Handler) Handle(req map[string]interface{}) map[string]interface{} {
+func (h *MCPHandler) Handle(req map[string]interface{}) map[string]interface{} {
 	method, _ := req["method"].(string)
 	id := req["id"]
 	ctx := context.Background()
 
 	var result map[string]interface{}
-	var err map[string]interface{}
+	var errObj map[string]interface{}
 
 	switch method {
 	case "initialize":
-		// initialize already returns full JSON-RPC response
 		return h.handleInitialize(req)
 	case "resources/list":
 		result = h.handleResourcesList()
@@ -46,20 +45,19 @@ func (h *Handler) Handle(req map[string]interface{}) map[string]interface{} {
 	case "ping":
 		result = map[string]interface{}{"result": "pong"}
 	default:
-		err = map[string]interface{}{
+		errObj = map[string]interface{}{
 			"code":    -32601,
 			"message": "Method not found",
 		}
 	}
 
-	// Wrap response in JSON-RPC format
 	response := map[string]interface{}{
 		"jsonrpc": "2.0",
 		"id":      id,
 	}
 
-	if err != nil {
-		response["error"] = err
+	if errObj != nil {
+		response["error"] = errObj
 	} else {
 		response["result"] = result
 	}
@@ -67,8 +65,7 @@ func (h *Handler) Handle(req map[string]interface{}) map[string]interface{} {
 	return response
 }
 
-func (h *Handler) handleInitialize(req map[string]interface{}) map[string]interface{} {
-	// Extract request ID for JSON-RPC response
+func (h *MCPHandler) handleInitialize(req map[string]interface{}) map[string]interface{} {
 	id := req["id"]
 
 	return map[string]interface{}{
@@ -86,15 +83,15 @@ func (h *Handler) handleInitialize(req map[string]interface{}) map[string]interf
 				},
 			},
 			"serverInfo": map[string]interface{}{
-				"name":    "mddb-mcp",
-				"version": "1.0.0",
+				"name":    "mddbd",
+				"version": VERSION,
 			},
 		},
 	}
 }
 
-func (h *Handler) handleResourcesList() map[string]interface{} {
-	resources := []Resource{
+func (h *MCPHandler) handleResourcesList() map[string]interface{} {
+	resources := []MCPResource{
 		{
 			URI:         "mddb://health",
 			Name:        "MDDB Health",
@@ -126,12 +123,12 @@ func (h *Handler) handleResourcesList() map[string]interface{} {
 	}
 }
 
-func (h *Handler) handleResourcesRead(ctx context.Context, req map[string]interface{}) map[string]interface{} {
+func (h *MCPHandler) handleResourcesRead(ctx context.Context, req map[string]interface{}) map[string]interface{} {
 	params, _ := req["params"].(map[string]interface{})
 	uri, _ := params["uri"].(string)
 
-	s := &Server{client: h.client, customTools: h.customTools}
-	content, err := s.readResource(ctx, uri)
+	ts := &MCPToolServer{client: h.client, customTools: h.customTools}
+	content, err := ts.readResource(ctx, uri)
 	if err != nil {
 		return map[string]interface{}{
 			"error": map[string]interface{}{
@@ -152,19 +149,19 @@ func (h *Handler) handleResourcesRead(ctx context.Context, req map[string]interf
 	}
 }
 
-func (h *Handler) handleToolsList() map[string]interface{} {
+func (h *MCPHandler) handleToolsList() map[string]interface{} {
 	return map[string]interface{}{
-		"tools": allTools(h.customTools),
+		"tools": mcpAllTools(h.customTools),
 	}
 }
 
-func (h *Handler) handleToolsCall(ctx context.Context, req map[string]interface{}) map[string]interface{} {
+func (h *MCPHandler) handleToolsCall(ctx context.Context, req map[string]interface{}) map[string]interface{} {
 	params, _ := req["params"].(map[string]interface{})
 	name, _ := params["name"].(string)
 	args, _ := params["arguments"].(map[string]interface{})
 
-	s := &Server{client: h.client, customTools: h.customTools}
-	result, err := s.callTool(ctx, name, args)
+	ts := &MCPToolServer{client: h.client, customTools: h.customTools}
+	result, err := ts.mcpCallTool(ctx, name, args)
 	if err != nil {
 		return map[string]interface{}{
 			"error": map[string]interface{}{
@@ -185,7 +182,7 @@ func (h *Handler) handleToolsCall(ctx context.Context, req map[string]interface{
 }
 
 // HandleJSON processes JSON request and returns JSON response.
-func (h *Handler) HandleJSON(reqJSON []byte) ([]byte, error) {
+func (h *MCPHandler) HandleJSON(reqJSON []byte) ([]byte, error) {
 	var req map[string]interface{}
 	if err := json.Unmarshal(reqJSON, &req); err != nil {
 		return nil, err
@@ -193,4 +190,36 @@ func (h *Handler) HandleJSON(reqJSON []byte) ([]byte, error) {
 
 	resp := h.Handle(req)
 	return json.Marshal(resp)
+}
+
+// runMCPStdio runs the MCP stdio loop on the Server.
+func (s *Server) runMCPStdio() {
+	log.SetOutput(os.Stderr) // MCP uses stdout for protocol
+
+	customTools := loadMCPCustomTools()
+	client := NewDirectClient(s)
+	handler := NewMCPHandler(client, customTools)
+
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Buffer(make([]byte, 0, 4*1024*1024), 4*1024*1024) // 4MB buffer
+
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+
+		resp, err := handler.HandleJSON(line)
+		if err != nil {
+			log.Printf("MCP handler error: %v", err)
+			continue
+		}
+
+		_, _ = os.Stdout.Write(resp)
+		_, _ = os.Stdout.Write([]byte("\n"))
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Printf("MCP stdio scanner error: %v", err)
+	}
 }

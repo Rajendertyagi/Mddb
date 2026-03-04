@@ -27,8 +27,9 @@ type GRPCMethod struct {
 }
 
 type MCPTool struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	InputSchema map[string]interface{} `json:"inputSchema,omitempty"`
 }
 
 // ---- Handlers ----

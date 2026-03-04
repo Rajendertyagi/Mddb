@@ -1,4 +1,4 @@
-package mcp
+package main
 
 import (
 	"context"
@@ -6,12 +6,10 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-
-	"github.com/tradik/mddb/services/mddb-mcp/internal/mddb"
 )
 
 // readResource reads resource based on URI.
-func (s *Server) readResource(ctx context.Context, uri string) (string, error) {
+func (s *MCPToolServer) readResource(ctx context.Context, uri string) (string, error) {
 	parsed, err := url.Parse(uri)
 	if err != nil {
 		return "", fmt.Errorf("invalid uri: %w", err)
@@ -27,11 +25,9 @@ func (s *Server) readResource(ctx context.Context, uri string) (string, error) {
 	}
 }
 
-// readMDDBResource reads mddb:// resource.
-func (s *Server) readMDDBResource(ctx context.Context, uri *url.URL) (string, error) {
+func (s *MCPToolServer) readMDDBResource(ctx context.Context, uri *url.URL) (string, error) {
 	path := strings.Trim(uri.Path, "/")
 
-	// mddb://health
 	if path == "health" {
 		health, err := s.client.Health(ctx)
 		if err != nil {
@@ -41,7 +37,6 @@ func (s *Server) readMDDBResource(ctx context.Context, uri *url.URL) (string, er
 		return string(data), nil
 	}
 
-	// mddb://stats
 	if path == "stats" {
 		stats, err := s.client.Stats(ctx)
 		if err != nil {
@@ -51,7 +46,6 @@ func (s *Server) readMDDBResource(ctx context.Context, uri *url.URL) (string, er
 		return string(data), nil
 	}
 
-	// mddb://{collection}/{key}?lang={lang}
 	parts := strings.Split(path, "/")
 	if len(parts) != 2 {
 		return "", fmt.Errorf("invalid document uri: expected mddb://{collection}/{key}")
@@ -64,22 +58,21 @@ func (s *Server) readMDDBResource(ctx context.Context, uri *url.URL) (string, er
 		lang = "en_US"
 	}
 
-	// Env variables z query params
-	env := make(map[string]string)
+	envVars := make(map[string]string)
 	for k, v := range uri.Query() {
 		if strings.HasPrefix(k, "env.") {
 			envKey := strings.TrimPrefix(k, "env.")
 			if len(v) > 0 {
-				env[envKey] = v[0]
+				envVars[envKey] = v[0]
 			}
 		}
 	}
 
-	doc, err := s.client.Get(ctx, &mddb.GetRequest{
+	doc, err := s.client.Get(ctx, &MCPGetRequest{
 		Collection: collection,
 		Key:        key,
 		Lang:       lang,
-		Env:        env,
+		Env:        envVars,
 	})
 	if err != nil {
 		return "", err
@@ -88,21 +81,18 @@ func (s *Server) readMDDBResource(ctx context.Context, uri *url.URL) (string, er
 	return doc.ContentMD, nil
 }
 
-// readSearchResource reads mddb-search:// resource.
-func (s *Server) readSearchResource(ctx context.Context, uri *url.URL) (string, error) {
+func (s *MCPToolServer) readSearchResource(ctx context.Context, uri *url.URL) (string, error) {
 	collection := strings.Trim(uri.Path, "/")
 	if collection == "" {
 		return "", fmt.Errorf("collection required in search uri")
 	}
 
-	// Parse query params
 	query := uri.Query()
-	req := &mddb.SearchRequest{
+	req := &MCPSearchRequest{
 		Collection: collection,
 		FilterMeta: make(map[string][]string),
 	}
 
-	// Filter metadata
 	for k, v := range query {
 		if strings.HasPrefix(k, "meta.") {
 			metaKey := strings.TrimPrefix(k, "meta.")
@@ -110,12 +100,9 @@ func (s *Server) readSearchResource(ctx context.Context, uri *url.URL) (string, 
 		}
 	}
 
-	// Sort
-	if sort := query.Get("sort"); sort != "" {
-		req.Sort = sort
+	if sortVal := query.Get("sort"); sortVal != "" {
+		req.Sort = sortVal
 	}
-
-	// Limit/offset
 	if limit := query.Get("limit"); limit != "" {
 		if _, err := fmt.Sscanf(limit, "%d", &req.Limit); err != nil {
 			req.Limit = 0

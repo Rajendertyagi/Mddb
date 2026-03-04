@@ -57,23 +57,7 @@ services:
     restart: unless-stopped
     command: npm run dev -- --host 0.0.0.0
 
-  # MDDB MCP Server
-  mddb-mcp:
-    build:
-      context: .
-      dockerfile: services/mddb-mcp/Dockerfile
-    container_name: mddb-mcp
-    ports:
-      - "9000:9000"
-    environment:
-      - MCP_LISTEN_ADDRESS=0.0.0.0:9000
-      - MDDB_GRPC_ADDRESS=mddbd:11024
-      - MDDB_REST_BASE_URL=http://mddbd:11023
-    networks:
-      - mddb-network
-    depends_on:
-      - mddbd
-    restart: unless-stopped
+  # MCP is now built into mddbd — access via /mcp/* endpoints
 
   # Ollama (Optional - for vector embeddings)
   ollama:

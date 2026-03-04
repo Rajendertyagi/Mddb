@@ -50,9 +50,8 @@ make dev-start-with-ollama
 
 | Service | Port | Image | Description |
 |---------|------|-------|-------------|
-| **mddbd** | 11023 (HTTP), 11024 (gRPC) | `tradik/mddb:latest` | Database server |
+| **mddbd** | 11023 (HTTP), 11024 (gRPC) | `tradik/mddb:latest` | Database server (includes MCP) |
 | **mddb-panel** | 3000 | `tradik/mddb:panel` | React web admin UI |
-| **mddb-mcp** | 9000 | `tradik/mddb:mcp` | MCP server for LLM integration |
 
 ### Docker - Individual Services
 
@@ -69,16 +68,11 @@ docker run -d --name mddb-panel \
   -e VITE_MDDB_SERVER=host.docker.internal:11023 \
   tradik/mddb:panel
 
-# MCP Server (for Windsurf, Claude Desktop, etc.)
-docker run -d --name mddb-mcp \
-  -p 9000:9000 \
-  -e MDDB_GRPC_ADDRESS=host.docker.internal:11024 \
-  tradik/mddb:mcp
-
-# MCP stdio mode (for IDE integration)
+# MCP stdio mode (for Claude Desktop, Windsurf, etc.)
 docker run -i --rm --network host \
-  -e MDDB_GRPC_ADDRESS=localhost:11024 \
-  tradik/mddb:mcp-stdio
+  -v mddb-data:/app/data \
+  -e MDDB_MCP_STDIO=true \
+  tradik/mddb:latest
 
 # Test it
 curl http://localhost:11023/health
@@ -135,9 +129,8 @@ MDDB ships as a monorepo with multiple packages:
 
 | Package | Language | Location | Description |
 |---------|----------|----------|-------------|
-| **mddbd** | Go | `services/mddbd/` | Database server (HTTP + gRPC + GraphQL) |
+| **mddbd** | Go | `services/mddbd/` | Database server (HTTP + gRPC + GraphQL + MCP) |
 | **mddb-panel** | React/JS | `services/mddb-panel/` | Web admin panel |
-| **mddb-mcp** | Go | `services/mddb-mcp/` | MCP server (HTTP + stdio) for LLM integration |
 | **mddb-cli** | Go | `services/mddb-cli/` | Command-line client with GraphQL support |
 
 ### Client Libraries (REST)
@@ -181,10 +174,9 @@ Proto definitions at `proto/mddb.proto` - generate clients for any language supp
 
 | Image | Size | Description |
 |-------|------|-------------|
-| `tradik/mddb:latest` | ~18MB | Database server (Alpine) |
+| `tradik/mddb:latest` | ~18MB | Database server with MCP built-in (Alpine) |
 | `tradik/mddb:panel` | ~25MB | Web admin panel (Node Alpine) |
-| `tradik/mddb:mcp` | ~18MB | MCP HTTP server (Alpine) |
-| `tradik/mddb:mcp-stdio` | ~15MB | MCP stdio mode for IDE integration |
+| `tradik/mddb:mcp` | ~18MB | Server with MCP stdio mode preset (for Claude Desktop) |
 | `tradik/mddb:cli` | ~15MB | CLI client (Alpine) |
 
 ### System Packages
@@ -359,7 +351,7 @@ mddb-cli stats
 - **[Webhooks](docs/WEBHOOKS.md)** - Event-driven integration
 - **[Authentication](docs/AUTH.md)** - JWT & API keys, RBAC
 - **[Web Panel](docs/PANEL.md)** - Admin UI guide
-- **[MCP Server](services/mddb-mcp/README.md)** - LLM integration
+- **[LLM Connections](docs/LLM_CONNECTIONS.md)** - MCP for Claude, ChatGPT, Ollama, DeepSeek
 - **[Bulk Import](docs/BULK-IMPORT.md)** - Load markdown folders
 
 ### Operations
@@ -383,8 +375,8 @@ mddb-cli stats
 ┌────────────────────────────────────────────────┐
 │         Client Applications                    │
 ├──────────┬──────────┬──────────┬────────┬──────┤
-│HTTP/JSON │gRPC/Proto│ GraphQL  │ HTTP/3 │ MCP  │
-│  :11023  │  :11024  │ /graphql │ :11443 │:9000 │
+│HTTP/JSON │gRPC/Proto│ GraphQL  │ HTTP/3 │  MCP │
+│  :11023  │  :11024  │ /graphql │ :11443 │/mcp/*│
 ├──────────┴──────────┴──────────┴────────┴──────┤
 │           MDDB Server (Go)                     │
 │  • Vector Search (embeddings)                  │
