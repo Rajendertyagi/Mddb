@@ -113,18 +113,35 @@ export default function SystemInfo() {
             <Cpu className="w-5 h-5 text-primary-600 mr-2" />
             <h2 className="text-lg font-semibold text-gray-900">Hardware</h2>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-4">
             <div>
-              <div className="text-sm text-gray-600">Operating System</div>
-              <div className="font-medium text-gray-900">{systemInfo.os} ({systemInfo.arch})</div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-gray-600">CPU Usage ({systemInfo.numCPU} cores)</span>
+                <span className="font-medium text-gray-900">{Math.round(systemInfo.cpuUsagePercent || 0)}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className={`h-2 rounded-full transition-all ${
+                    (systemInfo.cpuUsagePercent || 0) > 80 ? 'bg-red-500' :
+                    (systemInfo.cpuUsagePercent || 0) > 50 ? 'bg-yellow-500' : 'bg-green-500'
+                  }`}
+                  style={{ width: `${Math.min(Math.round(systemInfo.cpuUsagePercent || 0), 100)}%` }}
+                ></div>
+              </div>
             </div>
-            <div>
-              <div className="text-sm text-gray-600">CPU Cores</div>
-              <div className="font-medium text-gray-900">{systemInfo.numCPU}</div>
-            </div>
-            <div>
-              <div className="text-sm text-gray-600">Goroutines</div>
-              <div className="font-medium text-gray-900">{systemInfo.numGoroutines.toLocaleString()}</div>
+            <div className="grid grid-cols-3 gap-4 pt-2 border-t">
+              <div>
+                <div className="text-sm text-gray-600">Operating System</div>
+                <div className="font-medium text-gray-900">{systemInfo.os} ({systemInfo.arch})</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-600">CPU Cores</div>
+                <div className="font-medium text-gray-900">{systemInfo.numCPU}</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-600">Goroutines</div>
+                <div className="font-medium text-gray-900">{systemInfo.numGoroutines.toLocaleString()}</div>
+              </div>
             </div>
           </div>
         </div>

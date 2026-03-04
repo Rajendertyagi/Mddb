@@ -10,6 +10,7 @@ import (
 // ---- Request/Response types ----
 
 type ConfigResponse struct {
+	Version         string        `json:"version"`
 	DatabasePath    string        `json:"databasePath"`
 	Mode            string        `json:"mode"`
 	HTTPAddr        string        `json:"httpAddr"`
@@ -41,6 +42,7 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 
 	// Build configuration response
 	response := ConfigResponse{
+		Version:         VERSION,
 		DatabasePath:    s.Path,
 		Mode:            string(s.Mode),
 		HTTPAddr:        env("MDDB_ADDR", ":11023"),

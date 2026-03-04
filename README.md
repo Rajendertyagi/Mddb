@@ -422,4 +422,5 @@ BSD 3-Clause License - see **[LICENSE](LICENSE)**
 - **[Docker Hub](https://hub.docker.com/r/tradik/mddb)** - Container images
 - **[Releases](https://github.com/tradik/mddb/releases)** - Download binaries
 - **[Documentation](https://tradik.github.io/mddb/)** - Full docs
+- **[LLM Connections](docs/LLM_CONNECTIONS.md)** - Claude, ChatGPT, Ollama, DeepSeek, Manus, Bielik.ai
 - **[Issues](https://github.com/tradik/mddb/issues)** - Bug reports

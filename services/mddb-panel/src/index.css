@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+@theme {
+  --color-primary-50: rgb(240 249 255);
+  --color-primary-100: rgb(224 242 254);
+  --color-primary-200: rgb(186 230 253);
+  --color-primary-300: rgb(125 211 252);
+  --color-primary-400: rgb(56 189 248);
+  --color-primary-500: rgb(14 165 233);
+  --color-primary-600: rgb(2 132 199);
+  --color-primary-700: rgb(3 105 161);
+  --color-primary-800: rgb(7 89 133);
+  --color-primary-900: rgb(12 74 110);
+}
+
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;

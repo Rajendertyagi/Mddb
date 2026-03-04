@@ -187,6 +187,9 @@ Complete list of MDDB features organized by category.
 - **User Management** - Manage users and groups (admin only)
 - **Conditional UI** - Users & Groups hidden when auth is disabled
 - **Vector Search** - Semantic search interface with auto-retry on index loading
+- **LLM Connections** - Config templates for Claude, ChatGPT, Ollama, DeepSeek, Manus, Bielik.ai
+- **CPU & Memory Monitoring** - Live CPU usage bar, heap memory bar with color coding
+- **Version Display** - Server and panel version always visible in sidebar
 
 ### Docker Support
 - **Multi-arch Images** - amd64, arm64, armv7

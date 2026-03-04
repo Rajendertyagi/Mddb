@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Folder, Database, FileText, Trash2, Brain, Server, Settings, Code, Network, Users, UsersIcon, Upload, FolderPlus, Sliders, GitBranch, RefreshCw, PanelLeftClose } from 'lucide-react';
+import { Folder, Database, Trash2, Brain, Server, Settings, Network, Users, UsersIcon, Upload, FolderPlus, Sliders, GitBranch, PanelLeftClose } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
 import UploadModal from './UploadModal';
@@ -253,7 +253,7 @@ export default function Sidebar({ stats, statsError, onStatsRefresh, onCollapse 
             <NavButton mode="cluster" icon={GitBranch} label="Cluster" />
           )}
           <NavButton mode="config" icon={Settings} label="Configuration" />
-          <NavButton mode="mcp" icon={Code} label="MCP Config" />
+          <NavButton mode="mcp" icon={Brain} label="LLM Connections" />
           <NavButton mode="endpoints" icon={Network} label="API Endpoints" />
           {authEnabled && (
             <>
@@ -265,6 +265,13 @@ export default function Sidebar({ stats, statsError, onStatsRefresh, onCollapse 
           <NavButton mode="embeddings" icon={Brain} label="Embedding Models" />
           <NavButton mode="settings" icon={Sliders} label="Client Settings" />
         </div>
+      </div>
+
+      {/* Version Footer */}
+      <div className="px-4 py-2 border-t border-gray-200 text-center">
+        <span className="text-[10px] text-gray-400">
+          Server v{config?.version || '...'} · Panel v2.5.4
+        </span>
       </div>
 
       {/* Create Collection Modal */}
