@@ -41,6 +41,7 @@ export const useStore = create((set, get) => ({
   ftsFuzzy: 0,
   ftsStemming: true,
   ftsSynonyms: true,
+  ftsFieldWeights: { content: 1, 'meta.title': 3, 'meta.tags': 2, 'meta.description': 1.5 },
   ftsResults: [],
   ftsLoading: false,
   ftsError: null,
@@ -123,6 +124,13 @@ export const useStore = create((set, get) => ({
   setFtsFuzzy: (f) => set({ ftsFuzzy: f }),
   setFtsStemming: (v) => set({ ftsStemming: v }),
   setFtsSynonyms: (v) => set({ ftsSynonyms: v }),
+  setFtsFieldWeight: (field, weight) => set((state) => ({
+    ftsFieldWeights: { ...state.ftsFieldWeights, [field]: weight },
+  })),
+  removeFtsFieldWeight: (field) => set((state) => {
+    const { [field]: _, ...rest } = state.ftsFieldWeights;
+    return { ftsFieldWeights: rest };
+  }),
   setFtsResults: (r) => set({ ftsResults: r }),
   setFtsLoading: (l) => set({ ftsLoading: l }),
   setFtsError: (e) => set({ ftsError: e }),

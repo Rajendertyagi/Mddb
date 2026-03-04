@@ -120,8 +120,6 @@ func removeSuffix(w []byte, n int) []byte {
 	return w[:len(w)-n]
 }
 
-
-
 // Step 1a: plural forms
 func step1a(w []byte) []byte {
 	if hasSuffix(w, "sses") {

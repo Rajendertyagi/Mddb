@@ -500,7 +500,7 @@ Metadata pre-filtering significantly reduces search time (e.g., filtering to 10%
 
 ### POST /v1/fts
 
-Perform full-text search across document content using TF-IDF or BM25 scoring with optional stemming, synonyms, and typo tolerance.
+Perform full-text search across document content using TF-IDF, BM25, or BM25F scoring with optional stemming, synonyms, and typo tolerance.
 
 **Request Body**:
 ```json
@@ -508,10 +508,15 @@ Perform full-text search across document content using TF-IDF or BM25 scoring wi
   "collection": "blog",
   "query": "markdown database tutorial",
   "limit": 10,
-  "algorithm": "bm25",
+  "algorithm": "bm25f",
   "fuzzy": 1,
   "disableStem": false,
-  "disableSynonyms": false
+  "disableSynonyms": false,
+  "fieldWeights": {
+    "content": 1.0,
+    "meta.title": 3.0,
+    "meta.tags": 2.0
+  }
 }
 ```
 
@@ -519,10 +524,11 @@ Perform full-text search across document content using TF-IDF or BM25 scoring wi
 - `collection` (required): Collection name
 - `query` (required): Search query text
 - `limit` (optional): Maximum results (default: 50)
-- `algorithm` (optional): `"tfidf"` (default) or `"bm25"`
+- `algorithm` (optional): `"tfidf"` (default), `"bm25"`, or `"bm25f"`
 - `fuzzy` (optional): Typo tolerance — `0` (off, default), `1` (1 edit), `2` (2 edits)
 - `disableStem` (optional): Disable Porter stemming for this query (default: false)
 - `disableSynonyms` (optional): Disable synonym expansion for this query (default: false)
+- `fieldWeights` (optional, BM25F only): Map of field name to weight. Defaults: content=1.0, meta.title=3.0, meta.tags=2.0, meta.category=2.0, meta.description=1.5
 
 **Response**:
 ```json

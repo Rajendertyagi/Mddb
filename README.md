@@ -19,7 +19,7 @@ MDDB treats markdown documents as first-class citizens, providing:
 - **Triple Protocol APIs** - HTTP/JSON (easy), gRPC (fast), or GraphQL (flexible)
 - **Full Revision History** - Every update creates a new revision
 - **Vector Search** - Semantic similarity with multiple algorithms (Flat, HNSW, IVF, PQ, SQ, BQ)
-- **Full-Text Search** - Built-in inverted index with TF-IDF and BM25, typo tolerance, stemming, synonyms — no external dependencies
+- **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, and BM25F (field-weighted), typo tolerance, stemming, synonyms — no external dependencies
 - **Document TTL** - Auto-expiring documents like Redis
 - **Webhooks** - HTTP callbacks on document events
 - **Zero Configuration** - Single ~27MB binary, embedded database

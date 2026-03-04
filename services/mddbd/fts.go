@@ -16,8 +16,12 @@ import (
 )
 
 var (
-	bucketFTS    = []byte("fts")
-	bucketFTSRev = []byte("ftsrev")
+	bucketFTS      = []byte("fts")
+	bucketFTSRev   = []byte("ftsrev")
+	bucketFTSF     = []byte("ftsf")
+	bucketFTSFMeta = []byte("ftsfmeta")
+	bucketFTSFStat = []byte("ftsfstat")
+	bucketFTSFRev  = []byte("ftsfrev")
 )
 
 // FTSIndex provides full-text search using an inverted index in BoltDB.
@@ -47,15 +51,22 @@ type FTSResult struct {
 	MatchedTerms []string `json:"matchedTerms"`
 }
 
+// fieldTermEntry is used in the field-level reverse index for BM25F cleanup.
+type fieldTermEntry struct {
+	Field string `json:"f"`
+	Term  string `json:"t"`
+}
+
 // FTSSearchRequest is the HTTP request for full-text search.
 type FTSSearchRequest struct {
-	Collection      string `json:"collection"`
-	Query           string `json:"query"`
-	Limit           int    `json:"limit"`
-	Algorithm       string `json:"algorithm"`       // "tfidf" (default) or "bm25"
-	Fuzzy           int    `json:"fuzzy"`           // typo tolerance: 0 (off), 1 (1 edit), 2 (2 edits)
-	DisableStem     bool   `json:"disableStem"`     // temporarily disable stemming for this query
-	DisableSynonyms bool   `json:"disableSynonyms"` // temporarily disable synonyms for this query
+	Collection      string             `json:"collection"`
+	Query           string             `json:"query"`
+	Limit           int                `json:"limit"`
+	Algorithm       string             `json:"algorithm"`              // "tfidf", "bm25", or "bm25f"
+	Fuzzy           int                `json:"fuzzy"`                  // typo tolerance: 0 (off), 1 (1 edit), 2 (2 edits)
+	DisableStem     bool               `json:"disableStem"`            // temporarily disable stemming for this query
+	DisableSynonyms bool               `json:"disableSynonyms"`        // temporarily disable synonyms for this query
+	FieldWeights    map[string]float64 `json:"fieldWeights,omitempty"` // BM25F field weights
 }
 
 // FTSSearchResponse is the HTTP response for full-text search.
@@ -66,6 +77,7 @@ type FTSSearchResponse struct {
 	Fuzzy          int                `json:"fuzzy"`
 	StemmingActive bool               `json:"stemmingActive"`
 	SynonymsActive bool               `json:"synonymsActive"`
+	FieldWeights   map[string]float64 `json:"fieldWeights,omitempty"`
 }
 
 // FTSResultWithDoc includes the full document in the result.
@@ -86,11 +98,15 @@ func NewFTSIndex(db *bolt.DB) *FTSIndex {
 // EnsureBuckets creates the FTS buckets if they don't exist.
 func (f *FTSIndex) EnsureBuckets() error {
 	return f.db.Update(func(tx *bolt.Tx) error {
-		if _, err := tx.CreateBucketIfNotExists(bucketFTS); err != nil {
-			return err
+		for _, b := range [][]byte{
+			bucketFTS, bucketFTSRev,
+			bucketFTSF, bucketFTSFMeta, bucketFTSFStat, bucketFTSFRev,
+		} {
+			if _, err := tx.CreateBucketIfNotExists(b); err != nil {
+				return err
+			}
 		}
-		_, err := tx.CreateBucketIfNotExists(bucketFTSRev)
-		return err
+		return nil
 	})
 }
 
@@ -237,6 +253,10 @@ func (f *FTSIndex) Remove(collection, docID string) error {
 		if err := f.RemoveBM25Meta(tx, collection, docID); err != nil {
 			return err
 		}
+		// Clean up field-level FTS data (BM25F)
+		if err := f.removeFieldData(tx, collection, docID); err != nil {
+			return err
+		}
 		bo.Delete("ftsrev", revKey)
 		return bRev.Delete(revKey)
 	})
@@ -336,6 +356,150 @@ func ftsRevKey(collection, docID string) []byte {
 	return []byte(fmt.Sprintf("ftsrev|%s|%s", collection, docID))
 }
 
+// --- Field-level FTS key builders (BM25F) ---
+
+func ftsfKey(collection, field, term, docID string) []byte {
+	return []byte(fmt.Sprintf("ftsf|%s|%s|%s|%s", collection, field, term, docID))
+}
+
+func ftsfMetaKey(collection, field, docID string) []byte {
+	return []byte(fmt.Sprintf("ftsfmeta|%s|%s|%s", collection, field, docID))
+}
+
+func ftsfStatKey(collection, field string) []byte {
+	return []byte(fmt.Sprintf("ftsfstat|%s|%s", collection, field))
+}
+
+func ftsfRevKey(collection, docID string) []byte {
+	return []byte(fmt.Sprintf("ftsfrev|%s|%s", collection, docID))
+}
+
+// removeFieldData removes all field-level FTS data for a document within a transaction.
+func (f *FTSIndex) removeFieldData(tx *bolt.Tx, collection, docID string) error {
+	bF := tx.Bucket(bucketFTSF)
+	bRev := tx.Bucket(bucketFTSFRev)
+	if bF == nil || bRev == nil {
+		return nil
+	}
+
+	revKey := ftsfRevKey(collection, docID)
+	old := bRev.Get(revKey)
+	if old == nil {
+		return nil
+	}
+
+	var entries []fieldTermEntry
+	if err := json.Unmarshal(old, &entries); err != nil {
+		return bRev.Delete(revKey)
+	}
+
+	// Collect unique fields and delete term entries
+	fields := make(map[string]bool)
+	for _, e := range entries {
+		_ = bF.Delete(ftsfKey(collection, e.Field, e.Term, docID))
+		fields[e.Field] = true
+	}
+
+	// Update per-field stats and delete metadata
+	bMeta := tx.Bucket(bucketFTSFMeta)
+	bStat := tx.Bucket(bucketFTSFStat)
+	if bMeta != nil && bStat != nil {
+		for field := range fields {
+			mk := ftsfMetaKey(collection, field, docID)
+			if raw := bMeta.Get(mk); len(raw) >= 4 {
+				oldLen := binary.LittleEndian.Uint32(raw)
+				sk := ftsfStatKey(collection, field)
+				stats := collectionStats{}
+				if sraw := bStat.Get(sk); sraw != nil {
+					stats = decodeCollectionStats(sraw)
+				}
+				if stats.TotalDocs > 0 {
+					stats.TotalDocs--
+				}
+				if stats.TotalTerms >= uint64(oldLen) {
+					stats.TotalTerms -= uint64(oldLen)
+				} else {
+					stats.TotalTerms = 0
+				}
+				_ = bStat.Put(sk, encodeCollectionStats(stats))
+			}
+			_ = bMeta.Delete(mk)
+		}
+	}
+
+	return bRev.Delete(revKey)
+}
+
+// IndexFields indexes a document's fields separately for BM25F scoring.
+// Each field (e.g. "content", "meta.title") is tokenized and stored independently.
+func (f *FTSIndex) IndexFields(collection, docID string, fields map[string]string) error {
+	fieldTokens := make(map[string]map[string]int, len(fields))
+	for field, text := range fields {
+		tokens := f.Tokenize(text)
+		if len(tokens) > 0 {
+			fieldTokens[field] = tokens
+		}
+	}
+	if len(fieldTokens) == 0 {
+		return nil
+	}
+
+	return f.db.Update(func(tx *bolt.Tx) error {
+		// Remove old field data first (handles re-indexing)
+		if err := f.removeFieldData(tx, collection, docID); err != nil {
+			return err
+		}
+
+		bF := tx.Bucket(bucketFTSF)
+		bMeta := tx.Bucket(bucketFTSFMeta)
+		bStat := tx.Bucket(bucketFTSFStat)
+		bRev := tx.Bucket(bucketFTSFRev)
+		if bF == nil || bMeta == nil || bStat == nil || bRev == nil {
+			return nil
+		}
+
+		var allEntries []fieldTermEntry
+		for field, tokens := range fieldTokens {
+			var docLength uint32
+			for term, count := range tokens {
+				var buf [4]byte
+				binary.LittleEndian.PutUint32(buf[:], uint32(count))
+				if err := bF.Put(ftsfKey(collection, field, term, docID), buf[:]); err != nil {
+					return err
+				}
+				allEntries = append(allEntries, fieldTermEntry{Field: field, Term: term})
+				docLength += uint32(count)
+			}
+
+			// Store per-field doc length
+			var buf [4]byte
+			binary.LittleEndian.PutUint32(buf[:], docLength)
+			if err := bMeta.Put(ftsfMetaKey(collection, field, docID), buf[:]); err != nil {
+				return err
+			}
+
+			// Update per-field stats
+			sk := ftsfStatKey(collection, field)
+			stats := collectionStats{}
+			if sraw := bStat.Get(sk); sraw != nil {
+				stats = decodeCollectionStats(sraw)
+			}
+			stats.TotalDocs++
+			stats.TotalTerms += uint64(docLength)
+			if err := bStat.Put(sk, encodeCollectionStats(stats)); err != nil {
+				return err
+			}
+		}
+
+		// Store reverse index for cleanup
+		revData, err := json.Marshal(allEntries)
+		if err != nil {
+			return err
+		}
+		return bRev.Put(ftsfRevKey(collection, docID), revData)
+	})
+}
+
 // --- HTTP handler ---
 
 func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
@@ -383,9 +547,18 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 		fuzzy = 2
 	}
 
+	// Tokenize query (needed for bm25f, reused below)
+	tokens := s.FTSIndex.TokenizeQuery(req.Collection, req.Query)
+
 	var results []FTSResult
 	var err error
 	switch algo {
+	case "bm25f":
+		if fuzzy > 0 {
+			results, err = s.FTSIndex.SearchBM25FFuzzy(req.Collection, tokens, req.Limit, fuzzy, req.FieldWeights)
+		} else {
+			results, err = s.FTSIndex.SearchBM25F(req.Collection, tokens, req.Limit, req.FieldWeights)
+		}
 	case "bm25":
 		if fuzzy > 0 {
 			results, err = s.FTSIndex.SearchBM25Fuzzy(req.Collection, req.Query, req.Limit, fuzzy)
@@ -399,7 +572,7 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 			results, err = s.FTSIndex.Search(req.Collection, req.Query, req.Limit)
 		}
 	default:
-		bad(w, fmt.Errorf("unknown algorithm: %s, available: tfidf, bm25", algo))
+		bad(w, fmt.Errorf("unknown algorithm: %s, available: tfidf, bm25, bm25f", algo))
 		return
 	}
 	if err != nil {
@@ -413,6 +586,9 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 	resp.Fuzzy = fuzzy
 	resp.StemmingActive = origStemmer != nil && !req.DisableStem
 	resp.SynonymsActive = origSynonyms != nil && !req.DisableSynonyms
+	if algo == "bm25f" {
+		resp.FieldWeights = req.FieldWeights
+	}
 	resp.Results = make([]FTSResultWithDoc, 0, len(results))
 	_ = s.DB.View(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))

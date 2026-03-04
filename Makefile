@@ -81,21 +81,18 @@ fmt: ## Format Go code
 	@echo "🎨 Formatting Go code..."
 	cd services/mddbd && gofmt -s -w .
 	cd services/mddb-cli && gofmt -s -w .
-	cd services/mddb-mcp && gofmt -s -w .
 	@echo "✅ Code formatted!"
 
 vet: ## Run go vet
 	@echo "🔍 Running go vet..."
 	cd services/mddbd && go vet ./...
 	cd services/mddb-cli && go vet ./...
-	cd services/mddb-mcp && go vet ./...
 	@echo "✅ go vet passed!"
 
 sec: ## Run security scanner (gosec)
 	@echo "🔒 Running security scan..."
 	cd services/mddbd && gosec -quiet -exclude-generated -exclude=G115 ./...
 	cd services/mddb-cli && gosec -quiet -exclude-generated -exclude=G115 ./...
-	cd services/mddb-mcp && gosec -quiet -exclude-generated -exclude=G115 ./...
 	@echo "✅ Security scan passed!"
 
 test-graphql: ## Run GraphQL tests with coverage
@@ -114,6 +111,6 @@ ci: lint-all test-all ## Run full CI pipeline (lint + test)
 	@echo "✅ CI pipeline complete!"
 
 version: ## Show current version
-	@echo "MDDB Version: 2.6.3"
+	@echo "MDDB Version: 2.6.4"
 
 .DEFAULT_GOAL := help

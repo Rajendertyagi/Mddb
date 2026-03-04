@@ -249,10 +249,14 @@ class MDDBClient {
   /**
    * Full-text search
    */
-  async ftsSearch({ collection, query, limit = 50, algorithm = 'tfidf', fuzzy = 0, disableStem = false, disableSynonyms = false }) {
+  async ftsSearch({ collection, query, limit = 50, algorithm = 'tfidf', fuzzy = 0, disableStem = false, disableSynonyms = false, fieldWeights = null }) {
+    const body = { collection, query, limit, algorithm, fuzzy, disableStem, disableSynonyms };
+    if (algorithm === 'bm25f' && fieldWeights) {
+      body.fieldWeights = fieldWeights;
+    }
     return this.request('/fts', {
       method: 'POST',
-      body: JSON.stringify({ collection, query, limit, algorithm, fuzzy, disableStem, disableSynonyms }),
+      body: JSON.stringify(body),
     });
   }
 

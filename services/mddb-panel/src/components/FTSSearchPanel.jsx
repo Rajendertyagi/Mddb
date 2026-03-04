@@ -1,4 +1,5 @@
-import { Search, AlertCircle, Tag } from 'lucide-react';
+import { useState } from 'react';
+import { Search, AlertCircle, Tag, ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
 
@@ -11,11 +12,15 @@ export default function FTSSearchPanel() {
     ftsFuzzy, setFtsFuzzy,
     ftsStemming, setFtsStemming,
     ftsSynonyms, setFtsSynonyms,
+    ftsFieldWeights, setFtsFieldWeight, removeFtsFieldWeight,
     ftsResults, setFtsResults,
     ftsLoading, setFtsLoading,
     ftsError, setFtsError,
     setCurrentDocument,
   } = useStore();
+
+  const [weightsOpen, setWeightsOpen] = useState(true);
+  const [newFieldName, setNewFieldName] = useState('');
 
   const handleSearch = async () => {
     if (!currentCollection || !ftsQuery.trim()) return;
@@ -31,6 +36,7 @@ export default function FTSSearchPanel() {
         fuzzy: ftsFuzzy,
         disableStem: !ftsStemming,
         disableSynonyms: !ftsSynonyms,
+        fieldWeights: ftsAlgorithm === 'bm25f' ? ftsFieldWeights : null,
       });
       setFtsResults(data.results || []);
     } catch (error) {
@@ -64,6 +70,14 @@ export default function FTSSearchPanel() {
         ...initialDocument,
         contentMd: `Error loading content: ${error.message}`,
       });
+    }
+  };
+
+  const handleAddField = () => {
+    const name = newFieldName.trim();
+    if (name && !(name in ftsFieldWeights)) {
+      setFtsFieldWeight(name, 1.0);
+      setNewFieldName('');
     }
   };
 
@@ -109,6 +123,7 @@ export default function FTSSearchPanel() {
             >
               <option value="tfidf">TF-IDF</option>
               <option value="bm25">BM25</option>
+              <option value="bm25f">BM25F (Field-Weighted)</option>
             </select>
           </div>
           <div>
@@ -137,6 +152,62 @@ export default function FTSSearchPanel() {
             />
           </div>
         </div>
+
+        {/* BM25F Field Weights */}
+        {ftsAlgorithm === 'bm25f' && (
+          <div className="border border-gray-200 rounded-lg">
+            <button
+              onClick={() => setWeightsOpen(!weightsOpen)}
+              className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-50"
+            >
+              <span>Field Weights</span>
+              {weightsOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
+            {weightsOpen && (
+              <div className="px-3 pb-3 space-y-2">
+                {Object.entries(ftsFieldWeights).map(([field, weight]) => (
+                  <div key={field} className="flex items-center space-x-2">
+                    <span className="text-xs text-gray-600 w-28 truncate" title={field}>{field}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={10}
+                      step={0.5}
+                      value={weight}
+                      onChange={(e) => setFtsFieldWeight(field, parseFloat(e.target.value) || 0)}
+                      className="w-20 px-2 py-1 border border-gray-300 rounded text-xs text-center focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    />
+                    <button
+                      onClick={() => removeFtsFieldWeight(field)}
+                      className="p-0.5 text-gray-400 hover:text-red-500"
+                      title="Remove field"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+                <div className="flex items-center space-x-2 pt-1">
+                  <input
+                    type="text"
+                    value={newFieldName}
+                    onChange={(e) => setNewFieldName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddField()}
+                    placeholder="meta.author"
+                    className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  />
+                  <button
+                    onClick={handleAddField}
+                    disabled={!newFieldName.trim()}
+                    className="flex items-center space-x-1 px-2 py-1 text-xs text-primary-600 hover:bg-primary-50 rounded disabled:opacity-40"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Add</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
