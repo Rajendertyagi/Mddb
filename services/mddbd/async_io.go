@@ -112,10 +112,14 @@ func (aio *AsyncIO) executeOperation(op *AsyncOperation) {
 		aio.completed.Add(1)
 		close(op.Done)
 
-		// Cleanup
-		aio.mu.Lock()
-		delete(aio.operations, op.ID)
-		aio.mu.Unlock()
+		// Only clean up callback-based operations here.
+		// Wait()-based operations are cleaned up by Wait() itself,
+		// avoiding a race where the operation is deleted before Wait() can find it.
+		if op.Callback != nil {
+			aio.mu.Lock()
+			delete(aio.operations, op.ID)
+			aio.mu.Unlock()
+		}
 	}()
 
 	switch op.Type {
@@ -153,6 +157,12 @@ func (aio *AsyncIO) Wait(id uint64) ([]byte, error) {
 	}
 
 	<-op.Done
+
+	// Clean up the operation from the map
+	aio.mu.Lock()
+	delete(aio.operations, op.ID)
+	aio.mu.Unlock()
+
 	return op.Result, op.Error
 }
 
