@@ -1,8 +1,0 @@
-# Binaries
-mddb-mcp
-mddb-mcp-stdio
-
-# Config files (users should copy from examples)
-mcp.json
-mcp-docker.json
-mcp-wsl.json

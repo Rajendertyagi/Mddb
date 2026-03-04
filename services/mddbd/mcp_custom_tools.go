@@ -1,16 +1,44 @@
-package mcp
+package main
 
 import (
 	"context"
 	"fmt"
-
-	"github.com/tradik/mddb/services/mddb-mcp/internal/config"
 )
 
-// builtinTools returns the list of hardcoded MCP tools.
-// Shared between handler.go (stdio) and server.go (HTTP).
-func builtinTools() []Tool {
-	return []Tool{
+// MCPCustomToolConfig defines a single custom YAML tool.
+type MCPCustomToolConfig struct {
+	Name        string               `yaml:"name"`
+	Description string               `yaml:"description"`
+	Action      string               `yaml:"action"` // semantic_search, search_documents, full_text_search
+	Defaults    MCPCustomToolDefs    `yaml:"defaults"`
+	Parameters  []MCPCustomToolParam `yaml:"parameters"`
+}
+
+// MCPCustomToolDefs holds pre-filled arguments for the underlying action.
+type MCPCustomToolDefs struct {
+	Collection     string              `yaml:"collection"`
+	TopK           int                 `yaml:"topK"`
+	Threshold      float64             `yaml:"threshold"`
+	IncludeContent *bool               `yaml:"includeContent"`
+	Sort           string              `yaml:"sort"`
+	Asc            *bool               `yaml:"asc"`
+	Limit          int                 `yaml:"limit"`
+	Offset         int                 `yaml:"offset"`
+	FilterMeta     map[string][]string `yaml:"filterMeta"`
+	Query          string              `yaml:"query"`
+}
+
+// MCPCustomToolParam defines a parameter exposed to the AI.
+type MCPCustomToolParam struct {
+	Name        string `yaml:"name"`
+	Type        string `yaml:"type"` // string, integer, number, boolean, object
+	Required    bool   `yaml:"required"`
+	Description string `yaml:"description"`
+}
+
+// mcpBuiltinTools returns the list of hardcoded MCP tools.
+func mcpBuiltinTools() []MCPTool {
+	return []MCPTool{
 		{
 			Name:        "add_document",
 			Description: "Add or update a document in MDDB",
@@ -157,9 +185,7 @@ func builtinTools() []Tool {
 		{
 			Name:        "list_webhooks",
 			Description: "List all registered webhooks.",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-			},
+			InputSchema: map[string]interface{}{"type": "object"},
 		},
 		{
 			Name:        "delete_webhook",
@@ -209,9 +235,7 @@ func builtinTools() []Tool {
 		{
 			Name:        "list_schemas",
 			Description: "List all collection schemas.",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-			},
+			InputSchema: map[string]interface{}{"type": "object"},
 		},
 		{
 			Name:        "validate_document",
@@ -225,11 +249,69 @@ func builtinTools() []Tool {
 				"required": []string{"collection", "meta"},
 			},
 		},
+		{
+			Name:        "add_documents_batch",
+			Description: "Add multiple documents to a collection in a single batch operation.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection name"},
+					"documents":  map[string]interface{}{"type": "array", "description": "Array of documents with key, lang, content_md, meta fields"},
+				},
+				"required": []string{"collection", "documents"},
+			},
+		},
+		{
+			Name:        "delete_documents_batch",
+			Description: "Delete multiple documents from a collection in a single batch operation.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection name"},
+					"documents":  map[string]interface{}{"type": "array", "description": "Array of documents with key and lang fields"},
+				},
+				"required": []string{"collection", "documents"},
+			},
+		},
+		{
+			Name:        "export_documents",
+			Description: "Export documents from a collection in NDJSON format.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection":  map[string]interface{}{"type": "string", "description": "Collection to export"},
+					"filter_meta": map[string]interface{}{"type": "object", "description": "Optional metadata filter"},
+					"format":      map[string]interface{}{"type": "string", "description": "Export format: ndjson (default) or zip"},
+				},
+				"required": []string{"collection"},
+			},
+		},
+		{
+			Name:        "create_backup",
+			Description: "Create a backup of the MDDB database.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"to": map[string]interface{}{"type": "string", "description": "Backup destination path"},
+				},
+			},
+		},
+		{
+			Name:        "restore_backup",
+			Description: "Restore the MDDB database from a backup file.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"from": map[string]interface{}{"type": "string", "description": "Backup file path to restore from"},
+				},
+				"required": []string{"from"},
+			},
+		},
 	}
 }
 
-// customToolToMCPTool converts a YAML custom tool definition into an MCP Tool.
-func customToolToMCPTool(ct config.CustomToolConfig) Tool {
+// mcpCustomToolToMCPTool converts a YAML custom tool definition into an MCPTool.
+func mcpCustomToolToMCPTool(ct MCPCustomToolConfig) MCPTool {
 	properties := map[string]interface{}{}
 	var required []string
 
@@ -254,28 +336,26 @@ func customToolToMCPTool(ct config.CustomToolConfig) Tool {
 		schema["required"] = required
 	}
 
-	return Tool{
+	return MCPTool{
 		Name:        ct.Name,
 		Description: ct.Description,
 		InputSchema: schema,
 	}
 }
 
-// allTools returns built-in tools plus custom tools from config.
-func allTools(customDefs []config.CustomToolConfig) []Tool {
-	tools := builtinTools()
+// mcpAllTools returns built-in tools plus custom tools from config.
+func mcpAllTools(customDefs []MCPCustomToolConfig) []MCPTool {
+	tools := mcpBuiltinTools()
 	for _, ct := range customDefs {
-		tools = append(tools, customToolToMCPTool(ct))
+		tools = append(tools, mcpCustomToolToMCPTool(ct))
 	}
 	return tools
 }
 
-// callCustomTool merges user-provided args with defaults, then delegates to
-// the underlying built-in tool function.
-func (s *Server) callCustomTool(ctx context.Context, ct config.CustomToolConfig, userArgs map[string]interface{}) (string, error) {
+// mcpCallCustomTool merges user-provided args with defaults, then delegates to the built-in tool.
+func (s *MCPToolServer) mcpCallCustomTool(ctx context.Context, ct MCPCustomToolConfig, userArgs map[string]interface{}) (string, error) {
 	merged := make(map[string]interface{})
 
-	// Apply defaults based on action type
 	d := ct.Defaults
 	if d.Collection != "" {
 		merged["collection"] = d.Collection
@@ -293,9 +373,8 @@ func (s *Server) callCustomTool(ctx context.Context, ct config.CustomToolConfig,
 			merged["threshold"] = d.Threshold
 		}
 		if d.FilterMeta != nil {
-			merged["filter_meta"] = metaToInterface(d.FilterMeta)
+			merged["filter_meta"] = mcpMetaToInterface(d.FilterMeta)
 		}
-
 	case "search_documents":
 		if d.Sort != "" {
 			merged["sort"] = d.Sort
@@ -310,29 +389,24 @@ func (s *Server) callCustomTool(ctx context.Context, ct config.CustomToolConfig,
 			merged["offset"] = float64(d.Offset)
 		}
 		if d.FilterMeta != nil {
-			merged["filter_meta"] = metaToInterface(d.FilterMeta)
+			merged["filter_meta"] = mcpMetaToInterface(d.FilterMeta)
 		}
-
 	case "full_text_search":
 		if d.Limit > 0 {
 			merged["limit"] = float64(d.Limit)
 		}
-
 	default:
 		return "", fmt.Errorf("unknown custom tool action: %s", ct.Action)
 	}
 
-	// User args override defaults
 	for k, v := range userArgs {
 		merged[k] = v
 	}
 
-	// Delegate to the built-in tool by action name
-	return s.callTool(ctx, ct.Action, merged)
+	return s.mcpCallTool(ctx, ct.Action, merged)
 }
 
-// metaToInterface converts map[string][]string to map[string]interface{} for the arg parser.
-func metaToInterface(meta map[string][]string) map[string]interface{} {
+func mcpMetaToInterface(meta map[string][]string) map[string]interface{} {
 	result := make(map[string]interface{})
 	for k, v := range meta {
 		items := make([]interface{}, len(v))
@@ -342,4 +416,53 @@ func metaToInterface(meta map[string][]string) map[string]interface{} {
 		result[k] = items
 	}
 	return result
+}
+
+// validateMCPCustomTools validates custom tool definitions.
+func validateMCPCustomTools(tools []MCPCustomToolConfig) error {
+	builtinNames := map[string]bool{
+		"add_document": true, "search_documents": true, "delete_document": true,
+		"get_stats": true, "add_documents_batch": true, "delete_documents_batch": true,
+		"export_documents": true, "create_backup": true, "restore_backup": true,
+		"semantic_search": true, "vector_reindex": true, "vector_stats": true,
+		"import_url": true, "set_ttl": true, "full_text_search": true,
+		"register_webhook": true, "list_webhooks": true, "delete_webhook": true,
+		"set_schema": true, "get_schema": true, "delete_schema": true,
+		"list_schemas": true, "validate_document": true,
+	}
+	validActions := map[string]bool{
+		"semantic_search": true, "search_documents": true, "full_text_search": true,
+	}
+	validTypes := map[string]bool{
+		"string": true, "integer": true, "number": true, "boolean": true, "object": true,
+	}
+	seen := map[string]bool{}
+
+	for i, t := range tools {
+		if t.Name == "" {
+			return fmt.Errorf("custom_tools[%d]: name is required", i)
+		}
+		if builtinNames[t.Name] {
+			return fmt.Errorf("custom_tools[%d]: name %q conflicts with built-in tool", i, t.Name)
+		}
+		if seen[t.Name] {
+			return fmt.Errorf("custom_tools[%d]: duplicate name %q", i, t.Name)
+		}
+		seen[t.Name] = true
+		if !validActions[t.Action] {
+			return fmt.Errorf("custom_tools[%d] (%s): invalid action %q (must be semantic_search, search_documents, or full_text_search)", i, t.Name, t.Action)
+		}
+		if t.Description == "" {
+			return fmt.Errorf("custom_tools[%d] (%s): description is required", i, t.Name)
+		}
+		for j, p := range t.Parameters {
+			if p.Name == "" {
+				return fmt.Errorf("custom_tools[%d] (%s) param[%d]: name is required", i, t.Name, j)
+			}
+			if !validTypes[p.Type] {
+				return fmt.Errorf("custom_tools[%d] (%s) param[%d] (%s): invalid type %q", i, t.Name, j, p.Name, p.Type)
+			}
+		}
+	}
+	return nil
 }

@@ -19,7 +19,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-const VERSION = "2.5.4"
+const VERSION = "2.6.0"
 
 type AccessMode string
 
@@ -390,6 +390,12 @@ func main() {
 		log.Println("✓ Authentication enabled")
 	}
 
+	// MCP stdio mode — replaces normal HTTP/gRPC operation
+	if os.Getenv("MDDB_MCP_STDIO") == "true" {
+		s.runMCPStdio()
+		return
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/v1/health", s.handleHealth)
@@ -420,6 +426,13 @@ func main() {
 	mux.HandleFunc("/v1/schema/list", s.handleSchemaList)
 	mux.HandleFunc("/v1/validate", s.handleValidate)
 	mux.HandleFunc("/metrics", s.Metrics.HandleMetrics)
+
+	// MCP HTTP endpoints (always available)
+	mcpServer := s.newMCPHTTPServer()
+	mux.HandleFunc("/mcp/resources", mcpServer.handleResources)
+	mux.HandleFunc("/mcp/resources/read", mcpServer.handleResourceRead)
+	mux.HandleFunc("/mcp/tools", mcpServer.handleTools)
+	mux.HandleFunc("/mcp/tools/call", s.guardWrite(mcpServer.handleToolCall))
 
 	// Replication status endpoint
 	mux.HandleFunc("/v1/replication/status", s.handleReplicationStatus)

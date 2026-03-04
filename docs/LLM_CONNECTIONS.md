@@ -14,7 +14,7 @@ MDDB provides multiple integration paths:
 
 ## Claude Desktop / Claude Code
 
-MDDB provides a native MCP server that integrates directly with Claude Desktop.
+MCP is built directly into the MDDB server — no separate service needed.
 
 ### Docker (Recommended)
 
@@ -31,10 +31,9 @@ Add to your Claude Desktop config:
       "command": "docker",
       "args": [
         "run", "-i", "--rm", "--network", "host",
-        "-e", "MDDB_GRPC_ADDRESS=localhost:11024",
-        "-e", "MDDB_REST_BASE_URL=http://localhost:11023",
-        "-e", "MDDB_TRANSPORT_MODE=grpc_with_rest_fallback",
-        "tradik/mddb:mcp"
+        "-v", "mddb-data:/app/data",
+        "-e", "MDDB_MCP_STDIO=true",
+        "tradik/mddb:latest"
       ],
       "env": {}
     }
@@ -42,24 +41,21 @@ Add to your Claude Desktop config:
 }
 ```
 
+> **Note**: You can also use the `tradik/mddb:mcp` image which has `MDDB_MCP_STDIO=true` preset.
+
 ### Local Binary
 
-Build the stdio binary and reference it directly:
-
-```bash
-cd services/mddb-mcp && make build-stdio
-```
+Use the `mddbd` binary directly:
 
 ```json
 {
   "mcpServers": {
     "mddb": {
-      "command": "/path/to/mddb-mcp-stdio",
+      "command": "/path/to/mddbd",
       "args": [],
       "env": {
-        "MDDB_GRPC_ADDRESS": "localhost:11024",
-        "MDDB_REST_BASE_URL": "http://localhost:11023",
-        "MDDB_TRANSPORT_MODE": "grpc_with_rest_fallback"
+        "MDDB_MCP_STDIO": "true",
+        "MDDB_PATH": "/path/to/mddb.db"
       }
     }
   }
@@ -88,7 +84,7 @@ Create a Custom GPT that connects to MDDB via its REST API.
 ```json
 {
   "openapi": "3.1.0",
-  "info": { "title": "MDDB API", "version": "2.5.4" },
+  "info": { "title": "MDDB API", "version": "2.6.0" },
   "servers": [{ "url": "https://your-mddb-server.com" }],
   "paths": {
     "/v1/search": {
@@ -187,9 +183,9 @@ Add the same MCP config as Claude Desktop to your MCP client settings:
       "command": "docker",
       "args": [
         "run", "-i", "--rm", "--network", "host",
-        "-e", "MDDB_GRPC_ADDRESS=localhost:11024",
-        "-e", "MDDB_TRANSPORT_MODE=grpc_with_rest_fallback",
-        "tradik/mddb:mcp"
+        "-v", "mddb-data:/app/data",
+        "-e", "MDDB_MCP_STDIO=true",
+        "tradik/mddb:latest"
       ]
     }
   }

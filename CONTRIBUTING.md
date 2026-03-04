@@ -17,8 +17,7 @@ MDDB is a monorepo with the following services:
 
 | Directory | Description |
 |-----------|-------------|
-| `services/mddbd` | Core database server (HTTP/JSON + gRPC/Protobuf) |
-| `services/mddb-mcp` | MCP (Model Context Protocol) server |
+| `services/mddbd` | Core database server (HTTP/JSON + gRPC/Protobuf + MCP) |
 | `services/mddb-cli` | Command-line client |
 | `services/mddb-panel` | React web UI |
 | `proto/` | Protocol Buffer definitions |
