@@ -103,8 +103,9 @@ jobs:
         id: build-panel
         uses: docker/build-push-action@v6
         with:
-          context: ./services/mddb-panel
+          context: .
           file: ./services/mddb-panel/Dockerfile
+          target: production
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
