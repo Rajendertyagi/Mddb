@@ -90,7 +90,7 @@ export default function HybridSearchPanel() {
     );
   }
 
-  const maxScore = hybridResults.length > 0 ? Math.max(...hybridResults.map(r => r.score)) : 1;
+  const maxScore = hybridResults.length > 0 ? Math.max(...hybridResults.map(r => r.combinedScore)) : 1;
 
   return (
     <div className="h-full flex flex-col">
@@ -294,7 +294,7 @@ export default function HybridSearchPanel() {
           <div className="divide-y divide-gray-200">
             {hybridResults.map((result, idx) => {
               const doc = result.document;
-              const pct = maxScore > 0 ? Math.round((result.score / maxScore) * 100) : 0;
+              const pct = maxScore > 0 ? Math.round((result.combinedScore / maxScore) * 100) : 0;
               return (
                 <button
                   key={`${doc?.key}-${doc?.lang}-${idx}`}
@@ -312,7 +312,7 @@ export default function HybridSearchPanel() {
                       <span className="text-xs text-gray-500">{doc?.lang}</span>
                     </div>
                     <span className="text-sm font-semibold text-primary-600">
-                      {result.score.toFixed(4)}
+                      {result.combinedScore.toFixed(4)}
                     </span>
                   </div>
 
