@@ -126,6 +126,7 @@ export default function FTSSearchPanel() {
               <option value="tfidf">TF-IDF</option>
               <option value="bm25">BM25</option>
               <option value="bm25f">BM25F (Field-Weighted)</option>
+              <option value="pmisparse">PMISparse (PMI Expansion)</option>
             </select>
           </div>
           <div>

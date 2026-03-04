@@ -330,6 +330,9 @@ func main() {
 	s.FTSIndex.SetStopWordManager(s.StopWordManager)
 	log.Println("Stop word manager initialized")
 
+	// Initialize PMI data for PMISparse search
+	s.FTSIndex.SetPMIData(NewPMIData())
+
 	log.Println("Full-text search index initialized")
 
 	// Initialize webhook manager

@@ -418,7 +418,7 @@ score = 1/(k + rank_fts) + 1/(k + rank_vector)
 | `strategy` | `"alpha"` | `"alpha"` or `"rrf"` |
 | `alpha` | `0.5` | Weight for alpha blending (0-1) |
 | `rrfK` | `60` | RRF k parameter |
-| `algorithm` | `"bm25"` | FTS algorithm: `"bm25"`, `"bm25f"` |
+| `algorithm` | `"bm25"` | FTS algorithm: `"bm25"`, `"bm25f"`, `"pmisparse"` |
 | `vectorAlgorithm` | `"flat"` | Vector algorithm: `"flat"`, `"hnsw"`, `"ivf"`, `"pq"`, `"sq"` |
 | `topK` | `10` | Number of results to return |
 | `fuzzy` | `0` | Typo tolerance for FTS (0, 1, 2) |

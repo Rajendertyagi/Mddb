@@ -163,7 +163,7 @@ func mcpBuiltinTools() []MCPTool {
 					"collection": map[string]interface{}{"type": "string", "description": "Collection to search in"},
 					"query":      map[string]interface{}{"type": "string", "description": "Search query text"},
 					"limit":      map[string]interface{}{"type": "integer", "description": "Max results (default: 50)"},
-					"algorithm":  map[string]interface{}{"type": "string", "description": "Scoring algorithm: tfidf (default) or bm25"},
+					"algorithm":  map[string]interface{}{"type": "string", "description": "Scoring algorithm: tfidf (default), bm25, bm25f, or pmisparse"},
 					"fuzzy":      map[string]interface{}{"type": "integer", "description": "Typo tolerance: 0 (off, default), 1 (1 char typo), 2 (2 char typos)"},
 				},
 				"required": []string{"collection", "query"},

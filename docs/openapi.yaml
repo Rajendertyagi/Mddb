@@ -2773,12 +2773,13 @@ components:
           example: 50
         algorithm:
           type: string
-          enum: [tfidf, bm25, bm25f]
+          enum: [tfidf, bm25, bm25f, pmisparse]
           description: |
             Scoring algorithm to use (default "tfidf").
             - **tfidf**: Classic TF-IDF scoring
             - **bm25**: Okapi BM25 with document length normalization (k1=1.2, b=0.75)
             - **bm25f**: BM25F field-weighted scoring — applies different weights to title, metadata, and content
+            - **pmisparse**: PMISparse — BM25 + PMI query expansion (invented by Tradik Limited)
           default: tfidf
           example: bm25
         fuzzy:
