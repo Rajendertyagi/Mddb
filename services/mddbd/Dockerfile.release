@@ -1,0 +1,37 @@
+FROM alpine:3.23
+
+ARG TARGETARCH
+
+RUN apk --no-cache add ca-certificates tzdata
+
+RUN addgroup -g 1000 mddb && \
+    adduser -D -u 1000 -G mddb mddb
+
+WORKDIR /app
+
+COPY mddbd-linux-${TARGETARCH} /app/mddbd
+RUN chmod +x /app/mddbd
+
+RUN mkdir -p /app/data && \
+    chown -R mddb:mddb /app
+
+USER mddb
+
+EXPOSE 11023 11024 9000 11443
+
+ENV MDDB_ADDR=":11023" \
+    MDDB_GRPC_ADDR=":11024" \
+    MDDB_MODE="wr" \
+    MDDB_PATH="/app/data/mddb.db" \
+    MDDB_HTTP_ENABLED="true" \
+    MDDB_GRPC_ENABLED="true" \
+    MDDB_MCP_ENABLED="true" \
+    MDDB_MCP_ADDR=":9000" \
+    MDDB_MCP_STDIO="false" \
+    MDDB_HTTP3_ENABLED="false" \
+    MDDB_HTTP3_ADDR=":11443"
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:11023/health || exit 1
+
+ENTRYPOINT ["/app/mddbd"]

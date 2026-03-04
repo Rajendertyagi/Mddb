@@ -1,6 +1,9 @@
 name: Release
 
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       version:
@@ -9,6 +12,9 @@ on:
 
 env:
   GO_VERSION: '1.26'
+  DOCKER_HUB_USERNAME: tradik
+  IMAGE_NAME: mddb
+  GHCR_REGISTRY: ghcr.io
 
 jobs:
   build-server:
@@ -45,12 +51,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
 
@@ -286,13 +292,20 @@ jobs:
           find dist/rpm/RPMS -name "*.rpm" -exec cp {} dist/mddbd-${VERSION_NUM}-${{ matrix.platform }}.rpm \;
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mddbd-${{ matrix.platform }}
           path: |
             services/mddbd/dist/*.tar.gz
             services/mddbd/dist/*.deb
             services/mddbd/dist/*.rpm
+
+      - name: Upload binary for Docker
+        if: matrix.goos == 'linux'
+        uses: actions/upload-artifact@v7
+        with:
+          name: mddbd-binary-${{ matrix.platform }}
+          path: services/mddbd/mddbd-${{ matrix.platform }}
 
   build-client:
     name: Build MDDB CLI Client
@@ -328,12 +341,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
 
@@ -511,7 +524,7 @@ jobs:
           find dist/rpm/RPMS -name "*.rpm" -exec cp {} dist/mddb-cli-${VERSION_NUM}-${{ matrix.platform }}.rpm \;
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mddb-cli-${{ matrix.platform }}
           path: |
@@ -528,7 +541,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Get version
         id: version
@@ -540,7 +553,7 @@ jobs:
           fi
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: release-artifacts
 
@@ -614,7 +627,7 @@ jobs:
           EOF
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.VERSION }}
           name: MDDB ${{ steps.version.outputs.VERSION }}
@@ -635,7 +648,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Get version
         id: version
@@ -710,7 +723,233 @@ jobs:
           EOF
 
       - name: Upload Homebrew formulas
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: homebrew-formulas
           path: homebrew-formula/*.rb
+
+  docker-server:
+    name: Build Server Docker Image
+    needs: [build-server]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Get version
+        id: meta
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION=${{ github.event.inputs.version }}
+          else
+            VERSION=${GITHUB_REF#refs/tags/}
+          fi
+          VERSION_NUM=${VERSION#v}
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          echo "VERSION_NUM=${VERSION_NUM}" >> $GITHUB_OUTPUT
+          echo "BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+          echo "COMMIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Download server binary (linux-amd64)
+        uses: actions/download-artifact@v8
+        with:
+          name: mddbd-binary-linux-amd64
+          path: docker-ctx
+
+      - name: Download server binary (linux-arm64)
+        uses: actions/download-artifact@v8
+        with:
+          name: mddbd-binary-linux-arm64
+          path: docker-ctx
+
+      - name: Prepare Docker context
+        run: |
+          cp services/mddbd/Dockerfile.release docker-ctx/Dockerfile
+          ls -la docker-ctx/
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ env.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push server image
+        id: build-server
+        uses: docker/build-push-action@v6
+        with:
+          context: docker-ctx
+          file: docker-ctx/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.VERSION_NUM }}
+            ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.GHCR_REGISTRY }}/${{ github.repository }}:${{ steps.meta.outputs.VERSION_NUM }}
+            ${{ env.GHCR_REGISTRY }}/${{ github.repository }}:latest
+          labels: |
+            org.opencontainers.image.title=MDDB Server
+            org.opencontainers.image.description=High-performance markdown database server with gRPC and HTTP/3 support
+            org.opencontainers.image.version=${{ steps.meta.outputs.VERSION_NUM }}
+            org.opencontainers.image.created=${{ steps.meta.outputs.BUILD_DATE }}
+            org.opencontainers.image.revision=${{ steps.meta.outputs.COMMIT_SHA }}
+            org.opencontainers.image.source=https://github.com/tradik/mddb
+            org.opencontainers.image.url=https://github.com/tradik/mddb
+            org.opencontainers.image.documentation=https://github.com/tradik/mddb/blob/main/README.md
+            org.opencontainers.image.licenses=BSD-3-Clause
+            org.opencontainers.image.vendor=MDDB Team
+
+      - name: Generate artifact attestation for server
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ${{ env.GHCR_REGISTRY }}/${{ github.repository }}
+          subject-digest: ${{ steps.build-server.outputs.digest }}
+          push-to-registry: true
+
+  docker-panel:
+    name: Build Panel Docker Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Get version
+        id: meta
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION=${{ github.event.inputs.version }}
+          else
+            VERSION=${GITHUB_REF#refs/tags/}
+          fi
+          VERSION_NUM=${VERSION#v}
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          echo "VERSION_NUM=${VERSION_NUM}" >> $GITHUB_OUTPUT
+          echo "BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+          echo "COMMIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ env.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push panel image
+        id: build-panel
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./services/mddb-panel/Dockerfile
+          target: production
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:panel-${{ steps.meta.outputs.VERSION_NUM }}
+            ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:panel
+            ${{ env.GHCR_REGISTRY }}/${{ github.repository }}:panel-${{ steps.meta.outputs.VERSION_NUM }}
+            ${{ env.GHCR_REGISTRY }}/${{ github.repository }}:panel
+          labels: |
+            org.opencontainers.image.title=MDDB Panel
+            org.opencontainers.image.description=Web-based administration panel for MDDB
+            org.opencontainers.image.version=${{ steps.meta.outputs.VERSION_NUM }}
+            org.opencontainers.image.created=${{ steps.meta.outputs.BUILD_DATE }}
+            org.opencontainers.image.revision=${{ steps.meta.outputs.COMMIT_SHA }}
+            org.opencontainers.image.source=https://github.com/tradik/mddb
+            org.opencontainers.image.url=https://github.com/tradik/mddb
+            org.opencontainers.image.documentation=https://github.com/tradik/mddb/blob/main/services/mddb-panel/README.md
+            org.opencontainers.image.licenses=BSD-3-Clause
+            org.opencontainers.image.vendor=MDDB Team
+          cache-from: type=gha,scope=panel
+          cache-to: type=gha,mode=max,scope=panel
+
+      - name: Generate artifact attestation for panel
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ${{ env.GHCR_REGISTRY }}/${{ github.repository }}
+          subject-digest: ${{ steps.build-panel.outputs.digest }}
+          push-to-registry: true
+
+  release-summary:
+    name: Release Summary
+    needs: [create-release, docker-server, docker-panel]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get version
+        id: meta
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION=${{ github.event.inputs.version }}
+          else
+            VERSION=${GITHUB_REF#refs/tags/}
+          fi
+          VERSION_NUM=${VERSION#v}
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          echo "VERSION_NUM=${VERSION_NUM}" >> $GITHUB_OUTPUT
+
+      - name: Create release summary
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+          ## Release Summary
+
+          ### Native Packages
+          - GitHub Release: https://github.com/tradik/mddb/releases/tag/${{ steps.meta.outputs.VERSION }}
+
+          ### Docker Images
+
+          **MDDB Server:**
+          - `${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.VERSION_NUM }}`
+          - `${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest`
+          - `${{ env.GHCR_REGISTRY }}/tradik/mddb:${{ steps.meta.outputs.VERSION_NUM }}`
+
+          **MDDB Panel:**
+          - `${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:panel-${{ steps.meta.outputs.VERSION_NUM }}`
+          - `${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:panel`
+
+          > MCP is built into the server image. Use `MDDB_MCP_STDIO=true` for stdio mode.
+
+          ### Platforms
+          - Native: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, freebsd/amd64
+          - Docker: linux/amd64, linux/arm64
+
+          ### Quick Start
+          ```bash
+          docker pull ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.VERSION_NUM }}
+          docker run -d -p 11023:11023 -v mddb-data:/data ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.VERSION_NUM }}
+          ```
+          EOF
