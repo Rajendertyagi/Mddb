@@ -59,14 +59,15 @@ type fieldTermEntry struct {
 
 // FTSSearchRequest is the HTTP request for full-text search.
 type FTSSearchRequest struct {
-	Collection      string             `json:"collection"`
-	Query           string             `json:"query"`
-	Limit           int                `json:"limit"`
-	Algorithm       string             `json:"algorithm"`              // "tfidf", "bm25", or "bm25f"
-	Fuzzy           int                `json:"fuzzy"`                  // typo tolerance: 0 (off), 1 (1 edit), 2 (2 edits)
-	DisableStem     bool               `json:"disableStem"`            // temporarily disable stemming for this query
-	DisableSynonyms bool               `json:"disableSynonyms"`        // temporarily disable synonyms for this query
-	FieldWeights    map[string]float64 `json:"fieldWeights,omitempty"` // BM25F field weights
+	Collection      string              `json:"collection"`
+	Query           string              `json:"query"`
+	Limit           int                 `json:"limit"`
+	Algorithm       string              `json:"algorithm"`              // "tfidf", "bm25", or "bm25f"
+	Fuzzy           int                 `json:"fuzzy"`                  // typo tolerance: 0 (off), 1 (1 edit), 2 (2 edits)
+	DisableStem     bool                `json:"disableStem"`            // temporarily disable stemming for this query
+	DisableSynonyms bool                `json:"disableSynonyms"`        // temporarily disable synonyms for this query
+	FieldWeights    map[string]float64  `json:"fieldWeights,omitempty"` // BM25F field weights
+	FilterMeta      map[string][]string `json:"filterMeta,omitempty"`   // metadata pre-filter (in-graph filtering)
 }
 
 // FTSSearchResponse is the HTTP response for full-text search.
@@ -547,6 +548,20 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 		fuzzy = 2
 	}
 
+	// Pre-filter by metadata (in-graph filtering)
+	var allowed map[string]bool
+	if len(req.FilterMeta) > 0 {
+		allowed = s.getDocIDsByMeta(req.Collection, req.FilterMeta)
+		if len(allowed) == 0 {
+			ok(w, FTSSearchResponse{
+				Results:   []FTSResultWithDoc{},
+				Algorithm: algo,
+				Fuzzy:     fuzzy,
+			})
+			return
+		}
+	}
+
 	// Tokenize query (needed for bm25f, reused below)
 	tokens := s.FTSIndex.TokenizeQuery(req.Collection, req.Query)
 
@@ -578,6 +593,17 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		bad(w, err)
 		return
+	}
+
+	// Apply metadata filter to results
+	if allowed != nil {
+		filtered := results[:0]
+		for _, r := range results {
+			if allowed[r.DocID] {
+				filtered = append(filtered, r)
+			}
+		}
+		results = filtered
 	}
 
 	// Load full documents

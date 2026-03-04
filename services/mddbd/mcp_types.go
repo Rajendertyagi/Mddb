@@ -297,6 +297,40 @@ type MCPFTSSearchResponse struct {
 	Fuzzy     int            `json:"fuzzy"`
 }
 
+// MCPHybridSearchRequest represents hybrid sparse+dense search request.
+type MCPHybridSearchRequest struct {
+	Collection      string              `json:"collection"`
+	Query           string              `json:"query"`
+	TopK            int                 `json:"topK,omitempty"`
+	Algorithm       string              `json:"algorithm,omitempty"`       // FTS: "bm25", "bm25f"
+	VectorAlgorithm string              `json:"vectorAlgorithm,omitempty"` // Vector: "flat", "hnsw", "ivf", "pq", "sq"
+	Alpha           float64             `json:"alpha,omitempty"`           // 0-1, default 0.5
+	Strategy        string              `json:"strategy,omitempty"`        // "alpha" or "rrf"
+	RRFK            int                 `json:"rrfK,omitempty"`            // RRF k parameter
+	Fuzzy           int                 `json:"fuzzy,omitempty"`
+	Threshold       float64             `json:"threshold,omitempty"`
+	FilterMeta      map[string][]string `json:"filterMeta,omitempty"`
+}
+
+// MCPHybridSearchResult represents a single hybrid search result.
+type MCPHybridSearchResult struct {
+	Document      MCPDocument `json:"document"`
+	CombinedScore float64     `json:"combinedScore"`
+	FTSScore      float64     `json:"ftsScore"`
+	VectorScore   float64     `json:"vectorScore"`
+	MatchedTerms  []string    `json:"matchedTerms,omitempty"`
+	Rank          int         `json:"rank"`
+}
+
+// MCPHybridSearchResponse represents hybrid search results.
+type MCPHybridSearchResponse struct {
+	Results         []MCPHybridSearchResult `json:"results"`
+	Total           int                     `json:"total"`
+	Strategy        string                  `json:"strategy"`
+	FTSAlgorithm    string                  `json:"ftsAlgorithm"`
+	VectorAlgorithm string                  `json:"vectorAlgorithm"`
+}
+
 // MCPWebhook represents a webhook subscription.
 type MCPWebhook struct {
 	ID         string   `json:"id"`
@@ -399,6 +433,7 @@ type MCPClient interface {
 	ImportURL(ctx context.Context, req *MCPImportURLRequest) (*MCPDocument, error)
 	SetTTL(ctx context.Context, req *MCPSetTTLRequest) (*MCPDocument, error)
 	FTSSearch(ctx context.Context, req *MCPFTSSearchRequest) (*MCPFTSSearchResponse, error)
+	HybridSearch(ctx context.Context, req *MCPHybridSearchRequest) (*MCPHybridSearchResponse, error)
 	RegisterWebhook(ctx context.Context, req *MCPRegisterWebhookRequest) (*MCPWebhook, error)
 	ListWebhooks(ctx context.Context) ([]MCPWebhook, error)
 	DeleteWebhook(ctx context.Context, req *MCPDeleteWebhookRequest) error

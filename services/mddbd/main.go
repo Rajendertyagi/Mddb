@@ -22,7 +22,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-const VERSION = "2.6.4"
+const VERSION = "2.6.5"
 
 type AccessMode string
 
@@ -463,6 +463,7 @@ func main() {
 	mux.HandleFunc("/v1/import-url", s.guardWrite(s.handleImportURL))
 	mux.HandleFunc("/v1/set-ttl", s.guardWrite(s.handleSetTTL))
 	mux.HandleFunc("/v1/fts", s.handleFTS)
+	mux.HandleFunc("/v1/hybrid-search", s.handleHybridSearch)
 	mux.HandleFunc("/v1/synonyms", s.handleSynonyms)
 	mux.HandleFunc("/v1/webhooks", s.handleWebhooks)
 	mux.HandleFunc("/v1/webhooks/delete", s.guardWrite(s.handleWebhookDelete))

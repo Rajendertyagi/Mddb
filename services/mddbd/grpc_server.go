@@ -1134,9 +1134,34 @@ func (g *GRPCServer) FTS(ctx context.Context, req *proto.FTSRequest) (*proto.FTS
 		fuzzy = 2
 	}
 
+	// Convert proto filter_meta to internal format
+	var allowed map[string]bool
+	if len(req.FilterMeta) > 0 {
+		filterMeta := make(map[string][]string)
+		for k, v := range req.FilterMeta {
+			filterMeta[k] = v.Values
+		}
+		allowed = g.server.getDocIDsByMeta(req.Collection, filterMeta)
+		if len(allowed) == 0 {
+			return &proto.FTSResponse{
+				Results:   nil,
+				Total:     0,
+				Algorithm: algo,
+				Fuzzy:     int32(fuzzy),
+			}, nil
+		}
+	}
+
 	var results []FTSResult
 	var err error
 	switch algo {
+	case "bm25f":
+		tokens := g.server.FTSIndex.TokenizeQuery(req.Collection, req.Query)
+		if fuzzy > 0 {
+			results, err = g.server.FTSIndex.SearchBM25FFuzzy(req.Collection, tokens, limit, fuzzy, nil)
+		} else {
+			results, err = g.server.FTSIndex.SearchBM25F(req.Collection, tokens, limit, nil)
+		}
 	case "bm25":
 		if fuzzy > 0 {
 			results, err = g.server.FTSIndex.SearchBM25Fuzzy(req.Collection, req.Query, limit, fuzzy)
@@ -1150,10 +1175,21 @@ func (g *GRPCServer) FTS(ctx context.Context, req *proto.FTSRequest) (*proto.FTS
 			results, err = g.server.FTSIndex.Search(req.Collection, req.Query, limit)
 		}
 	default:
-		return nil, status.Error(codes.InvalidArgument, "unknown algorithm: "+algo+", available: tfidf, bm25")
+		return nil, status.Error(codes.InvalidArgument, "unknown algorithm: "+algo+", available: tfidf, bm25, bm25f")
 	}
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	// Apply metadata filter if provided
+	if allowed != nil {
+		filtered := results[:0]
+		for _, r := range results {
+			if allowed[r.DocID] {
+				filtered = append(filtered, r)
+			}
+		}
+		results = filtered
 	}
 
 	var protoResults []*proto.FTSResult
@@ -1185,6 +1221,132 @@ func (g *GRPCServer) FTS(ctx context.Context, req *proto.FTSRequest) (*proto.FTS
 		Total:     int32(len(protoResults)),
 		Algorithm: algo,
 		Fuzzy:     int32(fuzzy),
+	}, nil
+}
+
+// HybridSearch implements the HybridSearch RPC - combines FTS and vector search
+func (g *GRPCServer) HybridSearch(ctx context.Context, req *proto.HybridSearchRequest) (*proto.HybridSearchResponse, error) {
+	// Check read permission
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermRead); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
+	if req.Collection == "" || req.Query == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing required fields: collection, query")
+	}
+
+	// Defaults
+	topK := int(req.TopK)
+	if topK <= 0 {
+		topK = 10
+	}
+	algo := req.Algorithm
+	if algo == "" {
+		algo = "bm25"
+	}
+	vectorAlgo := req.VectorAlgorithm
+	if vectorAlgo == "" {
+		vectorAlgo = "flat"
+	}
+	strategy := req.Strategy
+	if strategy == "" {
+		strategy = "alpha"
+	}
+	alpha := req.Alpha
+	if strategy == "alpha" && alpha == 0 {
+		alpha = 0.5
+	}
+	rrfK := int(req.RrfK)
+	if rrfK <= 0 {
+		rrfK = 60
+	}
+	fuzzy := int(req.Fuzzy)
+	if fuzzy < 0 {
+		fuzzy = 0
+	}
+	if fuzzy > 2 {
+		fuzzy = 2
+	}
+
+	// Validate strategy
+	if strategy != "alpha" && strategy != "rrf" {
+		return nil, status.Error(codes.InvalidArgument, "unknown strategy: "+strategy+", available: alpha, rrf")
+	}
+
+	// Convert proto filter_meta to internal format
+	filterMeta := make(map[string][]string)
+	for k, v := range req.FilterMeta {
+		filterMeta[k] = v.Values
+	}
+
+	// Convert proto field_weights to internal format
+	var fieldWeights map[string]float64
+	if len(req.FieldWeights) > 0 {
+		fieldWeights = req.FieldWeights
+	}
+
+	// Build internal hybrid search request
+	hybridReq := HybridSearchRequest{
+		Collection:      req.Collection,
+		Query:           req.Query,
+		TopK:            topK,
+		Algorithm:       algo,
+		VectorAlgorithm: vectorAlgo,
+		Alpha:           alpha,
+		Strategy:        strategy,
+		RRFK:            rrfK,
+		Fuzzy:           fuzzy,
+		Threshold:       req.Threshold,
+		FilterMeta:      filterMeta,
+		IncludeContent:  req.IncludeContent,
+		FieldWeights:    fieldWeights,
+	}
+
+	// Step 1: Run FTS search
+	ftsResults, err := g.server.runFTSSearch(hybridReq)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "FTS search failed: "+err.Error())
+	}
+
+	// Step 2: Run vector search
+	vectorResults, err := g.server.runVectorSearch(ctx, hybridReq)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "vector search failed: "+err.Error())
+	}
+
+	// Step 3: Merge results
+	var merged []HybridSearchResultItem
+	switch strategy {
+	case "rrf":
+		merged = mergeRRF(ftsResults, vectorResults, rrfK, topK)
+	default: // "alpha"
+		merged = mergeAlpha(ftsResults, vectorResults, alpha, topK)
+	}
+
+	// Step 4: Load full documents
+	items := g.server.loadHybridDocs(req.Collection, merged, req.IncludeContent)
+
+	// Convert to proto response
+	protoResults := make([]*proto.HybridSearchResult, len(items))
+	for i, item := range items {
+		protoResults[i] = &proto.HybridSearchResult{
+			Document:      docToProto(&item.Document),
+			CombinedScore: item.CombinedScore,
+			FtsScore:      item.FTSScore,
+			VectorScore:   item.VectorScore,
+			MatchedTerms:  item.MatchedTerms,
+			Rank:          int32(item.Rank),
+		}
+	}
+
+	return &proto.HybridSearchResponse{
+		Results:         protoResults,
+		Total:           int32(len(protoResults)),
+		Strategy:        strategy,
+		FtsAlgorithm:    algo,
+		VectorAlgorithm: vectorAlgo,
 	}, nil
 }
 

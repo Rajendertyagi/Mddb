@@ -36,6 +36,7 @@ const (
 	MDDB_ImportURL_FullMethodName        = "/mddb.MDDB/ImportURL"
 	MDDB_SetTTL_FullMethodName           = "/mddb.MDDB/SetTTL"
 	MDDB_FTS_FullMethodName              = "/mddb.MDDB/FTS"
+	MDDB_HybridSearch_FullMethodName     = "/mddb.MDDB/HybridSearch"
 	MDDB_RegisterWebhook_FullMethodName  = "/mddb.MDDB/RegisterWebhook"
 	MDDB_ListWebhooks_FullMethodName     = "/mddb.MDDB/ListWebhooks"
 	MDDB_DeleteWebhook_FullMethodName    = "/mddb.MDDB/DeleteWebhook"
@@ -86,6 +87,8 @@ type MDDBClient interface {
 	SetTTL(ctx context.Context, in *SetTTLRequest, opts ...grpc.CallOption) (*Document, error)
 	// Full-text search
 	FTS(ctx context.Context, in *FTSRequest, opts ...grpc.CallOption) (*FTSResponse, error)
+	// Hybrid search (combines FTS + vector search)
+	HybridSearch(ctx context.Context, in *HybridSearchRequest, opts ...grpc.CallOption) (*HybridSearchResponse, error)
 	// Register a webhook
 	RegisterWebhook(ctx context.Context, in *RegisterWebhookRequest, opts ...grpc.CallOption) (*WebhookProto, error)
 	// List webhooks
@@ -291,6 +294,16 @@ func (c *mDDBClient) FTS(ctx context.Context, in *FTSRequest, opts ...grpc.CallO
 	return out, nil
 }
 
+func (c *mDDBClient) HybridSearch(ctx context.Context, in *HybridSearchRequest, opts ...grpc.CallOption) (*HybridSearchResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(HybridSearchResponse)
+	err := c.cc.Invoke(ctx, MDDB_HybridSearch_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *mDDBClient) RegisterWebhook(ctx context.Context, in *RegisterWebhookRequest, opts ...grpc.CallOption) (*WebhookProto, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(WebhookProto)
@@ -411,6 +424,8 @@ type MDDBServer interface {
 	SetTTL(context.Context, *SetTTLRequest) (*Document, error)
 	// Full-text search
 	FTS(context.Context, *FTSRequest) (*FTSResponse, error)
+	// Hybrid search (combines FTS + vector search)
+	HybridSearch(context.Context, *HybridSearchRequest) (*HybridSearchResponse, error)
 	// Register a webhook
 	RegisterWebhook(context.Context, *RegisterWebhookRequest) (*WebhookProto, error)
 	// List webhooks
@@ -487,6 +502,9 @@ func (UnimplementedMDDBServer) SetTTL(context.Context, *SetTTLRequest) (*Documen
 }
 func (UnimplementedMDDBServer) FTS(context.Context, *FTSRequest) (*FTSResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FTS not implemented")
+}
+func (UnimplementedMDDBServer) HybridSearch(context.Context, *HybridSearchRequest) (*HybridSearchResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method HybridSearch not implemented")
 }
 func (UnimplementedMDDBServer) RegisterWebhook(context.Context, *RegisterWebhookRequest) (*WebhookProto, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterWebhook not implemented")
@@ -832,6 +850,24 @@ func _MDDB_FTS_Handler(srv interface{}, ctx context.Context, dec func(interface{
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MDDB_HybridSearch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HybridSearchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).HybridSearch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_HybridSearch_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).HybridSearch(ctx, req.(*HybridSearchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _MDDB_RegisterWebhook_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RegisterWebhookRequest)
 	if err := dec(in); err != nil {
@@ -1046,6 +1082,10 @@ var MDDB_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FTS",
 			Handler:    _MDDB_FTS_Handler,
+		},
+		{
+			MethodName: "HybridSearch",
+			Handler:    _MDDB_HybridSearch_Handler,
 		},
 		{
 			MethodName: "RegisterWebhook",

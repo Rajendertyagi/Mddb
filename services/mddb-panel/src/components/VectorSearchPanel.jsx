@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Search, RotateCcw, FileText, Tag, AlertCircle } from 'lucide-react';
+import { Search, RotateCcw, FileText, Tag, AlertCircle, Terminal } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
+import CommandModal from './CommandModal';
 
 export default function VectorSearchPanel() {
   const {
@@ -19,6 +20,7 @@ export default function VectorSearchPanel() {
   const [includeContent, setIncludeContent] = useState(false);
   const [reindexing, setReindexing] = useState(false);
   const [reindexResult, setReindexResult] = useState(null);
+  const [showCommand, setShowCommand] = useState(false);
 
   const handleSearch = async (retryCount = 0) => {
     if (!currentCollection || !vectorQuery.trim()) return;
@@ -182,8 +184,14 @@ export default function VectorSearchPanel() {
           </label>
         </div>
 
-        <div className="flex items-center justify-end">
-
+        <div className="flex items-center justify-end space-x-2">
+          <button
+            onClick={() => setShowCommand(true)}
+            className="flex items-center space-x-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+          >
+            <Terminal className="w-4 h-4" />
+            <span className="text-sm font-medium">Command</span>
+          </button>
           <button
             onClick={handleSearch}
             disabled={vectorLoading || !vectorQuery.trim()}
@@ -311,6 +319,21 @@ export default function VectorSearchPanel() {
           </span>
         </button>
       </div>
+
+      {/* Command Modal */}
+      <CommandModal
+        isOpen={showCommand}
+        onClose={() => setShowCommand(false)}
+        type="vector"
+        params={{
+          collection: currentCollection,
+          query: vectorQuery,
+          topK: vectorTopK,
+          threshold: vectorThreshold,
+          algorithm: vectorAlgorithm,
+          includeContent,
+        }}
+      />
     </div>
   );
 }

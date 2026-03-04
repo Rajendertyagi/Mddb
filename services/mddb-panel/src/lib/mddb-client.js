@@ -261,6 +261,29 @@ class MDDBClient {
   }
 
   /**
+   * Hybrid search (sparse + dense)
+   */
+  async hybridSearch({ collection, query, topK = 10, algorithm = 'bm25', vectorAlgorithm = 'flat', alpha = 0.5, strategy = 'alpha', rrfK = 60, fuzzy = 0, threshold = 0.0, filterMeta = {}, includeContent = false }) {
+    return this.request('/hybrid-search', {
+      method: 'POST',
+      body: JSON.stringify({
+        collection,
+        query,
+        topK,
+        algorithm,
+        vectorAlgorithm,
+        alpha,
+        strategy,
+        rrfK,
+        fuzzy,
+        threshold,
+        filterMeta,
+        includeContent,
+      }),
+    });
+  }
+
+  /**
    * Synonyms CRUD
    */
   async listSynonyms(collection) {

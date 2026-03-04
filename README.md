@@ -19,7 +19,8 @@ MDDB treats markdown documents as first-class citizens, providing:
 - **Triple Protocol APIs** - HTTP/JSON (easy), gRPC (fast), or GraphQL (flexible)
 - **Full Revision History** - Every update creates a new revision
 - **Vector Search** - Semantic similarity with multiple algorithms (Flat, HNSW, IVF, PQ, SQ, BQ)
-- **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, and BM25F (field-weighted), typo tolerance, stemming, synonyms — no external dependencies
+- **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, and BM25F (field-weighted), typo tolerance, stemming, synonyms, metadata pre-filtering — no external dependencies
+- **Hybrid Search** - Combine BM25 keyword and vector semantic search with alpha blending or RRF fusion
 - **Document TTL** - Auto-expiring documents like Redis
 - **Webhooks** - HTTP callbacks on document events
 - **Zero Configuration** - Single ~27MB binary, embedded database
@@ -193,7 +194,8 @@ Proto definitions at `proto/mddb.proto` - generate clients for any language supp
 - ✅ **Revision History** - Complete version control with snapshots
 - ✅ **Metadata Search** - Fast indexed queries with multi-value tags
 - ✅ **Vector Search** - Semantic similarity with auto-embeddings
-- ✅ **Full-Text Search** - Built-in inverted index with TF-IDF and BM25 scoring, typo tolerance
+- ✅ **Full-Text Search** - Built-in inverted index with TF-IDF and BM25 scoring, typo tolerance, metadata pre-filtering
+- ✅ **Hybrid Search** - Sparse (BM25) + dense (vector) fusion with alpha blending or RRF
 - ✅ **Document TTL** - Time-to-live with automatic cleanup
 - ✅ **Webhooks** - HTTP callbacks on events with retry logic
 - ✅ **Multi-language** - Same key, multiple languages
@@ -289,6 +291,40 @@ curl -X POST http://localhost:11023/v1/vector-search \
     "topK": 5,
     "threshold": 0.7,
     "includeContent": true
+  }'
+```
+
+### Hybrid Search (Sparse + Dense)
+
+Combine keyword (BM25/BM25F) and semantic (vector) search in a single query. Two merge strategies:
+- **Alpha Blending**: `combined = (1-a) * BM25_score + a * vector_score` -- configurable weight
+- **RRF (Reciprocal Rank Fusion)**: rank-based fusion that is robust to different score distributions
+
+```bash
+curl -X POST http://localhost:11023/v1/hybrid-search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "docs",
+    "query": "machine learning",
+    "topK": 10,
+    "strategy": "alpha",
+    "alpha": 0.5
+  }'
+```
+
+### Full-Text Search with Metadata Filtering
+
+FTS now supports the `filterMeta` parameter for metadata pre-filtering, so results are scoped before scoring:
+
+```bash
+curl -X POST http://localhost:11023/v1/fts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "blog",
+    "query": "getting started",
+    "limit": 10,
+    "algorithm": "bm25",
+    "filterMeta": {"category": ["tutorial"], "status": ["published"]}
   }'
 ```
 
