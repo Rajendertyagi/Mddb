@@ -1,9 +1,21 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import path from 'path'
+import fs from 'fs'
+
+// Resolve scripts dir: Docker puts it at ./scripts/, local dev at ../../scripts/
+const dockerScripts = path.resolve(__dirname, 'scripts')
+const localScripts = path.resolve(__dirname, '../../scripts')
+const scriptsDir = fs.existsSync(dockerScripts) ? dockerScripts : localScripts
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      '@scripts': scriptsDir,
+    },
+  },
   server: {
     port: 3000,
     host: true,

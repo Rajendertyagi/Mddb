@@ -83,7 +83,7 @@ func ttlExtraInsertDoc(t *testing.T, s *Server, collection, key, lang, content s
 		AddedAt:   time.Now().Unix(),
 		UpdatedAt: time.Now().Unix(),
 	}
-	data, _ := json.Marshal(doc)
+	data, _ := marshalDoc(&doc)
 	err := s.DB.Update(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		return bDocs.Put(kDoc(collection, docID), data)
@@ -224,7 +224,7 @@ func TestTTLCleanup_ExpiredDocs(t *testing.T) {
 		AddedAt:   time.Now().Unix(),
 		UpdatedAt: time.Now().Unix(),
 	}
-	data, _ := json.Marshal(doc)
+	data, _ := marshalDoc(&doc)
 	_ = s.DB.Update(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		_ = bDocs.Put(kDoc("blog", docID), data)
@@ -265,7 +265,7 @@ func TestTTLCleanup_NotExpired(t *testing.T) {
 		AddedAt:   time.Now().Unix(),
 		UpdatedAt: time.Now().Unix(),
 	}
-	data, _ := json.Marshal(doc)
+	data, _ := marshalDoc(&doc)
 	_ = s.DB.Update(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		_ = bDocs.Put(kDoc("blog", docID), data)

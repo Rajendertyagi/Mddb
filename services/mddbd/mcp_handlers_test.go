@@ -95,7 +95,7 @@ func TestHandleMCPConfig_ContainsTransportMode(t *testing.T) {
 	}
 }
 
-// ---------- 5. handleMCPConfig - contains listenAddress ----------
+// ---------- 5. handleMCPConfig - contains commented listenAddress ----------
 
 func TestHandleMCPConfig_ContainsListenAddress(t *testing.T) {
 	s, cleanup := newHandlerTestServer(t)

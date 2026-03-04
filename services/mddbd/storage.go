@@ -1,6 +1,9 @@
 package main
 
 import (
+	"errors"
+
+	json "github.com/goccy/go-json"
 	"google.golang.org/protobuf/proto"
 	pb "mddb/proto"
 )
@@ -30,6 +33,25 @@ func unmarshalDoc(data []byte) (*Doc, error) {
 		return nil, err
 	}
 	return protoToDoc(protoDoc), nil
+}
+
+// loadDoc auto-detects serialization format (JSON or protobuf+compression)
+// and returns the deserialized Doc. JSON starts with '{' (0x7B), while
+// protobuf+compression uses flag bytes 0, 1, or 2.
+func loadDoc(data []byte) (*Doc, error) {
+	if len(data) == 0 {
+		return nil, errors.New("empty document data")
+	}
+	// JSON always starts with '{' (0x7B = 123)
+	if data[0] == '{' {
+		var doc Doc
+		if err := json.Unmarshal(data, &doc); err != nil {
+			return nil, err
+		}
+		return &doc, nil
+	}
+	// Otherwise it's protobuf+compression format (flag byte 0, 1, or 2)
+	return unmarshalDoc(data)
 }
 
 // Convert internal Doc to proto Document

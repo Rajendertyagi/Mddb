@@ -17,8 +17,8 @@ class Pipe:
 
     class Valves(BaseModel):
         mddbUrl: str = Field(
-            default="http://mddb:11023",
-            description="MDDB server URL (MCP endpoints at /mcp/*)"
+            default="http://mddb:9000",
+            description="MDDB MCP server URL (default port 9000)"
         )
         collection: str = Field(
             default="docs",
@@ -69,7 +69,7 @@ Include relevant links and sources when mentioning specific topics."""
         """Direct vector search via MDDB REST API."""
         try:
             response = requests.post(
-                f"{self.valves.mddbUrl}/v1/vector/search",
+                f"{self.valves.mddbUrl}/v1/vector-search",
                 json={
                     "collection": self.valves.collection,
                     "query": query,
@@ -86,10 +86,10 @@ Include relevant links and sources when mentioning specific topics."""
         return []
 
     def _fullTextSearch(self, query: str) -> List[Dict]:
-        """Full-text search via MCP endpoint (now at mddbUrl/mcp/*)."""
+        """Full-text search via MCP endpoint."""
         try:
             response = requests.post(
-                f"{self.valves.mddbUrl}/mcp/tools/call",
+                f"{self.valves.mddbUrl}/tools/call",
                 json={
                     "name": "full_text_search",
                     "arguments": {

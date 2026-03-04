@@ -216,7 +216,12 @@ func (c *DirectClient) Get(ctx context.Context, req *MCPGetRequest) (*MCPDocumen
 		if v == nil {
 			return errors.New("not found")
 		}
-		return json.Unmarshal(v, &doc)
+		docPtr, unmErr := loadDoc(v)
+		if unmErr != nil {
+			return unmErr
+		}
+		doc = *docPtr
+		return nil
 	})
 	if err != nil {
 		return nil, err
@@ -251,14 +256,14 @@ func (c *DirectClient) Search(ctx context.Context, req *MCPSearchRequest) (*MCPS
 			c2 := bDocs.Cursor()
 			prefix := []byte("doc|" + req.Collection + "|")
 			for k, v := c2.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = c2.Next() {
-				var d Doc
-				if err := json.Unmarshal(v, &d); err != nil {
+				d, err := loadDoc(v)
+				if err != nil {
 					return err
 				}
 				if d.ExpiresAt > 0 && d.ExpiresAt < time.Now().Unix() {
 					continue
 				}
-				rows = append(rows, row{d})
+				rows = append(rows, row{*d})
 			}
 		} else {
 			var sets [][]string
@@ -285,14 +290,14 @@ func (c *DirectClient) Search(ctx context.Context, req *MCPSearchRequest) (*MCPS
 				if v == nil {
 					continue
 				}
-				var d Doc
-				if err := json.Unmarshal(v, &d); err != nil {
+				d, err := loadDoc(v)
+				if err != nil {
 					return err
 				}
 				if d.ExpiresAt > 0 && d.ExpiresAt < time.Now().Unix() {
 					continue
 				}
-				rows = append(rows, row{d})
+				rows = append(rows, row{*d})
 			}
 		}
 		return nil
@@ -364,10 +369,11 @@ func (c *DirectClient) DeleteCollection(ctx context.Context, req *MCPDeleteColle
 		cur := bDocs.Cursor()
 		prefix := []byte("doc|" + req.Collection + "|")
 		for k, v := cur.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = cur.Next() {
-			var doc Doc
-			if err := json.Unmarshal(v, &doc); err != nil {
+			docPtr, err := loadDoc(v)
+			if err != nil {
 				continue
 			}
+			doc := *docPtr
 			if err := bDocs.Delete(k); err != nil {
 				return err
 			}
@@ -415,11 +421,11 @@ func (c *DirectClient) Export(ctx context.Context, req *MCPExportRequest) (io.Re
 			cur := bDocs.Cursor()
 			prefix := []byte("doc|" + req.Collection + "|")
 			for k, v := cur.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = cur.Next() {
-				var d Doc
-				if err := json.Unmarshal(v, &d); err != nil {
+				d, err := loadDoc(v)
+				if err != nil {
 					continue
 				}
-				docs = append(docs, d)
+				docs = append(docs, *d)
 			}
 		} else {
 			var sets [][]string
@@ -441,11 +447,11 @@ func (c *DirectClient) Export(ctx context.Context, req *MCPExportRequest) (io.Re
 				if v == nil {
 					continue
 				}
-				var d Doc
-				if err := json.Unmarshal(v, &d); err != nil {
+				d, err := loadDoc(v)
+				if err != nil {
 					continue
 				}
-				docs = append(docs, d)
+				docs = append(docs, *d)
 			}
 		}
 		return nil
@@ -500,10 +506,11 @@ func (c *DirectClient) Truncate(ctx context.Context, req *MCPTruncateRequest) (*
 		cur := bDocs.Cursor()
 		prefix := []byte("doc|" + req.Collection + "|")
 		for k, v := cur.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = cur.Next() {
-			var d Doc
-			if err := json.Unmarshal(v, &d); err != nil {
+			dPtr, err := loadDoc(v)
+			if err != nil {
 				return err
 			}
+			d := *dPtr
 			rc := bRev.Cursor()
 			rp := kRevPrefix(req.Collection, d.ID)
 			var revKeys [][]byte
@@ -603,10 +610,11 @@ func (c *DirectClient) VectorSearch(ctx context.Context, req *MCPVectorSearchReq
 			if v == nil {
 				continue
 			}
-			var doc Doc
-			if err := json.Unmarshal(v, &doc); err != nil {
+			docPtr, err := loadDoc(v)
+			if err != nil {
 				continue
 			}
+			doc := *docPtr
 			if !req.IncludeContent {
 				doc.ContentMD = ""
 			}
@@ -656,8 +664,8 @@ func (c *DirectClient) VectorReindex(ctx context.Context, req *MCPVectorReindexR
 		cur := bDocs.Cursor()
 		prefix := []byte("doc|" + req.Collection + "|")
 		for k, v := cur.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = cur.Next() {
-			var d Doc
-			if err := json.Unmarshal(v, &d); err != nil {
+			d, err := loadDoc(v)
+			if err != nil {
 				continue
 			}
 			docs = append(docs, docEntry{ID: d.ID, ContentMD: d.ContentMD})
@@ -837,11 +845,16 @@ func (c *DirectClient) SetTTL(ctx context.Context, req *MCPSetTTLRequest) (*MCPD
 		if v == nil {
 			return errors.New("document not found")
 		}
-		if err := json.Unmarshal(v, &updated); err != nil {
+		docPtr, err := loadDoc(v)
+		if err != nil {
 			return err
 		}
+		updated = *docPtr
 		updated.ExpiresAt = expiresAt
-		buf, _ := json.Marshal(updated)
+		buf, err := marshalDoc(&updated)
+		if err != nil {
+			return err
+		}
 		return bDocs.Put(dk, buf)
 	})
 	if err != nil {
@@ -919,15 +932,15 @@ func (c *DirectClient) FTSSearch(ctx context.Context, req *MCPFTSSearchRequest) 
 			if v == nil {
 				continue
 			}
-			var doc Doc
-			if err := json.Unmarshal(v, &doc); err != nil {
+			docPtr, err := loadDoc(v)
+			if err != nil {
 				continue
 			}
-			if doc.ExpiresAt > 0 && doc.ExpiresAt < time.Now().Unix() {
+			if docPtr.ExpiresAt > 0 && docPtr.ExpiresAt < time.Now().Unix() {
 				continue
 			}
 			resp.Results = append(resp.Results, MCPFTSResult{
-				Document:     docToMCPDocument(doc),
+				Document:     docToMCPDocument(*docPtr),
 				Score:        res.Score,
 				MatchedTerms: res.MatchedTerms,
 			})

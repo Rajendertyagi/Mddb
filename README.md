@@ -374,8 +374,8 @@ mddb-cli stats
 ┌────────────────────────────────────────────────┐
 │         Client Applications                    │
 ├──────────┬──────────┬──────────┬────────┬──────┤
-│HTTP/JSON │gRPC/Proto│ GraphQL  │ HTTP/3 │  MCP │
-│  :11023  │  :11024  │ /graphql │ :11443 │/mcp/*│
+│HTTP/JSON │gRPC/Proto│ GraphQL  │ HTTP/3 │  MCP  │
+│  :11023  │  :11024  │ /graphql │ :11443 │ :9000 │
 ├──────────┴──────────┴──────────┴────────┴──────┤
 │           MDDB Server (Go)                     │
 │  • Vector Search (embeddings)                  │

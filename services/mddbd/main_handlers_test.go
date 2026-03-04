@@ -1630,7 +1630,7 @@ func TestMainHandleGet_ExpiredDocument(t *testing.T) {
 		UpdatedAt: time.Now().Unix() - 100,
 		ExpiresAt: time.Now().Unix() - 10, // expired 10 seconds ago
 	}
-	buf, _ := json.Marshal(doc)
+	buf, _ := marshalDoc(&doc)
 	_ = s.DB.Update(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bByK := tx.Bucket([]byte("bykey"))
@@ -1676,7 +1676,7 @@ func TestMainHandleSearch_FiltersExpiredDocs(t *testing.T) {
 		UpdatedAt: time.Now().Unix() - 100,
 		ExpiresAt: time.Now().Unix() - 10,
 	}
-	buf, _ := json.Marshal(doc)
+	buf, _ := marshalDoc(&doc)
 	_ = s.DB.Update(func(tx *bolt.Tx) error {
 		return tx.Bucket([]byte("docs")).Put(kDoc("temp", docID), buf)
 	})
@@ -1826,7 +1826,7 @@ func TestMainHandleSearch_MetaFilterExcludesExpired(t *testing.T) {
 		UpdatedAt: time.Now().Unix() - 100,
 		ExpiresAt: time.Now().Unix() - 10,
 	}
-	buf, _ := json.Marshal(doc)
+	buf, _ := marshalDoc(&doc)
 	_ = s.DB.Update(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bIdx := tx.Bucket([]byte("idxmeta"))

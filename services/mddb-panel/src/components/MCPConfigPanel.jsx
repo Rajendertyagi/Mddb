@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Code, Copy, Download, Check, Brain } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
+import mddbModelPyRaw from '@scripts/mddb_model.py?raw';
 
 const TABS = [
   { id: 'mcp', label: 'MCP Config', desc: 'Custom MCP tools configuration (YAML)' },
@@ -14,11 +15,13 @@ const TABS = [
   { id: 'openwebui', label: 'Open WebUI', desc: 'Open WebUI RAG pipeline model' },
 ];
 
-function generateConfig(tabId, grpcAddr, httpAddr) {
+function generateConfig(tabId, grpcAddr, httpAddr, mcpAddr) {
   const grpc = grpcAddr || 'localhost:11024';
   const http = httpAddr || 'http://localhost:11023';
+  const mcp = mcpAddr || 'http://localhost:9000';
   const grpcHost = grpc.startsWith(':') ? `localhost${grpc}` : grpc;
   const httpBase = http.startsWith(':') ? `http://localhost${http}` : http;
+  const mcpBase = mcp.startsWith(':') ? `http://localhost${mcp}` : mcp;
 
   switch (tabId) {
     case 'mcp':
@@ -60,7 +63,7 @@ custom_tools:
           'MCP is now built into the MDDB server — no separate service needed',
           'Custom tools are optional — save this file and set MDDB_MCP_CONFIG env var',
           'For stdio mode (Claude Desktop): set MDDB_MCP_STDIO=true',
-          'For HTTP mode: MCP endpoints are always available at /mcp/*',
+          'For HTTP mode: MCP server runs on port 9000 by default (MDDB_MCP_ADDR)',
         ],
       };
 
@@ -128,7 +131,7 @@ custom_tools:
                 },
               },
             },
-            '/v1/vector/search': {
+            '/v1/vector-search': {
               post: {
                 operationId: 'semanticSearch',
                 summary: 'Semantic search using vector embeddings',
@@ -175,7 +178,7 @@ OLLAMA_MODEL = "llama3.2"  # or any model you have pulled
 
 def search_mddb(query, collection="docs", top_k=5):
     """Semantic search via MDDB vector endpoint."""
-    resp = requests.post(f"{MDDB_URL}/v1/vector/search", json={
+    resp = requests.post(f"{MDDB_URL}/v1/vector-search", json={
         "collection": collection,
         "query": query,
         "topK": top_k,
@@ -264,7 +267,7 @@ if __name__ == "__main__":
 name: mddb_search
 description: "Search the MDDB knowledge base for relevant documents"
 type: api
-endpoint: "${httpBase}/v1/vector/search"
+endpoint: "${httpBase}/v1/vector-search"
 method: POST
 headers:
   Content-Type: "application/json"
@@ -331,7 +334,7 @@ BIELIK_MODEL = "Bielik-11B-v2.3-Instruct"
 
 def search_mddb(query, collection="docs", top_k=5):
     """Semantic search via MDDB."""
-    resp = requests.post(f"{MDDB_URL}/v1/vector/search", json={
+    resp = requests.post(f"{MDDB_URL}/v1/vector-search", json={
         "collection": collection,
         "query": query,
         "topK": top_k,
@@ -384,223 +387,7 @@ if __name__ == "__main__":
     case 'openwebui':
       return {
         filename: 'mddb_model.py',
-        content: `"""
-title: MDDB RAG Model
-author: MDDB
-version: 2.6.0
-license: MIT
-description: RAG model using MDDB for document retrieval with multi-LLM support
-"""
-
-import json
-import requests
-from typing import Generator, Iterator, Union, List, Dict
-from pydantic import BaseModel, Field
-
-
-class Pipe:
-    """MDDB RAG Model - retrieves documents from MDDB and answers using configurable LLM."""
-
-    class Valves(BaseModel):
-        mddbUrl: str = Field(
-            default="${httpBase}",
-            description="MDDB server URL (MCP endpoints at /mcp/*)"
-        )
-        collection: str = Field(
-            default="docs",
-            description="Default MDDB collection"
-        )
-        topK: int = Field(
-            default=5,
-            description="Number of documents to retrieve"
-        )
-        threshold: float = Field(
-            default=0.5,
-            description="Minimum similarity threshold for semantic search"
-        )
-        llmProvider: str = Field(
-            default="ollama",
-            description="LLM provider: ollama, openai, or deepseek"
-        )
-        llmModel: str = Field(
-            default="llama3.2:latest",
-            description="Model name (e.g. llama3.2:latest, gpt-4o, deepseek-chat)"
-        )
-        llmApiUrl: str = Field(
-            default="http://ollama:11434",
-            description="LLM API URL"
-        )
-        llmApiKey: str = Field(
-            default="",
-            description="API key for OpenAI/DeepSeek (not needed for Ollama)"
-        )
-
-    def __init__(self):
-        self.type = "manifold"
-        self.valves = self.Valves()
-        self.systemPrompt = """You are a helpful assistant.
-Answer questions using ONLY the context provided from the knowledge base.
-If the context doesn't contain enough information to answer, say so.
-Always be helpful, accurate, and provide specific details when available."""
-
-    def pipes(self):
-        return [{"id": "mddb-rag", "name": "MDDB RAG Assistant"}]
-
-    def _vectorSearch(self, query: str) -> List[Dict]:
-        """Vector search via MDDB REST API."""
-        try:
-            response = requests.post(
-                f"{self.valves.mddbUrl}/v1/vector/search",
-                json={
-                    "collection": self.valves.collection,
-                    "query": query,
-                    "topK": self.valves.topK,
-                    "threshold": self.valves.threshold,
-                    "includeContent": True
-                },
-                timeout=10
-            )
-            if response.status_code == 200:
-                return response.json().get("results", [])
-        except Exception:
-            pass
-        return []
-
-    def _ftsSearch(self, query: str) -> List[Dict]:
-        """Full-text search via MDDB MCP endpoint."""
-        try:
-            response = requests.post(
-                f"{self.valves.mddbUrl}/mcp/tools/call",
-                json={
-                    "name": "full_text_search",
-                    "arguments": {
-                        "collection": self.valves.collection,
-                        "query": query,
-                        "limit": self.valves.topK,
-                        "algorithm": "bm25"
-                    }
-                },
-                timeout=10
-            )
-            if response.status_code == 200:
-                data = response.json()
-                return data.get("content", []) if isinstance(data, dict) else []
-        except Exception:
-            pass
-        return []
-
-    def _formatContext(self, results: List[Dict]) -> str:
-        if not results:
-            return "No relevant documents found in the knowledge base."
-        parts = []
-        for i, doc in enumerate(results[:self.valves.topK], 1):
-            key = doc.get("key", doc.get("id", "unknown"))
-            content = doc.get("contentMd", doc.get("content", ""))
-            score = doc.get("score", doc.get("similarity", 0))
-            if len(content) > 2000:
-                content = content[:2000] + "..."
-            parts.append(f"## Document {i}: {key}\\n**Score:** {score:.2f}\\n\\n{content}")
-        return "\\n\\n---\\n\\n".join(parts)
-
-    def _callLLM(self, messages, stream=True):
-        """Call LLM based on configured provider."""
-        provider = self.valves.llmProvider.lower()
-
-        if provider == "ollama":
-            return self._callOllama(messages, stream)
-        else:
-            return self._callOpenAICompat(messages, stream)
-
-    def _callOllama(self, messages, stream):
-        payload = {"model": self.valves.llmModel, "messages": messages, "stream": stream}
-        if stream:
-            response = requests.post(f"{self.valves.llmApiUrl}/api/chat", json=payload, stream=True, timeout=120)
-            response.raise_for_status()
-            for line in response.iter_lines():
-                if line:
-                    try:
-                        data = json.loads(line)
-                        if "message" in data and "content" in data["message"]:
-                            yield data["message"]["content"]
-                        if data.get("done", False):
-                            break
-                    except json.JSONDecodeError:
-                        continue
-        else:
-            payload["stream"] = False
-            response = requests.post(f"{self.valves.llmApiUrl}/api/chat", json=payload, timeout=120)
-            response.raise_for_status()
-            yield response.json().get("message", {}).get("content", "")
-
-    def _callOpenAICompat(self, messages, stream):
-        headers = {"Content-Type": "application/json"}
-        if self.valves.llmApiKey:
-            headers["Authorization"] = f"Bearer {self.valves.llmApiKey}"
-        payload = {"model": self.valves.llmModel, "messages": messages, "stream": stream}
-
-        if stream:
-            response = requests.post(f"{self.valves.llmApiUrl}/v1/chat/completions", headers=headers, json=payload, stream=True, timeout=120)
-            response.raise_for_status()
-            for line in response.iter_lines():
-                if line:
-                    line = line.decode("utf-8") if isinstance(line, bytes) else line
-                    if line.startswith("data: "):
-                        line = line[6:]
-                    if line == "[DONE]":
-                        break
-                    try:
-                        data = json.loads(line)
-                        delta = data.get("choices", [{}])[0].get("delta", {})
-                        if "content" in delta:
-                            yield delta["content"]
-                    except json.JSONDecodeError:
-                        continue
-        else:
-            payload["stream"] = False
-            response = requests.post(f"{self.valves.llmApiUrl}/v1/chat/completions", headers=headers, json=payload, timeout=120)
-            response.raise_for_status()
-            yield response.json()["choices"][0]["message"]["content"]
-
-    def pipe(self, body: dict) -> Union[str, Generator, Iterator]:
-        messages = body.get("messages", [])
-        lastUserMsg = ""
-        for msg in reversed(messages):
-            if msg.get("role") == "user":
-                lastUserMsg = msg.get("content", "")
-                break
-
-        results = []
-        if lastUserMsg:
-            results = self._vectorSearch(lastUserMsg)
-            if not results:
-                results = self._ftsSearch(lastUserMsg)
-
-        context = self._formatContext(results)
-        fullSystemPrompt = f"""{self.systemPrompt}
-
----
-KNOWLEDGE BASE CONTEXT:
-
-{context}
-
----
-Use the context above to answer the user's question."""
-
-        ragMessages = [{"role": "system", "content": fullSystemPrompt}]
-        for msg in messages:
-            if msg.get("role") != "system":
-                ragMessages.append(msg)
-
-        try:
-            stream = body.get("stream", True)
-            gen = self._callLLM(ragMessages, stream)
-            if stream:
-                return gen
-            else:
-                return "".join(gen)
-        except Exception as e:
-            return f"Error: {str(e)}"
-`,
+        content: mddbModelPyRaw.replace('http://mddb:9000', mcpBase),
         instructions: [
           'Go to Open WebUI → Admin → Functions → Add new function',
           'Paste this script and save it',
@@ -639,9 +426,10 @@ export default function MCPConfigPanel() {
     }
   };
 
-  const grpcAddr = config?.grpcAddr || ':11024';
-  const httpAddr = config?.httpAddr || ':11023';
-  const tabConfig = generateConfig(activeTab, grpcAddr, `http://localhost${httpAddr}`);
+  const grpcAddr = config?.protocols?.grpc?.addr || config?.grpcAddr || ':11024';
+  const httpAddr = config?.protocols?.http?.addr || config?.httpAddr || ':11023';
+  const mcpAddr = config?.protocols?.mcp?.addr || ':9000';
+  const tabConfig = generateConfig(activeTab, grpcAddr, `http://localhost${httpAddr}`, `http://localhost${mcpAddr}`);
 
   // For MCP tab, prefer the live server config if available
   const displayContent = activeTab === 'mcp' && mcpYaml ? mcpYaml : (showAlt && tabConfig.alt ? tabConfig.alt.content : tabConfig.content);

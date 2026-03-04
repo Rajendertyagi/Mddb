@@ -187,10 +187,11 @@ func (s *Server) handleVectorSearch(w http.ResponseWriter, r *http.Request) {
 			if v == nil {
 				continue
 			}
-			var doc Doc
-			if err := json.Unmarshal(v, &doc); err != nil {
+			docPtr, err := loadDoc(v)
+			if err != nil {
 				continue
 			}
+			doc := *docPtr
 			if !req.IncludeContent {
 				doc.ContentMD = ""
 			}
@@ -247,8 +248,8 @@ func (s *Server) handleVectorReindex(w http.ResponseWriter, r *http.Request) {
 		c := bDocs.Cursor()
 		prefix := []byte("doc|" + req.Collection + "|")
 		for k, v := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = c.Next() {
-			var d Doc
-			if err := json.Unmarshal(v, &d); err != nil {
+			d, err := loadDoc(v)
+			if err != nil {
 				continue
 			}
 			docs = append(docs, docEntry{ID: d.ID, ContentMD: d.ContentMD})

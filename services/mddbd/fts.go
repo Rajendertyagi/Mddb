@@ -358,16 +358,16 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 			if v == nil {
 				continue
 			}
-			var doc Doc
-			if err := json.Unmarshal(v, &doc); err != nil {
+			docPtr, err := loadDoc(v)
+			if err != nil {
 				continue
 			}
 			// Skip expired docs
-			if doc.ExpiresAt > 0 && doc.ExpiresAt < currentUnix() {
+			if docPtr.ExpiresAt > 0 && docPtr.ExpiresAt < currentUnix() {
 				continue
 			}
 			resp.Results = append(resp.Results, FTSResultWithDoc{
-				Document:     doc,
+				Document:     *docPtr,
 				Score:        res.Score,
 				MatchedTerms: res.MatchedTerms,
 			})

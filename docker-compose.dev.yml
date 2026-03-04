@@ -8,6 +8,7 @@ services:
     ports:
       - "11023:11023"  # HTTP API
       - "11024:11024"  # gRPC
+      - "9000:9000"    # MCP
     volumes:
       - ./services/mddbd:/app
       - mddb-data:/data
@@ -57,7 +58,7 @@ services:
     restart: unless-stopped
     command: npm run dev -- --host 0.0.0.0
 
-  # MCP is now built into mddbd — access via /mcp/* endpoints
+  # MCP is built into mddbd — runs on port 9000 by default
 
   # Ollama (Optional - for vector embeddings)
   ollama:
