@@ -29,7 +29,7 @@ app.use('/v1', createProxyMiddleware({
 app.use(express.static(join(__dirname, 'dist')));
 
 // SPA fallback — serve index.html for all non-API routes
-app.get('*', (_req, res) => {
+app.get('{*path}', (_req, res) => {
   res.sendFile(join(__dirname, 'dist', 'index.html'));
 });
 
