@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Folder, Database, Trash2, Brain, Server, Settings, Network, Users, UsersIcon, Upload, FolderPlus, Sliders, GitBranch, PanelLeftClose } from 'lucide-react';
+import { Folder, Database, Trash2, Brain, Server, Settings, Network, Users, UsersIcon, Upload, FolderPlus, Sliders, GitBranch, PanelLeftClose, BookOpen, Ban } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
 import UploadModal from './UploadModal';
@@ -263,6 +263,8 @@ export default function Sidebar({ stats, statsError, onStatsRefresh, onCollapse 
           )}
           <NavButton mode="vectors" icon={Database} label="Vector Search" />
           <NavButton mode="embeddings" icon={Brain} label="Embedding Models" />
+          <NavButton mode="synonyms" icon={BookOpen} label="Synonyms" />
+          <NavButton mode="stopwords" icon={Ban} label="Stop Words" />
           <NavButton mode="settings" icon={Sliders} label="Client Settings" />
         </div>
       </div>

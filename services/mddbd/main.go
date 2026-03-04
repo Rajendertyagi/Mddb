@@ -60,13 +60,14 @@ type Server struct {
 	EmbeddingWorker *EmbeddingWorker          // Background embedding processor
 	Embedding       EmbeddingProvider         // Embedding generation provider
 	// New features
-	TTLManager     *TTLManager     // Document TTL / auto-expiry
-	FTSIndex       *FTSIndex       // Full-text search index
-	WebhookManager *WebhookManager // Webhook subscriptions and delivery
-	SchemaManager  *SchemaManager  // Per-collection metadata schema validation
-	Metrics        *Metrics        // Prometheus-compatible telemetry
-	AuthManager    *AuthManager    // Authentication and authorization
-	SynonymManager *SynonymManager // Synonym dictionaries for FTS
+	TTLManager      *TTLManager      // Document TTL / auto-expiry
+	FTSIndex        *FTSIndex        // Full-text search index
+	WebhookManager  *WebhookManager  // Webhook subscriptions and delivery
+	SchemaManager   *SchemaManager   // Per-collection metadata schema validation
+	Metrics         *Metrics         // Prometheus-compatible telemetry
+	AuthManager     *AuthManager     // Authentication and authorization
+	SynonymManager  *SynonymManager  // Synonym dictionaries for FTS
+	StopWordManager *StopWordManager // Per-collection custom stop words for FTS
 	// Replication
 	Binlog          *Binlog            // Binary replication log
 	ReplicationRole string             // "leader", "follower", or "" (standalone)
@@ -316,6 +317,17 @@ func main() {
 		log.Println("FTS synonyms enabled")
 	}
 
+	// Initialize stop word manager
+	s.StopWordManager = NewStopWordManager(db)
+	if err := s.StopWordManager.EnsureBucket(); err != nil {
+		log.Fatal(err)
+	}
+	if err := s.StopWordManager.LoadAll(); err != nil {
+		log.Fatal(err)
+	}
+	s.FTSIndex.SetStopWordManager(s.StopWordManager)
+	log.Println("Stop word manager initialized")
+
 	log.Println("Full-text search index initialized")
 
 	// Initialize webhook manager
@@ -381,6 +393,7 @@ func main() {
 		s.WebhookManager.SetBinlog(s.Binlog)
 		s.SchemaManager.SetBinlog(s.Binlog)
 		s.SynonymManager.SetBinlog(s.Binlog)
+		s.StopWordManager.SetBinlog(s.Binlog)
 	}
 
 	// Follower: disable background writers (data comes from binlog)
@@ -465,6 +478,7 @@ func main() {
 	mux.HandleFunc("/v1/fts", s.handleFTS)
 	mux.HandleFunc("/v1/hybrid-search", s.handleHybridSearch)
 	mux.HandleFunc("/v1/synonyms", s.handleSynonyms)
+	mux.HandleFunc("/v1/stopwords", s.handleStopWords)
 	mux.HandleFunc("/v1/webhooks", s.handleWebhooks)
 	mux.HandleFunc("/v1/webhooks/delete", s.guardWrite(s.handleWebhookDelete))
 	mux.HandleFunc("/v1/schema/set", s.guardWrite(s.handleSchemaSet))

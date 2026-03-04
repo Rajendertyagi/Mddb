@@ -105,17 +105,17 @@ func TestMergeAlpha_Combined(t *testing.T) {
 		scoreMap[r.Document.ID] = r.CombinedScore
 	}
 
-	expectedDoc2 := (1 - alpha) * 0.0 + alpha * float64(float32(0.9))
+	expectedDoc2 := (1-alpha)*0.0 + alpha*float64(float32(0.9))
 	if math.Abs(scoreMap["doc2"]-expectedDoc2) > 1e-6 {
 		t.Errorf("doc2 combined: expected %f, got %f", expectedDoc2, scoreMap["doc2"])
 	}
 
-	expectedDoc1 := (1 - alpha) * 1.0 + alpha * 0.0
+	expectedDoc1 := (1-alpha)*1.0 + alpha*0.0
 	if math.Abs(scoreMap["doc1"]-expectedDoc1) > 1e-6 {
 		t.Errorf("doc1 combined: expected %f, got %f", expectedDoc1, scoreMap["doc1"])
 	}
 
-	expectedDoc3 := (1 - alpha) * 0.0 + alpha * float64(float32(0.8))
+	expectedDoc3 := (1-alpha)*0.0 + alpha*float64(float32(0.8))
 	if math.Abs(scoreMap["doc3"]-expectedDoc3) > 1e-6 {
 		t.Errorf("doc3 combined: expected %f, got %f", expectedDoc3, scoreMap["doc3"])
 	}

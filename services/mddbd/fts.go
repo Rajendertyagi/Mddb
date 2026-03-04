@@ -26,11 +26,12 @@ var (
 
 // FTSIndex provides full-text search using an inverted index in BoltDB.
 type FTSIndex struct {
-	db             *bolt.DB
-	stopWords      map[string]bool
-	binlog         *Binlog
-	stemmer        *PorterStemmer
-	synonymManager *SynonymManager
+	db              *bolt.DB
+	stopWords       map[string]bool
+	binlog          *Binlog
+	stemmer         *PorterStemmer
+	synonymManager  *SynonymManager
+	stopWordManager *StopWordManager
 }
 
 // SetStemmer sets the Porter Stemmer for term normalization.
@@ -38,6 +39,20 @@ func (f *FTSIndex) SetStemmer(s *PorterStemmer) { f.stemmer = s }
 
 // SetSynonymManager sets the synonym manager for query expansion.
 func (f *FTSIndex) SetSynonymManager(sm *SynonymManager) { f.synonymManager = sm }
+
+// SetStopWordManager sets the stop word manager for per-collection custom stop words.
+func (f *FTSIndex) SetStopWordManager(swm *StopWordManager) { f.stopWordManager = swm }
+
+// isStopWord checks if a word is a stop word (default or per-collection custom).
+func (f *FTSIndex) isStopWord(collection, word string) bool {
+	if f.stopWords[word] {
+		return true
+	}
+	if f.stopWordManager != nil && collection != "" {
+		return f.stopWordManager.IsStopWord(collection, word)
+	}
+	return false
+}
 
 // SetBinlog sets the binlog for replication logging.
 func (f *FTSIndex) SetBinlog(bl *Binlog) {

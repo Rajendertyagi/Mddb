@@ -305,6 +305,27 @@ class MDDBClient {
   }
 
   /**
+   * Stop Words CRUD
+   */
+  async listStopWords(collection) {
+    return this.request(`/stopwords?collection=${encodeURIComponent(collection)}`, { method: 'GET' });
+  }
+
+  async addStopWords({ collection, words }) {
+    return this.request('/stopwords', {
+      method: 'POST',
+      body: JSON.stringify({ collection, words }),
+    });
+  }
+
+  async deleteStopWord({ collection, words }) {
+    return this.request('/stopwords', {
+      method: 'DELETE',
+      body: JSON.stringify({ collection, words }),
+    });
+  }
+
+  /**
    * Register a webhook
    */
   async registerWebhook({ url, events, collection }) {

@@ -20,6 +20,8 @@ import VectorPanel from './components/VectorPanel';
 import EmbeddingModelsPanel from './components/EmbeddingModelsPanel';
 import SettingsPanel from './components/SettingsPanel';
 import ClusterPanel from './components/ClusterPanel';
+import SynonymsPanel from './components/SynonymsPanel';
+import StopWordsPanel from './components/StopWordsPanel';
 
 function App() {
   const {
@@ -208,6 +210,16 @@ function App() {
           {viewMode === 'embeddings' && (
             <div className="flex-1 border-l border-gray-200">
               <EmbeddingModelsPanel />
+            </div>
+          )}
+          {viewMode === 'synonyms' && (
+            <div className="flex-1 border-l border-gray-200">
+              <SynonymsPanel />
+            </div>
+          )}
+          {viewMode === 'stopwords' && (
+            <div className="flex-1 border-l border-gray-200">
+              <StopWordsPanel />
             </div>
           )}
           {viewMode === 'settings' && (
