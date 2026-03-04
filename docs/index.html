@@ -399,7 +399,7 @@ docker pull tradik/mddb:2.3.3</code></pre>
                         <li>🧠 <strong>Embedded MCP</strong> - MCP (Model Context Protocol) is now built directly into the server — no separate service needed</li>
                         <li>🔌 <strong>Single Binary</strong> - One binary serves HTTP + gRPC + GraphQL + MCP (stdio & HTTP)</li>
                         <li>🤖 <strong>Multi-LLM Support</strong> - Open WebUI RAG model with Ollama, OpenAI, and DeepSeek providers</li>
-                        <li>🐳 <strong>Simplified Docker</strong> - <code>tradik/mddb:mcp</code> is now a thin alias with <code>MDDB_MCP_STDIO=true</code></li>
+                        <li>🐳 <strong>Simplified Docker</strong> - MCP is built into <code>tradik/mddb:latest</code>; enable stdio mode with <code>MDDB_MCP_STDIO=true</code></li>
                         <li>🔒 <strong>Security</strong> - MCP write operations respect read-only mode, request body size limits on MCP HTTP endpoints</li>
                         <li>📋 <strong>Custom MCP Tools</strong> - YAML-configured custom tools with preset defaults via <code>MDDB_MCP_CONFIG</code></li>
                     </ul>
@@ -695,7 +695,8 @@ $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
         "run", "-i", "--rm", "--network", "host",
         "-e", "MDDB_GRPC_ADDRESS=localhost:11024",
         "-e", "MDDB_REST_BASE_URL=http://localhost:11023",
-        "tradik/mddb:mcp-2.3.3"
+        "-e", "MDDB_MCP_STDIO=true",
+        "tradik/mddb:latest"
       ]
     }
   }

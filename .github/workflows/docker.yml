@@ -161,33 +161,6 @@ jobs:
           cache-from: type=gha,scope=cli
           cache-to: type=gha,mode=max,scope=cli
 
-      - name: Build and push MCP image
-        id: build-mcp
-        uses: docker/build-push-action@v6
-        with:
-          context: ./services/mddbd
-          file: ./services/mddbd/Dockerfile.mcp
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: |
-            ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:mcp-${{ steps.meta.outputs.VERSION_NUM }}
-            ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:mcp
-            ${{ env.GHCR_REGISTRY }}/${{ github.repository }}:mcp-${{ steps.meta.outputs.VERSION_NUM }}
-            ${{ env.GHCR_REGISTRY }}/${{ github.repository }}:mcp
-          labels: |
-            org.opencontainers.image.title=MDDB MCP (stdio mode)
-            org.opencontainers.image.description=MDDB server with MCP stdio mode enabled - for Claude Desktop and IDE agents
-            org.opencontainers.image.version=${{ steps.meta.outputs.VERSION_NUM }}
-            org.opencontainers.image.created=${{ steps.meta.outputs.BUILD_DATE }}
-            org.opencontainers.image.revision=${{ steps.meta.outputs.COMMIT_SHA }}
-            org.opencontainers.image.source=https://github.com/tradik/mddb
-            org.opencontainers.image.url=https://github.com/tradik/mddb
-            org.opencontainers.image.documentation=https://github.com/tradik/mddb/blob/main/docs/LLM_CONNECTIONS.md
-            org.opencontainers.image.licenses=BSD-3-Clause
-            org.opencontainers.image.vendor=MDDB Team
-          cache-from: type=gha,scope=mcp
-          cache-to: type=gha,mode=max,scope=mcp
-
       # Docker Hub description update disabled - update manually on Docker Hub
       # Token needs additional permissions: https://hub.docker.com/settings/security
       # - name: Update Docker Hub description
@@ -256,12 +229,7 @@ jobs:
           - `${{ env.GHCR_REGISTRY }}/${{ github.repository }}:cli-${{ steps.meta.outputs.VERSION_NUM }}`
           - `${{ env.GHCR_REGISTRY }}/${{ github.repository }}:cli`
 
-          ### MDDB MCP (stdio mode)
-          **Docker Hub:**
-          - `${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:mcp-${{ steps.meta.outputs.VERSION_NUM }}`
-          - `${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:mcp`
-
-          > MCP is now built into the server image. The `:mcp` tag is a convenience alias with `MDDB_MCP_STDIO=true`.
+          > MCP is built into the server image. Use `MDDB_MCP_STDIO=true` for stdio mode.
 
           ### Platforms
           - `linux/amd64` (Intel/AMD)

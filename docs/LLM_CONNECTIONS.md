@@ -41,8 +41,6 @@ Add to your Claude Desktop config:
 }
 ```
 
-> **Note**: You can also use the `tradik/mddb:mcp` image which has `MDDB_MCP_STDIO=true` preset.
-
 ### Local Binary
 
 Use the `mddbd` binary directly:

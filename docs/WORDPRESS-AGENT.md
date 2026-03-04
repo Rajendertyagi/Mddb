@@ -668,9 +668,10 @@ You can use both MCP servers together -- wpmcp for reading live WordPress data, 
       "command": "docker",
       "args": [
         "run", "-i", "--rm", "--network", "host",
+        "-e", "MDDB_MCP_STDIO=true",
         "-e", "MDDB_GRPC_ADDRESS=localhost:11024",
         "-e", "MDDB_REST_BASE_URL=http://localhost:11023",
-        "tradik/mddb:mcp-2.3.3"
+        "tradik/mddb:latest"
       ]
     }
   }
@@ -775,8 +776,9 @@ Claude supports **MCP** natively. Point it at your `mddb-mcp` instance:
       "command": "docker",
       "args": [
         "run", "-i", "--rm",
+        "-e", "MDDB_MCP_STDIO=true",
         "-e", "MDDB_REST_BASE_URL=https://mddb.your-site.com",
-        "tradik/mddb:mcp-2.3.3"
+        "tradik/mddb:latest"
       ]
     }
   }
@@ -822,7 +824,7 @@ docker run -p 8080:8080 \
   -e MDDB_REST_BASE_URL=https://mddb.your-site.com \
   -e MCP_TRANSPORT=http \
   -e MCP_PORT=8080 \
-  tradik/mddb:mcp-2.3.3
+  tradik/mddb:latest
 ```
 
 ### YAML Custom Tools per Website (v2.3.3+)
@@ -921,6 +923,7 @@ AI calls: search_faq(query: "reset password")
 ```bash
 docker run -i --rm --network host \
   -v ./config.yaml:/app/config.yaml \
+  -e MDDB_MCP_STDIO=true \
   -e MDDB_MCP_CONFIG=/app/config.yaml \
-  tradik/mddb:mcp-2.3.3
+  tradik/mddb:latest
 ```

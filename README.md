@@ -176,7 +176,6 @@ Proto definitions at `proto/mddb.proto` - generate clients for any language supp
 |-------|------|-------------|
 | `tradik/mddb:latest` | ~18MB | Database server with MCP built-in (Alpine) |
 | `tradik/mddb:panel` | ~25MB | Web admin panel (Node Alpine) |
-| `tradik/mddb:mcp` | ~18MB | Server with MCP stdio mode preset (for Claude Desktop) |
 | `tradik/mddb:cli` | ~15MB | CLI client (Alpine) |
 
 ### System Packages

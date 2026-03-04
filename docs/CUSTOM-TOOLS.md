@@ -131,20 +131,21 @@ Invalid configuration causes a startup error with a descriptive message.
 # Mount your config with custom tools
 docker run -i --rm --network host \
   -v ./config.yaml:/app/config.yaml \
+  -e MDDB_MCP_STDIO=true \
   -e MDDB_MCP_CONFIG=/app/config.yaml \
-  tradik/mddb:mcp-2.3.3
+  tradik/mddb:latest
 ```
 
 Docker Compose:
 ```yaml
 services:
   mddb-mcp:
-    image: tradik/mddb:mcp-2.3.3
+    image: tradik/mddb:latest
     volumes:
       - ./config.yaml:/app/config.yaml
     environment:
+      - MDDB_MCP_STDIO=true
       - MDDB_MCP_CONFIG=/app/config.yaml
-      - MCP_MODE=stdio
       - MDDB_REST_BASE_URL=http://mddb:11023
 ```
 
@@ -158,8 +159,9 @@ services:
       "args": [
         "run", "-i", "--rm", "--network", "host",
         "-v", "./config.yaml:/app/config.yaml",
+        "-e", "MDDB_MCP_STDIO=true",
         "-e", "MDDB_MCP_CONFIG=/app/config.yaml",
-        "tradik/mddb:mcp-2.3.3"
+        "tradik/mddb:latest"
       ]
     }
   }

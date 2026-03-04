@@ -1,2 +1,0 @@
-FROM tradik/mddb:latest
-ENV MDDB_MCP_STDIO="true"

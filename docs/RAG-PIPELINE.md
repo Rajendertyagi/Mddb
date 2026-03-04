@@ -265,9 +265,10 @@ Add MDDB MCP to your Claude Desktop or Windsurf config:
       "command": "docker",
       "args": [
         "run", "-i", "--rm", "--network", "host",
+        "-e", "MDDB_MCP_STDIO=true",
         "-e", "MDDB_GRPC_ADDRESS=localhost:11024",
         "-e", "MDDB_REST_BASE_URL=http://localhost:11023",
-        "tradik/mddb:mcp-2.3.3"
+        "tradik/mddb:latest"
       ]
     }
   }
