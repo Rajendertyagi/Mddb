@@ -1,6 +1,6 @@
 # MDDB Search Algorithms
 
-MDDB provides three search methods: **Metadata Search**, **Full-Text Search**, and **Vector Search**. Each method supports multiple algorithms selectable at query time via the `algorithm` parameter.
+MDDB provides four search methods: **Metadata Search**, **Full-Text Search**, **Vector Search**, and **Hybrid Search**. Each method supports multiple algorithms selectable at query time via the `algorithm` parameter.
 
 ## Overview
 
@@ -8,7 +8,8 @@ MDDB provides three search methods: **Metadata Search**, **Full-Text Search**, a
 |--------|-----------|----------|
 | Metadata Search | Indexed filters | Exact tag/category matching |
 | Full-Text Search | TF-IDF, BM25, BM25F | Keyword-based document retrieval |
-| Vector Search | Flat, HNSW, IVF, PQ, SQ, BQ | Semantic similarity by meaning |
+| Vector Search | Flat, HNSW, IVF, PQ, SQ | Semantic similarity by meaning |
+| Hybrid Search | Alpha Blending, RRF | Combined keyword + semantic relevance |
 
 ## Full-Text Search
 
@@ -124,6 +125,24 @@ All algorithms (TF-IDF, BM25, BM25F) support typo tolerance via the `fuzzy` para
 **Scoring:** Fuzzy matches receive a 0.8x score penalty compared to exact matches, so exact results always rank higher.
 
 **Matched terms format:** Fuzzy matches appear as `queryTerm~indexedTerm` (e.g., `javascrip~javascript`) in the `matchedTerms` array, making it easy to distinguish exact vs fuzzy matches.
+
+### In-Graph Metadata Filtering (v2.6.5+)
+
+FTS supports `filterMeta` to narrow results by metadata before scoring, just like vector search. This is useful for scoped keyword searches (e.g., search only within a specific category).
+
+```bash
+# BM25 search filtered to "tutorial" category
+curl -X POST http://localhost:11023/v1/fts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "blog",
+    "query": "markdown database",
+    "algorithm": "bm25",
+    "filterMeta": {"category": ["tutorial"], "status": ["published"]}
+  }'
+```
+
+**Filter logic:** AND between different metadata keys, OR between values of the same key (same as metadata search).
 
 ### API Examples
 
@@ -248,6 +267,20 @@ Compresses vectors by splitting them into subspaces and quantizing each subspace
 
 **When to use:** Very large collections (> 500K documents) where memory is the primary constraint. Re-ranks top candidates with exact cosine for better accuracy.
 
+### SQ (Scalar Quantization)
+
+Compresses vectors by quantizing each float32 dimension to uint8 (8-bit). Simpler than PQ with better accuracy but less compression.
+
+| Property | Value |
+|----------|-------|
+| Accuracy | ~92-98% recall |
+| Speed | Fast (integer distance computation) |
+| Memory | ~4x compression (1 byte per dimension vs 4 for flat) |
+| Build time | O(n) - just min/max calibration |
+| Parameters | Automatic calibration |
+
+**When to use:** Medium to large collections where you need memory savings with better accuracy than PQ. Good middle ground between flat and PQ.
+
 ### Comparison Table
 
 | Algorithm | Accuracy | Speed | Memory | Best For |
@@ -256,6 +289,7 @@ Compresses vectors by splitting them into subspaces and quantizing each subspace
 | HNSW | ~97% | Fast | ~2x | 10K-1M docs |
 | IVF | ~94% | Medium | ~1.1x | 100K+ docs |
 | PQ | ~90% | Fast | ~0.03x | 500K+ docs, low memory |
+| SQ | ~95% | Fast | ~0.25x | 50K+ docs, balanced |
 
 ### Algorithm Selection Guide
 
@@ -338,6 +372,170 @@ curl -X POST http://localhost:11023/v1/vector-search \
 
 If the selected algorithm's index is not yet ready (e.g., HNSW graph still building, IVF/PQ still training), the server automatically falls back to the **flat** algorithm and includes the actual algorithm used in the response.
 
+## Hybrid Search (v2.6.5+)
+
+Hybrid search combines FTS (keyword) and vector (semantic) search into a single query, producing results ranked by a fused score. This gives you the best of both worlds: exact keyword matching plus semantic understanding.
+
+### How It Works
+
+1. **FTS search** — runs BM25 or BM25F against the inverted index
+2. **Vector search** — embeds the query and searches the vector index
+3. **Fusion** — merges results using the selected strategy
+4. **Return** — deduplicated results with combined scores
+
+### Alpha Blending (default)
+
+Weighted combination of normalized FTS and vector scores.
+
+**Formula:**
+```
+combined = (1 - alpha) * normalizedFTS + alpha * vectorScore
+```
+
+- `alpha = 0.0` → pure keyword (FTS only)
+- `alpha = 0.5` → equal weight (default)
+- `alpha = 1.0` → pure semantic (vector only)
+
+FTS scores are min-max normalized to 0-1 range. Vector scores are already 0-1 (cosine similarity).
+
+### RRF (Reciprocal Rank Fusion)
+
+Rank-based fusion that doesn't depend on score magnitudes. Works well when FTS and vector scores are not directly comparable.
+
+**Formula:**
+```
+score = 1/(k + rank_fts) + 1/(k + rank_vector)
+```
+
+- `k` (default 60) controls how much top ranks dominate. Higher k = more equal weighting across ranks.
+- Documents appearing in both result sets get both rank contributions.
+- Documents appearing in only one set get a single rank contribution.
+
+### Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `strategy` | `"alpha"` | `"alpha"` or `"rrf"` |
+| `alpha` | `0.5` | Weight for alpha blending (0-1) |
+| `rrfK` | `60` | RRF k parameter |
+| `algorithm` | `"bm25"` | FTS algorithm: `"bm25"`, `"bm25f"` |
+| `vectorAlgorithm` | `"flat"` | Vector algorithm: `"flat"`, `"hnsw"`, `"ivf"`, `"pq"`, `"sq"` |
+| `topK` | `10` | Number of results to return |
+| `fuzzy` | `0` | Typo tolerance for FTS (0, 1, 2) |
+| `threshold` | `0.0` | Minimum vector similarity |
+| `filterMeta` | — | Metadata filters (applied to both FTS and vector) |
+| `includeContent` | `false` | Include document content in results |
+| `fieldWeights` | — | BM25F field weights |
+| `disableStem` | `false` | Disable stemming for FTS |
+| `disableSynonyms` | `false` | Disable synonym expansion for FTS |
+
+### API Examples
+
+```bash
+# Alpha blending (default, equal weight)
+curl -X POST http://localhost:11023/v1/hybrid-search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "kb",
+    "query": "how to deploy with Docker",
+    "topK": 10,
+    "strategy": "alpha",
+    "alpha": 0.5
+  }'
+
+# Keyword-heavy search (alpha=0.2)
+curl -X POST http://localhost:11023/v1/hybrid-search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "kb",
+    "query": "nginx configuration reverse proxy",
+    "topK": 10,
+    "strategy": "alpha",
+    "alpha": 0.2,
+    "algorithm": "bm25f",
+    "fieldWeights": {"meta.title": 5.0, "content": 1.0}
+  }'
+
+# RRF fusion
+curl -X POST http://localhost:11023/v1/hybrid-search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "kb",
+    "query": "cancel subscription refund policy",
+    "topK": 10,
+    "strategy": "rrf",
+    "rrfK": 60,
+    "fuzzy": 1
+  }'
+
+# With metadata filtering
+curl -X POST http://localhost:11023/v1/hybrid-search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "kb",
+    "query": "kubernetes pod scaling",
+    "topK": 5,
+    "filterMeta": {"category": ["devops"], "status": ["published"]}
+  }'
+```
+
+### MCP Tool
+
+```json
+{
+  "tool": "hybrid_search",
+  "arguments": {
+    "collection": "kb",
+    "query": "how to deploy with Docker",
+    "top_k": 10,
+    "strategy": "alpha",
+    "alpha": 0.5,
+    "algorithm": "bm25"
+  }
+}
+```
+
+### Response Format
+
+```json
+{
+  "results": [
+    {
+      "document": { "id": "...", "key": "deploy-docker", "lang": "en_US", "meta": {...} },
+      "combinedScore": 0.78,
+      "ftsScore": 0.65,
+      "vectorScore": 0.91,
+      "matchedTerms": ["deploy", "docker"],
+      "rank": 1
+    }
+  ],
+  "total": 5,
+  "strategy": "alpha",
+  "alpha": 0.5,
+  "ftsAlgorithm": "bm25",
+  "vectorAlgorithm": "flat"
+}
+```
+
+### Strategy Selection Guide
+
+```
+Need precise keyword matching + semantic understanding?
+  → Use Alpha Blending with alpha=0.5 (balanced)
+
+Queries are specific terms (error codes, product names)?
+  → Use Alpha Blending with alpha=0.2 (keyword-heavy)
+
+Queries are natural language questions?
+  → Use Alpha Blending with alpha=0.8 (semantic-heavy)
+
+FTS and vector score ranges differ significantly?
+  → Use RRF (rank-based, ignores score magnitudes)
+
+Not sure?
+  → Start with Alpha Blending at 0.5, adjust based on results
+```
+
 ## Metadata Search
 
 Metadata search uses BoltDB prefix indices for exact matching on document metadata tags. No algorithm selection is needed - it always uses the built-in index.
@@ -377,8 +575,10 @@ curl -X POST http://localhost:11023/v1/search \
 
 For best results, combine search methods:
 
-1. **Vector + Metadata**: Use `filterMeta` in vector search to narrow semantic results by category
-2. **FTS for keywords, Vector for meaning**: Use FTS when users search for specific terms, vector when queries are natural language questions
-3. **BM25 for varied-length docs**: Switch from TF-IDF to BM25 when your collection has documents of very different lengths
+1. **Hybrid Search** (v2.6.5+): Use `/v1/hybrid-search` for a single query that combines FTS + vector search with automatic score fusion. Best for general-purpose search where you want both keyword precision and semantic recall.
+2. **Vector + Metadata**: Use `filterMeta` in vector search to narrow semantic results by category
+3. **FTS + Metadata** (v2.6.5+): Use `filterMeta` in FTS to scope keyword search to specific metadata values
+4. **FTS for keywords, Vector for meaning**: Use FTS when users search for specific terms, vector when queries are natural language questions
+5. **BM25F for structured docs**: Use BM25F when documents have meaningful titles and tags — matches in titles will rank higher than body-only matches
 
 **[← Back to README](../README.md)**
