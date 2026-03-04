@@ -43,7 +43,8 @@ Complete list of MDDB features organized by category.
 - **Built-in Inverted Index** - No external dependencies (Elasticsearch, etc.)
 - **TF-IDF Scoring** - Classic term frequency-inverse document frequency ranking
 - **BM25 Scoring** - Okapi BM25 with document length normalization (k1=1.2, b=0.75)
-- **Query-time Algorithm Selection** - Choose TF-IDF or BM25 per request via `algorithm` parameter
+- **BM25F Scoring** - Field-weighted BM25 — weight matches in title, tags, description differently from body content
+- **Query-time Algorithm Selection** - Choose TF-IDF, BM25, or BM25F per request via `algorithm` parameter
 - **Typo Tolerance** - Fuzzy matching with configurable edit distance (0-2) via `fuzzy` parameter
 - **Porter Stemming** - Reduce words to root forms for better recall (configurable, per-query disable)
 - **Synonym Expansion** - Bidirectional query-time synonym expansion with per-collection dictionaries

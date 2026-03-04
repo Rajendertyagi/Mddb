@@ -7,7 +7,7 @@ MDDB provides three search methods: **Metadata Search**, **Full-Text Search**, a
 | Method | Algorithms | Best For |
 |--------|-----------|----------|
 | Metadata Search | Indexed filters | Exact tag/category matching |
-| Full-Text Search | TF-IDF, BM25 | Keyword-based document retrieval |
+| Full-Text Search | TF-IDF, BM25, BM25F | Keyword-based document retrieval |
 | Vector Search | Flat, HNSW, IVF, PQ, SQ, BQ | Semantic similarity by meaning |
 
 ## Full-Text Search
@@ -19,8 +19,8 @@ Full-text search uses an inverted index built from document content. Queries are
 1. **Lowercasing** - All text converted to lowercase
 2. **Tokenization** - Split on non-alphanumeric characters, minimum 2 characters
 3. **Stop Word Removal** - ~90 common English words filtered out
-4. **Stemming** (v2.6.3+) - Porter Stemmer reduces words to their root form (e.g., "running" -> "run", "organization" -> "organ"). Enabled by default, configurable via `MDDB_FTS_STEMMING`.
-5. **Synonym Expansion** (v2.6.3+, query-time only) - Query terms are expanded with configured synonyms. Bidirectional: if "big" has synonym "large", searching "large" also finds "big". Configurable via `MDDB_FTS_SYNONYMS`.
+4. **Stemming** (v2.6.4+) - Porter Stemmer reduces words to their root form (e.g., "running" -> "run", "organization" -> "organ"). Enabled by default, configurable via `MDDB_FTS_STEMMING`.
+5. **Synonym Expansion** (v2.6.4+, query-time only) - Query terms are expanded with configured synonyms. Bidirectional: if "big" has synonym "large", searching "large" also finds "big". Configurable via `MDDB_FTS_SYNONYMS`.
 
 #### Per-Query Control
 
@@ -81,9 +81,39 @@ where:
 
 **When to use:** When documents vary significantly in length (e.g., mix of short FAQs and long guides). BM25 prevents long documents from dominating results.
 
+### BM25F (Field-Weighted)
+
+BM25F extends BM25 by scoring term matches in different document fields with different weights. A match in the title can be worth more than a match in the body text.
+
+Documents are automatically indexed per-field: `content` (body text) and each metadata key as `meta.<key>` (e.g., `meta.title`, `meta.tags`, `meta.description`).
+
+**Formula:**
+```
+score = sum(IDF(term) * tf_tilde / (k1 + tf_tilde))
+where:
+  tf_tilde = sum_field(w_f * tf(term, doc, field) / (1 - b + b * dl_f / avgdl_f))
+  w_f     = field weight (e.g., title=3.0, content=1.0)
+  dl_f    = length of field f in document
+  avgdl_f = average length of field f across collection
+```
+
+**Default Field Weights:**
+
+| Field | Default Weight |
+|-------|---------------|
+| `content` | 1.0 |
+| `meta.title` | 3.0 |
+| `meta.tags` | 2.0 |
+| `meta.category` | 2.0 |
+| `meta.description` | 1.5 |
+
+Custom weights can be passed per-query via `fieldWeights`. Fields not in the weights map are ignored.
+
+**When to use:** When documents have structured metadata (title, tags, etc.) and you want title matches to rank higher than body-only matches. Best for content management, documentation, and knowledge bases.
+
 ### Typo Tolerance (Fuzzy Search)
 
-Both TF-IDF and BM25 support typo tolerance via the `fuzzy` parameter. When enabled, the search finds indexed terms within Levenshtein edit distance of each query term.
+All algorithms (TF-IDF, BM25, BM25F) support typo tolerance via the `fuzzy` parameter. When enabled, the search finds indexed terms within Levenshtein edit distance of each query term.
 
 | `fuzzy` | Tolerance | Example |
 |---------|-----------|---------|
@@ -115,6 +145,21 @@ curl -X POST http://localhost:11023/v1/fts \
     "query": "markdown database tutorial",
     "limit": 10,
     "algorithm": "bm25"
+  }'
+
+# BM25F (field-weighted, with custom weights)
+curl -X POST http://localhost:11023/v1/fts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "blog",
+    "query": "markdown database tutorial",
+    "limit": 10,
+    "algorithm": "bm25f",
+    "fieldWeights": {
+      "content": 1.0,
+      "meta.title": 5.0,
+      "meta.tags": 2.0
+    }
   }'
 
 # With typo tolerance (works with any algorithm)

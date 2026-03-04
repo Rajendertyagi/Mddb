@@ -30,7 +30,7 @@ services:
       start_period: 10s
     labels:
       - "com.mddb.description=MDDB - High-Performance Markdown Database"
-      - "com.mddb.version=2.6.3"
+      - "com.mddb.version=2.6.4"
       - "com.mddb.performance=optimized"
 
   mddb-panel:
@@ -50,7 +50,7 @@ services:
         condition: service_healthy
     labels:
       - "com.mddb.description=MDDB Panel - Web Admin Interface"
-      - "com.mddb.version=2.6.3"
+      - "com.mddb.version=2.6.4"
 
   # MCP is built into the mddb server — runs on port 9000 by default
   # For stdio mode, use: docker run -i --rm -e MDDB_MCP_STDIO=true tradik/mddb:latest

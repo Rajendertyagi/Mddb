@@ -22,7 +22,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-const VERSION = "2.6.3"
+const VERSION = "2.6.4"
 
 type AccessMode string
 
@@ -817,6 +817,14 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 	// FTS indexing
 	if s.FTSIndex != nil && saved.ContentMD != "" {
 		_ = s.FTSIndex.Index(collection, saved.ID, saved.ContentMD)
+		// Field-level indexing for BM25F
+		fields := map[string]string{"content": saved.ContentMD}
+		for k, vals := range saved.Meta {
+			if len(vals) > 0 {
+				fields["meta."+k] = strings.Join(vals, " ")
+			}
+		}
+		_ = s.FTSIndex.IndexFields(collection, saved.ID, fields)
 	}
 
 	// Webhooks

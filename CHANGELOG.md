@@ -7,9 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.6.3] - 2026-03-04
+## [2.6.4] - 2026-03-04
 
 ### Added
+- **BM25F Field-Weighted Search** - New full-text search algorithm
+  - Weights matches in different document fields (title, tags, body) independently
+  - Default weights: meta.title=3.0, meta.tags=2.0, meta.category=2.0, meta.description=1.5, content=1.0
+  - Custom per-query field weights via `fieldWeights` parameter
+  - Supports fuzzy matching with field weights
+  - Field-level inverted index stored in dedicated BoltDB buckets
+  - Algorithm option: `"bm25f"` in FTS API
+- **Panel BM25F UI** - Field weights configuration panel with collapsible field weight editor, custom field support
+- **Optimized Docker Pipeline** - Pre-built Go binaries instead of compiling in Docker
 - **Scalar Quantization (SQ)** - New vector search algorithm
   - Quantizes float32 vectors to uint8 (0-255) using per-dimension min/max scaling
   - ADC-style search with precomputed distance tables + exact cosine re-ranking
@@ -46,7 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Panel VectorSearchPanel: added SQ and BQ to algorithm dropdown
 - Panel FTSSearchPanel: added stemming/synonyms toggles
 - Panel mddb-client: added synonym CRUD methods
-- Version bumped to 2.6.3
+- Version bumped to 2.6.4
 
 ## [2.6.2] - 2026-03-04
 
