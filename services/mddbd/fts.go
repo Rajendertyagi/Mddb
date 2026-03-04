@@ -44,17 +44,6 @@ func (f *FTSIndex) SetSynonymManager(sm *SynonymManager) { f.synonymManager = sm
 // SetStopWordManager sets the stop word manager for per-collection custom stop words.
 func (f *FTSIndex) SetStopWordManager(swm *StopWordManager) { f.stopWordManager = swm }
 
-// isStopWord checks if a word is a stop word (default or per-collection custom).
-func (f *FTSIndex) isStopWord(collection, word string) bool {
-	if f.stopWords[word] {
-		return true
-	}
-	if f.stopWordManager != nil && collection != "" {
-		return f.stopWordManager.IsStopWord(collection, word)
-	}
-	return false
-}
-
 // SetBinlog sets the binlog for replication logging.
 func (f *FTSIndex) SetBinlog(bl *Binlog) {
 	f.binlog = bl
