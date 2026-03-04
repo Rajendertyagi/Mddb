@@ -3438,7 +3438,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.6.5
+          example: 2.6.6
         uptimeSeconds:
           type: integer
           format: int64
@@ -3502,7 +3502,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.6.5
+          example: 2.6.6
         databasePath:
           type: string
           description: Path to the database file

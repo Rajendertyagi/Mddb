@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.6] - 2026-03-04
+
+### Added
+- **Automation System** - Triggers, Crons, and Webhook Targets for automated workflows
+  - **Triggers**: Fire webhooks when new documents match search criteria (FTS/vector/hybrid) above threshold
+  - **Crons**: Schedule periodic trigger execution using cron expressions (`robfig/cron/v3`)
+  - **Webhook Targets**: Named HTTP endpoints with custom headers and configurable methods
+  - Unified storage in single `automation` BoltDB bucket with `type` field
+  - HTTP API: `GET/POST /v1/automation`, `GET/PUT/DELETE /v1/automation/{id}`, `POST /v1/automation/{id}/test`
+  - gRPC RPCs: `ListAutomation`, `CreateAutomation`, `UpdateAutomation`, `DeleteAutomation`, `TestAutomation`
+  - MCP tools: `list_automation`, `create_automation`, `update_automation`, `delete_automation`, `test_automation`
+  - Env vars: `MDDB_TRIGGERS`, `MDDB_CRONS`, `MDDB_WEBHOOKS` (all default: false)
+  - Webhook payload with retry backoff (0s, 1s, 5s, 15s) and custom X-MDDB headers
+- **Panel: Automation Tab** - Full automation management UI
+  - Type filter tabs (All/Webhooks/Triggers/Crons) with icons (Webhook/Zap/Clock)
+  - Dynamic forms per type with collection/webhook/trigger dropdowns
+  - Enable/disable toggle, test button (dry run with matching docs and scores)
+- **Automation Tests** - 15 unit tests covering CRUD, validation, and edge cases
+
+### Changed
+- Version bumped to 2.6.6 across all services and documentation
+
 ## [2.6.5] - 2026-03-04
 
 ### Added
