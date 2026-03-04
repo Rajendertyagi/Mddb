@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -73,7 +74,7 @@ func (s *Server) loadVectorIndex() {
 		collVecs := make(map[string][]float32, len(records))
 
 		for docID, rec := range records {
-			// Add to all searchers
+			// Add to all searchers (docID may be "id" or "id#0", "id#1", etc.)
 			for _, searcher := range s.VectorSearchers {
 				searcher.Add(collection, docID, rec.Vector)
 			}
@@ -94,7 +95,7 @@ func (s *Server) loadVectorIndex() {
 	for _, searcher := range s.VectorSearchers {
 		searcher.SetReady()
 	}
-	log.Printf("Vector index loaded: %d vectors across %d collections in %v (algorithms: flat, hnsw, ivf, pq)",
+	log.Printf("Vector index loaded: %d documents across %d collections in %v (algorithms: flat, hnsw, ivf, pq)",
 		totalLoaded, len(counts), time.Since(start))
 }
 
@@ -158,6 +159,12 @@ func (s *Server) handleVectorSearch(w http.ResponseWriter, r *http.Request) {
 		topK = 5
 	}
 
+	// Oversample for chunk deduplication: search for more results, then deduplicate
+	searchTopK := topK * 3
+	if searchTopK < 20 {
+		searchTopK = 20
+	}
+
 	// Search: with or without metadata filter
 	var results []VectorResult
 	if len(req.FilterMeta) > 0 {
@@ -170,9 +177,15 @@ func (s *Server) handleVectorSearch(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		results = searcher.SearchWithFilter(req.Collection, queryVector, topK, req.Threshold, allowedIDs)
+		results = searcher.SearchWithFilter(req.Collection, queryVector, searchTopK, req.Threshold, allowedIDs)
 	} else {
-		results = searcher.Search(req.Collection, queryVector, topK, req.Threshold)
+		results = searcher.Search(req.Collection, queryVector, searchTopK, req.Threshold)
+	}
+
+	// Deduplicate chunk results: group by base docID, take max score
+	results = DeduplicateChunkResults(results)
+	if len(results) > topK {
+		results = results[:topK]
 	}
 
 	// Load full documents for results
@@ -233,6 +246,9 @@ func (s *Server) handleVectorReindex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	chunkSize := envDefaultInt("MDDB_EMBEDDING_CHUNK_SIZE", 1500)
+	chunkEnabled := envDefault("MDDB_EMBEDDING_CHUNK_ENABLED", "true") == "true"
+
 	// Load all documents in collection
 	type docEntry struct {
 		ID        string
@@ -261,7 +277,7 @@ func (s *Server) handleVectorReindex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	embedded, skipped, failed := 0, 0, 0
+	embedded, skipped, failed, totalChunks := 0, 0, 0, 0
 	var errs []string
 
 	for _, d := range docs {
@@ -282,27 +298,62 @@ func (s *Server) handleVectorReindex(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// Generate embedding
-		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
-		vector, err := s.Embedding.Embed(ctx, d.ContentMD)
-		cancel()
-		if err != nil {
-			failed++
-			errs = append(errs, d.ID+": "+err.Error())
+		// Split into chunks
+		var chunks []string
+		if chunkEnabled {
+			chunks = ChunkText(d.ContentMD, chunkSize)
+		} else {
+			chunks = []string{d.ContentMD}
+		}
+
+		if len(chunks) == 0 {
+			skipped++
 			continue
 		}
 
-		// Store
+		// Generate embedding for each chunk
+		var chunkEmbeddings []ChunkEmbedding
+		chunkFailed := false
+		for i, chunk := range chunks {
+			ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+			vector, err := s.Embedding.Embed(ctx, chunk)
+			cancel()
+			if err != nil {
+				failed++
+				errs = append(errs, fmt.Sprintf("%s chunk %d: %s", d.ID, i, err.Error()))
+				chunkFailed = true
+				break
+			}
+			chunkEmbeddings = append(chunkEmbeddings, ChunkEmbedding{
+				ChunkIndex: i,
+				Vector:     vector,
+			})
+		}
+		if chunkFailed {
+			continue
+		}
+
+		// Store all chunks
 		contentHash := ContentHash(d.ContentMD)
-		if err := s.VectorStore.Put(req.Collection, d.ID, vector, s.Embedding.Model(), contentHash); err != nil {
+		if err := s.VectorStore.PutChunks(req.Collection, d.ID, chunkEmbeddings, s.Embedding.Model(), contentHash); err != nil {
 			failed++
 			errs = append(errs, d.ID+": store: "+err.Error())
 			continue
 		}
-		for _, searcher := range s.VectorSearchers {
-			searcher.Add(req.Collection, d.ID, vector)
+
+		// Update in-memory indexes
+		for _, ce := range chunkEmbeddings {
+			chunkKey := fmt.Sprintf("%s#%d", d.ID, ce.ChunkIndex)
+			for _, searcher := range s.VectorSearchers {
+				searcher.Add(req.Collection, chunkKey, ce.Vector)
+			}
 		}
+
+		// Clean stale chunks
+		s.VectorStore.CleanStaleChunks(req.Collection, d.ID, len(chunkEmbeddings), s.VectorIndex)
+
 		embedded++
+		totalChunks += len(chunkEmbeddings)
 	}
 
 	// Trigger training for trainable indexes after reindex
@@ -321,10 +372,11 @@ func (s *Server) handleVectorReindex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ok(w, map[string]interface{}{
-		"embedded": embedded,
-		"skipped":  skipped,
-		"failed":   failed,
-		"errors":   errs,
+		"embedded":    embedded,
+		"skipped":     skipped,
+		"failed":      failed,
+		"totalChunks": totalChunks,
+		"errors":      errs,
 	})
 }
 
@@ -340,8 +392,11 @@ func (s *Server) handleVectorStats(w http.ResponseWriter, r *http.Request) {
 		resp["dimensions"] = s.Embedding.Dimensions()
 	}
 
-	// Count embeddings per collection
+	// Count embeddings per collection (unique documents)
 	vectorCounts, _ := s.VectorStore.CountByCollection()
+
+	// Count total chunks per collection
+	chunkCounts, _ := s.VectorStore.CountChunksByCollection()
 
 	// Count total docs per collection
 	docCounts := make(map[string]int)
@@ -373,11 +428,18 @@ func (s *Server) handleVectorStats(w http.ResponseWriter, r *http.Request) {
 		collections[coll] = map[string]interface{}{
 			"total_documents":    docCounts[coll],
 			"embedded_documents": vectorCounts[coll],
+			"total_chunks":       chunkCounts[coll],
 		}
 	}
 
 	resp["collections"] = collections
 	resp["index_ready"] = s.VectorIndex.IsReady()
+
+	// Chunk configuration
+	resp["chunking"] = map[string]interface{}{
+		"enabled":   envDefault("MDDB_EMBEDDING_CHUNK_ENABLED", "true") == "true",
+		"chunkSize": envDefaultInt("MDDB_EMBEDDING_CHUNK_SIZE", 1500),
+	}
 
 	ok(w, resp)
 }

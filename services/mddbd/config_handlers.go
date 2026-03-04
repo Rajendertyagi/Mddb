@@ -13,11 +13,18 @@ type ConfigResponse struct {
 	Version         string          `json:"version"`
 	DatabasePath    string          `json:"databasePath"`
 	Mode            string          `json:"mode"`
+	PanelMode       string          `json:"panelMode"`
 	Protocols       ProtocolsConfig `json:"protocols"`
 	AuthEnabled     bool            `json:"authEnabled"`
 	MetricsEnabled  bool            `json:"metricsEnabled"`
 	ReplicationRole string          `json:"replicationRole"`
 	VectorConfig    *VectorConfig   `json:"vectorConfig,omitempty"`
+	ChunkConfig     *ChunkConfig    `json:"chunkConfig,omitempty"`
+}
+
+type ChunkConfig struct {
+	Enabled   bool `json:"enabled"`
+	ChunkSize int  `json:"chunkSize"`
 }
 
 type ProtocolsConfig struct {
@@ -70,6 +77,7 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		Version:      VERSION,
 		DatabasePath: s.Path,
 		Mode:         string(s.Mode),
+		PanelMode:    env("MDDB_PANEL_MODE", "internal"),
 		Protocols: ProtocolsConfig{
 			HTTP: HTTPProtocolStatus{
 				Enabled: s.Config.HTTP.Enabled,
@@ -122,6 +130,14 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 			Dimensions: dimensions,
 			APIURL:     apiURL,
 		}
+	}
+
+	// Add chunk configuration
+	chunkEnabled := envDefault("MDDB_EMBEDDING_CHUNK_ENABLED", "true") == "true"
+	chunkSize := envDefaultInt("MDDB_EMBEDDING_CHUNK_SIZE", 1500)
+	response.ChunkConfig = &ChunkConfig{
+		Enabled:   chunkEnabled,
+		ChunkSize: chunkSize,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

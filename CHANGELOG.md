@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.2] - 2026-03-04
+
+### Added
+- **Embedding Chunking** - Auto-split long documents into chunks before embedding
+  - Paragraph-based splitting with sentence and hard-split fallbacks
+  - Multi-key chunk storage: `vec|collection|docID#0`, `vec|collection|docID#1`, etc.
+  - Chunk deduplication in vector search: best-chunk-score per document
+  - Oversampling (topK * 3) for accurate top-K after deduplication
+  - Configurable via `MDDB_EMBEDDING_CHUNK_SIZE` (default 1500) and `MDDB_EMBEDDING_CHUNK_ENABLED` (default true)
+  - Backward-compatible with existing non-chunked embeddings
+  - Chunk stats in `/v1/vector-stats` and `/v1/vector-reindex` responses
+- **Panel Mode** - `MDDB_PANEL_MODE` environment variable
+  - `internal` (default): CORS enabled, browser accesses API directly
+  - `external`: CORS disabled, panel reverse-proxies all `/v1/*` requests
+  - Express production server (`server.js`) with `http-proxy-middleware`
+  - Panel always uses relative `/v1` URLs (works in both modes)
+
+### Changed
+- Panel Dockerfile uses Express server instead of Vite preview for production
+- Panel `mddb-client.js` simplified to always use relative `/v1` API base
+- Vector search handlers (HTTP, gRPC, MCP) use oversampling + chunk deduplication
+- All 4 vector searchers (flat, HNSW, IVF, PQ) handle chunk keys in filter matching
+
 ## [2.3.3] - 2026-02-28
 
 ### Added

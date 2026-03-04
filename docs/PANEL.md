@@ -86,13 +86,49 @@ Access the panel at http://localhost:3000
 # Build for production
 npm run build
 
-# Preview production build
-npm run preview
+# Start production server (with reverse proxy to mddbd)
+npm start
 
 # Or use Makefile
 make panel-build
-make panel-preview
 ```
+
+## Panel Modes
+
+MDDB Panel supports two deployment modes controlled by `MDDB_PANEL_MODE` on the mddbd server:
+
+### Internal Mode (Default)
+
+The panel and mddbd run together (same host or Docker network). CORS is enabled on mddbd so the browser can make cross-origin requests directly to the API.
+
+```
+Browser -> Panel (:3000)     -> static files
+Browser -> mddbd (:11023)    -> API (with CORS headers)
+```
+
+### External Mode
+
+The panel runs as a separate service with its own reverse proxy. All API requests from the browser go through the panel's server, which proxies them to mddbd. No CORS needed.
+
+```
+Browser -> Panel (:3000) /v1/* -> proxy -> mddbd (:11023)
+Browser -> Panel (:3000) /*    -> static files
+```
+
+Set on mddbd:
+```bash
+MDDB_PANEL_MODE=external
+```
+
+Set on panel container:
+```bash
+MDDB_SERVER=http://mddbd:11023
+```
+
+External mode is recommended when:
+- Panel is deployed on a different host than mddbd
+- You want to avoid CORS headers in API responses
+- You need a single entry point for both UI and API
 
 ## Docker Deployment
 
@@ -118,7 +154,7 @@ docker build -t mddb-panel .
 # Run container
 docker run -d \
   -p 3000:3000 \
-  -e VITE_MDDB_SERVER=http://mddb-server:11023 \
+  -e MDDB_SERVER=http://mddb-server:11023 \
   --name mddb-panel \
   mddb-panel
 ```
@@ -127,27 +163,17 @@ docker run -d \
 
 ### Environment Variables
 
-Create a `.env` file in the panel directory:
-
-```env
-# MDDB Server URL
-VITE_MDDB_SERVER=http://localhost:11023
-```
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MDDB_SERVER` | `http://localhost:11023` | mddbd server URL (used by production proxy and dev server) |
+| `PORT` | `3000` | Panel server port |
 
 ### Proxy Configuration
 
-The development server proxies API requests to the MDDB server. This is configured in `vite.config.js`:
+Both development and production servers proxy `/v1/*` requests to mddbd:
 
-```javascript
-server: {
-  proxy: {
-    '/v1': {
-      target: process.env.MDDB_SERVER || 'http://localhost:11023',
-      changeOrigin: true,
-    }
-  }
-}
-```
+- **Development**: Vite dev server proxy (configured in `vite.config.js`)
+- **Production**: Express reverse proxy (`server.js`)
 
 ## Usage Guide
 

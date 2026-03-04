@@ -36,7 +36,7 @@ After starting with `make dev-start`, you'll have:
 
 | Service | URL | Description |
 |---------|-----|-------------|
-| MDDB Server | http://localhost:11023 | HTTP API endpoint |
+| MDDB Server | http://localhost:11023 | HTTP API + MCP (via `/mcp/*` endpoints) |
 | MCP Server | http://localhost:9000 | Model Context Protocol (MCP) |
 | MDDB Panel | http://localhost:3000 | Admin web interface |
 | gRPC | localhost:11024 | gRPC endpoint |
@@ -107,9 +107,16 @@ MDDB_AUTH_ENABLED=true
 MDDB_AUTH_ADMIN_USERNAME=admin
 MDDB_AUTH_ADMIN_PASSWORD=changeme
 
+# Panel mode: internal (default, CORS enabled) or external (panel proxies, no CORS)
+# MDDB_PANEL_MODE=external
+
 # Configure vector embeddings
 MDDB_EMBEDDING_PROVIDER=ollama  # or openai, voyage
 MDDB_EMBEDDING_MODEL=nomic-embed-text
+
+# Embedding chunking (auto-splits long documents for better embedding coverage)
+MDDB_EMBEDDING_CHUNK_ENABLED=true   # default: true
+MDDB_EMBEDDING_CHUNK_SIZE=1500      # default: 1500 characters
 ```
 
 ### Using Vector Embeddings
@@ -182,12 +189,12 @@ make dev-start
 
 ### Panel can't connect to server
 
-Check that `VITE_MDBB_SERVER` matches your host:
+Check that `MDDB_SERVER` is set on the panel container:
 
 ```yaml
 # In docker-compose.dev.yml
 environment:
-  - VITE_MDBB_SERVER=localhost:11023  # For browser access
+  - MDDB_SERVER=http://mddbd:11023
 ```
 
 ## 📝 Development Workflow

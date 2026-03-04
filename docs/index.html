@@ -49,7 +49,7 @@
         "priceCurrency": "USD"
       },
       "description": "High-performance, version-controlled markdown database with dual protocol support (HTTP/JSON + gRPC/Protobuf + GraphQL)",
-      "softwareVersion": "2.6.0",
+      "softwareVersion": "2.6.2",
       "featureList": [
         "Markdown-native database",
         "Triple protocol support (HTTP/JSON + gRPC/Protobuf + GraphQL)",
@@ -113,13 +113,13 @@
                     <p class="hero-subtitle">Version-controlled, embedded database with vector search, full-text search,
                         GraphQL, webhooks, TTL, and triple protocol support</p>
                     <div class="hero-badges">
-                        <span class="badge">v2.6.0</span>
+                        <span class="badge">v2.6.2</span>
                         <span class="badge">Go 1.26+</span>
                         <span class="badge">BSD-3-Clause</span>
                         <span class="badge">Docker Ready</span>
                     </div>
                     <div class="hero-actions">
-                        <a href="#download" class="btn btn-primary">Download v2.6.0</a>
+                        <a href="#download" class="btn btn-primary">Download v2.6.2</a>
                         <a href="https://github.com/tradik/mddb" class="btn btn-secondary" target="_blank"
                             rel="noopener">View on GitHub</a>
                     </div>
@@ -313,7 +313,7 @@ make docker-up
                     </div>
                     <div class="tab-pane" id="binary">
                         <pre><code># Download binary
-wget https://github.com/tradik/mddb/releases/download/v2.6.0/mddbd-linux-amd64
+wget https://github.com/tradik/mddb/releases/download/v2.6.2/mddbd-linux-amd64
 chmod +x mddbd-linux-amd64
 
 # Run server
@@ -343,41 +343,41 @@ make build
                 <div class="download-grid">
                     <div class="download-card">
                         <h3>Latest Release</h3>
-                        <div class="version">v2.6.0</div>
+                        <div class="version">v2.6.2</div>
                         <p class="release-date">Released: March 3, 2026</p>
                         <div class="download-links">
-                            <a href="https://github.com/tradik/mddb/releases/download/v2.6.0/mddbd-linux-amd64"
+                            <a href="https://github.com/tradik/mddb/releases/download/v2.6.2/mddbd-linux-amd64"
                                 class="download-link">
                                 <span class="platform">Linux AMD64</span>
                                 <span class="size">~27MB</span>
                             </a>
-                            <a href="https://github.com/tradik/mddb/releases/download/v2.6.0/mddbd-linux-arm64"
+                            <a href="https://github.com/tradik/mddb/releases/download/v2.6.2/mddbd-linux-arm64"
                                 class="download-link">
                                 <span class="platform">Linux ARM64</span>
                                 <span class="size">~27MB</span>
                             </a>
-                            <a href="https://github.com/tradik/mddb/releases/download/v2.6.0/mddbd-darwin-amd64"
+                            <a href="https://github.com/tradik/mddb/releases/download/v2.6.2/mddbd-darwin-amd64"
                                 class="download-link">
                                 <span class="platform">macOS AMD64</span>
                                 <span class="size">~27MB</span>
                             </a>
-                            <a href="https://github.com/tradik/mddb/releases/download/v2.6.0/mddbd-darwin-arm64"
+                            <a href="https://github.com/tradik/mddb/releases/download/v2.6.2/mddbd-darwin-arm64"
                                 class="download-link">
                                 <span class="platform">macOS ARM64</span>
                                 <span class="size">~27MB</span>
                             </a>
-                            <a href="https://github.com/tradik/mddb/releases/download/v2.6.0/mddbd-freebsd-amd64"
+                            <a href="https://github.com/tradik/mddb/releases/download/v2.6.2/mddbd-freebsd-amd64"
                                 class="download-link">
                                 <span class="platform">FreeBSD AMD64</span>
                                 <span class="size">~27MB</span>
                             </a>
                         </div>
                         <div class="package-links">
-                            <a href="https://github.com/tradik/mddb/releases/download/v2.5.0/mddb_2.3.3_amd64.deb"
+                            <a href="https://github.com/tradik/mddb/releases/download/v2.6.2/mddb_2.6.2_amd64.deb"
                                 class="package-link">
                                 📦 Debian/Ubuntu (.deb)
                             </a>
-                            <a href="https://github.com/tradik/mddb/releases/download/v2.5.0/mddb-2.3.3-1.x86_64.rpm"
+                            <a href="https://github.com/tradik/mddb/releases/download/v2.6.2/mddb-2.6.2-1.x86_64.rpm"
                                 class="package-link">
                                 📦 RedHat/CentOS (.rpm)
                             </a>
@@ -385,23 +385,22 @@ make build
                     </div>
                     <div class="download-card">
                         <h3>Docker Image</h3>
-                        <div class="version">tradik/mddb:2.6.0</div>
+                        <div class="version">tradik/mddb:2.6.2</div>
                         <p class="release-date">Alpine-based (~15MB)</p>
                         <pre><code>docker pull tradik/mddb:latest
-docker pull tradik/mddb:2.3.3</code></pre>
+docker pull tradik/mddb:2.6.2</code></pre>
                         <a href="https://hub.docker.com/r/tradik/mddb" class="btn btn-secondary" target="_blank"
                             rel="noopener">View on Docker Hub</a>
                     </div>
                 </div>
                 <div class="release-notes">
-                    <h3>What's New in v2.6.0</h3>
+                    <h3>What's New in v2.6.2</h3>
                     <ul>
-                        <li>🧠 <strong>Embedded MCP</strong> - MCP (Model Context Protocol) is now built directly into the server — no separate service needed</li>
-                        <li>🔌 <strong>Single Binary</strong> - One binary serves HTTP + gRPC + GraphQL + MCP (stdio & HTTP)</li>
-                        <li>🤖 <strong>Multi-LLM Support</strong> - Open WebUI RAG model with Ollama, OpenAI, and DeepSeek providers</li>
-                        <li>🐳 <strong>Simplified Docker</strong> - MCP is built into <code>tradik/mddb:latest</code>; enable stdio mode with <code>MDDB_MCP_STDIO=true</code></li>
-                        <li>🔒 <strong>Security</strong> - MCP write operations respect read-only mode, request body size limits on MCP HTTP endpoints</li>
-                        <li>📋 <strong>Custom MCP Tools</strong> - YAML-configured custom tools with preset defaults via <code>MDDB_MCP_CONFIG</code></li>
+                        <li>🧩 <strong>Embedding Chunking</strong> - Auto-split long documents into chunks before embedding, dramatically increasing embedding coverage from ~20% to ~100%</li>
+                        <li>🖥️ <strong>Panel Mode</strong> - <code>MDDB_PANEL_MODE=external</code> for reverse-proxy panel (no CORS), or <code>internal</code> (default, direct API access)</li>
+                        <li>🔄 <strong>Chunk Deduplication</strong> - Vector search returns best-chunk-score per document, with oversampling for accurate top-K</li>
+                        <li>⚙️ <strong>Configurable Chunking</strong> - <code>MDDB_EMBEDDING_CHUNK_SIZE</code> and <code>MDDB_EMBEDDING_CHUNK_ENABLED</code> env vars</li>
+                        <li>🐳 <strong>Panel Production Server</strong> - Express reverse proxy replaces Vite preview for production panel deployments</li>
                     </ul>
                     <a href="https://github.com/tradik/mddb/blob/main/CHANGELOG.md" target="_blank" rel="noopener">View
                         Full Changelog →</a>
@@ -819,7 +818,7 @@ graph LR
                 <div class="footer-section">
                     <h4>MDDB</h4>
                     <p>High-performance markdown database</p>
-                    <p class="footer-version">Version 2.6.0</p>
+                    <p class="footer-version">Version 2.6.2</p>
                 </div>
                 <div class="footer-section">
                     <h4>Documentation</h4>

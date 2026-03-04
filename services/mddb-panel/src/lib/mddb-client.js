@@ -5,9 +5,7 @@
 
 import { authManager } from './auth';
 
-const API_BASE = import.meta.env.MODE === 'production'
-  ? `http://${import.meta.env.VITE_MDDB_SERVER || 'localhost:11023'}/v1`
-  : '/v1';
+const API_BASE = '/v1';
 
 class MDDBClient {
   constructor(baseUrl = API_BASE) {

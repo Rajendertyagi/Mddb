@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -21,7 +22,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-const VERSION = "2.6.1"
+const VERSION = "2.6.2"
 
 type AccessMode string
 
@@ -485,13 +486,21 @@ func main() {
 	httpAddr := srvCfg.HTTP.Addr
 	grpcAddr := srvCfg.GRPC.Addr
 
+	// Panel mode: internal (default) = CORS enabled, external = CORS disabled (panel proxies)
+	panelMode := env("MDDB_PANEL_MODE", "internal")
+
 	// Wrap mux: CORS → auth middleware → metrics middleware → JSON content type → routes
 	handler := withJSON(mux)
 	handler = s.Metrics.Middleware(handler)
 	if authEnabled && s.AuthManager != nil {
 		handler = s.AuthManager.HTTPMiddleware(handler)
 	}
-	handler = withCORS(handler)
+	if panelMode != "external" {
+		handler = withCORS(handler)
+	}
+	if panelMode == "external" {
+		log.Printf("Panel mode: external (CORS disabled, panel proxies requests)")
+	}
 
 	// Start HTTP server
 	if srvCfg.HTTP.Enabled {
@@ -524,7 +533,9 @@ func main() {
 			mcpMux.HandleFunc("/tools/call", s.guardWrite(mcpSrv.handleToolCall))
 
 			mcpHandler := withJSON(mcpMux)
-			mcpHandler = withCORS(mcpHandler)
+			if panelMode != "external" {
+				mcpHandler = withCORS(mcpHandler)
+			}
 
 			log.Printf("mddb MCP HTTP listening on %s", srvCfg.MCP.Addr)
 			server := &http.Server{
@@ -846,11 +857,19 @@ func (s *Server) deleteDocumentInternal(collection, key, lang string) error {
 		return err
 	}
 
-	// Clean up vector embedding
+	// Clean up vector embedding (legacy key + all chunk keys)
 	if s.VectorStore != nil {
 		_ = s.VectorStore.Delete(collection, docID)
 		for _, searcher := range s.VectorSearchers {
 			searcher.Remove(collection, docID)
+			// Also remove chunk keys
+			for i := 0; i < 100; i++ {
+				chunkKey := docID + "#" + strconv.Itoa(i)
+				if searcher.CollectionSize(collection) == 0 {
+					break
+				}
+				searcher.Remove(collection, chunkKey)
+			}
 		}
 	}
 

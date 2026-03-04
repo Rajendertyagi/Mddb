@@ -18,6 +18,7 @@ services:
       - MDDB_HTTP_PORT=11023
       - MDDB_GRPC_PORT=11024
       - MDDB_HTTP3_PORT=11443
+      # - MDDB_PANEL_MODE=external  # internal (default, CORS enabled) or external (CORS disabled, panel proxies)
       - TZ=UTC
     networks:
       - mddb-network
@@ -29,7 +30,7 @@ services:
       start_period: 10s
     labels:
       - "com.mddb.description=MDDB - High-Performance Markdown Database"
-      - "com.mddb.version=2.3.3"
+      - "com.mddb.version=2.6.2"
       - "com.mddb.performance=optimized"
 
   mddb-panel:
@@ -41,7 +42,7 @@ services:
     ports:
       - "3000:3000"  # Web UI
     environment:
-      - VITE_MDDB_SERVER=http://mddb:11023
+      - MDDB_SERVER=http://mddb:11023
     networks:
       - mddb-network
     depends_on:
@@ -49,7 +50,7 @@ services:
         condition: service_healthy
     labels:
       - "com.mddb.description=MDDB Panel - Web Admin Interface"
-      - "com.mddb.version=2.3.3"
+      - "com.mddb.version=2.6.2"
 
   # MCP is built into the mddb server — runs on port 9000 by default
   # For stdio mode, use: docker run -i --rm -e MDDB_MCP_STDIO=true tradik/mddb:latest

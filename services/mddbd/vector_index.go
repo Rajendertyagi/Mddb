@@ -3,6 +3,7 @@ package main
 import (
 	"math"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 )
@@ -15,9 +16,10 @@ type VectorResult struct {
 
 // VectorIndex is an in-memory flat index for vector similarity search.
 // It stores vectors per collection and performs brute-force cosine similarity.
+// Keys may include chunk suffixes (e.g. "docID#0", "docID#1").
 type VectorIndex struct {
 	mu          sync.RWMutex
-	collections map[string]map[string][]float32 // collection -> docID -> vector
+	collections map[string]map[string][]float32 // collection -> key -> vector
 	ready       atomic.Bool
 }
 
@@ -96,6 +98,7 @@ func (vi *VectorIndex) Search(collection string, query []float32, topK int, thre
 }
 
 // SearchWithFilter performs vector search only on documents matching the given docID set.
+// Handles chunk keys: if the index has "docID#0" and allowed has "docID", it matches.
 func (vi *VectorIndex) SearchWithFilter(collection string, query []float32, topK int, threshold float64, allowedDocIDs map[string]bool) []VectorResult {
 	vi.mu.RLock()
 	defer vi.mu.RUnlock()
@@ -111,7 +114,8 @@ func (vi *VectorIndex) SearchWithFilter(collection string, query []float32, topK
 
 	results := make([]VectorResult, 0, min(len(allowedDocIDs), len(coll)))
 	for docID, vec := range coll {
-		if !allowedDocIDs[docID] {
+		baseID := baseDocID(docID)
+		if !allowedDocIDs[baseID] {
 			continue
 		}
 		score := cosineSimilarity(query, vec)
@@ -175,4 +179,41 @@ func cosineSimilarity(a, b []float32) float32 {
 	}
 
 	return dotProduct / float32(math.Sqrt(float64(normA)*float64(normB)))
+}
+
+// baseDocID extracts the base document ID from a possibly chunked key.
+// "docID#0" -> "docID", "docID" -> "docID"
+func baseDocID(key string) string {
+	if idx := strings.IndexByte(key, '#'); idx >= 0 {
+		return key[:idx]
+	}
+	return key
+}
+
+// DeduplicateChunkResults groups vector results by base docID and returns
+// the highest score per document. Useful when chunks produce multiple results
+// for the same document.
+func DeduplicateChunkResults(results []VectorResult) []VectorResult {
+	if len(results) == 0 {
+		return results
+	}
+
+	best := make(map[string]float32)
+	for _, r := range results {
+		base := baseDocID(r.DocID)
+		if score, exists := best[base]; !exists || r.Score > score {
+			best[base] = r.Score
+		}
+	}
+
+	deduped := make([]VectorResult, 0, len(best))
+	for docID, score := range best {
+		deduped = append(deduped, VectorResult{DocID: docID, Score: score})
+	}
+
+	sort.Slice(deduped, func(i, j int) bool {
+		return deduped[i].Score > deduped[j].Score
+	})
+
+	return deduped
 }

@@ -58,7 +58,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: 2.6.0
+  version: 2.6.2
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -1443,6 +1443,10 @@ components:
           type: integer
           description: Number of documents that failed to embed
           example: 0
+        totalChunks:
+          type: integer
+          description: Total number of chunks embedded across all documents
+          example: 128
         errors:
           type: array
           items:
@@ -1485,11 +1489,28 @@ components:
                 type: integer
                 description: Documents with embeddings
                 example: 95
+              total_chunks:
+                type: integer
+                description: Total embedding chunks (including multi-chunk documents)
+                example: 280
           description: Per-collection embedding statistics
           example:
             blog:
               total_documents: 100
               embedded_documents: 95
+              total_chunks: 280
+        chunking:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+              description: Whether document chunking is enabled
+              example: true
+            chunkSize:
+              type: integer
+              description: Maximum characters per chunk
+              example: 1500
+          description: Chunking configuration
 
     FTSSearchRequest:
       type: object

@@ -146,7 +146,7 @@ func (h *HNSWIndex) SearchWithFilter(collection string, query []float32, topK in
 
 	results := make([]VectorResult, 0, topK)
 	for _, n := range neighbors {
-		if !allowed[n.Key] {
+		if !allowed[baseDocID(n.Key)] {
 			continue
 		}
 		score := cosineSimilarity(query, n.Value)
