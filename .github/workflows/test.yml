@@ -3,8 +3,18 @@ name: Tests
 on:
   push:
     branches: [main, develop]
+    paths:
+      - 'services/mddbd/**'
+      - 'services/mddb-cli/**'
+      - 'proto/**'
+      - '.github/workflows/test.yml'
   pull_request:
     branches: [main, develop]
+    paths:
+      - 'services/mddbd/**'
+      - 'services/mddb-cli/**'
+      - 'proto/**'
+      - '.github/workflows/test.yml'
 
 env:
   GO_VERSION: "1.26"
