@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.5] - 2026-03-04
+
+### Added
+- **Hybrid Search** (`/v1/hybrid-search`) - New endpoint combining BM25/BM25F keyword search with vector semantic search
+  - Alpha Blending strategy: weighted linear interpolation `combined = (1-α) * BM25 + α * vector`
+  - RRF (Reciprocal Rank Fusion) strategy: rank-based fusion robust to different score distributions
+  - Configurable: `strategy`, `alpha`, `rrfK`, `algorithm`, `vectorAlgorithm`
+  - gRPC `HybridSearch` RPC and `hybrid_search` MCP tool
+- **In-Graph FTS Filtering** - `filterMeta` parameter on full-text search endpoint
+  - Pre-filters candidate documents by metadata before BM25 scoring
+  - Supports OR within key, AND across keys
+  - Added `filter_meta` field to FTS proto message
+- **Panel: Hybrid Search Mode** - New search mode with strategy/alpha/algorithm controls
+- **Panel: Command Modal** - Copy-ready API examples in curl, PHP, Python, and JavaScript for all search operations
+- **Panel: System Info Default** - Default to System Information view after login
+
+### Fixed
+- Stale gRPC/MCP entries in endpoint documentation (removed non-existent `Delete`/`DeleteCollection` gRPC methods)
+
 ## [2.6.4] - 2026-03-04
 
 ### Added
