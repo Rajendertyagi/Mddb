@@ -110,6 +110,14 @@ tags:
     description: Prometheus-compatible metrics endpoint
   - name: Replication
     description: Leader-follower replication status and monitoring
+  - name: Synonyms
+    description: FTS synonym dictionary management
+  - name: System
+    description: System information and endpoint discovery
+  - name: Configuration
+    description: Server and MCP configuration
+  - name: GraphQL
+    description: GraphQL API and interactive playground
 
 paths:
   /health:
@@ -1100,6 +1108,1051 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReplicationStatusResponse"
+
+  /v1/synonyms:
+    get:
+      tags:
+        - Synonyms
+      summary: List synonyms
+      description: List all synonym entries for a collection. Synonyms are used to expand FTS queries with related terms.
+      operationId: listSynonyms
+      parameters:
+        - name: collection
+          in: query
+          required: true
+          description: Collection name
+          schema:
+            type: string
+            example: blog
+      responses:
+        "200":
+          description: Synonym list retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SynonymListResponse"
+        "400":
+          description: Invalid request (missing collection parameter)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      tags:
+        - Synonyms
+      summary: Add or update synonym group
+      description: |
+        Add or update a synonym mapping for a term in a collection. Synonyms are bidirectional --
+        if "big" has synonym "large", then querying "large" will also expand to include "big".
+      operationId: setSynonym
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SynonymRequest"
+      responses:
+        "200":
+          description: Synonym group set successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      tags:
+        - Synonyms
+      summary: Delete synonym group
+      description: Delete a synonym mapping for a term in a collection.
+      operationId: deleteSynonym
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SynonymDeleteRequest"
+      responses:
+        "200":
+          description: Synonym group deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/embedding-configs:
+    get:
+      tags:
+        - Embedding Config
+      summary: List embedding configurations
+      description: List all embedding model configurations.
+      operationId: listEmbeddingConfigs
+      responses:
+        "200":
+          description: List of embedding configurations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  configs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EmbeddingConfig"
+    post:
+      tags:
+        - Embedding Config
+      summary: Create embedding configuration
+      description: |
+        Create a new embedding model configuration. Required fields: id, name, provider, model, dimensions.
+
+        Supported providers: `openai`, `ollama`, `cohere`, `voyage`.
+      operationId: createEmbeddingConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmbeddingConfig"
+      responses:
+        "201":
+          description: Embedding configuration created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmbeddingConfig"
+        "400":
+          description: Invalid request (missing required fields or invalid provider)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/embedding-configs/{id}:
+    get:
+      tags:
+        - Embedding Config
+      summary: Get embedding configuration
+      description: Retrieve a specific embedding configuration by ID.
+      operationId: getEmbeddingConfig
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Embedding configuration ID
+          schema:
+            type: string
+            example: openai-small
+      responses:
+        "200":
+          description: Embedding configuration retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmbeddingConfig"
+        "404":
+          description: Configuration not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      tags:
+        - Embedding Config
+      summary: Update embedding configuration
+      description: |
+        Update an existing embedding configuration. The ID in the path is used (body ID is ignored).
+
+        Supported providers: `openai`, `ollama`, `cohere`, `voyage`.
+      operationId: updateEmbeddingConfig
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Embedding configuration ID
+          schema:
+            type: string
+            example: openai-small
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmbeddingConfig"
+      responses:
+        "200":
+          description: Embedding configuration updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmbeddingConfig"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      tags:
+        - Embedding Config
+      summary: Delete embedding configuration
+      description: Delete an embedding configuration. Cannot delete the default configuration.
+      operationId: deleteEmbeddingConfig
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Embedding configuration ID
+          schema:
+            type: string
+            example: openai-small
+      responses:
+        "204":
+          description: Embedding configuration deleted
+        "400":
+          description: Cannot delete default config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Configuration not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/embedding-configs/set-default:
+    post:
+      tags:
+        - Embedding Config
+      summary: Set default embedding configuration
+      description: |
+        Set an embedding configuration as the default. This will unset any previously default configuration
+        and reinitialize the embedding system with the new default config.
+      operationId: setDefaultEmbeddingConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: string
+                  description: ID of the embedding configuration to set as default
+                  example: openai-small
+      responses:
+        "200":
+          description: Default configuration updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: default config updated
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Configuration not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/system/info:
+    get:
+      tags:
+        - System
+      summary: System information
+      description: |
+        Returns detailed system information including hostname, OS, architecture, CPU count,
+        Go version, memory statistics, goroutine count, CPU usage, and network interfaces.
+      operationId: getSystemInfo
+      responses:
+        "200":
+          description: System information retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemInfoResponse"
+
+  /v1/config:
+    get:
+      tags:
+        - Configuration
+      summary: Server configuration
+      description: |
+        Returns the current server configuration including version, database path, mode,
+        protocol statuses, authentication state, and vector/chunk configuration.
+      operationId: getConfig
+      responses:
+        "200":
+          description: Server configuration retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfigResponse"
+
+  /v1/mcp/config:
+    get:
+      tags:
+        - Configuration
+      summary: MCP YAML configuration
+      description: |
+        Returns a YAML configuration template for the MCP (Model Context Protocol) server.
+        Includes gRPC and REST connection settings and example custom tool configurations.
+      operationId: getMCPConfig
+      responses:
+        "200":
+          description: MCP configuration in YAML format
+          content:
+            text/yaml:
+              schema:
+                type: string
+                example: |
+                  mcp:
+                    # listenAddress: "0.0.0.0:9000"
+                  mddb:
+                    grpcAddress: "localhost:11024"
+                    restBaseUrl: "http://localhost:11023"
+                    transportMode: "grpc_with_rest_fallback"
+                    timeoutSeconds: 2
+                    maxRetries: 1
+
+  /v1/endpoints:
+    get:
+      tags:
+        - System
+      summary: List all endpoints
+      description: |
+        Returns a comprehensive list of all available HTTP endpoints, gRPC methods, and MCP tools
+        supported by this server instance.
+      operationId: listEndpoints
+      responses:
+        "200":
+          description: Endpoint list retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EndpointsResponse"
+
+  /v1/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login
+      description: |
+        Authenticate with username and password to receive a JWT token.
+        The token should be included in subsequent requests via the `Authorization: Bearer <token>` header.
+      operationId: authLogin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/auth/register:
+    post:
+      tags:
+        - Users
+      summary: Register new user
+      description: Create a new user account. Requires admin authentication.
+      operationId: authRegister
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "200":
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/auth/api-key:
+    post:
+      tags:
+        - Authentication
+      summary: Create API key
+      description: |
+        Create a new API key for the authenticated user. The key is returned only once in the response.
+        Use the `X-API-Key` header to authenticate with the key in subsequent requests.
+      operationId: authCreateAPIKey
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAPIKeyRequest"
+      responses:
+        "200":
+          description: API key created (key shown only once)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateAPIKeyResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/auth/api-keys:
+    get:
+      tags:
+        - Authentication
+      summary: List API keys
+      description: List all API keys for the authenticated user (key values are not included, only hashes).
+      operationId: authListAPIKeys
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of API keys
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListAPIKeysResponse"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/auth/api-keys/{keyHash}:
+    delete:
+      tags:
+        - Authentication
+      summary: Delete API key
+      description: Delete an API key by its hash. Users can only delete their own API keys.
+      operationId: authDeleteAPIKey
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: keyHash
+          in: path
+          required: true
+          description: SHA256 hash of the API key
+          schema:
+            type: string
+            example: a1b2c3d4e5f6...
+      responses:
+        "200":
+          description: API key deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: deleted
+        "400":
+          description: Key hash required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden (can only delete own keys)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: API key not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/auth/me:
+    post:
+      tags:
+        - Authentication
+      summary: Get current user info
+      description: Returns information about the currently authenticated user.
+      operationId: authGetMe
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Current user info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetMeResponse"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/auth/permissions:
+    get:
+      tags:
+        - Users
+      summary: Get user permissions
+      description: Get all permissions for a specific user. Requires admin authentication.
+      operationId: authGetPermissions
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: username
+          in: query
+          required: true
+          description: Username to get permissions for
+          schema:
+            type: string
+            example: alice
+      responses:
+        "200":
+          description: User permissions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Permission"
+        "400":
+          description: Username parameter required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      tags:
+        - Users
+      summary: Set user permissions
+      description: Set permissions for a user on a specific collection. Requires admin authentication.
+      operationId: authSetPermissions
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetPermissionRequest"
+      responses:
+        "200":
+          description: Permission set successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SetPermissionResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/auth/users:
+    get:
+      tags:
+        - Users
+      summary: List all users
+      description: List all user accounts with their details. Requires admin authentication.
+      operationId: authListUsers
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsersListResponse"
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/auth/users/{username}:
+    delete:
+      tags:
+        - Users
+      summary: Delete user
+      description: Delete (disable) a user account. Requires admin authentication.
+      operationId: authDeleteUser
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: username
+          in: path
+          required: true
+          description: Username to delete
+          schema:
+            type: string
+            example: alice
+      responses:
+        "200":
+          description: User deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: deleted
+        "400":
+          description: Username required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/auth/groups:
+    get:
+      tags:
+        - Groups
+      summary: List all groups
+      description: List all user groups. Requires admin authentication.
+      operationId: authListGroups
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of groups
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroupsListResponse"
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      tags:
+        - Groups
+      summary: Create group
+      description: Create a new user group. Requires admin authentication.
+      operationId: authCreateGroup
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGroupRequest"
+      responses:
+        "201":
+          description: Group created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Group"
+        "400":
+          description: Invalid request (missing name or group already exists)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/auth/groups/{name}:
+    get:
+      tags:
+        - Groups
+      summary: Get group details
+      description: Retrieve details for a specific group. Requires admin authentication.
+      operationId: authGetGroup
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: Group name
+          schema:
+            type: string
+            example: developers
+      responses:
+        "200":
+          description: Group details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Group"
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Group not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      tags:
+        - Groups
+      summary: Update group
+      description: Update a group's description and member list. Requires admin authentication.
+      operationId: authUpdateGroup
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: Group name
+          schema:
+            type: string
+            example: developers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateGroupRequest"
+      responses:
+        "200":
+          description: Group updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Group"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Group not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      tags:
+        - Groups
+      summary: Delete group
+      description: Delete a group and all its associated permissions. Requires admin authentication.
+      operationId: authDeleteGroup
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: Group name
+          schema:
+            type: string
+            example: developers
+      responses:
+        "200":
+          description: Group deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: deleted
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Group not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/auth/group-permissions:
+    get:
+      tags:
+        - Groups
+      summary: Get group permissions
+      description: Get all permissions for a specific group. Requires admin authentication.
+      operationId: authGetGroupPermissions
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: group
+          in: query
+          required: true
+          description: Group name
+          schema:
+            type: string
+            example: developers
+      responses:
+        "200":
+          description: Group permissions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  permissions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/GroupPermission"
+        "400":
+          description: Group parameter required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      tags:
+        - Groups
+      summary: Set group permission
+      description: Set a collection-level permission for a group. Requires admin authentication.
+      operationId: authSetGroupPermission
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GroupPermission"
+      responses:
+        "200":
+          description: Permission set
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: permission set
+        "400":
+          description: Invalid request (missing fields or group not found)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /graphql:
+    post:
+      tags:
+        - GraphQL
+      summary: GraphQL API endpoint
+      description: |
+        Execute GraphQL queries and mutations against the MDDB API.
+        Requires `MDDB_GRAPHQL_ENABLED=true` environment variable.
+
+        Supports queries for documents, search, vector search, full-text search, and hybrid search.
+        Supports mutations for adding, deleting, and managing documents.
+      operationId: graphqlQuery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - query
+              properties:
+                query:
+                  type: string
+                  description: GraphQL query or mutation string
+                  example: '{ stats { totalDocuments } }'
+                variables:
+                  type: object
+                  additionalProperties: true
+                  description: GraphQL variables
+                operationName:
+                  type: string
+                  description: Name of the operation to execute (if query contains multiple)
+      responses:
+        "200":
+          description: GraphQL response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    description: Query result data
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        message:
+                          type: string
+                        path:
+                          type: array
+                          items:
+                            type: string
+                    description: GraphQL errors (if any)
+
+  /playground:
+    get:
+      tags:
+        - GraphQL
+      summary: GraphQL Playground
+      description: |
+        Interactive GraphQL Playground UI for exploring and testing the MDDB GraphQL API.
+        Requires `MDDB_GRAPHQL_ENABLED=true` environment variable.
+      operationId: graphqlPlayground
+      responses:
+        "200":
+          description: GraphQL Playground HTML page
+          content:
+            text/html:
+              schema:
+                type: string
 
 components:
   schemas:
@@ -2102,3 +3155,688 @@ components:
           type: string
           description: Error message
           example: document not found
+
+    SynonymRequest:
+      type: object
+      required:
+        - collection
+        - term
+        - synonyms
+      properties:
+        collection:
+          type: string
+          description: Collection name
+          example: blog
+        term:
+          type: string
+          description: Base term for the synonym group
+          example: big
+        synonyms:
+          type: array
+          items:
+            type: string
+          description: List of synonyms for the term
+          example: [large, huge, enormous]
+
+    SynonymDeleteRequest:
+      type: object
+      required:
+        - collection
+        - term
+      properties:
+        collection:
+          type: string
+          description: Collection name
+          example: blog
+        term:
+          type: string
+          description: Term whose synonyms to delete
+          example: big
+
+    SynonymEntry:
+      type: object
+      properties:
+        term:
+          type: string
+          description: Base term
+          example: big
+        synonyms:
+          type: array
+          items:
+            type: string
+          description: List of synonyms
+          example: [large, huge, enormous]
+
+    SynonymListResponse:
+      type: object
+      properties:
+        collection:
+          type: string
+          description: Collection name
+          example: blog
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/SynonymEntry"
+        total:
+          type: integer
+          description: Total number of synonym entries
+          example: 10
+
+    EmbeddingConfig:
+      type: object
+      required:
+        - id
+        - name
+        - provider
+        - model
+        - dimensions
+      properties:
+        id:
+          type: string
+          description: Unique identifier
+          example: openai-small
+        name:
+          type: string
+          description: Display name
+          example: OpenAI Small
+        provider:
+          type: string
+          enum: [openai, ollama, cohere, voyage]
+          description: Embedding provider
+          example: openai
+        model:
+          type: string
+          description: Model name
+          example: text-embedding-3-small
+        dimensions:
+          type: integer
+          description: Embedding vector dimensions
+          example: 1536
+        apiKey:
+          type: string
+          description: API key (for OpenAI, Cohere, Voyage)
+          example: sk-...
+        apiUrl:
+          type: string
+          description: API URL (for Ollama or custom endpoints)
+          example: http://localhost:11434
+        isDefault:
+          type: boolean
+          description: Whether this is the default configuration
+          example: false
+        createdAt:
+          type: integer
+          format: int64
+          description: Creation timestamp (Unix seconds)
+          example: 1704844800
+
+    SystemInfoResponse:
+      type: object
+      properties:
+        hostname:
+          type: string
+          description: Server hostname
+          example: mddb-server
+        os:
+          type: string
+          description: Operating system
+          example: linux
+        arch:
+          type: string
+          description: CPU architecture
+          example: amd64
+        numCPU:
+          type: integer
+          description: Number of logical CPUs
+          example: 8
+        goVersion:
+          type: string
+          description: Go runtime version
+          example: go1.22.0
+        version:
+          type: string
+          description: MDDB server version
+          example: 2.6.5
+        uptimeSeconds:
+          type: integer
+          format: int64
+          description: Server uptime in seconds
+          example: 86400
+        memoryTotal:
+          type: integer
+          format: uint64
+          description: Total allocated memory in bytes (cumulative)
+          example: 104857600
+        memoryUsed:
+          type: integer
+          format: uint64
+          description: Currently allocated memory in bytes
+          example: 52428800
+        memorySystem:
+          type: integer
+          format: uint64
+          description: System memory obtained from OS in bytes
+          example: 73400320
+        memoryHeap:
+          type: integer
+          format: uint64
+          description: Heap memory in use in bytes
+          example: 41943040
+        numGoroutines:
+          type: integer
+          description: Number of active goroutines
+          example: 42
+        cpuUsagePercent:
+          type: number
+          format: float
+          description: CPU usage percentage (0-100)
+          example: 12.5
+        network:
+          type: array
+          items:
+            $ref: "#/components/schemas/NetworkInterface"
+
+    NetworkInterface:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Interface name
+          example: eth0
+        addresses:
+          type: array
+          items:
+            type: string
+          description: IP addresses assigned to this interface
+          example: ["192.168.1.10/24", "fe80::1/64"]
+        flags:
+          type: string
+          description: Interface flags
+          example: up|broadcast|multicast
+
+    ConfigResponse:
+      type: object
+      properties:
+        version:
+          type: string
+          description: MDDB server version
+          example: 2.6.5
+        databasePath:
+          type: string
+          description: Path to the database file
+          example: /data/mddb.db
+        mode:
+          type: string
+          description: Server mode
+          example: wr
+        panelMode:
+          type: string
+          description: Panel mode (internal or external)
+          example: internal
+        protocols:
+          type: object
+          properties:
+            http:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                  example: true
+                addr:
+                  type: string
+                  example: ":11023"
+            grpc:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                  example: true
+                addr:
+                  type: string
+                  example: ":11024"
+            mcp:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                  example: false
+                addr:
+                  type: string
+                  example: ""
+                stdio:
+                  type: boolean
+                  example: false
+            http3:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                  example: false
+                addr:
+                  type: string
+                  example: ""
+        authEnabled:
+          type: boolean
+          description: Whether authentication is enabled
+          example: false
+        metricsEnabled:
+          type: boolean
+          description: Whether Prometheus metrics are enabled
+          example: true
+        replicationRole:
+          type: string
+          description: Replication role of this node
+          example: standalone
+        vectorConfig:
+          type: object
+          description: Vector search configuration (if enabled)
+          properties:
+            enabled:
+              type: boolean
+              example: true
+            provider:
+              type: string
+              example: openai
+            model:
+              type: string
+              example: text-embedding-3-small
+            dimensions:
+              type: integer
+              example: 1536
+            apiUrl:
+              type: string
+              example: https://api.openai.com/v1
+        chunkConfig:
+          type: object
+          description: Document chunking configuration
+          properties:
+            enabled:
+              type: boolean
+              example: true
+            chunkSize:
+              type: integer
+              example: 1500
+
+    EndpointsResponse:
+      type: object
+      properties:
+        http:
+          type: array
+          items:
+            type: object
+            properties:
+              method:
+                type: string
+                description: HTTP method(s)
+                example: POST
+              path:
+                type: string
+                description: URL path
+                example: /v1/add
+              description:
+                type: string
+                description: Endpoint description
+                example: Add/update document
+              requiresAuth:
+                type: boolean
+                description: Whether authentication is required
+                example: true
+        grpc:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                description: gRPC method name
+                example: Add
+              description:
+                type: string
+                description: Method description
+                example: Add/update document
+        mcp:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                description: MCP tool name
+                example: add_document
+              description:
+                type: string
+                description: Tool description
+                example: Add/update document
+              inputSchema:
+                type: object
+                description: JSON Schema for the tool input
+
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          description: Username
+          example: admin
+        password:
+          type: string
+          description: Password
+          example: secret
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT token
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        expiresAt:
+          type: integer
+          format: int64
+          description: Token expiration timestamp (Unix seconds)
+          example: 1704931200
+
+    RegisterRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          description: Username for the new user
+          example: alice
+        password:
+          type: string
+          description: Password for the new user
+          example: securepassword123
+
+    RegisterResponse:
+      type: object
+      properties:
+        username:
+          type: string
+          description: Created username
+          example: alice
+        createdAt:
+          type: integer
+          format: int64
+          description: Account creation timestamp (Unix seconds)
+          example: 1704844800
+
+    CreateAPIKeyRequest:
+      type: object
+      properties:
+        description:
+          type: string
+          description: Optional label for the API key
+          example: CI/CD pipeline key
+        expiresAt:
+          type: integer
+          format: int64
+          description: Expiration timestamp (Unix seconds, 0 = never)
+          example: 0
+
+    CreateAPIKeyResponse:
+      type: object
+      properties:
+        key:
+          type: string
+          description: The API key value (shown only once)
+          example: mddb_live_a1b2c3d4e5f6...
+        description:
+          type: string
+          description: API key description
+          example: CI/CD pipeline key
+        expiresAt:
+          type: integer
+          format: int64
+          description: Expiration timestamp (Unix seconds, 0 = never)
+          example: 0
+        createdAt:
+          type: integer
+          format: int64
+          description: Creation timestamp (Unix seconds)
+          example: 1704844800
+
+    ListAPIKeysResponse:
+      type: object
+      properties:
+        keys:
+          type: array
+          items:
+            type: object
+            properties:
+              keyHash:
+                type: string
+                description: SHA256 hash of the API key (for deletion)
+                example: a1b2c3d4e5f6...
+              description:
+                type: string
+                description: API key description
+                example: CI/CD pipeline key
+              createdAt:
+                type: integer
+                format: int64
+                description: Creation timestamp (Unix seconds)
+                example: 1704844800
+              expiresAt:
+                type: integer
+                format: int64
+                description: Expiration timestamp (Unix seconds, 0 = never)
+                example: 0
+
+    GetMeResponse:
+      type: object
+      properties:
+        username:
+          type: string
+          description: Current user's username
+          example: admin
+        admin:
+          type: boolean
+          description: Whether the user has admin privileges
+          example: true
+        createdAt:
+          type: integer
+          format: int64
+          description: Account creation timestamp (Unix seconds)
+          example: 1704844800
+
+    Permission:
+      type: object
+      properties:
+        username:
+          type: string
+          description: Username
+          example: alice
+        collection:
+          type: string
+          description: Collection name ("*" for all collections)
+          example: blog
+        read:
+          type: boolean
+          description: Read permission
+          example: true
+        write:
+          type: boolean
+          description: Write permission
+          example: true
+        admin:
+          type: boolean
+          description: Admin permission
+          example: false
+
+    SetPermissionRequest:
+      type: object
+      required:
+        - username
+        - collection
+      properties:
+        username:
+          type: string
+          description: Username
+          example: alice
+        collection:
+          type: string
+          description: Collection name ("*" for all collections)
+          example: blog
+        read:
+          type: boolean
+          description: Read permission
+          example: true
+        write:
+          type: boolean
+          description: Write permission
+          example: true
+        admin:
+          type: boolean
+          description: Admin permission
+          example: false
+
+    SetPermissionResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+
+    UsersListResponse:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            type: object
+            properties:
+              username:
+                type: string
+                description: Username
+                example: alice
+              createdAt:
+                type: integer
+                format: int64
+                description: Account creation timestamp (Unix seconds)
+                example: 1704844800
+              disabled:
+                type: boolean
+                description: Whether the user is disabled
+                example: false
+              admin:
+                type: boolean
+                description: Whether the user has admin privileges
+                example: false
+              groups:
+                type: array
+                items:
+                  type: string
+                description: Groups the user belongs to
+                example: [developers, editors]
+
+    Group:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Group name
+          example: developers
+        description:
+          type: string
+          description: Group description
+          example: Development team
+        members:
+          type: array
+          items:
+            type: string
+          description: List of usernames in the group
+          example: [alice, bob]
+        createdAt:
+          type: integer
+          format: int64
+          description: Creation timestamp (Unix seconds)
+          example: 1704844800
+
+    CreateGroupRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Group name
+          example: developers
+        description:
+          type: string
+          description: Group description
+          example: Development team
+        members:
+          type: array
+          items:
+            type: string
+          description: Initial list of member usernames
+          example: [alice, bob]
+
+    UpdateGroupRequest:
+      type: object
+      properties:
+        description:
+          type: string
+          description: Updated group description
+          example: Development team (updated)
+        members:
+          type: array
+          items:
+            type: string
+          description: Updated list of member usernames
+          example: [alice, bob, charlie]
+
+    GroupsListResponse:
+      type: object
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/Group"
+
+    GroupPermission:
+      type: object
+      required:
+        - groupName
+        - collection
+      properties:
+        groupName:
+          type: string
+          description: Group name
+          example: developers
+        collection:
+          type: string
+          description: Collection name ("*" for all collections)
+          example: blog
+        read:
+          type: boolean
+          description: Read permission
+          example: true
+        write:
+          type: boolean
+          description: Write permission
+          example: true
+        admin:
+          type: boolean
+          description: Admin permission
+          example: false
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from POST /v1/auth/login
+    APIKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key obtained from POST /v1/auth/api-key
