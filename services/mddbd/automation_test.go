@@ -18,7 +18,7 @@ func setupAutomationTest(t *testing.T) (*AutomationManager, func()) {
 	if err := am.EnsureBucket(); err != nil {
 		t.Fatal(err)
 	}
-	return am, func() { db.Close() }
+	return am, func() { _ = db.Close() }
 }
 
 // createWebhook is a test helper that creates a webhook rule and returns it.
@@ -772,7 +772,7 @@ func TestAutomationLoadAll(t *testing.T) {
 		t.Error("expected GetWebhook to work after LoadAll")
 	}
 
-	db.Close()
+	_ = db.Close()
 }
 
 func TestAutomationDefaultMethod(t *testing.T) {

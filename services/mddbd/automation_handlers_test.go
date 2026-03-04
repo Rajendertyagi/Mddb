@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -38,14 +37,14 @@ func newTestServerForAutomation(t *testing.T) (*Server, func()) {
 	}
 
 	if err := s.ensureBuckets(); err != nil {
-		db.Close()
+		_ = db.Close()
 		t.Fatal(err)
 	}
 
 	// Set up FTSIndex
 	s.FTSIndex = NewFTSIndex(db)
 	if err := s.FTSIndex.EnsureBuckets(); err != nil {
-		db.Close()
+		_ = db.Close()
 		t.Fatal(err)
 	}
 
@@ -53,12 +52,12 @@ func newTestServerForAutomation(t *testing.T) (*Server, func()) {
 	am := NewAutomationManager(db)
 	am.SetServer(s)
 	if err := am.EnsureBucket(); err != nil {
-		db.Close()
+		_ = db.Close()
 		t.Fatal(err)
 	}
 	s.AutomationManager = am
 
-	return s, func() { db.Close() }
+	return s, func() { _ = db.Close() }
 }
 
 // --- HTTP Handler Tests ---
@@ -165,7 +164,7 @@ func TestHandleAutomation_ListWithTypeFilter(t *testing.T) {
 
 	// Create a webhook and trigger
 	wh, _ := s.AutomationManager.Create(AutomationRule{Type: "webhook", Name: "Hook", URL: "https://example.com", Enabled: true})
-	s.AutomationManager.Create(AutomationRule{Type: "trigger", Name: "Trig", Collection: "blog", SearchType: "fts", Query: "test", Threshold: 50, WebhookID: wh.ID, Enabled: true})
+	_, _ = s.AutomationManager.Create(AutomationRule{Type: "trigger", Name: "Trig", Collection: "blog", SearchType: "fts", Query: "test", Threshold: 50, WebhookID: wh.ID, Enabled: true})
 
 	// Filter by webhook
 	req := httptest.NewRequest(http.MethodGet, "/v1/automation?type=webhook", nil)
@@ -173,7 +172,9 @@ func TestHandleAutomation_ListWithTypeFilter(t *testing.T) {
 	s.handleAutomation(w, req)
 
 	var body map[string]interface{}
-	json.NewDecoder(w.Result().Body).Decode(&body)
+	if err := json.NewDecoder(w.Result().Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
 	total := int(body["total"].(float64))
 	if total != 1 {
 		t.Errorf("expected 1 webhook, got %d", total)
@@ -206,7 +207,9 @@ func TestHandleAutomationDetail_GetUpdateDelete(t *testing.T) {
 	}
 
 	var updated AutomationRule
-	json.NewDecoder(w.Result().Body).Decode(&updated)
+	if err := json.NewDecoder(w.Result().Body).Decode(&updated); err != nil {
+		t.Fatal(err)
+	}
 	if updated.Name != "Updated Hook" {
 		t.Errorf("expected name 'Updated Hook', got %q", updated.Name)
 	}
@@ -281,7 +284,9 @@ func TestHandleAutomationTest_Success(t *testing.T) {
 	defer cleanup()
 
 	// Index a document in FTS
-	s.FTSIndex.Index("blog", "doc1", "golang programming tutorial")
+	if err := s.FTSIndex.Index("blog", "doc1", "golang programming tutorial"); err != nil {
+		t.Fatal(err)
+	}
 
 	// Create webhook + trigger
 	wh, _ := s.AutomationManager.Create(AutomationRule{Type: "webhook", Name: "Hook", URL: "https://example.com", Enabled: true})
@@ -300,7 +305,9 @@ func TestHandleAutomationTest_Success(t *testing.T) {
 	}
 
 	var result map[string]interface{}
-	json.NewDecoder(w.Result().Body).Decode(&result)
+	if err := json.NewDecoder(w.Result().Body).Decode(&result); err != nil {
+		t.Fatal(err)
+	}
 	total := int(result["total"].(float64))
 	if total < 1 {
 		t.Errorf("expected at least 1 match, got %d", total)
@@ -397,14 +404,12 @@ func TestEvaluateTriggers_NoTriggers(t *testing.T) {
 	s, cleanup := newTestServerForAutomation(t)
 	defer cleanup()
 
-	// Should not panic with no triggers
 	s.AutomationManager.EvaluateTriggers("blog", Doc{ID: "doc1"})
 }
 
 func TestEvaluateTriggers_NoServer(t *testing.T) {
 	am, cleanup := setupAutomationTest(t)
 	defer cleanup()
-	// am.server is nil
 	am.EvaluateTriggers("blog", Doc{ID: "doc1"})
 }
 
@@ -427,8 +432,9 @@ func TestEvalFTS_Match(t *testing.T) {
 	s, cleanup := newTestServerForAutomation(t)
 	defer cleanup()
 
-	// Index a document
-	s.FTSIndex.Index("blog", "doc1", "golang programming is awesome")
+	if err := s.FTSIndex.Index("blog", "doc1", "golang programming is awesome"); err != nil {
+		t.Fatal(err)
+	}
 
 	trigger := &AutomationRule{SearchType: "fts", Query: "golang", Collection: "blog", Threshold: 0}
 	score, matched := s.AutomationManager.evalFTS(trigger, &Doc{ID: "doc1"})
@@ -444,7 +450,9 @@ func TestEvalFTS_NoMatch(t *testing.T) {
 	s, cleanup := newTestServerForAutomation(t)
 	defer cleanup()
 
-	s.FTSIndex.Index("blog", "doc1", "golang programming")
+	if err := s.FTSIndex.Index("blog", "doc1", "golang programming"); err != nil {
+		t.Fatal(err)
+	}
 
 	trigger := &AutomationRule{SearchType: "fts", Query: "golang", Collection: "blog", Threshold: 0}
 	score, matched := s.AutomationManager.evalFTS(trigger, &Doc{ID: "doc999"})
@@ -460,7 +468,9 @@ func TestEvalFTS_ThresholdNotMet(t *testing.T) {
 	s, cleanup := newTestServerForAutomation(t)
 	defer cleanup()
 
-	s.FTSIndex.Index("blog", "doc1", "golang programming")
+	if err := s.FTSIndex.Index("blog", "doc1", "golang programming"); err != nil {
+		t.Fatal(err)
+	}
 
 	trigger := &AutomationRule{SearchType: "fts", Query: "golang", Collection: "blog", Threshold: 999}
 	score, matched := s.AutomationManager.evalFTS(trigger, &Doc{ID: "doc1"})
@@ -518,10 +528,9 @@ func TestRunTriggerFTS(t *testing.T) {
 	s, cleanup := newTestServerForAutomation(t)
 	defer cleanup()
 
-	// Index documents
-	s.FTSIndex.Index("blog", "doc1", "golang programming tutorial")
-	s.FTSIndex.Index("blog", "doc2", "python data science")
-	s.FTSIndex.Index("blog", "doc3", "golang web development")
+	_ = s.FTSIndex.Index("blog", "doc1", "golang programming tutorial")
+	_ = s.FTSIndex.Index("blog", "doc2", "python data science")
+	_ = s.FTSIndex.Index("blog", "doc3", "golang web development")
 
 	trigger := &AutomationRule{
 		SearchType: "fts",
@@ -562,9 +571,8 @@ func TestRunTriggerFTS_WithThreshold(t *testing.T) {
 	s, cleanup := newTestServerForAutomation(t)
 	defer cleanup()
 
-	s.FTSIndex.Index("blog", "doc1", "golang programming tutorial")
+	_ = s.FTSIndex.Index("blog", "doc1", "golang programming tutorial")
 
-	// High threshold should filter out results
 	trigger := &AutomationRule{
 		SearchType: "fts",
 		Collection: "blog",
@@ -605,7 +613,6 @@ func TestRunTriggerAndFire_WebhookNotFound(t *testing.T) {
 		Query:      "test",
 		WebhookID:  "nonexistent",
 	}
-	// Should not panic
 	s.AutomationManager.RunTriggerAndFire(trigger)
 }
 
@@ -622,7 +629,6 @@ func TestRunTriggerAndFire_WebhookDisabled(t *testing.T) {
 		Query:      "test",
 		WebhookID:  wh.ID,
 	}
-	// Should not panic
 	s.AutomationManager.RunTriggerAndFire(trigger)
 }
 
@@ -631,7 +637,6 @@ func TestEvaluateSingleTrigger_NoServer(t *testing.T) {
 	defer cleanup()
 
 	trigger := &AutomationRule{SearchType: "fts"}
-	// Should not panic
 	am.evaluateSingleTrigger(trigger, &Doc{ID: "doc1"})
 }
 
@@ -639,7 +644,7 @@ func TestEvaluateSingleTrigger_WebhookNotFound(t *testing.T) {
 	s, cleanup := newTestServerForAutomation(t)
 	defer cleanup()
 
-	s.FTSIndex.Index("blog", "doc1", "golang test content")
+	_ = s.FTSIndex.Index("blog", "doc1", "golang test content")
 
 	trigger := &AutomationRule{
 		ID:         "trigger1",
@@ -649,7 +654,6 @@ func TestEvaluateSingleTrigger_WebhookNotFound(t *testing.T) {
 		Threshold:  0,
 		WebhookID:  "nonexistent",
 	}
-	// Should not panic even when webhook doesn't exist
 	s.AutomationManager.evaluateSingleTrigger(trigger, &Doc{ID: "doc1"})
 }
 
@@ -657,23 +661,20 @@ func TestEvaluateTriggers_FTSMatch(t *testing.T) {
 	s, cleanup := newTestServerForAutomation(t)
 	defer cleanup()
 
-	s.FTSIndex.Index("blog", "doc1", "golang programming guide")
+	_ = s.FTSIndex.Index("blog", "doc1", "golang programming guide")
 
-	// Create webhook + trigger
 	wh, _ := s.AutomationManager.Create(AutomationRule{Type: "webhook", Name: "Hook", URL: "https://example.com", Enabled: true})
-	s.AutomationManager.Create(AutomationRule{
+	_, _ = s.AutomationManager.Create(AutomationRule{
 		Type: "trigger", Name: "Trig", Collection: "blog",
 		SearchType: "fts", Query: "golang", Threshold: 0, WebhookID: wh.ID, Enabled: true,
 	})
 
-	// Should not panic
 	s.AutomationManager.EvaluateTriggers("blog", Doc{ID: "doc1"})
 }
 
 // --- Webhook Firing Tests ---
 
 func TestFireAutomationWebhook(t *testing.T) {
-	// Create a test HTTP server to receive the webhook
 	var receivedBody []byte
 	var receivedHeaders http.Header
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -700,7 +701,6 @@ func TestFireAutomationWebhook(t *testing.T) {
 
 	fireAutomationWebhook(webhook, trigger, doc, "blog", 85.5)
 
-	// Verify payload
 	if len(receivedBody) == 0 {
 		t.Fatal("expected webhook to receive a body")
 	}
@@ -729,7 +729,6 @@ func TestFireAutomationWebhook(t *testing.T) {
 		t.Error("expected timestamp to be set")
 	}
 
-	// Verify headers
 	if receivedHeaders.Get("Content-Type") != "application/json" {
 		t.Errorf("expected Content-Type application/json, got %q", receivedHeaders.Get("Content-Type"))
 	}
@@ -755,7 +754,7 @@ func TestFireAutomationWebhook_DefaultMethod(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	webhook := &AutomationRule{ID: "wh1", URL: ts.URL} // no Method set
+	webhook := &AutomationRule{ID: "wh1", URL: ts.URL}
 	trigger := &AutomationRule{ID: "tr1", Name: "Trig"}
 
 	fireAutomationWebhook(webhook, trigger, nil, "blog", 50)
@@ -779,7 +778,9 @@ func TestFireAutomationWebhook_NilDoc(t *testing.T) {
 	fireAutomationWebhook(webhook, trigger, nil, "blog", 50)
 
 	var payload TriggerPayload
-	json.Unmarshal(receivedBody, &payload)
+	if err := json.Unmarshal(receivedBody, &payload); err != nil {
+		t.Fatalf("unmarshal failed: %v", err)
+	}
 	if payload.Document != nil {
 		t.Error("expected nil document in payload")
 	}
@@ -804,7 +805,6 @@ func TestCronScheduler_Reload_Empty(t *testing.T) {
 	cs.Start()
 	defer cs.Stop()
 
-	// Reload with no crons should not panic
 	cs.Reload()
 	if len(cs.entryMap) != 0 {
 		t.Errorf("expected 0 entries, got %d", len(cs.entryMap))
@@ -815,13 +815,12 @@ func TestCronScheduler_Reload_WithCrons(t *testing.T) {
 	s, cleanup := newTestServerForAutomation(t)
 	defer cleanup()
 
-	// Create webhook + trigger + cron
 	wh, _ := s.AutomationManager.Create(AutomationRule{Type: "webhook", Name: "Hook", URL: "https://example.com", Enabled: true})
 	tr, _ := s.AutomationManager.Create(AutomationRule{
 		Type: "trigger", Name: "Trig", Collection: "blog",
 		SearchType: "fts", Query: "test", Threshold: 50, WebhookID: wh.ID, Enabled: true,
 	})
-	s.AutomationManager.Create(AutomationRule{
+	_, _ = s.AutomationManager.Create(AutomationRule{
 		Type: "cron", Name: "Cron", Schedule: "0 0 * * * *",
 		TriggerID: tr.ID, Enabled: true,
 	})
@@ -845,7 +844,7 @@ func TestCronScheduler_Reload_DisabledCronSkipped(t *testing.T) {
 		Type: "trigger", Name: "Trig", Collection: "blog",
 		SearchType: "fts", Query: "test", Threshold: 50, WebhookID: wh.ID, Enabled: true,
 	})
-	s.AutomationManager.Create(AutomationRule{
+	_, _ = s.AutomationManager.Create(AutomationRule{
 		Type: "cron", Name: "Disabled Cron", Schedule: "0 0 * * * *",
 		TriggerID: tr.ID, Enabled: false,
 	})
@@ -870,7 +869,6 @@ func TestCronScheduler_Reload_InvalidSchedule(t *testing.T) {
 		SearchType: "fts", Query: "test", Threshold: 50, WebhookID: wh.ID, Enabled: true,
 	})
 
-	// Manually insert a cron with invalid schedule (bypass validation)
 	s.AutomationManager.mu.Lock()
 	s.AutomationManager.rules = append(s.AutomationManager.rules, AutomationRule{
 		ID: "bad-cron", Type: "cron", Name: "Bad", Enabled: true,
@@ -882,7 +880,6 @@ func TestCronScheduler_Reload_InvalidSchedule(t *testing.T) {
 	cs.Start()
 	defer cs.Stop()
 
-	// Should not panic with invalid schedule
 	cs.Reload()
 	if len(cs.entryMap) != 0 {
 		t.Errorf("expected 0 entries for invalid schedule, got %d", len(cs.entryMap))
@@ -893,7 +890,6 @@ func TestCronScheduler_Reload_MissingTrigger(t *testing.T) {
 	s, cleanup := newTestServerForAutomation(t)
 	defer cleanup()
 
-	// Manually insert a cron with non-existent trigger
 	s.AutomationManager.mu.Lock()
 	s.AutomationManager.rules = append(s.AutomationManager.rules, AutomationRule{
 		ID: "orphan-cron", Type: "cron", Name: "Orphan", Enabled: true,
@@ -934,8 +930,7 @@ func TestCronScheduler_ReloadClearsPrevious(t *testing.T) {
 		t.Fatalf("expected 1 entry after first reload, got %d", len(cs.entryMap))
 	}
 
-	// Delete the cron and reload
-	s.AutomationManager.Delete(cr.ID)
+	_ = s.AutomationManager.Delete(cr.ID)
 	cs.Reload()
 	if len(cs.entryMap) != 0 {
 		t.Errorf("expected 0 entries after deleting cron, got %d", len(cs.entryMap))
@@ -967,14 +962,13 @@ func TestAutomationSetBinlog(t *testing.T) {
 		t.Error("expected binlog to be nil initially")
 	}
 
-	// Create temp binlog
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "test.db")
 	bl, err := NewBinlog(dbPath, BinlogConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer bl.Close()
+	defer func() { _ = bl.Close() }()
 
 	am.SetBinlog(bl)
 	if am.binlog != bl {
@@ -991,16 +985,18 @@ func TestAutomationCreateWithBinlog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	bl, err := NewBinlog(dbPath, BinlogConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer bl.Close()
+	defer func() { _ = bl.Close() }()
 
 	am := NewAutomationManager(db)
-	am.EnsureBucket()
+	if err := am.EnsureBucket(); err != nil {
+		t.Fatal(err)
+	}
 	am.SetBinlog(bl)
 
 	_, err = am.Create(AutomationRule{Type: "webhook", Name: "Hook", URL: "https://example.com"})
@@ -1016,16 +1012,18 @@ func TestAutomationDeleteWithBinlog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	bl, err := NewBinlog(dbPath, BinlogConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer bl.Close()
+	defer func() { _ = bl.Close() }()
 
 	am := NewAutomationManager(db)
-	am.EnsureBucket()
+	if err := am.EnsureBucket(); err != nil {
+		t.Fatal(err)
+	}
 	am.SetBinlog(bl)
 
 	wh, _ := am.Create(AutomationRule{Type: "webhook", Name: "Hook", URL: "https://example.com"})
@@ -1058,6 +1056,3 @@ func TestTriggerPayloadJSON(t *testing.T) {
 		t.Error("expected 'blog' in JSON")
 	}
 }
-
-// Prevent unused import
-var _ = os.TempDir
