@@ -22,7 +22,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-const VERSION = "2.6.2"
+const VERSION = "2.6.3"
 
 type AccessMode string
 
@@ -56,7 +56,7 @@ type Server struct {
 	// Vector search
 	VectorStore     *VectorStore              // Persistent vector storage in BoltDB
 	VectorIndex     *VectorIndex              // In-memory flat vector index
-	VectorSearchers map[string]VectorSearcher // algorithm name -> searcher (flat, hnsw, ivf, pq)
+	VectorSearchers map[string]VectorSearcher // algorithm name -> searcher (flat, hnsw, ivf, pq, sq, bq)
 	EmbeddingWorker *EmbeddingWorker          // Background embedding processor
 	Embedding       EmbeddingProvider         // Embedding generation provider
 	// New features
@@ -66,6 +66,7 @@ type Server struct {
 	SchemaManager  *SchemaManager  // Per-collection metadata schema validation
 	Metrics        *Metrics        // Prometheus-compatible telemetry
 	AuthManager    *AuthManager    // Authentication and authorization
+	SynonymManager *SynonymManager // Synonym dictionaries for FTS
 	// Replication
 	Binlog          *Binlog            // Binary replication log
 	ReplicationRole string             // "leader", "follower", or "" (standalone)
@@ -240,11 +241,17 @@ func main() {
 		log.Fatal(err)
 	}
 	s.VectorIndex = NewVectorIndex()
+	bqRerank := srvCfg.Vector.BQRerankFactor
+	if bqRerank <= 0 {
+		bqRerank = 10
+	}
 	s.VectorSearchers = map[string]VectorSearcher{
 		"flat": s.VectorIndex,
 		"hnsw": NewHNSWIndex(16, 200, 100),
 		"ivf":  NewIVFIndex(10, 20),
 		"pq":   NewPQIndex(8, 256, 20),
+		"sq":   NewSQIndex(),
+		"bq":   NewBQIndex(bqRerank),
 	}
 
 	// Try to load embedding config from database first
@@ -278,11 +285,37 @@ func main() {
 	s.TTLManager.StartCleanup(30 * time.Second)
 	log.Println("TTL manager started (cleanup every 30s)")
 
+	// Configure compression
+	ConfigureCompression(srvCfg.Compression.Enabled, srvCfg.Compression.SmallThreshold, srvCfg.Compression.MediumThreshold)
+	if !srvCfg.Compression.Enabled {
+		log.Println("Document compression disabled")
+	}
+
 	// Initialize FTS index
 	s.FTSIndex = NewFTSIndex(db)
 	if err := s.FTSIndex.EnsureBuckets(); err != nil {
 		log.Fatal(err)
 	}
+
+	// Initialize stemmer
+	if srvCfg.FTS.StemmingEnabled {
+		s.FTSIndex.SetStemmer(NewPorterStemmer())
+		log.Println("FTS stemming enabled (Porter)")
+	}
+
+	// Initialize synonym manager
+	s.SynonymManager = NewSynonymManager(db)
+	if err := s.SynonymManager.EnsureBucket(); err != nil {
+		log.Fatal(err)
+	}
+	if err := s.SynonymManager.LoadAll(); err != nil {
+		log.Fatal(err)
+	}
+	if srvCfg.FTS.SynonymsEnabled {
+		s.FTSIndex.SetSynonymManager(s.SynonymManager)
+		log.Println("FTS synonyms enabled")
+	}
+
 	log.Println("Full-text search index initialized")
 
 	// Initialize webhook manager
@@ -347,6 +380,7 @@ func main() {
 		s.TTLManager.SetBinlog(s.Binlog)
 		s.WebhookManager.SetBinlog(s.Binlog)
 		s.SchemaManager.SetBinlog(s.Binlog)
+		s.SynonymManager.SetBinlog(s.Binlog)
 	}
 
 	// Follower: disable background writers (data comes from binlog)
@@ -429,6 +463,7 @@ func main() {
 	mux.HandleFunc("/v1/import-url", s.guardWrite(s.handleImportURL))
 	mux.HandleFunc("/v1/set-ttl", s.guardWrite(s.handleSetTTL))
 	mux.HandleFunc("/v1/fts", s.handleFTS)
+	mux.HandleFunc("/v1/synonyms", s.handleSynonyms)
 	mux.HandleFunc("/v1/webhooks", s.handleWebhooks)
 	mux.HandleFunc("/v1/webhooks/delete", s.guardWrite(s.handleWebhookDelete))
 	mux.HandleFunc("/v1/schema/set", s.guardWrite(s.handleSchemaSet))

@@ -249,10 +249,31 @@ class MDDBClient {
   /**
    * Full-text search
    */
-  async ftsSearch({ collection, query, limit = 50, algorithm = 'tfidf', fuzzy = 0 }) {
+  async ftsSearch({ collection, query, limit = 50, algorithm = 'tfidf', fuzzy = 0, disableStem = false, disableSynonyms = false }) {
     return this.request('/fts', {
       method: 'POST',
-      body: JSON.stringify({ collection, query, limit, algorithm, fuzzy }),
+      body: JSON.stringify({ collection, query, limit, algorithm, fuzzy, disableStem, disableSynonyms }),
+    });
+  }
+
+  /**
+   * Synonyms CRUD
+   */
+  async listSynonyms(collection) {
+    return this.request(`/synonyms?collection=${encodeURIComponent(collection)}`, { method: 'GET' });
+  }
+
+  async setSynonym({ collection, term, synonyms }) {
+    return this.request('/synonyms', {
+      method: 'POST',
+      body: JSON.stringify({ collection, term, synonyms }),
+    });
+  }
+
+  async deleteSynonym({ collection, term }) {
+    return this.request('/synonyms', {
+      method: 'DELETE',
+      body: JSON.stringify({ collection, term }),
     });
   }
 

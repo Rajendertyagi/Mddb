@@ -9,6 +9,8 @@ export default function FTSSearchPanel() {
     ftsLimit, setFtsLimit,
     ftsAlgorithm, setFtsAlgorithm,
     ftsFuzzy, setFtsFuzzy,
+    ftsStemming, setFtsStemming,
+    ftsSynonyms, setFtsSynonyms,
     ftsResults, setFtsResults,
     ftsLoading, setFtsLoading,
     ftsError, setFtsError,
@@ -27,6 +29,8 @@ export default function FTSSearchPanel() {
         limit: ftsLimit,
         algorithm: ftsAlgorithm,
         fuzzy: ftsFuzzy,
+        disableStem: !ftsStemming,
+        disableSynonyms: !ftsSynonyms,
       });
       setFtsResults(data.results || []);
     } catch (error) {
@@ -134,7 +138,27 @@ export default function FTSSearchPanel() {
           </div>
         </div>
 
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <label className="flex items-center space-x-1.5 text-sm text-gray-600">
+              <input
+                type="checkbox"
+                checked={ftsStemming}
+                onChange={(e) => setFtsStemming(e.target.checked)}
+                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+              <span>Stemming</span>
+            </label>
+            <label className="flex items-center space-x-1.5 text-sm text-gray-600">
+              <input
+                type="checkbox"
+                checked={ftsSynonyms}
+                onChange={(e) => setFtsSynonyms(e.target.checked)}
+                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+              <span>Synonyms</span>
+            </label>
+          </div>
           <button
             onClick={handleSearch}
             disabled={ftsLoading || !ftsQuery.trim()}

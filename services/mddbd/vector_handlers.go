@@ -22,7 +22,7 @@ type VectorSearchRequest struct {
 	Threshold      float64             `json:"threshold"`
 	FilterMeta     map[string][]string `json:"filterMeta"`
 	IncludeContent bool                `json:"includeContent"`
-	Algorithm      string              `json:"algorithm"` // "flat" (default), "hnsw", "ivf", "pq"
+	Algorithm      string              `json:"algorithm"` // "flat" (default), "hnsw", "ivf", "pq", "sq", "bq"
 }
 
 // VectorSearchResultItem represents a single search result.

@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.3] - 2026-03-04
+
+### Added
+- **Scalar Quantization (SQ)** - New vector search algorithm
+  - Quantizes float32 vectors to uint8 (0-255) using per-dimension min/max scaling
+  - ADC-style search with precomputed distance tables + exact cosine re-ranking
+  - ~75% memory reduction vs flat index
+  - Algorithm option: `"sq"` in vector search API
+- **Binary Quantization (BQ)** - New vector search algorithm
+  - Reduces each float32 to 1 bit (sign bit), packed into uint64 words
+  - Hamming distance for ultra-fast coarse ranking via `math/bits.OnesCount64`
+  - Re-ranks top candidates with exact cosine similarity
+  - ~97% memory reduction vs flat index
+  - Algorithm option: `"bq"` in vector search API
+- **Porter Stemming** for Full-Text Search
+  - Pure Go Porter Stemmer implementation (no external deps)
+  - Stems indexed terms and query terms for better recall
+  - Configurable: `MDDB_FTS_STEMMING` (default: true)
+  - Per-query disable via `disableStem` request field
+- **Synonym Support** for Full-Text Search
+  - Per-collection synonym dictionaries stored in BoltDB
+  - HTTP endpoints: `POST/GET/DELETE /v1/synonyms`
+  - Built-in default synonym groups (10 English groups)
+  - Bidirectional query-time expansion
+  - Configurable: `MDDB_FTS_SYNONYMS` (default: true)
+  - Per-query disable via `disableSynonyms` request field
+- **Compression Configuration**
+  - `MDDB_COMPRESSION_ENABLED` - enable/disable adaptive compression
+  - `MDDB_COMPRESSION_SMALL_THRESHOLD` - Snappy threshold (default: 1024)
+  - `MDDB_COMPRESSION_MEDIUM_THRESHOLD` - Zstd threshold (default: 10240)
+- **Extended Configuration**
+  - New config sections: `fts`, `compression`, `vector` in YAML config file
+  - All new features configurable via env vars, YAML, or CLI flags
+  - FTS response includes `stemmingActive` and `synonymsActive` status
+
+### Changed
+- Panel VectorSearchPanel: added SQ and BQ to algorithm dropdown
+- Panel FTSSearchPanel: added stemming/synonyms toggles
+- Panel mddb-client: added synonym CRUD methods
+- Version bumped to 2.6.3
+
 ## [2.6.2] - 2026-03-04
 
 ### Added
