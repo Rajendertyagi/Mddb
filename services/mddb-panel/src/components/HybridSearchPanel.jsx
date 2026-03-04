@@ -1,51 +1,55 @@
 import { useState } from 'react';
-import { Search, AlertCircle, Tag, ChevronDown, ChevronUp, Plus, X, Terminal } from 'lucide-react';
+import { Search, AlertCircle, Tag, Terminal } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
 import CommandModal from './CommandModal';
 
-export default function FTSSearchPanel() {
+export default function HybridSearchPanel() {
   const {
     currentCollection,
-    ftsQuery, setFtsQuery,
-    ftsLimit, setFtsLimit,
-    ftsAlgorithm, setFtsAlgorithm,
-    ftsFuzzy, setFtsFuzzy,
-    ftsStemming, setFtsStemming,
-    ftsSynonyms, setFtsSynonyms,
-    ftsFieldWeights, setFtsFieldWeight, removeFtsFieldWeight,
-    ftsResults, setFtsResults,
-    ftsLoading, setFtsLoading,
-    ftsError, setFtsError,
+    hybridQuery, setHybridQuery,
+    hybridTopK, setHybridTopK,
+    hybridAlpha, setHybridAlpha,
+    hybridStrategy, setHybridStrategy,
+    hybridRrfK, setHybridRrfK,
+    hybridFtsAlgorithm, setHybridFtsAlgorithm,
+    hybridVectorAlgorithm, setHybridVectorAlgorithm,
+    hybridFuzzy, setHybridFuzzy,
+    hybridThreshold, setHybridThreshold,
+    hybridResults, setHybridResults,
+    hybridLoading, setHybridLoading,
+    hybridError, setHybridError,
     setCurrentDocument,
   } = useStore();
 
-  const [weightsOpen, setWeightsOpen] = useState(true);
-  const [newFieldName, setNewFieldName] = useState('');
+  const [includeContent, setIncludeContent] = useState(false);
   const [showCommand, setShowCommand] = useState(false);
 
   const handleSearch = async () => {
-    if (!currentCollection || !ftsQuery.trim()) return;
+    if (!currentCollection || !hybridQuery.trim()) return;
 
-    setFtsLoading(true);
-    setFtsError(null);
+    setHybridLoading(true);
+    setHybridError(null);
     try {
-      const data = await mddbClient.ftsSearch({
+      const data = await mddbClient.hybridSearch({
         collection: currentCollection,
-        query: ftsQuery.trim(),
-        limit: ftsLimit,
-        algorithm: ftsAlgorithm,
-        fuzzy: ftsFuzzy,
-        disableStem: !ftsStemming,
-        disableSynonyms: !ftsSynonyms,
-        fieldWeights: ftsAlgorithm === 'bm25f' ? ftsFieldWeights : null,
+        query: hybridQuery.trim(),
+        topK: hybridTopK,
+        algorithm: hybridFtsAlgorithm,
+        vectorAlgorithm: hybridVectorAlgorithm,
+        alpha: hybridAlpha,
+        strategy: hybridStrategy,
+        rrfK: hybridRrfK,
+        fuzzy: hybridFuzzy,
+        threshold: hybridThreshold,
+        includeContent,
       });
-      setFtsResults(data.results || []);
+      setHybridResults(data.results || []);
     } catch (error) {
-      setFtsError(error.message);
-      setFtsResults([]);
+      setHybridError(error.message);
+      setHybridResults([]);
     } finally {
-      setFtsLoading(false);
+      setHybridLoading(false);
     }
   };
 
@@ -75,14 +79,6 @@ export default function FTSSearchPanel() {
     }
   };
 
-  const handleAddField = () => {
-    const name = newFieldName.trim();
-    if (name && !(name in ftsFieldWeights)) {
-      setFtsFieldWeight(name, 1.0);
-      setNewFieldName('');
-    }
-  };
-
   if (!currentCollection) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -94,8 +90,7 @@ export default function FTSSearchPanel() {
     );
   }
 
-  // Normalize score for bar width (max score = 1.0 for display)
-  const maxScore = ftsResults.length > 0 ? Math.max(...ftsResults.map(r => r.score)) : 1;
+  const maxScore = hybridResults.length > 0 ? Math.max(...hybridResults.map(r => r.score)) : 1;
 
   return (
     <div className="h-full flex flex-col">
@@ -103,36 +98,132 @@ export default function FTSSearchPanel() {
       <div className="p-4 border-b border-gray-200 space-y-4">
         <div>
           <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-            Full-Text Query
+            Hybrid Query
           </label>
           <input
             type="text"
-            value={ftsQuery}
-            onChange={(e) => setFtsQuery(e.target.value)}
+            value={hybridQuery}
+            onChange={(e) => setHybridQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            placeholder="Search documents by text..."
+            placeholder="Search with keyword + semantic matching..."
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
           />
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
+        {/* Strategy */}
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Algorithm</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Strategy</label>
             <select
-              value={ftsAlgorithm}
-              onChange={(e) => setFtsAlgorithm(e.target.value)}
+              value={hybridStrategy}
+              onChange={(e) => setHybridStrategy(e.target.value)}
               className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
             >
-              <option value="tfidf">TF-IDF</option>
+              <option value="alpha">Alpha Blending</option>
+              <option value="rrf">RRF (Reciprocal Rank Fusion)</option>
+            </select>
+          </div>
+
+          {hybridStrategy === 'alpha' && (
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Alpha: {hybridAlpha.toFixed(2)}
+              </label>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={Math.round(hybridAlpha * 100)}
+                onChange={(e) => setHybridAlpha(parseInt(e.target.value) / 100)}
+                className="w-full accent-primary-600"
+              />
+              <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
+                <span>More Keyword</span>
+                <span>More Semantic</span>
+              </div>
+            </div>
+          )}
+
+          {hybridStrategy === 'rrf' && (
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                RRF K
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={1000}
+                value={hybridRrfK}
+                onChange={(e) => setHybridRrfK(parseInt(e.target.value) || 60)}
+                className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Algorithms */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">FTS Algorithm</label>
+            <select
+              value={hybridFtsAlgorithm}
+              onChange={(e) => setHybridFtsAlgorithm(e.target.value)}
+              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
               <option value="bm25">BM25</option>
               <option value="bm25f">BM25F (Field-Weighted)</option>
             </select>
           </div>
           <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Vector Algorithm</label>
+            <select
+              value={hybridVectorAlgorithm}
+              onChange={(e) => setHybridVectorAlgorithm(e.target.value)}
+              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="flat">Flat (Exact)</option>
+              <option value="hnsw">HNSW (Approximate)</option>
+              <option value="ivf">IVF (Clustered)</option>
+              <option value="pq">PQ (Compressed)</option>
+              <option value="sq">SQ (Scalar Quantized)</option>
+              <option value="bq">BQ (Binary Quantized)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Top K, Threshold, Fuzzy */}
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Top K: {hybridTopK}
+            </label>
+            <input
+              type="range"
+              min={1}
+              max={50}
+              value={hybridTopK}
+              onChange={(e) => setHybridTopK(parseInt(e.target.value))}
+              className="w-full accent-primary-600"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Threshold: {Math.round(hybridThreshold * 100)}%
+            </label>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={Math.round(hybridThreshold * 100)}
+              onChange={(e) => setHybridThreshold(parseInt(e.target.value) / 100)}
+              className="w-full accent-primary-600"
+            />
+          </div>
+          <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Typo Tolerance</label>
             <select
-              value={ftsFuzzy}
-              onChange={(e) => setFtsFuzzy(parseInt(e.target.value))}
+              value={hybridFuzzy}
+              onChange={(e) => setHybridFuzzy(parseInt(e.target.value))}
               className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
             >
               <option value={0}>Off</option>
@@ -140,98 +231,18 @@ export default function FTSSearchPanel() {
               <option value={2}>Medium (2 edits)</option>
             </select>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              Limit: {ftsLimit}
-            </label>
-            <input
-              type="range"
-              min={1}
-              max={200}
-              value={ftsLimit}
-              onChange={(e) => setFtsLimit(parseInt(e.target.value))}
-              className="w-full accent-primary-600"
-            />
-          </div>
         </div>
 
-        {/* BM25F Field Weights */}
-        {ftsAlgorithm === 'bm25f' && (
-          <div className="border border-gray-200 rounded-lg">
-            <button
-              onClick={() => setWeightsOpen(!weightsOpen)}
-              className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-50"
-            >
-              <span>Field Weights</span>
-              {weightsOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-            </button>
-            {weightsOpen && (
-              <div className="px-3 pb-3 space-y-2">
-                {Object.entries(ftsFieldWeights).map(([field, weight]) => (
-                  <div key={field} className="flex items-center space-x-2">
-                    <span className="text-xs text-gray-600 w-28 truncate" title={field}>{field}</span>
-                    <input
-                      type="number"
-                      min={0}
-                      max={10}
-                      step={0.5}
-                      value={weight}
-                      onChange={(e) => setFtsFieldWeight(field, parseFloat(e.target.value) || 0)}
-                      className="w-20 px-2 py-1 border border-gray-300 rounded text-xs text-center focus:outline-none focus:ring-1 focus:ring-primary-500"
-                    />
-                    <button
-                      onClick={() => removeFtsFieldWeight(field)}
-                      className="p-0.5 text-gray-400 hover:text-red-500"
-                      title="Remove field"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
-                <div className="flex items-center space-x-2 pt-1">
-                  <input
-                    type="text"
-                    value={newFieldName}
-                    onChange={(e) => setNewFieldName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddField()}
-                    placeholder="meta.author"
-                    className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
-                  />
-                  <button
-                    onClick={handleAddField}
-                    disabled={!newFieldName.trim()}
-                    className="flex items-center space-x-1 px-2 py-1 text-xs text-primary-600 hover:bg-primary-50 rounded disabled:opacity-40"
-                  >
-                    <Plus className="w-3 h-3" />
-                    <span>Add</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <label className="flex items-center space-x-1.5 text-sm text-gray-600">
-              <input
-                type="checkbox"
-                checked={ftsStemming}
-                onChange={(e) => setFtsStemming(e.target.checked)}
-                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-              />
-              <span>Stemming</span>
-            </label>
-            <label className="flex items-center space-x-1.5 text-sm text-gray-600">
-              <input
-                type="checkbox"
-                checked={ftsSynonyms}
-                onChange={(e) => setFtsSynonyms(e.target.checked)}
-                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-              />
-              <span>Synonyms</span>
-            </label>
-          </div>
+          <label className="flex items-center space-x-2 text-sm text-gray-600">
+            <input
+              type="checkbox"
+              checked={includeContent}
+              onChange={(e) => setIncludeContent(e.target.checked)}
+              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            />
+            <span>Include content</span>
+          </label>
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setShowCommand(true)}
@@ -242,10 +253,10 @@ export default function FTSSearchPanel() {
             </button>
             <button
               onClick={handleSearch}
-              disabled={ftsLoading || !ftsQuery.trim()}
+              disabled={hybridLoading || !hybridQuery.trim()}
               className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {ftsLoading ? (
+              {hybridLoading ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
               ) : (
                 <Search className="w-4 h-4" />
@@ -258,30 +269,30 @@ export default function FTSSearchPanel() {
 
       {/* Results */}
       <div className="flex-1 overflow-y-auto">
-        {ftsResults.length > 0 && (
+        {hybridResults.length > 0 && (
           <div className="px-4 pt-3 pb-1">
             <span className="text-xs font-medium text-gray-500">
-              {ftsResults.length} result{ftsResults.length !== 1 ? 's' : ''} found
+              {hybridResults.length} result{hybridResults.length !== 1 ? 's' : ''} found
             </span>
           </div>
         )}
 
-        {ftsError && (
+        {hybridError && (
           <div className="m-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-2">
             <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-red-700">{ftsError}</p>
+            <p className="text-sm text-red-700">{hybridError}</p>
           </div>
         )}
 
-        {ftsResults.length === 0 && !ftsLoading && !ftsError && ftsQuery && (
+        {hybridResults.length === 0 && !hybridLoading && !hybridError && hybridQuery && (
           <div className="flex items-center justify-center h-32">
             <p className="text-gray-400 text-sm">No results found</p>
           </div>
         )}
 
-        {ftsResults.length > 0 && (
+        {hybridResults.length > 0 && (
           <div className="divide-y divide-gray-200">
-            {ftsResults.map((result, idx) => {
+            {hybridResults.map((result, idx) => {
               const doc = result.document;
               const pct = maxScore > 0 ? Math.round((result.score / maxScore) * 100) : 0;
               return (
@@ -293,7 +304,7 @@ export default function FTSSearchPanel() {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
                       <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary-100 text-primary-700 text-xs font-bold">
-                        {idx + 1}
+                        {result.rank || idx + 1}
                       </span>
                       <h4 className="font-medium text-gray-900 truncate">
                         {doc?.key}
@@ -303,6 +314,20 @@ export default function FTSSearchPanel() {
                     <span className="text-sm font-semibold text-primary-600">
                       {result.score.toFixed(4)}
                     </span>
+                  </div>
+
+                  {/* Individual scores */}
+                  <div className="flex items-center space-x-3 mb-2">
+                    {result.ftsScore !== undefined && (
+                      <span className="text-[10px] text-gray-400">
+                        FTS: {result.ftsScore.toFixed(4)}
+                      </span>
+                    )}
+                    {result.vectorScore !== undefined && (
+                      <span className="text-[10px] text-gray-400">
+                        Vector: {result.vectorScore.toFixed(4)}
+                      </span>
+                    )}
                   </div>
 
                   {/* Score bar */}
@@ -352,16 +377,19 @@ export default function FTSSearchPanel() {
       <CommandModal
         isOpen={showCommand}
         onClose={() => setShowCommand(false)}
-        type="fts"
+        type="hybrid"
         params={{
           collection: currentCollection,
-          query: ftsQuery,
-          limit: ftsLimit,
-          algorithm: ftsAlgorithm,
-          fuzzy: ftsFuzzy,
-          disableStem: !ftsStemming,
-          disableSynonyms: !ftsSynonyms,
-          fieldWeights: ftsAlgorithm === 'bm25f' ? ftsFieldWeights : null,
+          query: hybridQuery,
+          topK: hybridTopK,
+          algorithm: hybridFtsAlgorithm,
+          vectorAlgorithm: hybridVectorAlgorithm,
+          alpha: hybridAlpha,
+          strategy: hybridStrategy,
+          rrfK: hybridRrfK,
+          fuzzy: hybridFuzzy,
+          threshold: hybridThreshold,
+          includeContent,
         }}
       />
     </div>

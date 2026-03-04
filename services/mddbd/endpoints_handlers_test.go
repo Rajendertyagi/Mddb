@@ -218,9 +218,9 @@ func TestHandleEndpoints_GRPCMethods(t *testing.T) {
 		"Add":          false,
 		"Get":          false,
 		"Search":       false,
-		"Delete":       false,
 		"VectorSearch": false,
 		"Stats":        false,
+		"HybridSearch": false,
 	}
 
 	for _, m := range resp.GRPC {
@@ -257,6 +257,7 @@ func TestHandleEndpoints_MCPTools(t *testing.T) {
 		"delete_document":  false,
 		"semantic_search":  false,
 		"get_stats":        false,
+		"hybrid_search":    false,
 	}
 
 	for _, tool := range resp.MCP {

@@ -57,6 +57,9 @@ service MDDB {
   // Full-text search
   rpc FTS(FTSRequest) returns (FTSResponse);
 
+  // Hybrid search (combines FTS + vector search)
+  rpc HybridSearch(HybridSearchRequest) returns (HybridSearchResponse);
+
   // Register a webhook
   rpc RegisterWebhook(RegisterWebhookRequest) returns (WebhookProto);
 
@@ -360,6 +363,7 @@ message FTSRequest {
   int32 limit = 3;
   string algorithm = 4;                          // "tfidf" (default) or "bm25"
   int32 fuzzy = 5;                               // typo tolerance: 0 (off), 1 (1 edit), 2 (2 edits)
+  map<string, MetaValues> filter_meta = 6;       // optional metadata pre-filter
 }
 
 message FTSResult {
@@ -373,6 +377,42 @@ message FTSResponse {
   int32 total = 2;
   string algorithm = 3;                          // algorithm used for this search
   int32 fuzzy = 4;                               // typo tolerance level used
+}
+
+// --- Hybrid search ---
+
+// Hybrid search request - combines FTS and vector search
+message HybridSearchRequest {
+  string collection = 1;
+  string query = 2;
+  int32 top_k = 3;
+  string algorithm = 4;                          // FTS algorithm: "bm25" (default), "bm25f"
+  string vector_algorithm = 5;                   // vector algorithm: "flat" (default), "hnsw", "ivf", "pq", "sq"
+  double alpha = 6;                              // weight for alpha blending: 0=keyword only, 1=semantic only
+  string strategy = 7;                           // "alpha" (default) or "rrf"
+  int32 rrf_k = 8;                               // RRF parameter k (default 60)
+  int32 fuzzy = 9;
+  double threshold = 10;
+  map<string, MetaValues> filter_meta = 11;
+  bool include_content = 12;
+  map<string, double> field_weights = 13;
+}
+
+message HybridSearchResult {
+  Document document = 1;
+  double combined_score = 2;
+  double fts_score = 3;
+  double vector_score = 4;
+  repeated string matched_terms = 5;
+  int32 rank = 6;
+}
+
+message HybridSearchResponse {
+  repeated HybridSearchResult results = 1;
+  int32 total = 2;
+  string strategy = 3;
+  string fts_algorithm = 4;
+  string vector_algorithm = 5;
 }
 
 // --- Webhooks ---

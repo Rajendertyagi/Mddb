@@ -992,6 +992,83 @@ func (c *DirectClient) FTSSearch(ctx context.Context, req *MCPFTSSearchRequest) 
 	return resp, nil
 }
 
+func (c *DirectClient) HybridSearch(ctx context.Context, req *MCPHybridSearchRequest) (*MCPHybridSearchResponse, error) {
+	if req.Collection == "" || req.Query == "" {
+		return nil, errors.New("missing required fields: collection, query")
+	}
+
+	httpReq := HybridSearchRequest{
+		Collection:      req.Collection,
+		Query:           req.Query,
+		TopK:            req.TopK,
+		Algorithm:       req.Algorithm,
+		VectorAlgorithm: req.VectorAlgorithm,
+		Alpha:           req.Alpha,
+		Strategy:        req.Strategy,
+		RRFK:            req.RRFK,
+		Fuzzy:           req.Fuzzy,
+		Threshold:       req.Threshold,
+		FilterMeta:      req.FilterMeta,
+		IncludeContent:  true,
+	}
+
+	// Run FTS
+	ftsResults, err := c.server.runFTSSearch(httpReq)
+	if err != nil {
+		return nil, err
+	}
+
+	// Run vector
+	vectorResults, err := c.server.runVectorSearch(ctx, httpReq)
+	if err != nil {
+		return nil, err
+	}
+
+	// Defaults
+	if httpReq.TopK <= 0 {
+		httpReq.TopK = 10
+	}
+	if httpReq.Strategy == "" {
+		httpReq.Strategy = "alpha"
+	}
+	if httpReq.RRFK <= 0 {
+		httpReq.RRFK = 60
+	}
+	if httpReq.Strategy == "alpha" && httpReq.Alpha == 0 {
+		httpReq.Alpha = 0.5
+	}
+
+	var merged []HybridSearchResultItem
+	switch httpReq.Strategy {
+	case "rrf":
+		merged = mergeRRF(ftsResults, vectorResults, httpReq.RRFK, httpReq.TopK)
+	default:
+		merged = mergeAlpha(ftsResults, vectorResults, httpReq.Alpha, httpReq.TopK)
+	}
+
+	items := c.server.loadHybridDocs(req.Collection, merged, true)
+
+	resp := &MCPHybridSearchResponse{
+		Strategy:        httpReq.Strategy,
+		FTSAlgorithm:    httpReq.Algorithm,
+		VectorAlgorithm: httpReq.VectorAlgorithm,
+		Results:         make([]MCPHybridSearchResult, 0, len(items)),
+	}
+	for _, item := range items {
+		resp.Results = append(resp.Results, MCPHybridSearchResult{
+			Document:      docToMCPDocument(item.Document),
+			CombinedScore: item.CombinedScore,
+			FTSScore:      item.FTSScore,
+			VectorScore:   item.VectorScore,
+			MatchedTerms:  item.MatchedTerms,
+			Rank:          item.Rank,
+		})
+	}
+	resp.Total = len(resp.Results)
+
+	return resp, nil
+}
+
 func (c *DirectClient) RegisterWebhook(ctx context.Context, req *MCPRegisterWebhookRequest) (*MCPWebhook, error) {
 	if c.server.WebhookManager == nil {
 		return nil, errors.New("webhooks not initialized")

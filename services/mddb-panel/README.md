@@ -11,6 +11,8 @@ Web-based admin interface for MDDB (Markdown Database). A simple, modern single-
 - 📋 **Metadata Display** - Rich metadata visualization
 - 🎨 **Modern UI** - Clean, responsive interface with TailwindCSS
 - ⚡ **Fast** - Built with React 19 and Vite
+- 🔀 **Hybrid Search** - Combined BM25 keyword + vector semantic search mode with alpha blending and RRF strategies
+- 💻 **Command Modal** - Copy-ready API examples in curl, PHP, Python, and JavaScript for every operation
 
 ## Screenshots
 
@@ -24,6 +26,8 @@ Web-based admin interface for MDDB (Markdown Database). A simple, modern single-
 - Sort by date, key, or custom fields
 - Copy document content
 - View revision history
+- Hybrid search mode (BM25 + vector with alpha blending / RRF)
+- Command modal with copy-ready API examples (curl, PHP, Python, JavaScript)
 
 ## Quick Start
 

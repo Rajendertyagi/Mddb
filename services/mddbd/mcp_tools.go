@@ -45,6 +45,8 @@ func (s *MCPToolServer) mcpCallTool(ctx context.Context, name string, args map[s
 		return s.toolSetTTL(ctx, args)
 	case "full_text_search":
 		return s.toolFTSSearch(ctx, args)
+	case "hybrid_search":
+		return s.toolHybridSearch(ctx, args)
 	case "register_webhook":
 		return s.toolRegisterWebhook(ctx, args)
 	case "list_webhooks":
@@ -336,6 +338,34 @@ func (s *MCPToolServer) toolFTSSearch(ctx context.Context, args map[string]inter
 	}
 
 	resp, err := s.client.FTSSearch(ctx, req)
+	if err != nil {
+		return "", err
+	}
+
+	data, _ := json.MarshalIndent(resp, "", "  ")
+	return string(data), nil
+}
+
+func (s *MCPToolServer) toolHybridSearch(ctx context.Context, args map[string]interface{}) (string, error) {
+	req := &MCPHybridSearchRequest{
+		Collection:      mcpGetString(args, "collection"),
+		Query:           mcpGetString(args, "query"),
+		TopK:            mcpGetInt(args, "top_k"),
+		Algorithm:       mcpGetString(args, "algorithm"),
+		VectorAlgorithm: mcpGetString(args, "vector_algorithm"),
+		Strategy:        mcpGetString(args, "strategy"),
+		RRFK:            mcpGetInt(args, "rrf_k"),
+		Fuzzy:           mcpGetInt(args, "fuzzy"),
+		FilterMeta:      mcpGetMetaMap(args, "filter_meta"),
+	}
+	if alpha, ok := args["alpha"].(float64); ok {
+		req.Alpha = alpha
+	}
+	if threshold, ok := args["threshold"].(float64); ok {
+		req.Threshold = threshold
+	}
+
+	resp, err := s.client.HybridSearch(ctx, req)
 	if err != nil {
 		return "", err
 	}

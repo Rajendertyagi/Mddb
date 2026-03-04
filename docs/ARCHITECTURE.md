@@ -126,6 +126,19 @@ sequenceDiagram
     S->>C: Return documents
 ```
 
+### Hybrid Search (Sparse + Dense)
+
+MDDB supports hybrid search that merges BM25 full-text results with vector semantic results in a single request. Two fusion strategies are available:
+
+- **Alpha Blending** -- linearly interpolates normalised BM25 and vector scores: `combined = (1-a) * BM25 + a * vector`.
+- **RRF (Reciprocal Rank Fusion)** -- rank-based fusion that is robust to different score distributions across the two result sets.
+
+The `/v1/hybrid-search` endpoint accepts `strategy` (`alpha` or `rrf`), `alpha` (blending weight, 0-1), and standard search parameters (`collection`, `query`, `topK`, `threshold`).
+
+### Full-Text Search with Metadata Filtering
+
+The FTS engine supports an optional `filterMeta` parameter that pre-filters the candidate document set by metadata **before** scoring. This allows scoping keyword search to specific categories, tags, or any indexed metadata field without a separate search-then-filter step.
+
 ### Get Document with Templating
 
 ```mermaid

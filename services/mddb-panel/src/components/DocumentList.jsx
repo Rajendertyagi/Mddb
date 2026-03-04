@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
-import { FileText, Calendar, Tag, Trash2, Upload, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { FileText, Calendar, Tag, Trash2, Upload, ChevronLeft, ChevronRight, Search, Terminal } from 'lucide-react';
 import { format } from 'date-fns';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
 import UploadModal from './UploadModal';
+import CommandModal from './CommandModal';
 
 export default function DocumentList() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showCommand, setShowCommand] = useState(false);
   const [offset, setOffset] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [filterText, setFilterText] = useState('');
@@ -160,6 +162,13 @@ export default function DocumentList() {
             )}
           </h3>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowCommand(true)}
+              className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded hover:bg-gray-200 flex items-center gap-1.5"
+            >
+              <Terminal className="w-3.5 h-3.5" />
+              Command
+            </button>
             <button
               onClick={() => setShowUploadModal(true)}
               className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1.5"
@@ -333,6 +342,21 @@ export default function DocumentList() {
           }}
         />
       )}
+
+      {/* Command Modal */}
+      <CommandModal
+        isOpen={showCommand}
+        onClose={() => setShowCommand(false)}
+        type="search"
+        params={{
+          collection: currentCollection,
+          filterMeta: filters,
+          sort: sortBy,
+          asc: sortAsc,
+          limit,
+          offset,
+        }}
+      />
     </div>
   );
 }

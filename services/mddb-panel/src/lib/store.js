@@ -56,6 +56,20 @@ export const useStore = create((set, get) => ({
   vectorError: null,
   vectorStats: null,
 
+  // Hybrid search
+  hybridQuery: '',
+  hybridTopK: 10,
+  hybridAlpha: 0.5,
+  hybridStrategy: 'alpha',
+  hybridRrfK: 60,
+  hybridFtsAlgorithm: 'bm25',
+  hybridVectorAlgorithm: 'flat',
+  hybridFuzzy: 0,
+  hybridThreshold: 0.0,
+  hybridResults: [],
+  hybridLoading: false,
+  hybridError: null,
+
   // Sidebar
   sidebarWidth: parseInt(localStorage.getItem('sidebarWidth')) || 256,
   sidebarCollapsed: localStorage.getItem('sidebarCollapsed') === 'true',
@@ -143,6 +157,19 @@ export const useStore = create((set, get) => ({
   setVectorLoading: (l) => set({ vectorLoading: l }),
   setVectorError: (e) => set({ vectorError: e }),
   setVectorStats: (s) => set({ vectorStats: s }),
+
+  setHybridQuery: (v) => set({ hybridQuery: v }),
+  setHybridTopK: (v) => set({ hybridTopK: v }),
+  setHybridAlpha: (v) => set({ hybridAlpha: v }),
+  setHybridStrategy: (v) => set({ hybridStrategy: v }),
+  setHybridRrfK: (v) => set({ hybridRrfK: v }),
+  setHybridFtsAlgorithm: (v) => set({ hybridFtsAlgorithm: v }),
+  setHybridVectorAlgorithm: (v) => set({ hybridVectorAlgorithm: v }),
+  setHybridFuzzy: (v) => set({ hybridFuzzy: v }),
+  setHybridThreshold: (v) => set({ hybridThreshold: v }),
+  setHybridResults: (v) => set({ hybridResults: v }),
+  setHybridLoading: (v) => set({ hybridLoading: v }),
+  setHybridError: (v) => set({ hybridError: v }),
 
   // Sidebar actions
   setSidebarWidth: (w) => { localStorage.setItem('sidebarWidth', w); set({ sidebarWidth: w }); },

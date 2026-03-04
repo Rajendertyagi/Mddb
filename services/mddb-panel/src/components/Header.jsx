@@ -1,4 +1,4 @@
-import { Database, RefreshCw, Search, Brain, Type, LogOut } from 'lucide-react';
+import { Database, RefreshCw, Search, Brain, Type, Layers, LogOut } from 'lucide-react';
 import { useStore } from '../lib/store';
 import { authManager } from '../lib/auth';
 
@@ -52,6 +52,17 @@ export default function Header({ onRefresh }) {
             >
               <Brain className="w-3.5 h-3.5" />
               <span>Vector</span>
+            </button>
+            <button
+              onClick={() => setSearchMode('hybrid')}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                searchMode === 'hybrid'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Hybrid</span>
             </button>
           </div>
 
