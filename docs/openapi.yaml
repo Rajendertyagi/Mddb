@@ -59,7 +59,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: 2.6.5
+  version: "2.6.6"
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -118,6 +118,8 @@ tags:
     description: Server and MCP configuration
   - name: GraphQL
     description: GraphQL API and interactive playground
+  - name: Automation
+    description: Triggers, crons, and webhook targets for automated workflows
 
 paths:
   /health:
@@ -2154,6 +2156,145 @@ paths:
               schema:
                 type: string
 
+  /v1/automation:
+    get:
+      tags: [Automation]
+      summary: List automation rules
+      description: Returns all automation rules (webhooks, triggers, crons). Optionally filter by type.
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [webhook, trigger, cron]
+          description: Filter by rule type
+      responses:
+        "200":
+          description: List of automation rules
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rules:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AutomationRule'
+                  total:
+                    type: integer
+    post:
+      tags: [Automation]
+      summary: Create automation rule
+      description: Create a new webhook target, trigger, or cron rule.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AutomationRule'
+      responses:
+        "201":
+          description: Rule created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutomationRule'
+        "400":
+          description: Validation error
+
+  /v1/automation/{id}:
+    get:
+      tags: [Automation]
+      summary: Get automation rule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Automation rule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutomationRule'
+        "404":
+          description: Not found
+    put:
+      tags: [Automation]
+      summary: Update automation rule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AutomationRule'
+      responses:
+        "200":
+          description: Rule updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutomationRule'
+    delete:
+      tags: [Automation]
+      summary: Delete automation rule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Rule deleted
+
+  /v1/automation/{id}/test:
+    post:
+      tags: [Automation]
+      summary: Test trigger (dry run)
+      description: Execute a trigger's search and return matching documents without firing the webhook.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Test results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trigger:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                      searchType:
+                        type: string
+                      query:
+                        type: string
+                      threshold:
+                        type: number
+                  matches:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TriggerMatch'
+                  total:
+                    type: integer
+
 components:
   schemas:
     Document:
@@ -3828,6 +3969,86 @@ components:
           type: boolean
           description: Admin permission
           example: false
+
+    AutomationRule:
+      type: object
+      required: [type, name]
+      properties:
+        id:
+          type: string
+          readOnly: true
+        type:
+          type: string
+          enum: [webhook, trigger, cron]
+        name:
+          type: string
+        enabled:
+          type: boolean
+          default: true
+        createdAt:
+          type: integer
+          readOnly: true
+        updatedAt:
+          type: integer
+          readOnly: true
+        url:
+          type: string
+          description: Webhook URL (type=webhook)
+        method:
+          type: string
+          enum: [POST, GET, PUT]
+          default: POST
+          description: HTTP method (type=webhook)
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+          description: Custom HTTP headers (type=webhook)
+        collection:
+          type: string
+          description: Target collection (type=trigger)
+        searchType:
+          type: string
+          enum: [fts, vector, hybrid]
+          description: Search type (type=trigger)
+        query:
+          type: string
+          description: Search query (type=trigger)
+        threshold:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Minimum score threshold 0-100 (type=trigger)
+        webhookId:
+          type: string
+          description: Target webhook ID (type=trigger)
+        searchParams:
+          type: object
+          description: Extra search parameters (type=trigger)
+        schedule:
+          type: string
+          description: Cron expression e.g. "0 9 * * *" (type=cron)
+        triggerId:
+          type: string
+          description: Target trigger ID (type=cron)
+        lastRun:
+          type: integer
+          readOnly: true
+          description: Last execution timestamp (type=cron)
+        nextRun:
+          type: integer
+          readOnly: true
+          description: Next scheduled execution (type=cron)
+
+    TriggerMatch:
+      type: object
+      properties:
+        docId:
+          type: string
+        collection:
+          type: string
+        score:
+          type: number
 
   securitySchemes:
     BearerAuth:

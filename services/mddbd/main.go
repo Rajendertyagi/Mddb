@@ -22,7 +22,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-const VERSION = "2.6.5"
+const VERSION = "2.6.6"
 
 type AccessMode string
 
@@ -60,14 +60,16 @@ type Server struct {
 	EmbeddingWorker *EmbeddingWorker          // Background embedding processor
 	Embedding       EmbeddingProvider         // Embedding generation provider
 	// New features
-	TTLManager      *TTLManager      // Document TTL / auto-expiry
-	FTSIndex        *FTSIndex        // Full-text search index
-	WebhookManager  *WebhookManager  // Webhook subscriptions and delivery
-	SchemaManager   *SchemaManager   // Per-collection metadata schema validation
-	Metrics         *Metrics         // Prometheus-compatible telemetry
-	AuthManager     *AuthManager     // Authentication and authorization
-	SynonymManager  *SynonymManager  // Synonym dictionaries for FTS
-	StopWordManager *StopWordManager // Per-collection custom stop words for FTS
+	TTLManager        *TTLManager        // Document TTL / auto-expiry
+	FTSIndex          *FTSIndex          // Full-text search index
+	WebhookManager    *WebhookManager    // Webhook subscriptions and delivery
+	SchemaManager     *SchemaManager     // Per-collection metadata schema validation
+	Metrics           *Metrics           // Prometheus-compatible telemetry
+	AuthManager       *AuthManager       // Authentication and authorization
+	SynonymManager    *SynonymManager    // Synonym dictionaries for FTS
+	StopWordManager   *StopWordManager   // Per-collection custom stop words for FTS
+	AutomationManager *AutomationManager // Automation: triggers, crons, webhook targets
+	CronScheduler     *CronScheduler     // Cron scheduler for automation
 	// Replication
 	Binlog          *Binlog            // Binary replication log
 	ReplicationRole string             // "leader", "follower", or "" (standalone)
@@ -340,6 +342,17 @@ func main() {
 	}
 	log.Printf("Webhook manager initialized (%d hooks loaded)", len(s.WebhookManager.List()))
 
+	// Initialize automation manager (triggers, crons, webhook targets)
+	s.AutomationManager = NewAutomationManager(db)
+	s.AutomationManager.SetServer(s)
+	if err := s.AutomationManager.EnsureBucket(); err != nil {
+		log.Fatal(err)
+	}
+	if err := s.AutomationManager.LoadAll(); err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("Automation manager initialized (%d rules loaded)", len(s.AutomationManager.List("")))
+
 	// Initialize schema manager
 	s.SchemaManager = NewSchemaManager(db)
 	if err := s.SchemaManager.EnsureBucket(); err != nil {
@@ -394,6 +407,7 @@ func main() {
 		s.SchemaManager.SetBinlog(s.Binlog)
 		s.SynonymManager.SetBinlog(s.Binlog)
 		s.StopWordManager.SetBinlog(s.Binlog)
+		s.AutomationManager.SetBinlog(s.Binlog)
 	}
 
 	// Follower: disable background writers (data comes from binlog)
@@ -409,6 +423,14 @@ func main() {
 			s.EmbeddingWorker = nil
 		}
 		log.Println("Replication: disabled TTL cleanup and embedding worker on follower")
+	}
+
+	// Initialize cron scheduler (if enabled)
+	if env("MDDB_CRONS", "false") == "true" {
+		s.CronScheduler = NewCronScheduler(s)
+		s.CronScheduler.Start()
+		s.CronScheduler.Reload()
+		log.Println("Cron scheduler started")
 	}
 
 	// Initialize authentication (disabled by default)
@@ -481,6 +503,8 @@ func main() {
 	mux.HandleFunc("/v1/stopwords", s.handleStopWords)
 	mux.HandleFunc("/v1/webhooks", s.handleWebhooks)
 	mux.HandleFunc("/v1/webhooks/delete", s.guardWrite(s.handleWebhookDelete))
+	mux.HandleFunc("/v1/automation", s.handleAutomation)
+	mux.HandleFunc("/v1/automation/", s.handleAutomationDetail)
 	mux.HandleFunc("/v1/schema/set", s.guardWrite(s.handleSchemaSet))
 	mux.HandleFunc("/v1/schema/get", s.handleSchemaGet)
 	mux.HandleFunc("/v1/schema/delete", s.guardWrite(s.handleSchemaDelete))
@@ -849,6 +873,11 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 			event = "doc.added"
 		}
 		s.WebhookManager.Fire(event, collection, key, lang, &saved)
+	}
+
+	// Automation triggers
+	if s.AutomationManager != nil && env("MDDB_TRIGGERS", "false") == "true" {
+		go s.AutomationManager.EvaluateTriggers(collection, saved)
 	}
 
 	return saved, isNew, nil

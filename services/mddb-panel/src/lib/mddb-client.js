@@ -574,6 +574,57 @@ class MDDBClient {
       body: JSON.stringify({ id }),
     });
   }
+
+  // ---- Automation Methods ----
+
+  /**
+   * List automation rules, optionally filtered by type
+   */
+  async listAutomation(type) {
+    const params = type ? `?type=${type}` : '';
+    return this.request(`/automation${params}`, { method: 'GET' });
+  }
+
+  /**
+   * Create an automation rule
+   */
+  async createAutomation(rule) {
+    return this.request('/automation', {
+      method: 'POST',
+      body: JSON.stringify(rule),
+    });
+  }
+
+  /**
+   * Get a single automation rule by ID
+   */
+  async getAutomation(id) {
+    return this.request(`/automation/${id}`, { method: 'GET' });
+  }
+
+  /**
+   * Update an automation rule
+   */
+  async updateAutomation(id, rule) {
+    return this.request(`/automation/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(rule),
+    });
+  }
+
+  /**
+   * Delete an automation rule
+   */
+  async deleteAutomation(id) {
+    return this.request(`/automation/${id}`, { method: 'DELETE' });
+  }
+
+  /**
+   * Test an automation rule (trigger)
+   */
+  async testAutomation(id) {
+    return this.request(`/automation/${id}/test`, { method: 'POST' });
+  }
 }
 
 export default new MDDBClient();
