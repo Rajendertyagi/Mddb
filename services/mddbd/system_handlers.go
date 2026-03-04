@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net"
 	"net/http"
 	"os"
 	"runtime"
@@ -75,20 +76,27 @@ func (c *cpuSamplerState) sample() float64 {
 
 // ---- Request/Response types ----
 
+type NetworkInterface struct {
+	Name      string   `json:"name"`
+	Addresses []string `json:"addresses"`
+	Flags     string   `json:"flags"`
+}
+
 type SystemInfoResponse struct {
-	Hostname        string  `json:"hostname"`
-	OS              string  `json:"os"`
-	Arch            string  `json:"arch"`
-	NumCPU          int     `json:"numCPU"`
-	GoVersion       string  `json:"goVersion"`
-	Version         string  `json:"version"`
-	UptimeSeconds   int64   `json:"uptimeSeconds"`
-	MemoryTotal     uint64  `json:"memoryTotal"`
-	MemoryUsed      uint64  `json:"memoryUsed"`
-	MemorySystem    uint64  `json:"memorySystem"`
-	MemoryHeap      uint64  `json:"memoryHeap"`
-	NumGoroutines   int     `json:"numGoroutines"`
-	CPUUsagePercent float64 `json:"cpuUsagePercent"`
+	Hostname        string             `json:"hostname"`
+	OS              string             `json:"os"`
+	Arch            string             `json:"arch"`
+	NumCPU          int                `json:"numCPU"`
+	GoVersion       string             `json:"goVersion"`
+	Version         string             `json:"version"`
+	UptimeSeconds   int64              `json:"uptimeSeconds"`
+	MemoryTotal     uint64             `json:"memoryTotal"`
+	MemoryUsed      uint64             `json:"memoryUsed"`
+	MemorySystem    uint64             `json:"memorySystem"`
+	MemoryHeap      uint64             `json:"memoryHeap"`
+	NumGoroutines   int                `json:"numGoroutines"`
+	CPUUsagePercent float64            `json:"cpuUsagePercent"`
+	Network         []NetworkInterface `json:"network"`
 }
 
 // ---- Handlers ----
@@ -116,6 +124,28 @@ func (s *Server) handleSystemInfo(w http.ResponseWriter, r *http.Request) {
 	// Sample CPU usage
 	cpuPercent := cpuSampler.sample()
 
+	// Gather network interfaces
+	var netIfaces []NetworkInterface
+	if ifaces, err := net.Interfaces(); err == nil {
+		for _, iface := range ifaces {
+			if iface.Flags&net.FlagLoopback != 0 {
+				continue
+			}
+			addrs, err := iface.Addrs()
+			if err != nil || len(addrs) == 0 {
+				continue
+			}
+			ni := NetworkInterface{
+				Name:  iface.Name,
+				Flags: iface.Flags.String(),
+			}
+			for _, addr := range addrs {
+				ni.Addresses = append(ni.Addresses, addr.String())
+			}
+			netIfaces = append(netIfaces, ni)
+		}
+	}
+
 	response := SystemInfoResponse{
 		Hostname:        hostname,
 		OS:              runtime.GOOS,
@@ -130,6 +160,7 @@ func (s *Server) handleSystemInfo(w http.ResponseWriter, r *http.Request) {
 		MemoryHeap:      memStats.HeapInuse,
 		NumGoroutines:   runtime.NumGoroutine(),
 		CPUUsagePercent: cpuPercent,
+		Network:         netIfaces,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

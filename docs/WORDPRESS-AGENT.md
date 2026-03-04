@@ -836,7 +836,7 @@ feature in `mddb-mcp` lets you define **website-specific tools** in `config.yaml
 ```yaml
 # config.yaml
 mcp:
-  listenAddress: "0.0.0.0:9000"
+  listenAddress: "0.0.0.0:9000"   # dedicated MCP port (or omit to embed on HTTP port)
 mddb:
   restBaseUrl: "http://localhost:11023"
 

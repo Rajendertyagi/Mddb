@@ -9,9 +9,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	json "github.com/goccy/go-json"
@@ -19,7 +21,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-const VERSION = "2.6.0"
+const VERSION = "2.6.1"
 
 type AccessMode string
 
@@ -33,7 +35,8 @@ type Server struct {
 	DB                  *bolt.DB
 	Path                string
 	Mode                AccessMode
-	Hooks               Hooks // optional extensions
+	Config              ServerConfig // protocol toggles & addresses
+	Hooks               Hooks        // optional extensions
 	BucketNames         BucketNames
 	Cache               *DocumentCache        // Read-through cache (legacy)
 	LockFreeCache       *LockFreeCache        // Lock-free cache (extreme performance)
@@ -155,6 +158,9 @@ func getOptimizedBoltOptions() *bolt.Options {
 }
 
 func main() {
+	// Load server configuration (CLI flags > env vars > config file > defaults)
+	srvCfg := loadServerConfig()
+
 	dbPath := env("MDDB_PATH", "mddb.db")
 	mode := AccessMode(env("MDDB_MODE", "wr")) // read|write|wr
 
@@ -168,13 +174,14 @@ func main() {
 		}
 	}()
 
-	// Check for extreme performance mode
-	useExtreme := os.Getenv("MDDB_EXTREME") == "true"
+	// Extreme mode = HTTP/3 enabled (legacy MDDB_EXTREME mapped in config)
+	useExtreme := srvCfg.HTTP3.Enabled
 
 	s := &Server{
-		DB:   db,
-		Path: dbPath,
-		Mode: mode,
+		DB:     db,
+		Path:   dbPath,
+		Mode:   mode,
+		Config: srvCfg,
 		BucketNames: BucketNames{
 			Docs:    []byte("docs"),
 			IdxMeta: []byte("idxmeta"),
@@ -391,10 +398,13 @@ func main() {
 	}
 
 	// MCP stdio mode — replaces normal HTTP/gRPC operation
-	if os.Getenv("MDDB_MCP_STDIO") == "true" {
+	if srvCfg.MCP.Stdio {
 		s.runMCPStdio()
 		return
 	}
+
+	// Log protocol configuration
+	log.Printf("Protocol config: HTTP=%v gRPC=%v MCP=%v HTTP3=%v", srvCfg.HTTP.Enabled, srvCfg.GRPC.Enabled, srvCfg.MCP.Enabled, srvCfg.HTTP3.Enabled)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.handleHealth)
@@ -426,13 +436,6 @@ func main() {
 	mux.HandleFunc("/v1/schema/list", s.handleSchemaList)
 	mux.HandleFunc("/v1/validate", s.handleValidate)
 	mux.HandleFunc("/metrics", s.Metrics.HandleMetrics)
-
-	// MCP HTTP endpoints (always available)
-	mcpServer := s.newMCPHTTPServer()
-	mux.HandleFunc("/mcp/resources", mcpServer.handleResources)
-	mux.HandleFunc("/mcp/resources/read", mcpServer.handleResourceRead)
-	mux.HandleFunc("/mcp/tools", mcpServer.handleTools)
-	mux.HandleFunc("/mcp/tools/call", s.guardWrite(mcpServer.handleToolCall))
 
 	// Replication status endpoint
 	mux.HandleFunc("/v1/replication/status", s.handleReplicationStatus)
@@ -479,8 +482,8 @@ func main() {
 		}
 	}
 
-	httpAddr := env("MDDB_ADDR", ":11023")
-	grpcAddr := env("MDDB_GRPC_ADDR", ":11024")
+	httpAddr := srvCfg.HTTP.Addr
+	grpcAddr := srvCfg.GRPC.Addr
 
 	// Wrap mux: CORS → auth middleware → metrics middleware → JSON content type → routes
 	handler := withJSON(mux)
@@ -491,32 +494,66 @@ func main() {
 	handler = withCORS(handler)
 
 	// Start HTTP server
-	go func() {
-		log.Printf("mddb HTTP listening on %s (mode=%s, db=%s)", httpAddr, s.Mode, dbPath)
-		server := &http.Server{
-			Addr:              httpAddr,
-			Handler:           handler,
-			ReadHeaderTimeout: 10 * time.Second,
-			ReadTimeout:       30 * time.Second,
-			WriteTimeout:      30 * time.Second,
-			IdleTimeout:       120 * time.Second,
-		}
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatal(err)
-		}
-	}()
-
-	// Start HTTP/3 server if extreme mode
-	if useExtreme {
-		http3Addr := env("MDDB_HTTP3_ADDR", ":11443")
+	if srvCfg.HTTP.Enabled {
 		go func() {
-			h3Server, err := NewHTTP3Server(http3Addr, HTTP3Middleware(handler))
+			log.Printf("mddb HTTP listening on %s (mode=%s, db=%s)", httpAddr, s.Mode, dbPath)
+			server := &http.Server{
+				Addr:              httpAddr,
+				Handler:           handler,
+				ReadHeaderTimeout: 10 * time.Second,
+				ReadTimeout:       30 * time.Second,
+				WriteTimeout:      30 * time.Second,
+				IdleTimeout:       120 * time.Second,
+			}
+			if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.Fatal(err)
+			}
+		}()
+	} else {
+		log.Println("HTTP server disabled")
+	}
+
+	// Start MCP HTTP server on its own port
+	if srvCfg.MCP.Enabled {
+		go func() {
+			mcpMux := http.NewServeMux()
+			mcpSrv := s.newMCPHTTPServer()
+			mcpMux.HandleFunc("/resources", mcpSrv.handleResources)
+			mcpMux.HandleFunc("/resources/read", mcpSrv.handleResourceRead)
+			mcpMux.HandleFunc("/tools", mcpSrv.handleTools)
+			mcpMux.HandleFunc("/tools/call", s.guardWrite(mcpSrv.handleToolCall))
+
+			mcpHandler := withJSON(mcpMux)
+			mcpHandler = withCORS(mcpHandler)
+
+			log.Printf("mddb MCP HTTP listening on %s", srvCfg.MCP.Addr)
+			server := &http.Server{
+				Addr:              srvCfg.MCP.Addr,
+				Handler:           mcpHandler,
+				ReadHeaderTimeout: 10 * time.Second,
+				ReadTimeout:       30 * time.Second,
+				WriteTimeout:      30 * time.Second,
+				IdleTimeout:       120 * time.Second,
+			}
+			if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.Fatal(err)
+			}
+		}()
+	} else {
+		log.Println("MCP server disabled")
+	}
+
+	// Start HTTP/3 server
+	if srvCfg.HTTP3.Enabled {
+		go func() {
+			log.Printf("mddb HTTP/3 listening on %s", srvCfg.HTTP3.Addr)
+			h3Server, err := NewHTTP3Server(srvCfg.HTTP3.Addr, HTTP3Middleware(handler))
 			if err != nil {
-				log.Printf("⚠️  Failed to start HTTP/3 server: %v", err)
+				log.Printf("WARNING: Failed to start HTTP/3 server: %v", err)
 				return
 			}
 			if err := h3Server.Start(); err != nil {
-				log.Printf("⚠️  HTTP/3 server error: %v", err)
+				log.Printf("WARNING: HTTP/3 server error: %v", err)
 			}
 		}()
 	}
@@ -548,14 +585,26 @@ func main() {
 	}
 
 	// Start gRPC server
-	log.Printf("mddb gRPC listening on %s (mode=%s, db=%s)", grpcAddr, s.Mode, dbPath)
-	var grpcOpts []grpc.ServerOption
-	if authEnabled && s.AuthManager != nil {
-		grpcOpts = append(grpcOpts, grpc.UnaryInterceptor(s.AuthManager.GRPCUnaryInterceptor()))
+	if srvCfg.GRPC.Enabled {
+		var grpcOpts []grpc.ServerOption
+		if authEnabled && s.AuthManager != nil {
+			grpcOpts = append(grpcOpts, grpc.UnaryInterceptor(s.AuthManager.GRPCUnaryInterceptor()))
+		}
+		go func() {
+			log.Printf("mddb gRPC listening on %s (mode=%s, db=%s)", grpcAddr, s.Mode, dbPath)
+			if err := startGRPCServer(s, grpcAddr, grpcOpts...); err != nil {
+				log.Fatal(err)
+			}
+		}()
+	} else {
+		log.Println("gRPC server disabled")
 	}
-	if err := startGRPCServer(s, grpcAddr, grpcOpts...); err != nil {
-		log.Fatal(err)
-	}
+
+	// Block until signal
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	sig := <-sigCh
+	log.Printf("Received %s, shutting down...", sig)
 }
 
 // --- helpers / buckets
@@ -632,8 +681,10 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 
 		existing := Doc{}
 		if v := bDocs.Get(kDoc(collection, docID)); v != nil {
-			if err := json.Unmarshal(v, &existing); err != nil {
+			if existingPtr, err := loadDoc(v); err != nil {
 				return err
+			} else {
+				existing = *existingPtr
 			}
 		}
 		added := existing.AddedAt
@@ -650,7 +701,10 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 			doc.ExpiresAt = now + ttl
 		}
 
-		buf, _ := json.Marshal(doc)
+		buf, err := marshalDoc(&doc)
+		if err != nil {
+			return err
+		}
 		docKey := kDoc(collection, docID)
 		if err := bDocs.Put(docKey, buf); err != nil {
 			return err
@@ -746,10 +800,11 @@ func (s *Server) deleteDocumentInternal(collection, key, lang string) error {
 		if v == nil {
 			return errors.New("document not found")
 		}
-		var doc Doc
-		if err := json.Unmarshal(v, &doc); err != nil {
+		docPtr, err := loadDoc(v)
+		if err != nil {
 			return err
 		}
+		doc := *docPtr
 
 		docKey := kDoc(collection, docID)
 		if err := bDocs.Delete(docKey); err != nil {
@@ -880,7 +935,12 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 		if v == nil {
 			return errors.New("not found")
 		}
-		return json.Unmarshal(v, &doc)
+		docPtr, unmErr := loadDoc(v)
+		if unmErr != nil {
+			return unmErr
+		}
+		doc = *docPtr
+		return nil
 	})
 	if err != nil {
 		bad(w, err)
@@ -931,14 +991,14 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			c := bDocs.Cursor()
 			prefix := []byte("doc|" + req.Collection + "|")
 			for k, v := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = c.Next() {
-				var d Doc
-				if err := json.Unmarshal(v, &d); err != nil {
+				d, err := loadDoc(v)
+				if err != nil {
 					return err
 				}
 				if d.ExpiresAt > 0 && d.ExpiresAt < time.Now().Unix() {
 					continue
 				}
-				rows = append(rows, row{d})
+				rows = append(rows, row{*d})
 			}
 		} else {
 			// Intersect po meta kluczach
@@ -966,14 +1026,14 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 				if v == nil {
 					continue
 				}
-				var d Doc
-				if err := json.Unmarshal(v, &d); err != nil {
+				d, err := loadDoc(v)
+				if err != nil {
 					return err
 				}
 				if d.ExpiresAt > 0 && d.ExpiresAt < time.Now().Unix() {
 					continue
 				}
-				rows = append(rows, row{d})
+				rows = append(rows, row{*d})
 			}
 		}
 		return nil
@@ -1170,10 +1230,11 @@ func (s *Server) handleTruncate(w http.ResponseWriter, r *http.Request) {
 		c := bDocs.Cursor()
 		prefix := []byte("doc|" + req.Collection + "|")
 		for k, v := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = c.Next() {
-			var d Doc
-			if err := json.Unmarshal(v, &d); err != nil {
+			dPtr, err := loadDoc(v)
+			if err != nil {
 				return err
 			}
+			d := *dPtr
 			// Zbierz revety
 			rc := bRev.Cursor()
 			rp := kRevPrefix(req.Collection, d.ID)
@@ -1539,10 +1600,11 @@ func (s *Server) handleDeleteCollection(w http.ResponseWriter, r *http.Request) 
 		prefix := []byte("doc|" + req.Collection + "|")
 		for k, v := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = c.Next() {
 			// Load document to get metadata for index cleanup
-			var doc Doc
-			if err := json.Unmarshal(v, &doc); err != nil {
+			docPtr, err := loadDoc(v)
+			if err != nil {
 				continue
 			}
+			doc := *docPtr
 
 			// Delete document
 			if err := bDocs.Delete(k); err != nil {

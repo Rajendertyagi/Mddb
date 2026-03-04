@@ -59,21 +59,27 @@ RUN mkdir -p /app/data && \
 # Switch to non-root user
 USER mddb
 
-# Expose ports
-EXPOSE 11023 11024
+# Expose ports (HTTP API, gRPC, MCP, HTTP/3)
+EXPOSE 11023 11024 9000 11443
 
 # Environment variables with defaults
 ENV MDDB_ADDR=":11023" \
     MDDB_GRPC_ADDR=":11024" \
     MDDB_MODE="wr" \
     MDDB_PATH="/app/data/mddb.db" \
+    MDDB_HTTP_ENABLED="true" \
+    MDDB_GRPC_ENABLED="true" \
+    MDDB_MCP_ENABLED="true" \
+    MDDB_MCP_ADDR=":9000" \
+    MDDB_MCP_STDIO="false" \
+    MDDB_MCP_CONFIG="" \
+    MDDB_HTTP3_ENABLED="false" \
+    MDDB_HTTP3_ADDR=":11443" \
     MDDB_AUTH_ENABLED="false" \
     MDDB_AUTH_JWT_SECRET="" \
     MDDB_AUTH_JWT_EXPIRY="24h" \
     MDDB_AUTH_ADMIN_USERNAME="admin" \
-    MDDB_AUTH_ADMIN_PASSWORD="" \
-    MDDB_MCP_STDIO="false" \
-    MDDB_MCP_CONFIG=""
+    MDDB_AUTH_ADMIN_PASSWORD=""
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

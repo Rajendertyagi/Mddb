@@ -65,9 +65,7 @@ func TestHandleConfig_DefaultAddresses(t *testing.T) {
 	s, cleanup := newHandlerTestServer(t)
 	defer cleanup()
 
-	// Ensure env vars are not set so defaults are used
-	_ = os.Unsetenv("MDDB_ADDR")
-	_ = os.Unsetenv("MDDB_GRPC_ADDR")
+	s.Config = defaultServerConfig()
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/v1/config", nil)
@@ -78,11 +76,20 @@ func TestHandleConfig_DefaultAddresses(t *testing.T) {
 		t.Fatalf("decode: %v", err)
 	}
 
-	if resp.HTTPAddr != ":11023" {
-		t.Errorf("expected default HTTPAddr :11023, got %q", resp.HTTPAddr)
+	if resp.Protocols.HTTP.Addr != ":11023" {
+		t.Errorf("expected default HTTP addr :11023, got %q", resp.Protocols.HTTP.Addr)
 	}
-	if resp.GRPCAddr != ":11024" {
-		t.Errorf("expected default GRPCAddr :11024, got %q", resp.GRPCAddr)
+	if resp.Protocols.GRPC.Addr != ":11024" {
+		t.Errorf("expected default GRPC addr :11024, got %q", resp.Protocols.GRPC.Addr)
+	}
+	if !resp.Protocols.HTTP.Enabled {
+		t.Error("expected HTTP enabled by default")
+	}
+	if !resp.Protocols.GRPC.Enabled {
+		t.Error("expected GRPC enabled by default")
+	}
+	if !resp.Protocols.MCP.Enabled {
+		t.Error("expected MCP enabled by default")
 	}
 }
 
@@ -217,13 +224,13 @@ func TestHandleConfig_VectorConfigVoyage(t *testing.T) {
 	}
 }
 
-// ---------- 8. handleConfig - extreme mode disabled ----------
+// ---------- 8. handleConfig - HTTP/3 disabled by default ----------
 
-func TestHandleConfig_ExtremeModeDisabled(t *testing.T) {
+func TestHandleConfig_HTTP3Disabled(t *testing.T) {
 	s, cleanup := newHandlerTestServer(t)
 	defer cleanup()
 
-	s.UseExtreme = false
+	s.Config = defaultServerConfig()
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/v1/config", nil)
@@ -234,21 +241,22 @@ func TestHandleConfig_ExtremeModeDisabled(t *testing.T) {
 		t.Fatalf("decode: %v", err)
 	}
 
-	if resp.ExtremeMode {
-		t.Error("expected ExtremeMode=false")
+	if resp.Protocols.HTTP3.Enabled {
+		t.Error("expected HTTP3 disabled by default")
 	}
-	if resp.HTTP3Addr != "" {
-		t.Errorf("expected empty HTTP3Addr when extreme mode disabled, got %q", resp.HTTP3Addr)
+	if resp.Protocols.HTTP3.Addr != ":11443" {
+		t.Errorf("expected default HTTP3 addr :11443, got %q", resp.Protocols.HTTP3.Addr)
 	}
 }
 
-// ---------- 9. handleConfig - extreme mode enabled ----------
+// ---------- 9. handleConfig - HTTP/3 enabled ----------
 
-func TestHandleConfig_ExtremeModeEnabled(t *testing.T) {
+func TestHandleConfig_HTTP3Enabled(t *testing.T) {
 	s, cleanup := newHandlerTestServer(t)
 	defer cleanup()
 
-	s.UseExtreme = true
+	s.Config = defaultServerConfig()
+	s.Config.HTTP3.Enabled = true
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/v1/config", nil)
@@ -259,11 +267,8 @@ func TestHandleConfig_ExtremeModeEnabled(t *testing.T) {
 		t.Fatalf("decode: %v", err)
 	}
 
-	if !resp.ExtremeMode {
-		t.Error("expected ExtremeMode=true")
-	}
-	if resp.HTTP3Addr == "" {
-		t.Error("expected non-empty HTTP3Addr when extreme mode enabled")
+	if !resp.Protocols.HTTP3.Enabled {
+		t.Error("expected HTTP3 enabled")
 	}
 }
 

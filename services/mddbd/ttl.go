@@ -164,8 +164,7 @@ func (t *TTLManager) cleanup() {
 			// Look up key and lang from the document
 			bDocs := tx.Bucket([]byte("docs"))
 			if v := bDocs.Get(kDoc(coll, docID)); v != nil {
-				var doc Doc
-				if err := json.Unmarshal(v, &doc); err == nil {
+				if doc, err := loadDoc(v); err == nil {
 					expired = append(expired, expiredDoc{coll, doc.Key, doc.Lang})
 				}
 			}
@@ -236,11 +235,16 @@ func (s *Server) handleSetTTL(w http.ResponseWriter, r *http.Request) {
 		if v == nil {
 			return fmt.Errorf("document not found")
 		}
-		if err := json.Unmarshal(v, &updated); err != nil {
+		docPtr, err := loadDoc(v)
+		if err != nil {
 			return err
 		}
+		updated = *docPtr
 		updated.ExpiresAt = expiresAt
-		buf, _ := json.Marshal(updated)
+		buf, err := marshalDoc(&updated)
+		if err != nil {
+			return err
+		}
 		bo.Put("docs", dk, buf)
 		return bDocs.Put(dk, buf)
 	})

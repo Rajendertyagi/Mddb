@@ -4,19 +4,14 @@ Define website-specific MCP tools in YAML that simplify AI interactions with you
 
 ## Overview
 
-By default, `mddb-mcp` exposes 23 built-in tools (add_document, search_documents, semantic_search, etc.). Custom tools let you create **domain-specific wrappers** with preconfigured defaults — so the AI sees `search_faq(query)` instead of `semantic_search(collection, query, topK, threshold, ...)`.
+By default, `mddbd` exposes 23 built-in MCP tools (add_document, search_documents, semantic_search, etc.). Custom tools let you create **domain-specific wrappers** with preconfigured defaults — so the AI sees `search_faq(query)` instead of `semantic_search(collection, query, topK, threshold, ...)`.
 
-Custom tools are defined in `config.yaml` under the `custom_tools:` key. They are registered alongside built-in tools and work on both transports (stdio and HTTP).
+Custom tools are defined in a YAML file under the `custom_tools:` key. Point `mddbd` to the file via `MDDB_MCP_CONFIG=/path/to/config.yaml`. They are registered alongside built-in tools and work on both transports (stdio and HTTP).
 
 ## Quick Example
 
 ```yaml
-# config.yaml
-mcp:
-  listenAddress: "0.0.0.0:9000"
-mddb:
-  restBaseUrl: "http://localhost:11023"
-
+# mcp-config.yaml
 custom_tools:
   - name: search_faq
     description: "Search frequently asked questions"
@@ -104,7 +99,7 @@ Each parameter defines an argument that the LLM can provide.
 
 ```
 AI calls: search_faq(query: "reset password")
-  → mddb-mcp finds "search_faq" in custom tools
+  → mddbd finds "search_faq" in custom tools
   → Merges defaults: {collection:"faq", topK:3, threshold:0.6}
   → Merges user args: + {query:"reset password"}
   → Calls: semantic_search({collection:"faq", query:"reset password", topK:3, threshold:0.6})
@@ -115,7 +110,7 @@ User arguments always override defaults. For example, if a custom tool has `defa
 
 ## Validation
 
-At startup, `mddb-mcp` validates all custom tools:
+At startup, `mddbd` validates all custom tools:
 
 - **Name conflicts**: Custom tool names cannot match any of the 23 built-in names
 - **Duplicate names**: No two custom tools can share the same name
@@ -128,25 +123,24 @@ Invalid configuration causes a startup error with a descriptive message.
 ## Docker Deployment
 
 ```bash
-# Mount your config with custom tools
+# Mount your custom tools config
 docker run -i --rm --network host \
-  -v ./config.yaml:/app/config.yaml \
+  -v ./mcp-config.yaml:/app/mcp-config.yaml \
   -e MDDB_MCP_STDIO=true \
-  -e MDDB_MCP_CONFIG=/app/config.yaml \
+  -e MDDB_MCP_CONFIG=/app/mcp-config.yaml \
   tradik/mddb:latest
 ```
 
 Docker Compose:
 ```yaml
 services:
-  mddb-mcp:
+  mddb:
     image: tradik/mddb:latest
     volumes:
-      - ./config.yaml:/app/config.yaml
+      - ./mcp-config.yaml:/app/mcp-config.yaml
     environment:
       - MDDB_MCP_STDIO=true
-      - MDDB_MCP_CONFIG=/app/config.yaml
-      - MDDB_REST_BASE_URL=http://mddb:11023
+      - MDDB_MCP_CONFIG=/app/mcp-config.yaml
 ```
 
 ## Windsurf / Claude Desktop
@@ -158,9 +152,9 @@ services:
       "command": "docker",
       "args": [
         "run", "-i", "--rm", "--network", "host",
-        "-v", "./config.yaml:/app/config.yaml",
+        "-v", "./mcp-config.yaml:/app/mcp-config.yaml",
         "-e", "MDDB_MCP_STDIO=true",
-        "-e", "MDDB_MCP_CONFIG=/app/config.yaml",
+        "-e", "MDDB_MCP_CONFIG=/app/mcp-config.yaml",
         "tradik/mddb:latest"
       ]
     }
@@ -222,6 +216,6 @@ custom_tools:
 
 ## Backward Compatibility
 
-- If no `custom_tools` key is present in config.yaml, `mddb-mcp` works exactly as before
+- If `MDDB_MCP_CONFIG` is not set or the file has no `custom_tools` key, `mddbd` works with built-in tools only
 - Built-in tools are always available regardless of custom tools configuration
 - Custom tools are additive — they never replace built-in tools

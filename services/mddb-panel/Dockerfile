@@ -4,13 +4,16 @@ FROM node:25-alpine AS development
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY services/mddb-panel/package*.json ./
 
 # Install all dependencies (including dev dependencies)
 RUN npm install
 
 # Copy source code
-COPY . .
+COPY services/mddb-panel/ .
+
+# Copy shared scripts for build-time import
+COPY scripts/mddb_model.py ./scripts/mddb_model.py
 
 # Expose port
 EXPOSE 3000
@@ -24,13 +27,16 @@ FROM node:25-alpine AS builder
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY services/mddb-panel/package*.json ./
 
 # Install dependencies
 RUN npm ci
 
 # Copy source code
-COPY . .
+COPY services/mddb-panel/ .
+
+# Copy shared scripts for build-time import
+COPY scripts/mddb_model.py ./scripts/mddb_model.py
 
 # Build application
 RUN npm run build
@@ -41,7 +47,7 @@ FROM node:25-alpine AS production
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY services/mddb-panel/package*.json ./
 
 # Install all dependencies (including vite for preview)
 RUN npm ci

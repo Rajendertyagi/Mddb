@@ -20,7 +20,9 @@ func (s *Server) handleMCPConfig(w http.ResponseWriter, r *http.Request) {
 
 	// Generate MCP YAML configuration
 	yaml := fmt.Sprintf(`mcp:
-  listenAddress: "0.0.0.0:9000"
+  # Set listenAddress to run MCP on a dedicated port.
+  # Omit to embed MCP on the HTTP API port (%s).
+  # listenAddress: "0.0.0.0:9000"
 
 mddb:
   grpcAddress: "localhost%s"
@@ -52,7 +54,7 @@ mddb:
 #     defaults:
 #       collection: "docs"
 #       limit: 10
-`, grpcAddr, httpAddr)
+`, httpAddr, grpcAddr, httpAddr)
 
 	w.Header().Set("Content-Type", "text/yaml")
 	if _, err := w.Write([]byte(yaml)); err != nil {

@@ -6,6 +6,7 @@ services:
     ports:
       - "11023:11023"  # HTTP API
       - "11024:11024"  # gRPC API
+      - "9000:9000"    # MCP
       - "11443:11443"  # HTTP/3 (extreme mode)
     volumes:
       - mddb-data:/data
@@ -33,8 +34,8 @@ services:
 
   mddb-panel:
     build:
-      context: ./services/mddb-panel
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/mddb-panel/Dockerfile
     container_name: mddb-panel
     restart: unless-stopped
     ports:
@@ -50,7 +51,7 @@ services:
       - "com.mddb.description=MDDB Panel - Web Admin Interface"
       - "com.mddb.version=2.3.3"
 
-  # MCP is now built into the mddb server — access via /mcp/* endpoints
+  # MCP is built into the mddb server — runs on port 9000 by default
   # For stdio mode, use: docker run -i --rm -e MDDB_MCP_STDIO=true tradik/mddb:latest
 
 volumes:

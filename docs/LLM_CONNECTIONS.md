@@ -106,7 +106,7 @@ Create a Custom GPT that connects to MDDB via its REST API.
         }
       }
     },
-    "/v1/vector/search": {
+    "/v1/vector-search": {
       "post": {
         "operationId": "semanticSearch",
         "summary": "Semantic search using vector embeddings",
@@ -149,7 +149,7 @@ import ollama
 MDDB_URL = "http://localhost:11023"
 
 def search_mddb(query, collection="docs", top_k=5):
-    resp = requests.post(f"{MDDB_URL}/v1/vector/search", json={
+    resp = requests.post(f"{MDDB_URL}/v1/vector-search", json={
         "collection": collection, "query": query,
         "topK": top_k, "threshold": 0.6, "includeContent": True,
     })
@@ -200,7 +200,7 @@ Add MDDB tools to your Manus agent configuration:
 name: mddb_search
 description: "Search the MDDB knowledge base"
 type: api
-endpoint: "http://localhost:11023/v1/vector/search"
+endpoint: "http://localhost:11023/v1/vector-search"
 method: POST
 headers:
   Content-Type: "application/json"
@@ -227,7 +227,7 @@ BIELIK_API_URL = "https://api.bielik.ai/v1"
 BIELIK_API_KEY = "your-api-key"
 
 def search_mddb(query, collection="docs"):
-    resp = requests.post(f"{MDDB_URL}/v1/vector/search", json={
+    resp = requests.post(f"{MDDB_URL}/v1/vector-search", json={
         "collection": collection, "query": query,
         "topK": 5, "threshold": 0.6, "includeContent": True,
     })
@@ -258,7 +258,7 @@ Any LLM agent that supports HTTP tools can connect to MDDB. Key endpoints:
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/v1/search` | POST | Metadata search with pagination |
-| `/v1/vector/search` | POST | Semantic/vector search |
+| `/v1/vector-search` | POST | Semantic/vector search |
 | `/v1/fts` | POST | Full-text search (TF-IDF/BM25) |
 | `/v1/get` | POST | Get specific document |
 | `/v1/add` | POST | Add/update document |

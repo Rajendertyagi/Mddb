@@ -37,10 +37,12 @@ After starting with `make dev-start`, you'll have:
 | Service | URL | Description |
 |---------|-----|-------------|
 | MDDB Server | http://localhost:11023 | HTTP API endpoint |
+| MCP Server | http://localhost:9000 | Model Context Protocol (MCP) |
 | MDDB Panel | http://localhost:3000 | Admin web interface |
-| MCP Server | http://localhost:9000 | Model Context Protocol server |
 | gRPC | localhost:11024 | gRPC endpoint |
 | Ollama* | http://localhost:11434 | Vector embeddings (optional) |
+
+> **Note:** MCP is built into mddbd but runs on its own port (`:9000` by default). Each protocol (HTTP, gRPC, MCP) can be toggled on/off and assigned a custom port via env vars, CLI flags, or config file.
 
 *Start with `make dev-start-with-ollama` to include Ollama
 
@@ -202,8 +204,9 @@ The development setup includes hot reload:
 - Changes auto-reload with Vite HMR
 - Instant updates
 
-**MCP Server:**
-- Restart required: `docker-compose -f docker-compose.dev.yml restart mddb-mcp`
+**MCP (built into mddbd):**
+- MCP runs on port 9000 by default (separate from HTTP API)
+- For stdio mode: `docker run -i --rm -e MDDB_MCP_STDIO=true tradik/mddb:latest`
 
 ### Running Tests
 
@@ -238,7 +241,7 @@ For production:
 ## 📚 Next Steps
 
 1. **Explore the API:** http://localhost:11023/v1/endpoints
-2. **Try MCP Tools:** Connect to localhost:9000
+2. **Try MCP Tools:** Connect to http://localhost:9000/tools
 3. **Read the docs:** See main README.md
 4. **Create groups:** Use the new Groups management UI
 5. **Set permissions:** Assign collection access to groups

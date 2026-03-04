@@ -10,17 +10,42 @@ import (
 // ---- Request/Response types ----
 
 type ConfigResponse struct {
-	Version         string        `json:"version"`
-	DatabasePath    string        `json:"databasePath"`
-	Mode            string        `json:"mode"`
-	HTTPAddr        string        `json:"httpAddr"`
-	GRPCAddr        string        `json:"grpcAddr"`
-	HTTP3Addr       string        `json:"http3Addr,omitempty"`
-	AuthEnabled     bool          `json:"authEnabled"`
-	MetricsEnabled  bool          `json:"metricsEnabled"`
-	ExtremeMode     bool          `json:"extremeMode"`
-	ReplicationRole string        `json:"replicationRole"`
-	VectorConfig    *VectorConfig `json:"vectorConfig,omitempty"`
+	Version         string          `json:"version"`
+	DatabasePath    string          `json:"databasePath"`
+	Mode            string          `json:"mode"`
+	Protocols       ProtocolsConfig `json:"protocols"`
+	AuthEnabled     bool            `json:"authEnabled"`
+	MetricsEnabled  bool            `json:"metricsEnabled"`
+	ReplicationRole string          `json:"replicationRole"`
+	VectorConfig    *VectorConfig   `json:"vectorConfig,omitempty"`
+}
+
+type ProtocolsConfig struct {
+	HTTP  HTTPProtocolStatus  `json:"http"`
+	GRPC  GRPCProtocolStatus  `json:"grpc"`
+	MCP   MCPProtocolStatus   `json:"mcp"`
+	HTTP3 HTTP3ProtocolStatus `json:"http3"`
+}
+
+type HTTPProtocolStatus struct {
+	Enabled bool   `json:"enabled"`
+	Addr    string `json:"addr"`
+}
+
+type GRPCProtocolStatus struct {
+	Enabled bool   `json:"enabled"`
+	Addr    string `json:"addr"`
+}
+
+type MCPProtocolStatus struct {
+	Enabled bool   `json:"enabled"`
+	Addr    string `json:"addr"`
+	Stdio   bool   `json:"stdio"`
+}
+
+type HTTP3ProtocolStatus struct {
+	Enabled bool   `json:"enabled"`
+	Addr    string `json:"addr"`
 }
 
 type VectorConfig struct {
@@ -42,20 +67,31 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 
 	// Build configuration response
 	response := ConfigResponse{
-		Version:         VERSION,
-		DatabasePath:    s.Path,
-		Mode:            string(s.Mode),
-		HTTPAddr:        env("MDDB_ADDR", ":11023"),
-		GRPCAddr:        env("MDDB_GRPC_ADDR", ":11024"),
+		Version:      VERSION,
+		DatabasePath: s.Path,
+		Mode:         string(s.Mode),
+		Protocols: ProtocolsConfig{
+			HTTP: HTTPProtocolStatus{
+				Enabled: s.Config.HTTP.Enabled,
+				Addr:    s.Config.HTTP.Addr,
+			},
+			GRPC: GRPCProtocolStatus{
+				Enabled: s.Config.GRPC.Enabled,
+				Addr:    s.Config.GRPC.Addr,
+			},
+			MCP: MCPProtocolStatus{
+				Enabled: s.Config.MCP.Enabled,
+				Addr:    s.Config.MCP.Addr,
+				Stdio:   s.Config.MCP.Stdio,
+			},
+			HTTP3: HTTP3ProtocolStatus{
+				Enabled: s.Config.HTTP3.Enabled,
+				Addr:    s.Config.HTTP3.Addr,
+			},
+		},
 		AuthEnabled:     env("MDDB_AUTH_ENABLED", "false") == "true",
 		MetricsEnabled:  env("MDDB_METRICS", "true") != "false",
-		ExtremeMode:     s.UseExtreme,
 		ReplicationRole: s.ReplicationRole,
-	}
-
-	// Add HTTP/3 address if extreme mode is enabled
-	if s.UseExtreme {
-		response.HTTP3Addr = env("MDDB_HTTP3_ADDR", ":11443")
 	}
 
 	// Add vector configuration if embedding provider is set
