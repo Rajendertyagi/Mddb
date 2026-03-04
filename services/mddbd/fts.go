@@ -22,10 +22,18 @@ var (
 
 // FTSIndex provides full-text search using an inverted index in BoltDB.
 type FTSIndex struct {
-	db        *bolt.DB
-	stopWords map[string]bool
-	binlog    *Binlog
+	db             *bolt.DB
+	stopWords      map[string]bool
+	binlog         *Binlog
+	stemmer        *PorterStemmer
+	synonymManager *SynonymManager
 }
+
+// SetStemmer sets the Porter Stemmer for term normalization.
+func (f *FTSIndex) SetStemmer(s *PorterStemmer) { f.stemmer = s }
+
+// SetSynonymManager sets the synonym manager for query expansion.
+func (f *FTSIndex) SetSynonymManager(sm *SynonymManager) { f.synonymManager = sm }
 
 // SetBinlog sets the binlog for replication logging.
 func (f *FTSIndex) SetBinlog(bl *Binlog) {
@@ -41,19 +49,23 @@ type FTSResult struct {
 
 // FTSSearchRequest is the HTTP request for full-text search.
 type FTSSearchRequest struct {
-	Collection string `json:"collection"`
-	Query      string `json:"query"`
-	Limit      int    `json:"limit"`
-	Algorithm  string `json:"algorithm"` // "tfidf" (default) or "bm25"
-	Fuzzy      int    `json:"fuzzy"`     // typo tolerance: 0 (off), 1 (1 edit), 2 (2 edits)
+	Collection      string `json:"collection"`
+	Query           string `json:"query"`
+	Limit           int    `json:"limit"`
+	Algorithm       string `json:"algorithm"`       // "tfidf" (default) or "bm25"
+	Fuzzy           int    `json:"fuzzy"`           // typo tolerance: 0 (off), 1 (1 edit), 2 (2 edits)
+	DisableStem     bool   `json:"disableStem"`     // temporarily disable stemming for this query
+	DisableSynonyms bool   `json:"disableSynonyms"` // temporarily disable synonyms for this query
 }
 
 // FTSSearchResponse is the HTTP response for full-text search.
 type FTSSearchResponse struct {
-	Results   []FTSResultWithDoc `json:"results"`
-	Total     int                `json:"total"`
-	Algorithm string             `json:"algorithm"`
-	Fuzzy     int                `json:"fuzzy"`
+	Results        []FTSResultWithDoc `json:"results"`
+	Total          int                `json:"total"`
+	Algorithm      string             `json:"algorithm"`
+	Fuzzy          int                `json:"fuzzy"`
+	StemmingActive bool               `json:"stemmingActive"`
+	SynonymsActive bool               `json:"synonymsActive"`
 }
 
 // FTSResultWithDoc includes the full document in the result.
@@ -83,6 +95,7 @@ func (f *FTSIndex) EnsureBuckets() error {
 }
 
 // Tokenize splits text into a frequency map of normalized terms.
+// If a stemmer is configured, terms are stemmed after stop word filtering.
 func (f *FTSIndex) Tokenize(text string) map[string]int {
 	terms := make(map[string]int)
 	text = strings.ToLower(text)
@@ -95,6 +108,9 @@ func (f *FTSIndex) Tokenize(text string) map[string]int {
 			if word.Len() >= 2 {
 				w := word.String()
 				if !f.stopWords[w] {
+					if f.stemmer != nil {
+						w = f.stemmer.Stem(w)
+					}
 					terms[w]++
 				}
 			}
@@ -104,10 +120,41 @@ func (f *FTSIndex) Tokenize(text string) map[string]int {
 	if word.Len() >= 2 {
 		w := word.String()
 		if !f.stopWords[w] {
+			if f.stemmer != nil {
+				w = f.stemmer.Stem(w)
+			}
 			terms[w]++
 		}
 	}
 	return terms
+}
+
+// TokenizeQuery tokenizes query text and expands with synonyms.
+func (f *FTSIndex) TokenizeQuery(collection, text string) map[string]int {
+	terms := f.Tokenize(text)
+	if f.synonymManager == nil {
+		return terms
+	}
+	// Expand with synonyms
+	expanded := make(map[string]int, len(terms)*2)
+	for term, count := range terms {
+		expanded[term] = count
+		synonyms := f.synonymManager.Expand(collection, []string{term})
+		for _, syn := range synonyms {
+			if syn == term {
+				continue
+			}
+			// Stem the synonym too
+			stemmed := syn
+			if f.stemmer != nil {
+				stemmed = f.stemmer.Stem(syn)
+			}
+			if _, exists := expanded[stemmed]; !exists {
+				expanded[stemmed] = 1
+			}
+		}
+	}
+	return expanded
 }
 
 // Index adds or updates the FTS index for a document.
@@ -201,7 +248,7 @@ func (f *FTSIndex) Remove(collection, docID string) error {
 
 // Search performs a full-text search and returns matching document IDs with scores.
 func (f *FTSIndex) Search(collection, query string, limit int) ([]FTSResult, error) {
-	queryTerms := f.Tokenize(query)
+	queryTerms := f.TokenizeQuery(collection, query)
 	if len(queryTerms) == 0 {
 		return nil, nil
 	}
@@ -310,6 +357,20 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Per-query stemming/synonym control
+	origStemmer := s.FTSIndex.stemmer
+	origSynonyms := s.FTSIndex.synonymManager
+	if req.DisableStem {
+		s.FTSIndex.stemmer = nil
+	}
+	if req.DisableSynonyms {
+		s.FTSIndex.synonymManager = nil
+	}
+	defer func() {
+		s.FTSIndex.stemmer = origStemmer
+		s.FTSIndex.synonymManager = origSynonyms
+	}()
+
 	algo := req.Algorithm
 	if algo == "" {
 		algo = "tfidf"
@@ -350,6 +411,8 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 	var resp FTSSearchResponse
 	resp.Algorithm = algo
 	resp.Fuzzy = fuzzy
+	resp.StemmingActive = origStemmer != nil && !req.DisableStem
+	resp.SynonymsActive = origSynonyms != nil && !req.DisableSynonyms
 	resp.Results = make([]FTSResultWithDoc, 0, len(results))
 	_ = s.DB.View(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))

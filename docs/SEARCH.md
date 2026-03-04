@@ -8,11 +8,47 @@ MDDB provides three search methods: **Metadata Search**, **Full-Text Search**, a
 |--------|-----------|----------|
 | Metadata Search | Indexed filters | Exact tag/category matching |
 | Full-Text Search | TF-IDF, BM25 | Keyword-based document retrieval |
-| Vector Search | Flat, HNSW, IVF, PQ | Semantic similarity by meaning |
+| Vector Search | Flat, HNSW, IVF, PQ, SQ, BQ | Semantic similarity by meaning |
 
 ## Full-Text Search
 
 Full-text search uses an inverted index built from document content. Queries are tokenized, stop words are removed, and documents are scored by relevance.
+
+### Text Processing Pipeline
+
+1. **Lowercasing** - All text converted to lowercase
+2. **Tokenization** - Split on non-alphanumeric characters, minimum 2 characters
+3. **Stop Word Removal** - ~90 common English words filtered out
+4. **Stemming** (v2.6.3+) - Porter Stemmer reduces words to their root form (e.g., "running" -> "run", "organization" -> "organ"). Enabled by default, configurable via `MDDB_FTS_STEMMING`.
+5. **Synonym Expansion** (v2.6.3+, query-time only) - Query terms are expanded with configured synonyms. Bidirectional: if "big" has synonym "large", searching "large" also finds "big". Configurable via `MDDB_FTS_SYNONYMS`.
+
+#### Per-Query Control
+
+Both stemming and synonyms can be disabled per-query using request fields:
+```json
+{
+  "collection": "docs",
+  "query": "running fast",
+  "algorithm": "bm25",
+  "disableStem": true,
+  "disableSynonyms": true
+}
+```
+
+#### Synonym Management API
+
+```bash
+# Add synonyms
+curl -X POST http://localhost:11023/v1/synonyms \
+  -d '{"collection":"docs","term":"big","synonyms":["large","huge","enormous"]}'
+
+# List synonyms
+curl http://localhost:11023/v1/synonyms?collection=docs
+
+# Delete synonyms
+curl -X DELETE http://localhost:11023/v1/synonyms \
+  -d '{"collection":"docs","term":"big"}'
+```
 
 ### TF-IDF (default)
 

@@ -31,7 +31,7 @@ Complete list of MDDB features organized by category.
 - **Auto-embeddings** - Documents embedded automatically in background
 - **Multiple Providers** - OpenAI, Cohere, Voyage AI, Ollama
 - **Similarity Search** - Find documents by meaning, not keywords
-- **Multiple Algorithms** - Flat (exact), HNSW (approximate), IVF (clustered), PQ (compressed)
+- **Multiple Algorithms** - Flat (exact), HNSW (approximate), IVF (clustered), PQ (compressed), SQ (scalar quantized), BQ (binary quantized)
 - **Query-time Algorithm Selection** - Choose algorithm per request via `algorithm` parameter
 - **Threshold Filtering** - Minimum similarity score
 - **Metadata Filtering** - Combine semantic + metadata filters
@@ -45,6 +45,9 @@ Complete list of MDDB features organized by category.
 - **BM25 Scoring** - Okapi BM25 with document length normalization (k1=1.2, b=0.75)
 - **Query-time Algorithm Selection** - Choose TF-IDF or BM25 per request via `algorithm` parameter
 - **Typo Tolerance** - Fuzzy matching with configurable edit distance (0-2) via `fuzzy` parameter
+- **Porter Stemming** - Reduce words to root forms for better recall (configurable, per-query disable)
+- **Synonym Expansion** - Bidirectional query-time synonym expansion with per-collection dictionaries
+- **Synonym Management API** - CRUD endpoints for managing synonym dictionaries
 - **Stop Word Filtering** - Remove common words
 - **Multi-field Search** - Search in content and metadata
 - **Language-aware** - Per-language stop words
@@ -286,7 +289,7 @@ See [Replication Guide](REPLICATION.md) for setup instructions and examples.
 ### Advanced (Extreme Mode)
 Enable with `MDDB_EXTREME=true`:
 - **Write-Ahead Log** - WAL with periodic sync
-- **Adaptive Compression** - Snappy/Zstd based on size
+- **Adaptive Compression** - Snappy/Zstd based on size (configurable thresholds)
 - **Delta Encoding** - 5-10x smaller revision storage
 - **Bloom Filters** - Fast negative lookups (1% FP)
 - **Zero-Copy I/O** - Direct memory access
@@ -352,6 +355,11 @@ Enable with `MDDB_EXTREME=true`:
 - `MDDB_EMBEDDING_API_KEY` - API key for embedding provider
 - `MDDB_EMBEDDING_MODEL` - Model name
 - `MDDB_EMBEDDING_DIMENSIONS` - Vector dimensions
+- `MDDB_FTS_STEMMING` - Enable/disable Porter stemming (default: true)
+- `MDDB_FTS_SYNONYMS` - Enable/disable synonym expansion (default: true)
+- `MDDB_COMPRESSION_ENABLED` - Enable/disable adaptive compression (default: true)
+- `MDDB_COMPRESSION_SMALL_THRESHOLD` - Snappy threshold in bytes (default: 1024)
+- `MDDB_COMPRESSION_MEDIUM_THRESHOLD` - Zstd threshold in bytes (default: 10240)
 - `MDDB_AUTH_ENABLED` - Enable authentication
 - `MDDB_JWT_SECRET` - JWT signing secret
 - `MDDB_REPLICATION_ROLE` - leader, follower, or empty (standalone)

@@ -8,12 +8,27 @@ import (
 )
 
 const (
+	flagUncompressed = byte(0)
+	flagSnappy       = byte(1)
+	flagZstd         = byte(2)
+)
+
+var (
+	compressionEnabled         = true
 	compressionThresholdSmall  = 1024      // 1KB
 	compressionThresholdMedium = 10 * 1024 // 10KB
-	flagUncompressed           = byte(0)
-	flagSnappy                 = byte(1)
-	flagZstd                   = byte(2)
 )
+
+// ConfigureCompression sets compression parameters from config.
+func ConfigureCompression(enabled bool, smallThreshold, mediumThreshold int) {
+	compressionEnabled = enabled
+	if smallThreshold > 0 {
+		compressionThresholdSmall = smallThreshold
+	}
+	if mediumThreshold > 0 {
+		compressionThresholdMedium = mediumThreshold
+	}
+}
 
 var (
 	zstdEncoder *zstd.Encoder
@@ -38,6 +53,14 @@ func init() {
 // compressDoc compresses document data with adaptive compression levels
 func compressDoc(data []byte) []byte {
 	dataLen := len(data)
+
+	// Compression disabled
+	if !compressionEnabled {
+		result := make([]byte, dataLen+1)
+		result[0] = flagUncompressed
+		copy(result[1:], data)
+		return result
+	}
 
 	// Small documents - no compression
 	if dataLen < compressionThresholdSmall {

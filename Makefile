@@ -114,6 +114,6 @@ ci: lint-all test-all ## Run full CI pipeline (lint + test)
 	@echo "✅ CI pipeline complete!"
 
 version: ## Show current version
-	@echo "MDDB Version: 2.6.2"
+	@echo "MDDB Version: 2.6.3"
 
 .DEFAULT_GOAL := help

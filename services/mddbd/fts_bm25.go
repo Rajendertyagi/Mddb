@@ -129,7 +129,7 @@ func (f *FTSIndex) RemoveBM25Meta(tx *bolt.Tx, collection, docID string) error {
 
 // SearchBM25 performs full-text search using Okapi BM25 scoring.
 func (f *FTSIndex) SearchBM25(collection, query string, limit int) ([]FTSResult, error) {
-	queryTerms := f.Tokenize(query)
+	queryTerms := f.TokenizeQuery(collection, query)
 	if len(queryTerms) == 0 {
 		return nil, nil
 	}

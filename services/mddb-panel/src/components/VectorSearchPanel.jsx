@@ -167,6 +167,8 @@ export default function VectorSearchPanel() {
               <option value="hnsw">HNSW (Approximate)</option>
               <option value="ivf">IVF (Clustered)</option>
               <option value="pq">PQ (Compressed)</option>
+              <option value="sq">SQ (Scalar Quantized)</option>
+              <option value="bq">BQ (Binary Quantized)</option>
             </select>
           </div>
           <label className="flex items-center space-x-2 text-sm text-gray-600 mt-4">

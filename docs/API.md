@@ -12,6 +12,10 @@
   - [POST /v1/vector-search](#post-v1vector-search)
   - [POST /v1/vector-reindex](#post-v1vector-reindex)
   - [GET /v1/vector-stats](#get-v1vector-stats)
+  - [POST /v1/fts](#post-v1fts)
+  - [POST /v1/synonyms](#post-v1synonyms)
+  - [GET /v1/synonyms](#get-v1synonyms)
+  - [DELETE /v1/synonyms](#delete-v1synonyms)
   - [POST /v1/export](#post-v1export)
   - [GET /v1/backup](#get-v1backup)
   - [POST /v1/restore](#post-v1restore)
@@ -51,6 +55,11 @@ The server can be configured using environment variables:
 | `MDDB_EMBEDDING_API_URL` | *(per provider)* | API base URL (see [Vector Search](#vector-search-configuration)) |
 | `MDDB_EMBEDDING_MODEL` | *(per provider)* | Embedding model name |
 | `MDDB_EMBEDDING_DIMENSIONS` | *(per provider)* | Vector dimensions |
+| `MDDB_FTS_STEMMING` | `true` | Enable Porter stemming for FTS |
+| `MDDB_FTS_SYNONYMS` | `true` | Enable synonym expansion for FTS |
+| `MDDB_COMPRESSION_ENABLED` | `true` | Enable adaptive compression (Snappy/Zstd) |
+| `MDDB_COMPRESSION_SMALL_THRESHOLD` | `1024` | Snappy compression threshold (bytes) |
+| `MDDB_COMPRESSION_MEDIUM_THRESHOLD` | `10240` | Zstd compression threshold (bytes) |
 
 ### Access Modes
 
@@ -486,6 +495,152 @@ MDDB_EMBEDDING_DIMENSIONS=768                          # default
 | 50,000 | 1,536 | ~96 ms | ~10 qps |
 
 Metadata pre-filtering significantly reduces search time (e.g., filtering to 10% of 10K docs: ~1.1 ms vs ~9.7 ms).
+
+---
+
+### POST /v1/fts
+
+Perform full-text search across document content using TF-IDF or BM25 scoring with optional stemming, synonyms, and typo tolerance.
+
+**Request Body**:
+```json
+{
+  "collection": "blog",
+  "query": "markdown database tutorial",
+  "limit": 10,
+  "algorithm": "bm25",
+  "fuzzy": 1,
+  "disableStem": false,
+  "disableSynonyms": false
+}
+```
+
+**Parameters**:
+- `collection` (required): Collection name
+- `query` (required): Search query text
+- `limit` (optional): Maximum results (default: 50)
+- `algorithm` (optional): `"tfidf"` (default) or `"bm25"`
+- `fuzzy` (optional): Typo tolerance — `0` (off, default), `1` (1 edit), `2` (2 edits)
+- `disableStem` (optional): Disable Porter stemming for this query (default: false)
+- `disableSynonyms` (optional): Disable synonym expansion for this query (default: false)
+
+**Response**:
+```json
+{
+  "results": [
+    {
+      "document": {
+        "id": "blog|post1|en_gb",
+        "key": "post1",
+        "lang": "en_GB",
+        "meta": {"category": ["tutorial"]},
+        "contentMd": "# Markdown Database Tutorial..."
+      },
+      "score": 2.3456,
+      "matchedTerms": ["markdown", "databas", "tutori"]
+    }
+  ],
+  "total": 1,
+  "algorithm": "bm25",
+  "stemmingActive": true,
+  "synonymsActive": true
+}
+```
+
+**cURL Example**:
+```bash
+curl -X POST http://localhost:11023/v1/fts \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "blog",
+    "query": "markdown database",
+    "algorithm": "bm25",
+    "fuzzy": 1,
+    "limit": 10
+  }'
+```
+
+---
+
+### POST /v1/synonyms
+
+Add or update synonyms for a term in a collection.
+
+**Request Body**:
+```json
+{
+  "collection": "docs",
+  "term": "big",
+  "synonyms": ["large", "huge", "enormous"]
+}
+```
+
+**Response**:
+```json
+{
+  "status": "ok"
+}
+```
+
+**cURL Example**:
+```bash
+curl -X POST http://localhost:11023/v1/synonyms \
+  -H 'Content-Type: application/json' \
+  -d '{"collection":"docs","term":"big","synonyms":["large","huge","enormous"]}'
+```
+
+---
+
+### GET /v1/synonyms
+
+List all synonyms for a collection.
+
+**Query Parameters**:
+- `collection` (required): Collection name
+
+**Response**:
+```json
+{
+  "collection": "docs",
+  "synonyms": {
+    "big": ["large", "huge", "enormous"],
+    "fast": ["quick", "rapid", "swift"]
+  }
+}
+```
+
+**cURL Example**:
+```bash
+curl "http://localhost:11023/v1/synonyms?collection=docs"
+```
+
+---
+
+### DELETE /v1/synonyms
+
+Delete all synonyms for a term in a collection.
+
+**Request Body**:
+```json
+{
+  "collection": "docs",
+  "term": "big"
+}
+```
+
+**Response**:
+```json
+{
+  "status": "ok"
+}
+```
+
+**cURL Example**:
+```bash
+curl -X DELETE http://localhost:11023/v1/synonyms \
+  -H 'Content-Type: application/json' \
+  -d '{"collection":"docs","term":"big"}'
+```
 
 ---
 

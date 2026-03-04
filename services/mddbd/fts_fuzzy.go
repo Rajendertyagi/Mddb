@@ -117,7 +117,7 @@ const fuzzyPenalty = 0.8 // Score multiplier for fuzzy (non-exact) matches
 
 // SearchFuzzy performs TF-IDF search with fuzzy term matching.
 func (f *FTSIndex) SearchFuzzy(collection, query string, limit, maxDist int) ([]FTSResult, error) {
-	queryTerms := f.Tokenize(query)
+	queryTerms := f.TokenizeQuery(collection, query)
 	if len(queryTerms) == 0 {
 		return nil, nil
 	}
@@ -204,7 +204,7 @@ func (f *FTSIndex) SearchFuzzy(collection, query string, limit, maxDist int) ([]
 
 // SearchBM25Fuzzy performs BM25 search with fuzzy term matching.
 func (f *FTSIndex) SearchBM25Fuzzy(collection, query string, limit, maxDist int) ([]FTSResult, error) {
-	queryTerms := f.Tokenize(query)
+	queryTerms := f.TokenizeQuery(collection, query)
 	if len(queryTerms) == 0 {
 		return nil, nil
 	}

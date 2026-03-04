@@ -14,10 +14,32 @@ import (
 // ServerConfig holds all configurable server settings.
 // Precedence: CLI flags > env vars > config file > defaults.
 type ServerConfig struct {
-	HTTP  HTTPConfig  `yaml:"http" json:"http"`
-	GRPC  GRPCConfig  `yaml:"grpc" json:"grpc"`
-	MCP   MCPConfig   `yaml:"mcp" json:"mcp"`
-	HTTP3 HTTP3Config `yaml:"http3" json:"http3"`
+	HTTP        HTTPConfig        `yaml:"http" json:"http"`
+	GRPC        GRPCConfig        `yaml:"grpc" json:"grpc"`
+	MCP         MCPConfig         `yaml:"mcp" json:"mcp"`
+	HTTP3       HTTP3Config       `yaml:"http3" json:"http3"`
+	FTS         FTSConfig         `yaml:"fts" json:"fts"`
+	Compression CompressionConfig `yaml:"compression" json:"compression"`
+	Vector      VectorExtConfig   `yaml:"vector" json:"vector"`
+}
+
+// FTSConfig controls full-text search features.
+type FTSConfig struct {
+	StemmingEnabled bool `yaml:"stemmingEnabled" json:"stemmingEnabled"`
+	SynonymsEnabled bool `yaml:"synonymsEnabled" json:"synonymsEnabled"`
+}
+
+// CompressionConfig controls document compression.
+type CompressionConfig struct {
+	Enabled         bool `yaml:"enabled" json:"enabled"`
+	SmallThreshold  int  `yaml:"smallThreshold" json:"smallThreshold"`
+	MediumThreshold int  `yaml:"mediumThreshold" json:"mediumThreshold"`
+}
+
+// VectorExtConfig controls extended vector search options.
+type VectorExtConfig struct {
+	DefaultAlgorithm string `yaml:"defaultAlgorithm" json:"defaultAlgorithm"`
+	BQRerankFactor   int    `yaml:"bqRerankFactor" json:"bqRerankFactor"`
 }
 
 // HTTPConfig controls the HTTP/JSON API server.
@@ -48,10 +70,13 @@ type HTTP3Config struct {
 // defaultServerConfig returns the default configuration.
 func defaultServerConfig() ServerConfig {
 	return ServerConfig{
-		HTTP:  HTTPConfig{Enabled: true, Addr: ":11023"},
-		GRPC:  GRPCConfig{Enabled: true, Addr: ":11024"},
-		MCP:   MCPConfig{Enabled: true, Addr: ":9000", Stdio: false},
-		HTTP3: HTTP3Config{Enabled: false, Addr: ":11443"},
+		HTTP:        HTTPConfig{Enabled: true, Addr: ":11023"},
+		GRPC:        GRPCConfig{Enabled: true, Addr: ":11024"},
+		MCP:         MCPConfig{Enabled: true, Addr: ":9000", Stdio: false},
+		HTTP3:       HTTP3Config{Enabled: false, Addr: ":11443"},
+		FTS:         FTSConfig{StemmingEnabled: true, SynonymsEnabled: true},
+		Compression: CompressionConfig{Enabled: true, SmallThreshold: 1024, MediumThreshold: 10240},
+		Vector:      VectorExtConfig{DefaultAlgorithm: "flat", BQRerankFactor: 10},
 	}
 }
 
@@ -102,10 +127,29 @@ func loadServerConfig() ServerConfig {
 // fileConfig mirrors ServerConfig for YAML unmarshalling with pointer fields
 // so we can distinguish "not set" from "set to zero value".
 type fileConfig struct {
-	HTTP  *fileHTTP  `yaml:"http"`
-	GRPC  *fileGRPC  `yaml:"grpc"`
-	MCP   *fileMCP   `yaml:"mcp"`
-	HTTP3 *fileHTTP3 `yaml:"http3"`
+	HTTP        *fileHTTP        `yaml:"http"`
+	GRPC        *fileGRPC        `yaml:"grpc"`
+	MCP         *fileMCP         `yaml:"mcp"`
+	HTTP3       *fileHTTP3       `yaml:"http3"`
+	FTS         *fileFTS         `yaml:"fts"`
+	Compression *fileCompression `yaml:"compression"`
+	Vector      *fileVector      `yaml:"vector"`
+}
+
+type fileFTS struct {
+	StemmingEnabled *bool `yaml:"stemmingEnabled"`
+	SynonymsEnabled *bool `yaml:"synonymsEnabled"`
+}
+
+type fileCompression struct {
+	Enabled         *bool `yaml:"enabled"`
+	SmallThreshold  *int  `yaml:"smallThreshold"`
+	MediumThreshold *int  `yaml:"mediumThreshold"`
+}
+
+type fileVector struct {
+	DefaultAlgorithm *string `yaml:"defaultAlgorithm"`
+	BQRerankFactor   *int    `yaml:"bqRerankFactor"`
 }
 
 type fileHTTP struct {
@@ -185,6 +229,33 @@ func mergeFileConfig(cfg ServerConfig, fc *fileConfig) ServerConfig {
 			cfg.HTTP3.Addr = *fc.HTTP3.Addr
 		}
 	}
+	if fc.FTS != nil {
+		if fc.FTS.StemmingEnabled != nil {
+			cfg.FTS.StemmingEnabled = *fc.FTS.StemmingEnabled
+		}
+		if fc.FTS.SynonymsEnabled != nil {
+			cfg.FTS.SynonymsEnabled = *fc.FTS.SynonymsEnabled
+		}
+	}
+	if fc.Compression != nil {
+		if fc.Compression.Enabled != nil {
+			cfg.Compression.Enabled = *fc.Compression.Enabled
+		}
+		if fc.Compression.SmallThreshold != nil {
+			cfg.Compression.SmallThreshold = *fc.Compression.SmallThreshold
+		}
+		if fc.Compression.MediumThreshold != nil {
+			cfg.Compression.MediumThreshold = *fc.Compression.MediumThreshold
+		}
+	}
+	if fc.Vector != nil {
+		if fc.Vector.DefaultAlgorithm != nil {
+			cfg.Vector.DefaultAlgorithm = *fc.Vector.DefaultAlgorithm
+		}
+		if fc.Vector.BQRerankFactor != nil {
+			cfg.Vector.BQRerankFactor = *fc.Vector.BQRerankFactor
+		}
+	}
 	return cfg
 }
 
@@ -242,6 +313,39 @@ func applyEnvConfig(cfg *ServerConfig) {
 	}
 	if v := os.Getenv("MDDB_HTTP3_PORT"); v != "" {
 		cfg.HTTP3.Addr = portToAddr(v)
+	}
+
+	// FTS
+	if v := os.Getenv("MDDB_FTS_STEMMING"); v != "" {
+		cfg.FTS.StemmingEnabled = parseBool(v, cfg.FTS.StemmingEnabled)
+	}
+	if v := os.Getenv("MDDB_FTS_SYNONYMS"); v != "" {
+		cfg.FTS.SynonymsEnabled = parseBool(v, cfg.FTS.SynonymsEnabled)
+	}
+
+	// Compression
+	if v := os.Getenv("MDDB_COMPRESSION_ENABLED"); v != "" {
+		cfg.Compression.Enabled = parseBool(v, cfg.Compression.Enabled)
+	}
+	if v := os.Getenv("MDDB_COMPRESSION_SMALL_THRESHOLD"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			cfg.Compression.SmallThreshold = n
+		}
+	}
+	if v := os.Getenv("MDDB_COMPRESSION_MEDIUM_THRESHOLD"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			cfg.Compression.MediumThreshold = n
+		}
+	}
+
+	// Vector
+	if v := os.Getenv("MDDB_VECTOR_DEFAULT_ALGORITHM"); v != "" {
+		cfg.Vector.DefaultAlgorithm = v
+	}
+	if v := os.Getenv("MDDB_VECTOR_BQ_RERANK_FACTOR"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			cfg.Vector.BQRerankFactor = n
+		}
 	}
 }
 
