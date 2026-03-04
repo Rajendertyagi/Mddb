@@ -46,11 +46,12 @@ FROM node:25-alpine AS production
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files and production server
 COPY services/mddb-panel/package*.json ./
+COPY services/mddb-panel/server.js ./
 
-# Install all dependencies (including vite for preview)
-RUN npm ci
+# Install production dependencies only (express, http-proxy-middleware)
+RUN npm ci --omit=dev
 
 # Copy built application
 COPY --from=builder /app/dist ./dist
@@ -58,5 +59,5 @@ COPY --from=builder /app/dist ./dist
 # Expose port
 EXPOSE 3000
 
-# Start production preview server
-CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "3000"]
+# Start production server with reverse proxy
+CMD ["node", "server.js"]

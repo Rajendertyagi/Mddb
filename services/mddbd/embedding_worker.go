@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -16,22 +17,26 @@ type EmbeddingJob struct {
 
 // EmbeddingWorker processes embedding jobs asynchronously.
 type EmbeddingWorker struct {
-	provider    EmbeddingProvider
-	vectorStore *VectorStore
-	vectorIndex *VectorIndex
-	jobs        chan EmbeddingJob
-	wg          sync.WaitGroup
-	stopCh      chan struct{}
+	provider     EmbeddingProvider
+	vectorStore  *VectorStore
+	vectorIndex  *VectorIndex
+	jobs         chan EmbeddingJob
+	wg           sync.WaitGroup
+	stopCh       chan struct{}
+	chunkSize    int
+	chunkEnabled bool
 }
 
 // NewEmbeddingWorker creates a new background embedding worker.
 func NewEmbeddingWorker(provider EmbeddingProvider, store *VectorStore, index *VectorIndex, bufferSize int) *EmbeddingWorker {
 	return &EmbeddingWorker{
-		provider:    provider,
-		vectorStore: store,
-		vectorIndex: index,
-		jobs:        make(chan EmbeddingJob, bufferSize),
-		stopCh:      make(chan struct{}),
+		provider:     provider,
+		vectorStore:  store,
+		vectorIndex:  index,
+		jobs:         make(chan EmbeddingJob, bufferSize),
+		stopCh:       make(chan struct{}),
+		chunkSize:    envDefaultInt("MDDB_EMBEDDING_CHUNK_SIZE", 1500),
+		chunkEnabled: envDefault("MDDB_EMBEDDING_CHUNK_ENABLED", "true") == "true",
 	}
 }
 
@@ -41,7 +46,8 @@ func (w *EmbeddingWorker) Start(workers int) {
 		w.wg.Add(1)
 		go w.worker(i)
 	}
-	log.Printf("Embedding worker started (%d workers, buffer=%d)", workers, cap(w.jobs))
+	log.Printf("Embedding worker started (%d workers, buffer=%d, chunking=%v, chunkSize=%d)",
+		workers, cap(w.jobs), w.chunkEnabled, w.chunkSize)
 }
 
 // Stop gracefully stops the worker.
@@ -84,40 +90,65 @@ func (w *EmbeddingWorker) worker(id int) {
 }
 
 func (w *EmbeddingWorker) processJob(job EmbeddingJob) {
+	contentHash := ContentHash(job.ContentMD)
+
 	// Check if content already has a matching embedding
 	existing, err := w.vectorStore.Get(job.Collection, job.DocID)
-	if err == nil && existing != nil {
-		currentHash := ContentHash(job.ContentMD)
-		if existing.ContentHash == currentHash {
-			return // embedding is up-to-date
-		}
+	if err == nil && existing != nil && existing.ContentHash == contentHash {
+		return // embedding is up-to-date
 	}
 
-	// Generate embedding with retry
-	var vector []float32
-	for attempt := 0; attempt < 3; attempt++ {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		vector, err = w.provider.Embed(ctx, job.ContentMD)
-		cancel()
-		if err == nil {
-			break
-		}
-		log.Printf("Embedding attempt %d failed for %s/%s: %v", attempt+1, job.Collection, job.DocID, err)
-		time.Sleep(time.Duration(attempt+1) * time.Second)
+	// Split into chunks if enabled
+	var chunks []string
+	if w.chunkEnabled {
+		chunks = ChunkText(job.ContentMD, w.chunkSize)
+	} else {
+		chunks = []string{job.ContentMD}
 	}
 
-	if err != nil {
-		log.Printf("ERROR: failed to embed %s/%s after 3 attempts: %v", job.Collection, job.DocID, err)
+	if len(chunks) == 0 {
 		return
 	}
 
-	// Store in BoltDB
-	contentHash := ContentHash(job.ContentMD)
-	if err := w.vectorStore.Put(job.Collection, job.DocID, vector, w.provider.Model(), contentHash); err != nil {
+	// Generate embedding for each chunk
+	var chunkEmbeddings []ChunkEmbedding
+	for i, chunk := range chunks {
+		var vector []float32
+		var embedErr error
+		for attempt := 0; attempt < 3; attempt++ {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			vector, embedErr = w.provider.Embed(ctx, chunk)
+			cancel()
+			if embedErr == nil {
+				break
+			}
+			log.Printf("Embedding attempt %d failed for %s/%s chunk %d: %v", attempt+1, job.Collection, job.DocID, i, embedErr)
+			time.Sleep(time.Duration(attempt+1) * time.Second)
+		}
+
+		if embedErr != nil {
+			log.Printf("ERROR: failed to embed %s/%s chunk %d after 3 attempts: %v", job.Collection, job.DocID, i, embedErr)
+			return
+		}
+
+		chunkEmbeddings = append(chunkEmbeddings, ChunkEmbedding{
+			ChunkIndex: i,
+			Vector:     vector,
+		})
+	}
+
+	// Store all chunks in BoltDB
+	if err := w.vectorStore.PutChunks(job.Collection, job.DocID, chunkEmbeddings, w.provider.Model(), contentHash); err != nil {
 		log.Printf("ERROR: failed to store embedding for %s/%s: %v", job.Collection, job.DocID, err)
 		return
 	}
 
 	// Update in-memory index
-	w.vectorIndex.Add(job.Collection, job.DocID, vector)
+	for _, ce := range chunkEmbeddings {
+		chunkKey := fmt.Sprintf("%s#%d", job.DocID, ce.ChunkIndex)
+		w.vectorIndex.Add(job.Collection, chunkKey, ce.Vector)
+	}
+
+	// Clean stale chunks from index (if document shrank)
+	w.vectorStore.CleanStaleChunks(job.Collection, job.DocID, len(chunkEmbeddings), w.vectorIndex)
 }

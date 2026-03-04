@@ -1,0 +1,39 @@
+import express from 'express';
+import { createProxyMiddleware } from 'http-proxy-middleware';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+const PORT = process.env.PORT || 3000;
+const MDDB_SERVER = process.env.MDDB_SERVER || 'http://localhost:11023';
+
+const app = express();
+
+// Proxy /v1/* requests to mddbd
+app.use('/v1', createProxyMiddleware({
+  target: MDDB_SERVER,
+  changeOrigin: true,
+  pathRewrite: undefined, // keep /v1 prefix
+  on: {
+    error: (err, _req, res) => {
+      console.error(`Proxy error: ${err.message}`);
+      if (!res.headersSent) {
+        res.status(502).json({ error: 'backend unavailable' });
+      }
+    },
+  },
+}));
+
+// Serve static files from dist/
+app.use(express.static(join(__dirname, 'dist')));
+
+// SPA fallback — serve index.html for all non-API routes
+app.get('*', (_req, res) => {
+  res.sendFile(join(__dirname, 'dist', 'index.html'));
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`mddb-panel listening on :${PORT}`);
+  console.log(`  proxy: /v1/* -> ${MDDB_SERVER}`);
+});

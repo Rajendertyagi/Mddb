@@ -580,6 +580,12 @@ func (c *DirectClient) VectorSearch(ctx context.Context, req *MCPVectorSearchReq
 		topK = 5
 	}
 
+	// Oversample for chunk deduplication
+	searchTopK := topK * 3
+	if searchTopK < 20 {
+		searchTopK = 20
+	}
+
 	var results []VectorResult
 	if len(req.FilterMeta) > 0 {
 		allowedIDs := s.getDocIDsByMeta(req.Collection, req.FilterMeta)
@@ -594,9 +600,15 @@ func (c *DirectClient) VectorSearch(ctx context.Context, req *MCPVectorSearchReq
 			}
 			return resp, nil
 		}
-		results = searcher.SearchWithFilter(req.Collection, queryVector, topK, req.Threshold, allowedIDs)
+		results = searcher.SearchWithFilter(req.Collection, queryVector, searchTopK, req.Threshold, allowedIDs)
 	} else {
-		results = searcher.Search(req.Collection, queryVector, topK, req.Threshold)
+		results = searcher.Search(req.Collection, queryVector, searchTopK, req.Threshold)
+	}
+
+	// Deduplicate chunk results: group by base docID, take max score
+	results = DeduplicateChunkResults(results)
+	if len(results) > topK {
+		results = results[:topK]
 	}
 
 	items := make([]MCPVectorSearchResult, 0, len(results))
@@ -696,24 +708,52 @@ func (c *DirectClient) VectorReindex(ctx context.Context, req *MCPVectorReindexR
 			}
 		}
 
-		embedCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-		vector, err := s.Embedding.Embed(embedCtx, d.ContentMD)
-		cancel()
-		if err != nil {
-			failed++
-			errs = append(errs, d.ID+": "+err.Error())
+		// Split into chunks
+		chunkSize := envDefaultInt("MDDB_EMBEDDING_CHUNK_SIZE", 1500)
+		chunkEnabled := envDefault("MDDB_EMBEDDING_CHUNK_ENABLED", "true") == "true"
+		var chunks []string
+		if chunkEnabled {
+			chunks = ChunkText(d.ContentMD, chunkSize)
+		} else {
+			chunks = []string{d.ContentMD}
+		}
+		if len(chunks) == 0 {
+			skipped++
+			continue
+		}
+
+		// Embed each chunk
+		var chunkEmbeddings []ChunkEmbedding
+		chunkFailed := false
+		for i, chunk := range chunks {
+			embedCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+			vector, err := s.Embedding.Embed(embedCtx, chunk)
+			cancel()
+			if err != nil {
+				failed++
+				errs = append(errs, fmt.Sprintf("%s chunk %d: %s", d.ID, i, err.Error()))
+				chunkFailed = true
+				break
+			}
+			chunkEmbeddings = append(chunkEmbeddings, ChunkEmbedding{ChunkIndex: i, Vector: vector})
+		}
+		if chunkFailed {
 			continue
 		}
 
 		contentHash := ContentHash(d.ContentMD)
-		if err := s.VectorStore.Put(req.Collection, d.ID, vector, s.Embedding.Model(), contentHash); err != nil {
+		if err := s.VectorStore.PutChunks(req.Collection, d.ID, chunkEmbeddings, s.Embedding.Model(), contentHash); err != nil {
 			failed++
 			errs = append(errs, d.ID+": store: "+err.Error())
 			continue
 		}
-		for _, searcher := range s.VectorSearchers {
-			searcher.Add(req.Collection, d.ID, vector)
+		for _, ce := range chunkEmbeddings {
+			chunkKey := fmt.Sprintf("%s#%d", d.ID, ce.ChunkIndex)
+			for _, searcher := range s.VectorSearchers {
+				searcher.Add(req.Collection, chunkKey, ce.Vector)
+			}
 		}
+		s.VectorStore.CleanStaleChunks(req.Collection, d.ID, len(chunkEmbeddings), s.VectorIndex)
 		embedded++
 	}
 

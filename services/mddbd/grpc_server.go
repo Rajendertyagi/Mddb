@@ -725,12 +725,24 @@ func (g *GRPCServer) VectorSearch(ctx context.Context, req *proto.VectorSearchRe
 		filterMeta[k] = v.Values
 	}
 
+	// Oversample for chunk deduplication
+	searchTopK := topK * 3
+	if searchTopK < 20 {
+		searchTopK = 20
+	}
+
 	var results []VectorResult
 	if len(filterMeta) > 0 {
 		allowedIDs := g.server.getDocIDsByMeta(req.Collection, filterMeta)
-		results = searcher.SearchWithFilter(req.Collection, queryVector, topK, req.Threshold, allowedIDs)
+		results = searcher.SearchWithFilter(req.Collection, queryVector, searchTopK, req.Threshold, allowedIDs)
 	} else {
-		results = searcher.Search(req.Collection, queryVector, topK, req.Threshold)
+		results = searcher.Search(req.Collection, queryVector, searchTopK, req.Threshold)
+	}
+
+	// Deduplicate chunk results
+	results = DeduplicateChunkResults(results)
+	if len(results) > topK {
+		results = results[:topK]
 	}
 
 	// Load documents

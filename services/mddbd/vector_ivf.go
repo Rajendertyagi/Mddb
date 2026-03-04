@@ -199,7 +199,7 @@ func (idx *IVFIndex) SearchWithFilter(collection string, query []float32, topK i
 			continue
 		}
 		for docID, vec := range c.clusters[ci] {
-			if !allowed[docID] {
+			if !allowed[baseDocID(docID)] {
 				continue
 			}
 			score := cosineSimilarity(query, vec)

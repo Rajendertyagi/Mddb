@@ -27,6 +27,7 @@ services:
       - MDDB_EMBEDDING_API_URL=http://ollama:11434
       - MDDB_EMBEDDING_MODEL=nomic-embed-text
       - MDDB_EMBEDDING_DIMENSIONS=768
+      # - MDDB_PANEL_MODE=external  # internal (default, CORS enabled) or external (CORS disabled, panel proxies)
     networks:
       - mddb-network
     restart: unless-stopped

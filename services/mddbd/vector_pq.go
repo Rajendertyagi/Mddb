@@ -268,7 +268,7 @@ func (p *PQIndex) adcSearch(c *pqCollection, query []float32, topK int, threshol
 	}
 	candidates := make([]candidate, 0, len(c.codes))
 	for docID, code := range c.codes {
-		if allowed != nil && !allowed[docID] {
+		if allowed != nil && !allowed[baseDocID(docID)] {
 			continue
 		}
 		var dist float32
