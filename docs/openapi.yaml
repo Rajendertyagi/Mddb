@@ -10,7 +10,8 @@ info:
     - Multi-language support
     - Fast metadata-based search
     - **Vector search** with embedding providers (OpenAI, Cohere, Voyage AI, Ollama)
-    - **Full-text search** with TF-IDF and BM25 scoring
+    - **Full-text search** with TF-IDF, BM25, and BM25F field-weighted scoring
+    - **Hybrid search** combining FTS + vector search with alpha blending or RRF fusion
     - **Webhooks** for real-time event notifications
     - **TTL** (time-to-live) support for automatic document expiration
     - **JSON Schema validation** for document metadata
@@ -58,7 +59,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: 2.6.4
+  version: 2.6.5
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -91,6 +92,8 @@ tags:
     description: Semantic/vector search operations
   - name: Full-Text Search
     description: Keyword-based full-text search
+  - name: Hybrid Search
+    description: Combined sparse (FTS) + dense (vector) search with fusion strategies
   - name: Import
     description: Document import from URLs
   - name: TTL
@@ -617,11 +620,16 @@ paths:
         - Full-Text Search
       summary: Full-text search
       description: |
-        Perform keyword-based full-text search across documents in a collection using TF-IDF or BM25 scoring.
+        Perform keyword-based full-text search across documents in a collection using TF-IDF, BM25, or BM25F scoring.
 
         The query is tokenized and matched against document content. Results include matched terms and relevance scores.
 
-        Use `algorithm: "bm25"` for Okapi BM25 scoring which considers document length normalization, or `algorithm: "tfidf"` (default) for classic TF-IDF.
+        **Algorithms:**
+        - `tfidf` (default): Classic TF-IDF scoring
+        - `bm25`: Okapi BM25 with document length normalization (k1=1.2, b=0.75)
+        - `bm25f`: BM25F field-weighted scoring — applies different weights to title, metadata, and content fields
+
+        **In-graph filtering:** Use `filterMeta` to narrow results by metadata before scoring, same as vector search.
       operationId: fullTextSearch
       requestBody:
         required: true
@@ -636,6 +644,44 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/FTSSearchResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/hybrid-search:
+    post:
+      tags:
+        - Hybrid Search
+      summary: Hybrid sparse+dense search
+      description: |
+        Combine FTS (keyword) and vector (semantic) search into a single query. Returns results ranked by a fused score.
+
+        **Fusion strategies:**
+        - `alpha` (default): Weighted alpha blending — `combined = (1-alpha) * normalizedFTS + alpha * vectorScore`. Alpha=0 is pure keyword, alpha=1 is pure semantic.
+        - `rrf`: Reciprocal Rank Fusion — `score = 1/(k + rank_fts) + 1/(k + rank_vector)`. Rank-based, no alpha needed.
+
+        **FTS algorithms:** `bm25` (default), `bm25f` (field-weighted).
+
+        **Vector algorithms:** `flat` (default), `hnsw`, `ivf`, `pq`, `sq`.
+
+        Use `filterMeta` to pre-filter by metadata before both FTS and vector scoring.
+      operationId: hybridSearch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HybridSearchRequest"
+      responses:
+        "200":
+          description: Hybrid search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HybridSearchResponse"
         "400":
           description: Invalid request
           content:
@@ -1533,13 +1579,14 @@ components:
           example: 50
         algorithm:
           type: string
-          enum: [tfidf, bm25]
+          enum: [tfidf, bm25, bm25f]
           description: |
             Scoring algorithm to use (default "tfidf").
             - **tfidf**: Classic TF-IDF scoring
             - **bm25**: Okapi BM25 with document length normalization (k1=1.2, b=0.75)
+            - **bm25f**: BM25F field-weighted scoring — applies different weights to title, metadata, and content
           default: tfidf
-          example: tfidf
+          example: bm25
         fuzzy:
           type: integer
           enum: [0, 1, 2]
@@ -1550,6 +1597,32 @@ components:
             - **2**: Medium — matches terms within 2 edit distances
           default: 0
           example: 0
+        filterMeta:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Metadata filters to narrow results before scoring (AND between keys, OR between values)
+          example:
+            category: [tutorial]
+        fieldWeights:
+          type: object
+          additionalProperties:
+            type: number
+          description: Field weights for BM25F algorithm (keys are "title", "meta", "content")
+          example:
+            title: 3.0
+            meta: 2.0
+            content: 1.0
+        disableStem:
+          type: boolean
+          description: Disable stemming for this query
+          default: false
+        disableSynonyms:
+          type: boolean
+          description: Disable synonym expansion for this query
+          default: false
 
     FTSSearchResponse:
       type: object
@@ -1861,6 +1934,166 @@ components:
           enum: [healthy, warning, unhealthy]
           description: "Follower health status (healthy: <1s lag, warning: 1-30s, unhealthy: >30s)"
           example: healthy
+
+    HybridSearchRequest:
+      type: object
+      required:
+        - collection
+        - query
+      properties:
+        collection:
+          type: string
+          description: Collection name to search
+          example: blog
+        query:
+          type: string
+          description: Search query string (used for both FTS and embedding)
+          example: how to deploy with Docker
+        topK:
+          type: integer
+          description: Number of top results to return (default 10)
+          default: 10
+          example: 10
+        algorithm:
+          type: string
+          enum: [bm25, bm25f]
+          description: FTS algorithm (default "bm25")
+          default: bm25
+          example: bm25
+        vectorAlgorithm:
+          type: string
+          enum: [flat, hnsw, ivf, pq, sq]
+          description: Vector search algorithm (default "flat")
+          default: flat
+          example: flat
+        strategy:
+          type: string
+          enum: [alpha, rrf]
+          description: |
+            Fusion strategy (default "alpha").
+            - **alpha**: Weighted blending — `combined = (1-alpha) * normalizedFTS + alpha * vectorScore`
+            - **rrf**: Reciprocal Rank Fusion — `score = 1/(k + rank_fts) + 1/(k + rank_vector)`
+          default: alpha
+          example: alpha
+        alpha:
+          type: number
+          format: float
+          description: Alpha blending weight (0=keyword only, 1=semantic only, default 0.5). Only used with "alpha" strategy.
+          minimum: 0
+          maximum: 1
+          default: 0.5
+          example: 0.5
+        rrfK:
+          type: integer
+          description: RRF parameter k (default 60). Only used with "rrf" strategy.
+          default: 60
+          example: 60
+        fuzzy:
+          type: integer
+          enum: [0, 1, 2]
+          description: Typo tolerance for FTS (0=off, 1=1 edit, 2=2 edits)
+          default: 0
+          example: 0
+        threshold:
+          type: number
+          format: float
+          description: Minimum vector similarity score (0.0 to 1.0)
+          minimum: 0
+          maximum: 1
+          example: 0.0
+        filterMeta:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Metadata filters applied to both FTS and vector results
+          example:
+            category: [tutorial]
+        includeContent:
+          type: boolean
+          description: Include document content in results
+          default: false
+        fieldWeights:
+          type: object
+          additionalProperties:
+            type: number
+          description: Field weights for BM25F (keys are "title", "meta", "content")
+          example:
+            title: 3.0
+            meta: 2.0
+            content: 1.0
+        disableStem:
+          type: boolean
+          description: Disable stemming for FTS
+          default: false
+        disableSynonyms:
+          type: boolean
+          description: Disable synonym expansion for FTS
+          default: false
+
+    HybridSearchResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/HybridSearchResultItem"
+        total:
+          type: integer
+          description: Number of results returned
+          example: 5
+        strategy:
+          type: string
+          description: Fusion strategy used
+          example: alpha
+        alpha:
+          type: number
+          description: Alpha value used (only for alpha strategy)
+          example: 0.5
+        rrfK:
+          type: integer
+          description: RRF k value used (only for rrf strategy)
+          example: 60
+        ftsAlgorithm:
+          type: string
+          description: FTS algorithm used
+          example: bm25
+        vectorAlgorithm:
+          type: string
+          description: Vector algorithm used
+          example: flat
+
+    HybridSearchResultItem:
+      type: object
+      properties:
+        document:
+          $ref: "#/components/schemas/Document"
+        combinedScore:
+          type: number
+          format: float
+          description: Fused score from both FTS and vector
+          example: 0.78
+        ftsScore:
+          type: number
+          format: float
+          description: Normalized FTS score component
+          example: 0.65
+        vectorScore:
+          type: number
+          format: float
+          description: Vector similarity score component
+          example: 0.91
+        matchedTerms:
+          type: array
+          items:
+            type: string
+          description: FTS matched terms
+          example: [deploy, docker]
+        rank:
+          type: integer
+          description: Result rank (1-based)
+          example: 1
 
     ErrorResponse:
       type: object
