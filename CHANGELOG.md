@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.9] - 2026-03-05
+
+### Added
+- **Partial Document Update** — `PATCH /v1/update` for updating metadata and/or content independently
+  - Meta only: `{"collection":"blog","key":"p1","lang":"en","meta":{"tag":["go"]}}`
+  - Content only: `{"collection":"blog","key":"p1","lang":"en","contentMd":"new content"}`
+  - Both: include both fields. Clear meta: `{"meta":{}}`
+  - gRPC: `UpdateDocument` RPC. MCP: `update_document` tool
+- **Document Metadata Read** — `GET /v1/doc-meta` returns metadata without content (lightweight)
+  - gRPC: `GetDocumentMeta` RPC. MCP: `get_document_meta` tool
+- **Zero-Shot Classification** — `POST /v1/classify` classifies documents against candidate labels using embedding similarity
+  - By reference: provide `collection`, `key`, `lang` (reuses existing embedding if available)
+  - By raw text: provide `text` field (embeds on the fly)
+  - Labels embedded in a single batch call for efficiency
+  - Parameters: `topK`, `multi` (return all above threshold), `threshold`
+  - gRPC: `Classify` RPC. MCP: `classify_document` tool
+- Panel: `updateDocument`, `getDocumentMeta`, and `classify` client methods
+
 ## [2.6.8] - 2026-03-05
 
 ### Added

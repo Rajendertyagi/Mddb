@@ -686,4 +686,39 @@ When a trigger fires, it sends a POST to the webhook URL:
 }
 ```
 
+## Zero-Shot Classification
+
+MDDB supports zero-shot document classification using the same embedding infrastructure as vector search.
+
+### How It Works
+
+1. The document (or raw text) is embedded into a vector
+2. All candidate labels are embedded in a single batch call
+3. Cosine similarity is computed between the document vector and each label vector
+4. Labels are ranked by similarity score
+
+### API
+
+```bash
+# Classify raw text
+curl -X POST http://localhost:11023/v1/classify \
+  -d '{"text": "Introduction to machine learning algorithms", "labels": ["technology", "cooking", "sports"]}'
+
+# Classify existing document (reuses stored embedding)
+curl -X POST http://localhost:11023/v1/classify \
+  -d '{"collection": "articles", "key": "ml-intro", "lang": "en", "labels": ["technology", "cooking", "sports"]}'
+```
+
+### MCP Tool
+
+```json
+{
+  "name": "classify_document",
+  "arguments": {
+    "text": "Go is a statically typed programming language",
+    "labels": ["programming", "cooking", "sports", "music"]
+  }
+}
+```
+
 **[← Back to README](../README.md)**

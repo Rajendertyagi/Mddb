@@ -63,6 +63,12 @@ func (s *MCPToolServer) mcpCallTool(ctx context.Context, name string, args map[s
 		return s.toolListSchemas(ctx, args)
 	case "validate_document":
 		return s.toolValidateDocument(ctx, args)
+	case "update_document":
+		return s.toolUpdateDocument(ctx, args)
+	case "get_document_meta":
+		return s.toolGetDocumentMeta(ctx, args)
+	case "classify_document":
+		return s.toolClassifyDocument(ctx, args)
 	default:
 		for _, ct := range s.customTools {
 			if ct.Name == name {
@@ -471,6 +477,88 @@ func (s *MCPToolServer) toolValidateDocument(ctx context.Context, args map[strin
 	}
 
 	resp, err := s.client.ValidateDocument(ctx, req)
+	if err != nil {
+		return "", err
+	}
+
+	data, _ := json.MarshalIndent(resp, "", "  ")
+	return string(data), nil
+}
+
+func (s *MCPToolServer) toolUpdateDocument(ctx context.Context, args map[string]interface{}) (string, error) {
+	req := &MCPUpdateDocumentRequest{
+		Collection: mcpGetString(args, "collection"),
+		Key:        mcpGetString(args, "key"),
+		Lang:       mcpGetString(args, "lang"),
+	}
+
+	if meta := mcpGetMetaMap(args, "meta"); len(meta) > 0 {
+		req.Meta = meta
+	} else if _, ok := args["meta"]; ok {
+		// Explicitly provided empty meta = clear all
+		empty := make(map[string][]string)
+		req.Meta = empty
+	}
+
+	if content, ok := args["content_md"].(string); ok {
+		req.ContentMD = &content
+	}
+
+	if ttl, ok := args["ttl"].(float64); ok {
+		ttlInt := int64(ttl)
+		req.TTL = &ttlInt
+	}
+
+	doc, err := s.client.UpdateDocument(ctx, req)
+	if err != nil {
+		return "", err
+	}
+
+	data, _ := json.MarshalIndent(doc, "", "  ")
+	return fmt.Sprintf("Document updated:\n%s", string(data)), nil
+}
+
+func (s *MCPToolServer) toolGetDocumentMeta(ctx context.Context, args map[string]interface{}) (string, error) {
+	req := &MCPGetDocMetaRequest{
+		Collection: mcpGetString(args, "collection"),
+		Key:        mcpGetString(args, "key"),
+		Lang:       mcpGetString(args, "lang"),
+	}
+
+	resp, err := s.client.GetDocumentMeta(ctx, req)
+	if err != nil {
+		return "", err
+	}
+
+	data, _ := json.MarshalIndent(resp, "", "  ")
+	return string(data), nil
+}
+
+func (s *MCPToolServer) toolClassifyDocument(ctx context.Context, args map[string]interface{}) (string, error) {
+	req := &MCPClassifyRequest{
+		Collection: mcpGetString(args, "collection"),
+		Key:        mcpGetString(args, "key"),
+		Lang:       mcpGetString(args, "lang"),
+		Text:       mcpGetString(args, "text"),
+		TopK:       mcpGetInt(args, "top_k"),
+	}
+
+	if labelsRaw, ok := args["labels"].([]interface{}); ok {
+		for _, l := range labelsRaw {
+			if str, ok := l.(string); ok {
+				req.Labels = append(req.Labels, str)
+			}
+		}
+	}
+
+	if multi, ok := args["multi"].(bool); ok {
+		req.Multi = multi
+	}
+	if threshold, ok := args["threshold"].(float64); ok {
+		req.Threshold = threshold
+	}
+
+	resp, err := s.client.Classify(ctx, req)
 	if err != nil {
 		return "", err
 	}

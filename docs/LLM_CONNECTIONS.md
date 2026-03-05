@@ -62,13 +62,14 @@ Use the `mddbd` binary directly:
 
 ### Available MCP Tools
 
-Once connected, Claude has access to 23+ tools including:
+Once connected, Claude has access to 25+ tools including:
 
 - `add_document` / `search_documents` / `delete_document`
 - `semantic_search` — vector/AI-powered search
 - `full_text_search` — keyword search with TF-IDF/BM25
 - `export_documents` / `create_backup` / `restore_backup`
 - `vector_reindex` / `vector_stats`
+- `classify_document` — zero-shot document classification
 
 ## ChatGPT (Custom GPT)
 

@@ -585,6 +585,34 @@ class MDDBClient {
     });
   }
 
+  /**
+   * Partial document update (meta and/or content independently)
+   */
+  async updateDocument({ collection, key, lang, meta, contentMd, ttl }) {
+    const body = { collection, key, lang };
+    if (meta !== undefined) body.meta = meta;
+    if (contentMd !== undefined) body.contentMd = contentMd;
+    if (ttl !== undefined) body.ttl = ttl;
+    return this.request('/update', { method: 'PATCH', body: JSON.stringify(body) });
+  }
+
+  /**
+   * Get document metadata only (without content)
+   */
+  async getDocumentMeta({ collection, key, lang }) {
+    return this.request(`/doc-meta?collection=${encodeURIComponent(collection)}&key=${encodeURIComponent(key)}&lang=${encodeURIComponent(lang || 'en')}`);
+  }
+
+  /**
+   * Zero-shot document classification
+   */
+  async classify({ collection, key, lang, text, labels, topK, multi, threshold }) {
+    return this.request('/classify', {
+      method: 'POST',
+      body: JSON.stringify({ collection, key, lang, text, labels, topK, multi, threshold }),
+    });
+  }
+
   // ---- Automation Methods ----
 
   /**

@@ -21,6 +21,7 @@ MDDB treats markdown documents as first-class citizens, providing:
 - **Vector Search** - Semantic similarity with multiple algorithms (Flat, HNSW, IVF, PQ, SQ, BQ)
 - **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, BM25F (field-weighted), and PMISparse (PPMI query expansion), typo tolerance, stemming, synonyms, metadata pre-filtering — no external dependencies
 - **Hybrid Search** - Combine BM25 keyword and vector semantic search with alpha blending or RRF fusion
+- **Zero-Shot Classification** — Classify documents against candidate labels using embedding similarity, no training data needed
 - **Document TTL** - Auto-expiring documents like Redis
 - **Automation** - Triggers, crons, webhooks with template variables and sentiment analysis
 - **Zero Configuration** - Single ~29MB binary, embedded database

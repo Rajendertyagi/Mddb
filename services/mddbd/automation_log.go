@@ -21,7 +21,7 @@ type AutomationLogEntry struct {
 	Timestamp  int64  `json:"timestamp"`
 	RuleID     string `json:"ruleId"`
 	RuleName   string `json:"ruleName"`
-	RuleType   string `json:"ruleType"`   // "trigger" | "cron"
+	RuleType   string `json:"ruleType"` // "trigger" | "cron"
 	WebhookID  string `json:"webhookId"`
 	WebhookURL string `json:"webhookUrl"`
 	Status     string `json:"status"`     // "success" | "error" | "skipped"

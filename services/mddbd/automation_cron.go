@@ -91,13 +91,13 @@ func (cs *CronScheduler) addEntry(cronRule AutomationRule) {
 			log.Printf("cron %s: webhook %s disabled or deleted, skipping", ruleID, webhookID)
 			if cs.server.AutomationLogStore != nil {
 				_ = cs.server.AutomationLogStore.Log(AutomationLogEntry{
-					Timestamp:  time.Now().Unix(),
-					RuleID:     ruleID,
-					RuleName:   cronRule.Name,
-					RuleType:   "cron",
-					WebhookID:  webhookID,
-					Status:     "skipped",
-					Error:      "webhook disabled or deleted",
+					Timestamp: time.Now().Unix(),
+					RuleID:    ruleID,
+					RuleName:  cronRule.Name,
+					RuleType:  "cron",
+					WebhookID: webhookID,
+					Status:    "skipped",
+					Error:     "webhook disabled or deleted",
 				})
 			}
 			return

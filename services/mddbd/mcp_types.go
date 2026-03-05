@@ -388,6 +388,58 @@ type MCPValidateResponse struct {
 	Errors []string `json:"errors"`
 }
 
+// MCPUpdateDocumentRequest represents request to partially update a document.
+type MCPUpdateDocumentRequest struct {
+	Collection string              `json:"collection"`
+	Key        string              `json:"key"`
+	Lang       string              `json:"lang"`
+	Meta       map[string][]string `json:"meta,omitempty"`
+	ContentMD  *string             `json:"contentMd,omitempty"`
+	TTL        *int64              `json:"ttl,omitempty"`
+}
+
+// MCPGetDocMetaRequest represents request to get document metadata only.
+type MCPGetDocMetaRequest struct {
+	Collection string `json:"collection"`
+	Key        string `json:"key"`
+	Lang       string `json:"lang"`
+}
+
+// MCPDocMetaResponse represents document metadata without content.
+type MCPDocMetaResponse struct {
+	Key       string              `json:"key"`
+	Lang      string              `json:"lang"`
+	Meta      map[string][]string `json:"meta"`
+	AddedAt   int64               `json:"addedAt"`
+	UpdatedAt int64               `json:"updatedAt"`
+	ExpiresAt int64               `json:"expiresAt,omitempty"`
+}
+
+// MCPClassifyRequest represents zero-shot classification request.
+type MCPClassifyRequest struct {
+	Collection string   `json:"collection,omitempty"`
+	Key        string   `json:"key,omitempty"`
+	Lang       string   `json:"lang,omitempty"`
+	Text       string   `json:"text,omitempty"`
+	Labels     []string `json:"labels"`
+	TopK       int      `json:"topK,omitempty"`
+	Multi      bool     `json:"multi,omitempty"`
+	Threshold  float64  `json:"threshold,omitempty"`
+}
+
+// MCPClassifyLabelScore represents a single classification result.
+type MCPClassifyLabelScore struct {
+	Label string  `json:"label"`
+	Score float64 `json:"score"`
+}
+
+// MCPClassifyResponse represents classification results.
+type MCPClassifyResponse struct {
+	Results    []MCPClassifyLabelScore `json:"results"`
+	Model      string                  `json:"model"`
+	Dimensions int                     `json:"dimensions"`
+}
+
 // --- MCP Protocol Types ---
 
 // MCPResource represents an MCP resource.
@@ -442,6 +494,9 @@ type MCPClient interface {
 	DeleteSchema(ctx context.Context, collection string) error
 	ListSchemas(ctx context.Context) (*MCPListSchemasResponse, error)
 	ValidateDocument(ctx context.Context, req *MCPValidateRequest) (*MCPValidateResponse, error)
+	UpdateDocument(ctx context.Context, req *MCPUpdateDocumentRequest) (*MCPDocument, error)
+	GetDocumentMeta(ctx context.Context, req *MCPGetDocMetaRequest) (*MCPDocMetaResponse, error)
+	Classify(ctx context.Context, req *MCPClassifyRequest) (*MCPClassifyResponse, error)
 	Close() error
 }
 

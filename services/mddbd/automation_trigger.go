@@ -424,9 +424,9 @@ func (am *AutomationManager) RunTriggerAndFire(trigger *AutomationRule) {
 
 // CronPayload is sent to webhook URLs when a cron fires.
 type CronPayload struct {
-	Event     string           `json:"event"` // "cron.fired"
-	Cron      CronPayloadCron  `json:"cron"`
-	Timestamp int64            `json:"timestamp"`
+	Event     string          `json:"event"` // "cron.fired"
+	Cron      CronPayloadCron `json:"cron"`
+	Timestamp int64           `json:"timestamp"`
 }
 
 // CronPayloadCron is the cron info in the payload.

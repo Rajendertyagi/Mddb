@@ -307,6 +307,53 @@ func mcpBuiltinTools() []MCPTool {
 				"required": []string{"from"},
 			},
 		},
+		{
+			Name:        "update_document",
+			Description: "Partially update a document. Update metadata and/or content independently without re-sending the entire document. Omit fields to leave them unchanged.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection name"},
+					"key":        map[string]interface{}{"type": "string", "description": "Document key"},
+					"lang":       map[string]interface{}{"type": "string", "description": "Language code"},
+					"meta":       map[string]interface{}{"type": "object", "description": "New metadata (replaces all). Use {} to clear."},
+					"content_md": map[string]interface{}{"type": "string", "description": "New markdown content (replaces existing)"},
+					"ttl":        map[string]interface{}{"type": "integer", "description": "New TTL in seconds (0 = no expiry)"},
+				},
+				"required": []string{"collection", "key", "lang"},
+			},
+		},
+		{
+			Name:        "get_document_meta",
+			Description: "Get document metadata without content. Lightweight read that returns only key, lang, meta, and timestamps.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection name"},
+					"key":        map[string]interface{}{"type": "string", "description": "Document key"},
+					"lang":       map[string]interface{}{"type": "string", "description": "Language code"},
+				},
+				"required": []string{"collection", "key", "lang"},
+			},
+		},
+		{
+			Name:        "classify_document",
+			Description: "Zero-shot document classification. Given candidate labels and either a document reference or raw text, ranks labels by semantic similarity using embeddings. No training data required.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection name (for doc reference)"},
+					"key":        map[string]interface{}{"type": "string", "description": "Document key (for doc reference)"},
+					"lang":       map[string]interface{}{"type": "string", "description": "Language code (for doc reference)"},
+					"text":       map[string]interface{}{"type": "string", "description": "Raw text to classify (alternative to doc reference)"},
+					"labels":     map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}, "description": "Candidate labels to rank by similarity"},
+					"top_k":      map[string]interface{}{"type": "integer", "description": "Return top K labels (0 = all, default: all)"},
+					"multi":      map[string]interface{}{"type": "boolean", "description": "If true, return all labels above threshold"},
+					"threshold":  map[string]interface{}{"type": "number", "description": "Minimum similarity score (default: 0.0)"},
+				},
+				"required": []string{"labels"},
+			},
+		},
 	}
 }
 
@@ -429,6 +476,8 @@ func validateMCPCustomTools(tools []MCPCustomToolConfig) error {
 		"register_webhook": true, "list_webhooks": true, "delete_webhook": true,
 		"set_schema": true, "get_schema": true, "delete_schema": true,
 		"list_schemas": true, "validate_document": true,
+		"update_document": true, "get_document_meta": true,
+		"classify_document": true,
 	}
 	validActions := map[string]bool{
 		"semantic_search": true, "search_documents": true, "full_text_search": true,

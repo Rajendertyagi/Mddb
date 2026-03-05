@@ -63,6 +63,14 @@ Complete list of MDDB features organized by category.
 - **Configurable Parameters** - `strategy`, `alpha`, `rrfK`, `algorithm`, `vectorAlgorithm`
 - **API Endpoint** - `POST /v1/hybrid-search` with gRPC `HybridSearch` RPC and `hybrid_search` MCP tool
 
+#### Zero-Shot Classification
+- **Embedding-based** — Classify documents against candidate labels using cosine similarity
+- **No Training Data** — Works out of the box with any embedding provider
+- **Document or Text** — Classify by document reference (reuses existing embedding) or raw text
+- **Batch Labels** — All candidate labels embedded in a single batch call
+- **Configurable** — `topK`, `multi` (return all above threshold), `threshold`
+- **API Endpoint** — `POST /v1/classify` with gRPC `Classify` RPC and `classify_document` MCP tool
+
 ## APIs & Protocols
 
 ### HTTP/JSON REST API
