@@ -1202,6 +1202,147 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /v1/stopwords:
+    get:
+      tags:
+        - Stop Words
+      summary: List stop words
+      description: List all stop word entries (default + custom) for a collection. Stop words are excluded from FTS indexing.
+      operationId: listStopWords
+      parameters:
+        - name: collection
+          in: query
+          required: true
+          description: Collection name
+          schema:
+            type: string
+            example: blog
+      responses:
+        "200":
+          description: Stop word list retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collection:
+                    type: string
+                    example: blog
+                  entries:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        word:
+                          type: string
+                          example: the
+                        isDefault:
+                          type: boolean
+                          example: true
+                  total:
+                    type: integer
+                    example: 35
+                  defaults:
+                    type: integer
+                    example: 33
+                  custom:
+                    type: integer
+                    example: 2
+        "400":
+          description: Invalid request (missing collection parameter)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      tags:
+        - Stop Words
+      summary: Add custom stop words
+      description: Add custom stop words to a collection. These words will be excluded from FTS indexing.
+      operationId: addStopWords
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - collection
+                - words
+              properties:
+                collection:
+                  type: string
+                  example: blog
+                words:
+                  type: array
+                  items:
+                    type: string
+                  example: ["foo", "bar"]
+      responses:
+        "200":
+          description: Stop words added successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  added:
+                    type: integer
+                    example: 2
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      tags:
+        - Stop Words
+      summary: Delete custom stop words
+      description: Delete custom stop words from a collection. Default stop words cannot be deleted.
+      operationId: deleteStopWords
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - collection
+                - words
+              properties:
+                collection:
+                  type: string
+                  example: blog
+                words:
+                  type: array
+                  items:
+                    type: string
+                  example: ["foo"]
+      responses:
+        "200":
+          description: Stop words deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  deleted:
+                    type: integer
+                    example: 1
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /v1/embedding-configs:
     get:
       tags:

@@ -75,6 +75,17 @@ func (s *Server) handleEndpoints(w http.ResponseWriter, r *http.Request) {
 		{Method: "GET/POST/DELETE", Path: "/v1/synonyms", Description: "Manage FTS synonyms", RequiresAuth: authEnabled},
 		{Method: "GET/POST/DELETE", Path: "/v1/stopwords", Description: "Manage FTS stop words", RequiresAuth: authEnabled},
 
+		// Metadata & checksum
+		{Method: "GET", Path: "/v1/meta-keys", Description: "List unique metadata keys and values", RequiresAuth: authEnabled},
+		{Method: "GET", Path: "/v1/checksum", Description: "Collection CRC32 checksum", RequiresAuth: authEnabled},
+
+		// Partial update & doc-meta
+		{Method: "PATCH", Path: "/v1/update", Description: "Partial document update (meta/content/ttl)", RequiresAuth: authEnabled},
+		{Method: "GET", Path: "/v1/doc-meta", Description: "Get document metadata without content", RequiresAuth: authEnabled},
+
+		// Zero-shot classification
+		{Method: "POST", Path: "/v1/classify", Description: "Zero-shot document classification using embeddings", RequiresAuth: authEnabled},
+
 		// Webhooks
 		{Method: "POST", Path: "/v1/webhooks", Description: "List/register webhooks", RequiresAuth: authEnabled},
 		{Method: "POST", Path: "/v1/webhooks/delete", Description: "Delete webhook", RequiresAuth: authEnabled},
@@ -83,6 +94,7 @@ func (s *Server) handleEndpoints(w http.ResponseWriter, r *http.Request) {
 		{Method: "GET/POST", Path: "/v1/automation", Description: "List/create automation rules", RequiresAuth: authEnabled},
 		{Method: "GET/PUT/DELETE", Path: "/v1/automation/{id}", Description: "Get/update/delete automation rule", RequiresAuth: authEnabled},
 		{Method: "POST", Path: "/v1/automation/{id}/test", Description: "Test trigger (dry run)", RequiresAuth: authEnabled},
+		{Method: "GET", Path: "/v1/automation-logs", Description: "Get automation execution logs", RequiresAuth: authEnabled},
 
 		// Schema validation
 		{Method: "POST", Path: "/v1/schema/set", Description: "Set JSON schema for collection", RequiresAuth: authEnabled},
@@ -167,6 +179,9 @@ func (s *Server) handleEndpoints(w http.ResponseWriter, r *http.Request) {
 		{Name: "DeleteSchema", Description: "Delete schema"},
 		{Name: "ListSchemas", Description: "List all schemas"},
 		{Name: "ValidateDocument", Description: "Validate document metadata"},
+		{Name: "UpdateDocument", Description: "Partial document update (meta/content/ttl)"},
+		{Name: "GetDocumentMeta", Description: "Get document metadata without content"},
+		{Name: "Classify", Description: "Zero-shot document classification"},
 		{Name: "ListAutomation", Description: "List automation rules"},
 		{Name: "CreateAutomation", Description: "Create automation rule"},
 		{Name: "UpdateAutomation", Description: "Update automation rule"},
@@ -200,6 +215,9 @@ func (s *Server) handleEndpoints(w http.ResponseWriter, r *http.Request) {
 		{Name: "delete_schema", Description: "Delete schema"},
 		{Name: "list_schemas", Description: "List schemas"},
 		{Name: "validate_document", Description: "Validate metadata"},
+		{Name: "update_document", Description: "Partial document update"},
+		{Name: "get_document_meta", Description: "Get document metadata"},
+		{Name: "classify_document", Description: "Zero-shot classification"},
 		{Name: "list_automation", Description: "List automation rules"},
 		{Name: "create_automation", Description: "Create automation rule"},
 		{Name: "update_automation", Description: "Update automation rule"},

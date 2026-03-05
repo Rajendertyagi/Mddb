@@ -581,7 +581,7 @@ For best results, combine search methods:
 4. **FTS for keywords, Vector for meaning**: Use FTS when users search for specific terms, vector when queries are natural language questions
 5. **BM25F for structured docs**: Use BM25F when documents have meaningful titles and tags — matches in titles will rank higher than body-only matches
 
-## Automation Triggers (v2.6.6+)
+## Automation Triggers (v2.6.9+)
 
 MDDB supports **automation triggers** that fire webhooks when documents matching search criteria are added to a collection.
 
