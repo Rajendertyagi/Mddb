@@ -24,6 +24,8 @@ info:
     - Export capabilities (NDJSON, ZIP)
     - Backup and restore operations
     - **Replication** - Leader-follower replication with binlog streaming
+    - **Automation** - Webhooks, triggers (FTS/vector/hybrid + sentiment), crons
+    - **Automation Logs** - Execution history with configurable TTL retention
 
     ## Protocols
     - **HTTP/JSON** - Port 11023 (documented here)
@@ -59,7 +61,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: "2.6.6"
+  version: "2.6.7"
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -2295,6 +2297,55 @@ paths:
                   total:
                     type: integer
 
+  /v1/automation-logs:
+    get:
+      tags: [Automation]
+      summary: List automation execution logs
+      description: Returns automation execution logs ordered newest-first with cursor-based pagination. Requires MDDB_AUTOMATION_LOGS != "disable".
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 500
+          description: Max entries per page
+        - name: cursor
+          in: query
+          schema:
+            type: string
+          description: Pagination cursor from previous response
+        - name: ruleId
+          in: query
+          schema:
+            type: string
+          description: Filter by rule ID
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [success, error, skipped]
+          description: Filter by execution status
+      responses:
+        "200":
+          description: Automation logs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  logs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AutomationLogEntry'
+                  total:
+                    type: integer
+                  nextCursor:
+                    type: string
+                  hasMore:
+                    type: boolean
+
 components:
   schemas:
     Document:
@@ -4022,10 +4073,34 @@ components:
           description: Minimum score threshold 0-100 (type=trigger)
         webhookId:
           type: string
-          description: Target webhook ID (type=trigger)
+          description: Target webhook ID (type=trigger, type=cron)
         searchParams:
           type: object
           description: Extra search parameters (type=trigger)
+        events:
+          type: array
+          items:
+            type: string
+            enum: [insert, update, delete]
+          description: Events that fire the trigger (type=trigger, default ["insert","update"])
+        sentimentEnabled:
+          type: boolean
+          description: Enable keyword-based sentiment condition (type=trigger)
+        sentimentMin:
+          type: number
+          minimum: -1.0
+          maximum: 1.0
+          description: Minimum sentiment score -1.0 to 1.0 (type=trigger)
+        sentimentMax:
+          type: number
+          minimum: -1.0
+          maximum: 1.0
+          description: Maximum sentiment score -1.0 to 1.0 (type=trigger)
+        conditionLogic:
+          type: string
+          enum: [and, or]
+          default: and
+          description: How to combine search + sentiment conditions (type=trigger)
         schedule:
           type: string
           description: Cron expression e.g. "0 9 * * *" (type=cron)
@@ -4050,6 +4125,36 @@ components:
           type: string
         score:
           type: number
+
+    AutomationLogEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        timestamp:
+          type: integer
+        ruleId:
+          type: string
+        ruleName:
+          type: string
+        ruleType:
+          type: string
+          enum: [trigger, cron]
+        webhookId:
+          type: string
+        webhookUrl:
+          type: string
+        status:
+          type: string
+          enum: [success, error, skipped]
+        httpStatus:
+          type: integer
+        durationMs:
+          type: integer
+        error:
+          type: string
+        attempt:
+          type: integer
 
   securitySchemes:
     BearerAuth:

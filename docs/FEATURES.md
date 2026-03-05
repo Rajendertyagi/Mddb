@@ -38,13 +38,15 @@ Complete list of MDDB features organized by category.
 - **Configurable Models** - Switch providers/models without code changes
 - **Background Indexing** - Non-blocking embedding generation
 - **Automatic Fallback** - Falls back to flat if ANN index not ready
+- **Embedding Chunking** - Auto-split long documents into paragraph-based chunks before embedding with sentence and hard-split fallbacks. Multi-key chunk storage with deduplication in search results. Configurable via `MDDB_EMBEDDING_CHUNK_SIZE` and `MDDB_EMBEDDING_CHUNK_ENABLED`.
 
 #### Full-Text Search
 - **Built-in Inverted Index** - No external dependencies (Elasticsearch, etc.)
 - **TF-IDF Scoring** - Classic term frequency-inverse document frequency ranking
 - **BM25 Scoring** - Okapi BM25 with document length normalization (k1=1.2, b=0.75)
 - **BM25F Scoring** - Field-weighted BM25 — weight matches in title, tags, description differently from body content
-- **Query-time Algorithm Selection** - Choose TF-IDF, BM25, or BM25F per request via `algorithm` parameter
+- **PMISparse Scoring** - Two-phase sparse retrieval with PPMI-based automatic query expansion (invented by Tradik Limited). Bridges vocabulary gap between short queries and documents without synonyms or external models. Fuzzy variant with typo tolerance.
+- **Query-time Algorithm Selection** - Choose TF-IDF, BM25, BM25F, or PMISparse per request via `algorithm` parameter
 - **Typo Tolerance** - Fuzzy matching with configurable edit distance (0-2) via `fuzzy` parameter
 - **Porter Stemming** - Reduce words to root forms for better recall (configurable, per-query disable)
 - **Synonym Expansion** - Bidirectional query-time synonym expansion with per-collection dictionaries
@@ -52,6 +54,13 @@ Complete list of MDDB features organized by category.
 - **Stop Word Filtering** - Remove common words
 - **Multi-field Search** - Search in content and metadata
 - **Language-aware** - Per-language stop words
+
+#### Hybrid Search
+- **Combined Retrieval** - Merge BM25/BM25F/PMISparse keyword scores with vector semantic scores in a single query
+- **Alpha Blending** - Weighted linear interpolation: `combined = (1-alpha) * FTS + alpha * vector`
+- **RRF (Reciprocal Rank Fusion)** - Rank-based fusion robust to different score distributions
+- **Configurable Parameters** - `strategy`, `alpha`, `rrfK`, `algorithm`, `vectorAlgorithm`
+- **API Endpoint** - `POST /v1/hybrid-search` with gRPC `HybridSearch` RPC and `hybrid_search` MCP tool
 
 ## APIs & Protocols
 
@@ -126,14 +135,19 @@ Complete list of MDDB features organized by category.
 
 ## Integration & Automation
 
-### Webhooks
-- **Event Triggers** - `doc.added`, `doc.updated`, `doc.deleted`
-- **HTTP Callbacks** - POST JSON payload to URL
-- **Retry Logic** - 3 retries with exponential backoff
-- **Collection Filtering** - Listen to specific collections only
-- **Payload** - Event type, collection, key, lang, timestamp, document
-- **Webhook Management** - Register, list, delete webhooks
-- **Error Logging** - Failed deliveries logged
+### Automation System
+- **Triggers** - Fire webhooks when new/updated/deleted documents match search criteria (FTS/vector/hybrid) above configurable threshold
+- **Crons** - Schedule periodic trigger execution using cron expressions (6-field format with seconds)
+- **Webhook Targets** - Named HTTP endpoints with custom method (POST/GET/PUT), custom headers, and template variable substitution (`{{doc.id}}`, `{{collection}}`, etc.)
+- **Sentiment Analysis** - Optional keyword-based sentiment condition (-1.0 to +1.0) on triggers with AND/OR logic for combining with search
+- **Execution Logs** - `GET /v1/automation-logs` with cursor-based pagination, status filtering, TTL-based cleanup
+- **Template Variables** - Dynamic `{{variable}}` substitution in webhook URLs and headers with document fields, meta, scores, and context
+- **Retry Logic** - Exponential backoff (0s, 1s, 5s, 15s) with custom X-MDDB headers
+- **Unified Storage** - All rules (webhooks, triggers, crons) in single `automation` BoltDB bucket
+- **HTTP API** - `GET/POST /v1/automation`, `GET/PUT/DELETE /v1/automation/{id}`, `POST /v1/automation/{id}/test`
+- **gRPC RPCs** - `ListAutomation`, `CreateAutomation`, `UpdateAutomation`, `DeleteAutomation`, `TestAutomation`
+- **MCP Tools** - `list_automation`, `create_automation`, `update_automation`, `delete_automation`, `test_automation`
+- **Configurable** - `MDDB_AUTOMATIONS`, `MDDB_AUTOMATION_LOGS`, `MDDB_AUTOMATION_LOGS_TTL`, `MDDB_TRIGGERS`, `MDDB_CRONS`, `MDDB_WEBHOOKS`
 
 ### Import from URL
 - **Fetch Markdown** - Download from any HTTP/HTTPS URL
@@ -194,6 +208,11 @@ Complete list of MDDB features organized by category.
 - **LLM Connections** - Config templates for Claude, ChatGPT, Ollama, DeepSeek, Manus, Bielik.ai
 - **CPU & Memory Monitoring** - Live CPU usage bar, heap memory bar with color coding
 - **Version Display** - Server and panel version always visible in sidebar
+- **Automation Tab** - Full automation management UI with type filter tabs, dynamic forms, enable/disable toggle, test button
+- **Automation Logs Tab** - Execution log viewer with status filter, auto-refresh, cursor-based pagination
+- **Hybrid Search Mode** - Combined FTS + vector search with strategy/alpha/algorithm controls
+- **Command Modal** - Copy-ready API examples in curl, PHP, Python, and JavaScript for all search operations
+- **Webhook Template Variables Help** - Collapsible reference for available `{{variable}}` names in webhook forms
 
 ### Docker Support
 - **Multi-arch Images** - amd64, arm64, armv7
@@ -367,6 +386,15 @@ Enable with `MDDB_EXTREME=true`:
 - `MDDB_REPLICATION_LEADER_ADDR` - Follower: gRPC address of the leader
 - `MDDB_BINLOG_ENABLED` - Enable binlog (auto-enabled for leader)
 - `MDDB_NODE_ID` - Unique node identifier
+- `MDDB_AUTOMATIONS` - Enable/disable entire automation system (default: enabled)
+- `MDDB_AUTOMATION_LOGS` - Enable/disable automation execution logging (default: enabled)
+- `MDDB_AUTOMATION_LOGS_TTL` - Automation log retention period (default: 7d)
+- `MDDB_TRIGGERS` - Enable/disable triggers (default: false)
+- `MDDB_CRONS` - Enable/disable crons (default: false)
+- `MDDB_WEBHOOKS` - Enable/disable webhooks (default: false)
+- `MDDB_EMBEDDING_CHUNK_ENABLED` - Enable/disable embedding chunking (default: true)
+- `MDDB_EMBEDDING_CHUNK_SIZE` - Maximum chunk size in characters (default: 1500)
+- `MDDB_PANEL_MODE` - Panel mode: internal (CORS) or external (reverse proxy)
 
 ### CLI Flags
 - `--db` - Database file path

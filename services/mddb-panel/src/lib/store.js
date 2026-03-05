@@ -75,7 +75,7 @@ export const useStore = create((set, get) => ({
   sidebarCollapsed: localStorage.getItem('sidebarCollapsed') === 'true',
 
   // View mode (documents, system, config, mcp, endpoints, users, groups)
-  viewMode: 'documents',
+  viewMode: 'system',
 
   // System info
   systemInfo: null,

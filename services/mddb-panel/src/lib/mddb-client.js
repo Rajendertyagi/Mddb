@@ -625,6 +625,18 @@ class MDDBClient {
   async testAutomation(id) {
     return this.request(`/automation/${id}/test`, { method: 'POST' });
   }
+
+  /**
+   * List automation logs
+   */
+  async listAutomationLogs({ limit = 50, cursor = '', ruleId = '', status = '' } = {}) {
+    const params = new URLSearchParams();
+    if (limit) params.set('limit', limit);
+    if (cursor) params.set('cursor', cursor);
+    if (ruleId) params.set('ruleId', ruleId);
+    if (status) params.set('status', status);
+    return this.request(`/automation-logs?${params.toString()}`, { method: 'GET' });
+  }
 }
 
 export default new MDDBClient();

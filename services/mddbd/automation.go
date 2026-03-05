@@ -35,6 +35,11 @@ type AutomationRule struct {
 	Threshold    float64                `json:"threshold,omitempty"` // 0-100
 	WebhookID    string                 `json:"webhookId,omitempty"`
 	SearchParams map[string]interface{} `json:"searchParams,omitempty"` // extra: algorithm, fuzzy, etc.
+	Events           []string               `json:"events,omitempty"`           // "insert", "update", "delete" (MySQL-style)
+	SentimentEnabled bool                   `json:"sentimentEnabled,omitempty"` // enable sentiment condition
+	SentimentMin     float64                `json:"sentimentMin,omitempty"`     // -1.0 to 1.0
+	SentimentMax     float64                `json:"sentimentMax,omitempty"`     // -1.0 to 1.0
+	ConditionLogic   string                 `json:"conditionLogic,omitempty"`   // "and" | "or"
 
 	// Cron fields (type=cron)
 	Schedule  string `json:"schedule,omitempty"` // cron expression "0 9 * * *"
@@ -45,11 +50,12 @@ type AutomationRule struct {
 
 // AutomationManager manages automation rules (webhooks, triggers, crons).
 type AutomationManager struct {
-	db     *bolt.DB
-	mu     sync.RWMutex
-	rules  []AutomationRule
-	binlog *Binlog
-	server *Server
+	db       *bolt.DB
+	mu       sync.RWMutex
+	rules    []AutomationRule
+	binlog   *Binlog
+	server   *Server
+	logStore *AutomationLogStore
 }
 
 // NewAutomationManager creates a new automation manager.
@@ -67,6 +73,11 @@ func (am *AutomationManager) SetBinlog(bl *Binlog) {
 // SetServer sets the server reference for trigger evaluation.
 func (am *AutomationManager) SetServer(s *Server) {
 	am.server = s
+}
+
+// SetLogStore sets the automation log store for recording webhook executions.
+func (am *AutomationManager) SetLogStore(ls *AutomationLogStore) {
+	am.logStore = ls
 }
 
 // EnsureBucket creates the automation bucket if it doesn't exist.
@@ -289,15 +300,26 @@ func (am *AutomationManager) GetTrigger(id string) *AutomationRule {
 	return nil
 }
 
-// EnabledTriggersForCollection returns all enabled triggers watching a given collection.
-func (am *AutomationManager) EnabledTriggersForCollection(collection string) []AutomationRule {
+// EnabledTriggersForEvent returns all enabled triggers watching a given collection and event.
+func (am *AutomationManager) EnabledTriggersForEvent(collection, event string) []AutomationRule {
 	am.mu.RLock()
 	defer am.mu.RUnlock()
 
 	var result []AutomationRule
 	for _, r := range am.rules {
-		if r.Type == "trigger" && r.Enabled && r.Collection == collection {
-			result = append(result, r)
+		if r.Type != "trigger" || !r.Enabled || r.Collection != collection {
+			continue
+		}
+		// Check event match: empty events defaults to insert+update
+		events := r.Events
+		if len(events) == 0 {
+			events = []string{"insert", "update"}
+		}
+		for _, ev := range events {
+			if ev == event {
+				result = append(result, r)
+				break
+			}
 		}
 	}
 	return result
@@ -345,15 +367,15 @@ func (am *AutomationManager) validateRule(rule *AutomationRule) error {
 		if rule.Collection == "" {
 			return fmt.Errorf("collection is required for trigger")
 		}
-		if rule.SearchType == "" {
-			return fmt.Errorf("searchType is required for trigger (fts, vector, hybrid)")
-		}
-		validSearch := map[string]bool{"fts": true, "vector": true, "hybrid": true}
-		if !validSearch[rule.SearchType] {
-			return fmt.Errorf("invalid searchType: %s (valid: fts, vector, hybrid)", rule.SearchType)
-		}
-		if rule.Query == "" {
-			return fmt.Errorf("query is required for trigger")
+		// searchType is only required when a query is specified
+		if rule.Query != "" {
+			if rule.SearchType == "" {
+				return fmt.Errorf("searchType is required when query is set (fts, vector, hybrid)")
+			}
+			validSearch := map[string]bool{"fts": true, "vector": true, "hybrid": true}
+			if !validSearch[rule.SearchType] {
+				return fmt.Errorf("invalid searchType: %s (valid: fts, vector, hybrid)", rule.SearchType)
+			}
 		}
 		if rule.Threshold < 0 || rule.Threshold > 100 {
 			return fmt.Errorf("threshold must be between 0 and 100")
@@ -365,18 +387,46 @@ func (am *AutomationManager) validateRule(rule *AutomationRule) error {
 		if am.GetWebhook(rule.WebhookID) == nil {
 			return fmt.Errorf("webhook not found: %s", rule.WebhookID)
 		}
+		// Validate events; default to insert+update if empty
+		if len(rule.Events) == 0 {
+			rule.Events = []string{"insert", "update"}
+		}
+		validEvents := map[string]bool{"insert": true, "update": true, "delete": true}
+		for _, ev := range rule.Events {
+			if !validEvents[ev] {
+				return fmt.Errorf("invalid event: %s (valid: insert, update, delete)", ev)
+			}
+		}
+		// Validate sentiment fields
+		if rule.SentimentEnabled {
+			if rule.SentimentMin < -1.0 || rule.SentimentMin > 1.0 {
+				return fmt.Errorf("sentimentMin must be between -1.0 and 1.0")
+			}
+			if rule.SentimentMax < -1.0 || rule.SentimentMax > 1.0 {
+				return fmt.Errorf("sentimentMax must be between -1.0 and 1.0")
+			}
+			if rule.SentimentMin > rule.SentimentMax {
+				return fmt.Errorf("sentimentMin must be <= sentimentMax")
+			}
+		}
+		// Validate condition logic
+		if rule.ConditionLogic == "" {
+			rule.ConditionLogic = "and"
+		} else if rule.ConditionLogic != "and" && rule.ConditionLogic != "or" {
+			return fmt.Errorf("conditionLogic must be 'and' or 'or'")
+		}
 	case "cron":
 		rule.Schedule = strings.TrimSpace(rule.Schedule)
-		rule.TriggerID = strings.TrimSpace(rule.TriggerID)
+		rule.WebhookID = strings.TrimSpace(rule.WebhookID)
 		if rule.Schedule == "" {
 			return fmt.Errorf("schedule is required for cron")
 		}
-		if rule.TriggerID == "" {
-			return fmt.Errorf("triggerId is required for cron")
+		if rule.WebhookID == "" {
+			return fmt.Errorf("webhookId is required for cron")
 		}
-		// Verify trigger exists
-		if am.GetTrigger(rule.TriggerID) == nil {
-			return fmt.Errorf("trigger not found: %s", rule.TriggerID)
+		// Verify webhook exists
+		if am.GetWebhook(rule.WebhookID) == nil {
+			return fmt.Errorf("webhook not found: %s", rule.WebhookID)
 		}
 	default:
 		return fmt.Errorf("invalid type: %s (valid: webhook, trigger, cron)", rule.Type)

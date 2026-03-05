@@ -67,32 +67,43 @@ func (cs *CronScheduler) Reload() {
 func (cs *CronScheduler) addEntry(cronRule AutomationRule) {
 	am := cs.server.AutomationManager
 
-	// Resolve the trigger
-	trigger := am.GetTrigger(cronRule.TriggerID)
-	if trigger == nil {
-		log.Printf("cron %s: trigger %s not found, skipping", cronRule.ID, cronRule.TriggerID)
+	// Resolve the webhook
+	webhook := am.GetWebhook(cronRule.WebhookID)
+	if webhook == nil {
+		log.Printf("cron %s: webhook %s not found, skipping", cronRule.ID, cronRule.WebhookID)
 		return
 	}
 
 	ruleID := cronRule.ID
-	triggerCopy := *trigger
+	webhookID := cronRule.WebhookID
 
 	entryID, err := cs.cron.AddFunc(cronRule.Schedule, func() {
-		log.Printf("cron %s: executing trigger %s (%s)", ruleID, triggerCopy.ID, triggerCopy.Name)
+		log.Printf("cron %s: firing webhook %s", ruleID, webhookID)
 
 		// Track cron execution
 		if cs.server.Metrics != nil {
 			cs.server.Metrics.IncOp("automation_cron", ruleID)
 		}
 
-		// Re-fetch trigger in case it was updated
-		currentTrigger := am.GetTrigger(triggerCopy.ID)
-		if currentTrigger == nil || !currentTrigger.Enabled {
-			log.Printf("cron %s: trigger %s disabled or deleted, skipping", ruleID, triggerCopy.ID)
+		// Re-fetch webhook in case it was updated
+		currentWebhook := am.GetWebhook(webhookID)
+		if currentWebhook == nil || !currentWebhook.Enabled {
+			log.Printf("cron %s: webhook %s disabled or deleted, skipping", ruleID, webhookID)
+			if cs.server.AutomationLogStore != nil {
+				_ = cs.server.AutomationLogStore.Log(AutomationLogEntry{
+					Timestamp:  time.Now().Unix(),
+					RuleID:     ruleID,
+					RuleName:   cronRule.Name,
+					RuleType:   "cron",
+					WebhookID:  webhookID,
+					Status:     "skipped",
+					Error:      "webhook disabled or deleted",
+				})
+			}
 			return
 		}
 
-		am.RunTriggerAndFire(currentTrigger)
+		fireCronWebhook(currentWebhook, ruleID, cronRule.Name, cs.server.AutomationLogStore)
 		am.UpdateLastRun(ruleID, time.Now().Unix())
 	})
 

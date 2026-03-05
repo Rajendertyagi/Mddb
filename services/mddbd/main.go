@@ -22,7 +22,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-const VERSION = "2.6.6"
+const VERSION = "2.6.7"
 
 type AccessMode string
 
@@ -68,8 +68,9 @@ type Server struct {
 	AuthManager       *AuthManager       // Authentication and authorization
 	SynonymManager    *SynonymManager    // Synonym dictionaries for FTS
 	StopWordManager   *StopWordManager   // Per-collection custom stop words for FTS
-	AutomationManager *AutomationManager // Automation: triggers, crons, webhook targets
-	CronScheduler     *CronScheduler     // Cron scheduler for automation
+	AutomationManager  *AutomationManager  // Automation: triggers, crons, webhook targets
+	AutomationLogStore *AutomationLogStore // Automation execution logs
+	CronScheduler      *CronScheduler      // Cron scheduler for automation
 	// Replication
 	Binlog          *Binlog            // Binary replication log
 	ReplicationRole string             // "leader", "follower", or "" (standalone)
@@ -346,15 +347,34 @@ func main() {
 	log.Printf("Webhook manager initialized (%d hooks loaded)", len(s.WebhookManager.List()))
 
 	// Initialize automation manager (triggers, crons, webhook targets)
-	s.AutomationManager = NewAutomationManager(db)
-	s.AutomationManager.SetServer(s)
-	if err := s.AutomationManager.EnsureBucket(); err != nil {
-		log.Fatal(err)
+	automationsEnabled := env("MDDB_AUTOMATIONS", "enable") != "disable"
+	if automationsEnabled {
+		s.AutomationManager = NewAutomationManager(db)
+		s.AutomationManager.SetServer(s)
+		if err := s.AutomationManager.EnsureBucket(); err != nil {
+			log.Fatal(err)
+		}
+		if err := s.AutomationManager.LoadAll(); err != nil {
+			log.Fatal(err)
+		}
+		log.Printf("Automation manager initialized (%d rules loaded)", len(s.AutomationManager.List("")))
+
+		// Initialize automation log store
+		if env("MDDB_AUTOMATION_LOGS", "enable") != "disable" {
+			logTTLStr := env("MDDB_AUTOMATION_LOGS_TTL", "7d")
+			logTTL, err := ParseDurationString(logTTLStr)
+			if err != nil {
+				log.Fatalf("Invalid MDDB_AUTOMATION_LOGS_TTL: %v", err)
+			}
+			s.AutomationLogStore = NewAutomationLogStore(db, logTTL)
+			if err := s.AutomationLogStore.EnsureBucket(); err != nil {
+				log.Fatal(err)
+			}
+			s.AutomationLogStore.StartCleanup(5 * time.Minute)
+			s.AutomationManager.SetLogStore(s.AutomationLogStore)
+			log.Printf("Automation logs enabled (TTL: %s)", logTTLStr)
+		}
 	}
-	if err := s.AutomationManager.LoadAll(); err != nil {
-		log.Fatal(err)
-	}
-	log.Printf("Automation manager initialized (%d rules loaded)", len(s.AutomationManager.List("")))
 
 	// Initialize schema manager
 	s.SchemaManager = NewSchemaManager(db)
@@ -437,7 +457,7 @@ func main() {
 	}
 
 	// Initialize cron scheduler (if enabled)
-	if env("MDDB_CRONS", "false") == "true" {
+	if automationsEnabled && env("MDDB_CRONS", "false") == "true" {
 		s.CronScheduler = NewCronScheduler(s)
 		s.CronScheduler.Start()
 		s.CronScheduler.Reload()
@@ -514,8 +534,13 @@ func main() {
 	mux.HandleFunc("/v1/stopwords", s.handleStopWords)
 	mux.HandleFunc("/v1/webhooks", s.handleWebhooks)
 	mux.HandleFunc("/v1/webhooks/delete", s.guardWrite(s.handleWebhookDelete))
-	mux.HandleFunc("/v1/automation", s.handleAutomation)
-	mux.HandleFunc("/v1/automation/", s.handleAutomationDetail)
+	if s.AutomationManager != nil {
+		mux.HandleFunc("/v1/automation", s.handleAutomation)
+		mux.HandleFunc("/v1/automation/", s.handleAutomationDetail)
+		if s.AutomationLogStore != nil {
+			mux.HandleFunc("/v1/automation-logs", s.handleAutomationLogs)
+		}
+	}
 	mux.HandleFunc("/v1/schema/set", s.guardWrite(s.handleSchemaSet))
 	mux.HandleFunc("/v1/schema/get", s.handleSchemaGet)
 	mux.HandleFunc("/v1/schema/delete", s.guardWrite(s.handleSchemaDelete))
@@ -678,6 +703,11 @@ func main() {
 	// Close binlog on shutdown
 	if s.Binlog != nil {
 		defer func() { _ = s.Binlog.Close() }()
+	}
+
+	// Stop automation log cleanup on shutdown
+	if s.AutomationLogStore != nil {
+		defer s.AutomationLogStore.Stop()
 	}
 
 	// Start gRPC server
@@ -888,7 +918,11 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 
 	// Automation triggers
 	if s.AutomationManager != nil && env("MDDB_TRIGGERS", "false") == "true" {
-		go s.AutomationManager.EvaluateTriggers(collection, saved)
+		triggerEvent := "insert"
+		if !isNew {
+			triggerEvent = "update"
+		}
+		go s.AutomationManager.EvaluateTriggers(collection, saved, triggerEvent)
 	}
 
 	return saved, isNew, nil
@@ -899,6 +933,7 @@ func (s *Server) deleteDocumentInternal(collection, key, lang string) error {
 	docID := genID(collection, key, lang)
 
 	var bo BinlogOps
+	var deletedDoc Doc // captured for trigger evaluation
 	err := s.DB.Update(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bIdx := tx.Bucket([]byte("idxmeta"))
@@ -914,6 +949,7 @@ func (s *Server) deleteDocumentInternal(collection, key, lang string) error {
 			return err
 		}
 		doc := *docPtr
+		deletedDoc = doc
 
 		docKey := kDoc(collection, docID)
 		if err := bDocs.Delete(docKey); err != nil {
@@ -974,6 +1010,11 @@ func (s *Server) deleteDocumentInternal(collection, key, lang string) error {
 	// Clean up TTL entry
 	if s.TTLManager != nil {
 		_ = s.TTLManager.Remove(collection, docID)
+	}
+
+	// Automation triggers (before FTS cleanup so doc is still searchable)
+	if s.AutomationManager != nil && env("MDDB_TRIGGERS", "false") == "true" {
+		go s.AutomationManager.EvaluateTriggers(collection, deletedDoc, "delete")
 	}
 
 	// Clean up FTS index

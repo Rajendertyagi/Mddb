@@ -265,7 +265,9 @@ export default function Sidebar({ stats, statsError, onStatsRefresh, onCollapse 
           <NavButton mode="embeddings" icon={Brain} label="Embedding Models" />
           <NavButton mode="synonyms" icon={BookOpen} label="Synonyms" />
           <NavButton mode="stopwords" icon={Ban} label="Stop Words" />
-          <NavButton mode="automation" icon={Zap} label="Automation" />
+          {config?.automationsEnabled !== false && (
+            <NavButton mode="automation" icon={Zap} label="Automation" />
+          )}
           <NavButton mode="settings" icon={Sliders} label="Client Settings" />
         </div>
       </div>

@@ -19,11 +19,11 @@ MDDB treats markdown documents as first-class citizens, providing:
 - **Triple Protocol APIs** - HTTP/JSON (easy), gRPC (fast), or GraphQL (flexible)
 - **Full Revision History** - Every update creates a new revision
 - **Vector Search** - Semantic similarity with multiple algorithms (Flat, HNSW, IVF, PQ, SQ, BQ)
-- **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, and BM25F (field-weighted), typo tolerance, stemming, synonyms, metadata pre-filtering — no external dependencies
+- **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, BM25F (field-weighted), and PMISparse (PPMI query expansion), typo tolerance, stemming, synonyms, metadata pre-filtering — no external dependencies
 - **Hybrid Search** - Combine BM25 keyword and vector semantic search with alpha blending or RRF fusion
 - **Document TTL** - Auto-expiring documents like Redis
-- **Webhooks** - HTTP callbacks on document events
-- **Zero Configuration** - Single ~27MB binary, embedded database
+- **Automation** - Triggers, crons, webhooks with template variables and sentiment analysis
+- **Zero Configuration** - Single ~29MB binary, embedded database
 
 **Perfect for:** Documentation platforms, content management, knowledge bases, RAG pipelines, configuration management, multi-language sites
 
@@ -194,10 +194,10 @@ Proto definitions at `proto/mddb.proto` - generate clients for any language supp
 - ✅ **Revision History** - Complete version control with snapshots
 - ✅ **Metadata Search** - Fast indexed queries with multi-value tags
 - ✅ **Vector Search** - Semantic similarity with auto-embeddings
-- ✅ **Full-Text Search** - Built-in inverted index with TF-IDF and BM25 scoring, typo tolerance, metadata pre-filtering
+- ✅ **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, BM25F, and PMISparse scoring, typo tolerance, metadata pre-filtering
 - ✅ **Hybrid Search** - Sparse (BM25) + dense (vector) fusion with alpha blending or RRF
 - ✅ **Document TTL** - Time-to-live with automatic cleanup
-- ✅ **Webhooks** - HTTP callbacks on events with retry logic
+- ✅ **Automation** - Triggers, crons, webhooks with template variables, sentiment analysis, execution logs
 - ✅ **Multi-language** - Same key, multiple languages
 - ✅ **Schema Validation** - JSON Schema validation per collection
 
@@ -381,9 +381,11 @@ mddb-cli stats
 ### Features & Guides
 - **[Vector Search](docs/EMBEDDING_PROVIDERS.md)** - Semantic search setup (OpenAI, Cohere, Voyage, Ollama)
 - **[RAG Pipeline](docs/RAG-PIPELINE.md)** - Complete RAG implementation guide
-- **[Search Algorithms](docs/SEARCH.md)** - TF-IDF, BM25, Flat, HNSW, IVF, PQ
+- **[Search Algorithms](docs/SEARCH.md)** - TF-IDF, BM25, BM25F, PMISparse, Flat, HNSW, IVF, PQ, SQ, BQ
 - **[Full-Text Search](docs/FTS.md)** - Built-in inverted index
+- **[PMISparse](docs/PMISPARSE.md)** - Two-phase BM25 + PPMI query expansion (invented by Tradik Limited)
 - **[Webhooks](docs/WEBHOOKS.md)** - Event-driven integration
+- **[Automations](docs/AUTOMATIONS.md)** - Triggers, crons, webhooks, sentiment, template variables
 - **[Authentication](docs/AUTH.md)** - JWT & API keys, RBAC
 - **[Web Panel](docs/PANEL.md)** - Admin UI guide
 - **[LLM Connections](docs/LLM_CONNECTIONS.md)** - MCP for Claude, ChatGPT, Ollama, DeepSeek
@@ -416,7 +418,7 @@ mddb-cli stats
 │           MDDB Server (Go)                     │
 │  • Vector Search (embeddings)                  │
 │  • Full-Text Search (inverted index)           │
-│  • Webhooks (retry logic)                      │
+│  • Automation (triggers, crons, webhooks)       │
 │  • JWT Auth + RBAC                             │
 │  • Document TTL (auto-cleanup)                 │
 ├────────────────────────────────────────────────┤
