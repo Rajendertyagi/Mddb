@@ -61,7 +61,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: "2.6.8"
+  version: "2.6.9"
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -2414,6 +2414,223 @@ paths:
                   documentCount: 42
         '400':
           description: Missing collection parameter
+
+  /v1/update:
+    patch:
+      tags:
+        - Documents
+      summary: Partial document update
+      description: |
+        Update document metadata and/or content independently.
+        Only provided fields are updated; omitted fields remain unchanged.
+        Use `meta: {}` to clear all metadata.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - collection
+                - key
+                - lang
+              properties:
+                collection:
+                  type: string
+                key:
+                  type: string
+                lang:
+                  type: string
+                meta:
+                  type: object
+                  description: "If provided, replaces all metadata. Use {} to clear."
+                  additionalProperties:
+                    type: array
+                    items:
+                      type: string
+                contentMd:
+                  type: string
+                  description: "If provided, replaces document content."
+                ttl:
+                  type: integer
+                  description: "If provided, updates TTL in seconds. 0 = no expiry."
+            examples:
+              meta-only:
+                summary: Update only metadata
+                value:
+                  collection: "blog"
+                  key: "p1"
+                  lang: "en"
+                  meta:
+                    tag: ["go", "updated"]
+              content-only:
+                summary: Update only content
+                value:
+                  collection: "blog"
+                  key: "p1"
+                  lang: "en"
+                  contentMd: "# New Content"
+      responses:
+        '200':
+          description: Updated document
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+        '400':
+          description: Missing required fields or no fields to update
+        '404':
+          description: Document not found
+        '405':
+          description: Method not allowed
+
+  /v1/doc-meta:
+    get:
+      tags:
+        - Documents
+      summary: Get document metadata only
+      description: Returns metadata for a document without content. Lightweight read useful for checking tags without transferring document body.
+      parameters:
+        - name: collection
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Collection name
+        - name: key
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Document key
+        - name: lang
+          in: query
+          schema:
+            type: string
+            default: "en"
+          description: Language code (defaults to "en")
+      responses:
+        '200':
+          description: Document metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  key:
+                    type: string
+                  lang:
+                    type: string
+                  meta:
+                    type: object
+                    additionalProperties:
+                      type: array
+                      items:
+                        type: string
+                  addedAt:
+                    type: integer
+                  updatedAt:
+                    type: integer
+                  expiresAt:
+                    type: integer
+                example:
+                  key: "p1"
+                  lang: "en"
+                  meta:
+                    tag: ["go", "rust"]
+                    author: ["alice"]
+                  addedAt: 1709600000
+                  updatedAt: 1709610000
+        '400':
+          description: Missing required parameters
+        '404':
+          description: Document not found
+
+  /v1/classify:
+    post:
+      tags:
+        - Classification
+      summary: Zero-shot document classification
+      description: |
+        Classify a document or text against candidate labels using embedding similarity.
+        Provide either a document reference (collection + key + lang) or raw text, plus an array of candidate labels.
+        Returns labels ranked by cosine similarity to the document/text embedding.
+        Requires an embedding provider to be configured.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - labels
+              properties:
+                collection:
+                  type: string
+                  description: Collection name (for document reference)
+                key:
+                  type: string
+                  description: Document key (for document reference)
+                lang:
+                  type: string
+                  description: Language code (for document reference, defaults to "en")
+                text:
+                  type: string
+                  description: Raw text to classify (alternative to document reference)
+                labels:
+                  type: array
+                  items:
+                    type: string
+                  description: Candidate labels to rank by similarity (max 100)
+                topK:
+                  type: integer
+                  description: Return top K labels (0 = all, default is all)
+                multi:
+                  type: boolean
+                  description: If true, return all labels above threshold
+                threshold:
+                  type: number
+                  description: Minimum similarity score (default 0.0)
+            example:
+              text: "Go is a statically typed, compiled language designed at Google"
+              labels: ["programming", "cooking", "sports", "music"]
+      responses:
+        '200':
+          description: Classification results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        label:
+                          type: string
+                        score:
+                          type: number
+                  model:
+                    type: string
+                  dimensions:
+                    type: integer
+              example:
+                results:
+                  - label: "programming"
+                    score: 0.87
+                  - label: "music"
+                    score: 0.21
+                  - label: "sports"
+                    score: 0.18
+                  - label: "cooking"
+                    score: 0.12
+                model: "text-embedding-3-small"
+                dimensions: 1536
+        '400':
+          description: Missing labels, invalid request, or no embedding provider
+        '404':
+          description: Referenced document not found
 
 components:
   schemas:

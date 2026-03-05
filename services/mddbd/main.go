@@ -23,7 +23,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-const VERSION = "2.6.8"
+const VERSION = "2.6.9"
 
 type AccessMode string
 
@@ -61,14 +61,14 @@ type Server struct {
 	EmbeddingWorker *EmbeddingWorker          // Background embedding processor
 	Embedding       EmbeddingProvider         // Embedding generation provider
 	// New features
-	TTLManager        *TTLManager        // Document TTL / auto-expiry
-	FTSIndex          *FTSIndex          // Full-text search index
-	WebhookManager    *WebhookManager    // Webhook subscriptions and delivery
-	SchemaManager     *SchemaManager     // Per-collection metadata schema validation
-	Metrics           *Metrics           // Prometheus-compatible telemetry
-	AuthManager       *AuthManager       // Authentication and authorization
-	SynonymManager    *SynonymManager    // Synonym dictionaries for FTS
-	StopWordManager   *StopWordManager   // Per-collection custom stop words for FTS
+	TTLManager         *TTLManager         // Document TTL / auto-expiry
+	FTSIndex           *FTSIndex           // Full-text search index
+	WebhookManager     *WebhookManager     // Webhook subscriptions and delivery
+	SchemaManager      *SchemaManager      // Per-collection metadata schema validation
+	Metrics            *Metrics            // Prometheus-compatible telemetry
+	AuthManager        *AuthManager        // Authentication and authorization
+	SynonymManager     *SynonymManager     // Synonym dictionaries for FTS
+	StopWordManager    *StopWordManager    // Per-collection custom stop words for FTS
 	AutomationManager  *AutomationManager  // Automation: triggers, crons, webhook targets
 	AutomationLogStore *AutomationLogStore // Automation execution logs
 	CronScheduler      *CronScheduler      // Cron scheduler for automation
@@ -532,6 +532,9 @@ func main() {
 	mux.HandleFunc("/v1/fts", s.handleFTS)
 	mux.HandleFunc("/v1/meta-keys", s.handleMetaKeys)
 	mux.HandleFunc("/v1/checksum", s.handleChecksum)
+	mux.HandleFunc("/v1/update", s.guardWrite(s.handleUpdate))
+	mux.HandleFunc("/v1/doc-meta", s.handleDocMeta)
+	mux.HandleFunc("/v1/classify", s.handleClassify)
 	mux.HandleFunc("/v1/hybrid-search", s.handleHybridSearch)
 	mux.HandleFunc("/v1/synonyms", s.handleSynonyms)
 	mux.HandleFunc("/v1/stopwords", s.handleStopWords)
@@ -762,7 +765,7 @@ func withCORS(h http.Handler) http.Handler {
 	origin := env("MDDB_CORS_ORIGIN", "*")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
 		w.Header().Set("Access-Control-Expose-Headers", "X-Total-Count")
 		w.Header().Set("Access-Control-Max-Age", "86400")
@@ -1522,6 +1525,306 @@ func (s *Server) handleChecksum(w http.ResponseWriter, r *http.Request) {
 		"checksum":      checksum,
 		"documentCount": count,
 	})
+}
+
+func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPatch {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse raw JSON to detect which fields are present
+	var raw map[string]json.RawMessage
+	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
+		bad(w, err)
+		return
+	}
+
+	// Required fields
+	var collection, key, lang string
+	if v, ok := raw["collection"]; ok {
+		_ = json.Unmarshal(v, &collection)
+	}
+	if v, ok := raw["key"]; ok {
+		_ = json.Unmarshal(v, &key)
+	}
+	if v, ok := raw["lang"]; ok {
+		_ = json.Unmarshal(v, &lang)
+	}
+
+	if collection == "" || key == "" || lang == "" {
+		bad(w, errors.New("missing required fields: collection, key, lang"))
+		return
+	}
+
+	// Check which optional fields are present
+	_, hasMeta := raw["meta"]
+	_, hasContent := raw["contentMd"]
+	_, hasTTL := raw["ttl"]
+
+	if !hasMeta && !hasContent && !hasTTL {
+		bad(w, errors.New("no fields to update"))
+		return
+	}
+
+	// Parse optional fields
+	var newMeta map[string][]string
+	if hasMeta {
+		_ = json.Unmarshal(raw["meta"], &newMeta)
+	}
+	var newContent string
+	if hasContent {
+		_ = json.Unmarshal(raw["contentMd"], &newContent)
+	}
+	var newTTL int64
+	if hasTTL {
+		_ = json.Unmarshal(raw["ttl"], &newTTL)
+	}
+
+	// Auth check
+	if s.AuthManager != nil {
+		if err := s.AuthManager.CheckPermission(r.Context(), collection, PermWrite); err != nil {
+			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+			return
+		}
+	}
+
+	// Schema validation for meta update
+	if hasMeta {
+		if err := s.SchemaManager.Validate(collection, newMeta); err != nil {
+			bad(w, err)
+			return
+		}
+	}
+
+	// Load existing doc, apply partial changes, save
+	now := time.Now().Unix()
+	var saved Doc
+	var bo BinlogOps
+	var metaDidChange bool
+
+	err := s.DB.Update(func(tx *bolt.Tx) error {
+		bDocs := tx.Bucket([]byte("docs"))
+		bIdx := tx.Bucket([]byte("idxmeta"))
+		bRev := tx.Bucket([]byte("rev"))
+		bByK := tx.Bucket([]byte("bykey"))
+
+		// Find existing doc
+		docIDBytes := bByK.Get(kByKey(collection, key, lang))
+		if docIDBytes == nil {
+			return errors.New("not found")
+		}
+
+		v := bDocs.Get(kDoc(collection, string(docIDBytes)))
+		if v == nil {
+			return errors.New("not found")
+		}
+
+		existing, err := loadDoc(v)
+		if err != nil {
+			return err
+		}
+
+		// Check TTL expiry
+		if existing.ExpiresAt > 0 && existing.ExpiresAt < now {
+			return errors.New("not found")
+		}
+
+		// Apply partial updates
+		doc := *existing
+		doc.UpdatedAt = now
+
+		if hasMeta {
+			metaDidChange = metadataChanged(doc.Meta, newMeta)
+			doc.Meta = newMeta
+		}
+		if hasContent {
+			doc.ContentMD = newContent
+		}
+		if hasTTL {
+			if newTTL > 0 {
+				doc.ExpiresAt = now + newTTL
+			} else {
+				doc.ExpiresAt = 0
+			}
+		}
+
+		// Persist
+		buf, err := marshalDoc(&doc)
+		if err != nil {
+			return err
+		}
+
+		docKey := kDoc(collection, doc.ID)
+		if err := bDocs.Put(docKey, buf); err != nil {
+			return err
+		}
+		bo.Put("docs", docKey, buf)
+
+		// Reindex metadata if changed
+		if metaDidChange {
+			// Remove old meta index entries
+			if existing.Meta != nil {
+				for mk, vals := range existing.Meta {
+					for _, mv := range vals {
+						mkey := append(kMetaKeyPrefix(collection, mk, mv), []byte(doc.ID)...)
+						_ = bIdx.Delete(mkey)
+						bo.Delete("idxmeta", mkey)
+					}
+				}
+			}
+			// Add new meta index entries
+			for mk, vals := range doc.Meta {
+				for _, mv := range vals {
+					mkey := append(kMetaKeyPrefix(collection, mk, mv), []byte(doc.ID)...)
+					if err := bIdx.Put(mkey, []byte("1")); err != nil {
+						return err
+					}
+					bo.Put("idxmeta", mkey, []byte("1"))
+				}
+			}
+		}
+
+		// Save revision
+		rkey := append(kRevPrefix(collection, doc.ID), []byte(fmt.Sprintf("%020d", now))...)
+		if err := bRev.Put(rkey, buf); err != nil {
+			return err
+		}
+		bo.Put("rev", rkey, buf)
+
+		saved = doc
+		return nil
+	})
+	if err == nil {
+		bo.FlushTo(s.Binlog)
+	}
+	if err != nil {
+		if err.Error() == "not found" {
+			http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
+			return
+		}
+		bad(w, err)
+		return
+	}
+
+	// Post-update hooks
+	if hasContent && s.EmbeddingWorker != nil && saved.ContentMD != "" {
+		s.EmbeddingWorker.Enqueue(EmbeddingJob{
+			Collection: collection,
+			DocID:      saved.ID,
+			ContentMD:  saved.ContentMD,
+		})
+	}
+
+	if s.TTLManager != nil {
+		if saved.ExpiresAt > 0 {
+			_ = s.TTLManager.Set(collection, saved.ID, saved.ExpiresAt)
+		} else if hasTTL {
+			_ = s.TTLManager.Remove(collection, saved.ID)
+		}
+	}
+
+	if hasContent && s.FTSIndex != nil && saved.ContentMD != "" {
+		_ = s.FTSIndex.Index(collection, saved.ID, saved.ContentMD)
+		fields := map[string]string{"content": saved.ContentMD}
+		for k, vals := range saved.Meta {
+			if len(vals) > 0 {
+				fields["meta."+k] = strings.Join(vals, " ")
+			}
+		}
+		_ = s.FTSIndex.IndexFields(collection, saved.ID, fields)
+	}
+
+	if s.WebhookManager != nil {
+		s.WebhookManager.Fire("doc.updated", collection, key, lang, &saved)
+	}
+
+	if s.AutomationManager != nil && env("MDDB_TRIGGERS", "false") == "true" {
+		go s.AutomationManager.EvaluateTriggers(collection, saved, "update")
+	}
+
+	if s.Metrics != nil {
+		s.Metrics.IncOp("doc_update")
+	}
+
+	ok(w, saved)
+}
+
+func (s *Server) handleDocMeta(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	collection := r.URL.Query().Get("collection")
+	key := r.URL.Query().Get("key")
+	lang := r.URL.Query().Get("lang")
+	if lang == "" {
+		lang = "en"
+	}
+
+	if collection == "" || key == "" {
+		http.Error(w, `{"error":"collection and key are required"}`, http.StatusBadRequest)
+		return
+	}
+
+	if s.AuthManager != nil {
+		if err := s.AuthManager.CheckPermission(r.Context(), collection, PermRead); err != nil {
+			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+			return
+		}
+	}
+
+	var doc Doc
+	err := s.DB.View(func(tx *bolt.Tx) error {
+		bByK := tx.Bucket([]byte("bykey"))
+		bDocs := tx.Bucket([]byte("docs"))
+		docID := bByK.Get(kByKey(collection, key, lang))
+		if docID == nil {
+			return errors.New("not found")
+		}
+		v := bDocs.Get(kDoc(collection, string(docID)))
+		if v == nil {
+			return errors.New("not found")
+		}
+		d, err := loadDoc(v)
+		if err != nil {
+			return err
+		}
+		doc = *d
+		return nil
+	})
+	if err != nil {
+		if err.Error() == "not found" {
+			http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
+			return
+		}
+		bad(w, err)
+		return
+	}
+
+	if doc.ExpiresAt > 0 && doc.ExpiresAt < time.Now().Unix() {
+		http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
+		return
+	}
+
+	// Return metadata only (no contentMd)
+	resp := map[string]interface{}{
+		"key":       doc.Key,
+		"lang":      doc.Lang,
+		"meta":      doc.Meta,
+		"addedAt":   doc.AddedAt,
+		"updatedAt": doc.UpdatedAt,
+	}
+	if doc.ExpiresAt > 0 {
+		resp["expiresAt"] = doc.ExpiresAt
+	}
+
+	if s.Metrics != nil {
+		s.Metrics.IncOp("doc_meta")
+	}
+
+	ok(w, resp)
 }
 
 func (s *Server) handleMetaKeys(w http.ResponseWriter, r *http.Request) {

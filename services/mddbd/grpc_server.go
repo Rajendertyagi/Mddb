@@ -1567,3 +1567,249 @@ func (g *GRPCServer) ValidateDocument(ctx context.Context, req *proto.ValidateDo
 	}
 	return &proto.ValidateDocumentResponse{Valid: true}, nil
 }
+
+// UpdateDocument implements the UpdateDocument RPC - partial document update
+func (g *GRPCServer) UpdateDocument(ctx context.Context, req *proto.UpdateDocumentRequest) (*proto.Document, error) {
+	if g.server.Mode == ModeRead {
+		return nil, status.Error(codes.PermissionDenied, "read-only mode")
+	}
+
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermWrite); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
+	if req.Collection == "" || req.Key == "" || req.Lang == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing required fields: collection, key, lang")
+	}
+
+	if !req.UpdateMeta && !req.UpdateContent && !req.UpdateTtl {
+		return nil, status.Error(codes.InvalidArgument, "no fields to update")
+	}
+
+	// Convert proto meta
+	var newMeta map[string][]string
+	if req.UpdateMeta {
+		newMeta = make(map[string][]string)
+		for k, v := range req.Meta {
+			newMeta[k] = v.Values
+		}
+		if err := g.server.SchemaManager.Validate(req.Collection, newMeta); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+	}
+
+	now := time.Now().Unix()
+	var saved Doc
+	var metaDidChange bool
+	var bo BinlogOps
+
+	err := g.server.DB.Update(func(tx *bolt.Tx) error {
+		bDocs := tx.Bucket([]byte("docs"))
+		bIdx := tx.Bucket([]byte("idxmeta"))
+		bRev := tx.Bucket([]byte("rev"))
+		bByK := tx.Bucket([]byte("bykey"))
+
+		docIDBytes := bByK.Get(kByKey(req.Collection, req.Key, req.Lang))
+		if docIDBytes == nil {
+			return errors.New("not found")
+		}
+
+		v := bDocs.Get(kDoc(req.Collection, string(docIDBytes)))
+		if v == nil {
+			return errors.New("not found")
+		}
+
+		existing, err := loadDoc(v)
+		if err != nil {
+			return err
+		}
+
+		doc := *existing
+		doc.UpdatedAt = now
+
+		if req.UpdateMeta {
+			metaDidChange = metadataChanged(doc.Meta, newMeta)
+			doc.Meta = newMeta
+		}
+		if req.UpdateContent {
+			doc.ContentMD = req.ContentMd
+		}
+		if req.UpdateTtl {
+			if req.Ttl > 0 {
+				doc.ExpiresAt = now + req.Ttl
+			} else {
+				doc.ExpiresAt = 0
+			}
+		}
+
+		buf, err := marshalDoc(&doc)
+		if err != nil {
+			return err
+		}
+
+		docKey := kDoc(req.Collection, doc.ID)
+		if err := bDocs.Put(docKey, buf); err != nil {
+			return err
+		}
+		bo.Put("docs", docKey, buf)
+
+		if metaDidChange {
+			if existing.Meta != nil {
+				for mk, vals := range existing.Meta {
+					for _, mv := range vals {
+						mkey := append(kMetaKeyPrefix(req.Collection, mk, mv), []byte(doc.ID)...)
+						_ = bIdx.Delete(mkey)
+						bo.Delete("idxmeta", mkey)
+					}
+				}
+			}
+			for mk, vals := range doc.Meta {
+				for _, mv := range vals {
+					mkey := append(kMetaKeyPrefix(req.Collection, mk, mv), []byte(doc.ID)...)
+					if err := bIdx.Put(mkey, []byte("1")); err != nil {
+						return err
+					}
+					bo.Put("idxmeta", mkey, []byte("1"))
+				}
+			}
+		}
+
+		rkey := append(kRevPrefix(req.Collection, doc.ID), []byte(fmt.Sprintf("%020d", now))...)
+		if err := bRev.Put(rkey, buf); err != nil {
+			return err
+		}
+		bo.Put("rev", rkey, buf)
+
+		saved = doc
+		return nil
+	})
+	if err == nil {
+		bo.FlushTo(g.server.Binlog)
+	}
+	if err != nil {
+		if err.Error() == "not found" {
+			return nil, status.Error(codes.NotFound, "document not found")
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	// Post-update hooks
+	if req.UpdateContent && g.server.EmbeddingWorker != nil && saved.ContentMD != "" {
+		g.server.EmbeddingWorker.Enqueue(EmbeddingJob{
+			Collection: req.Collection,
+			DocID:      saved.ID,
+			ContentMD:  saved.ContentMD,
+		})
+	}
+
+	if g.server.TTLManager != nil {
+		if saved.ExpiresAt > 0 {
+			_ = g.server.TTLManager.Set(req.Collection, saved.ID, saved.ExpiresAt)
+		} else if req.UpdateTtl {
+			_ = g.server.TTLManager.Remove(req.Collection, saved.ID)
+		}
+	}
+
+	if g.server.AutomationManager != nil && env("MDDB_TRIGGERS", "false") == "true" {
+		go g.server.AutomationManager.EvaluateTriggers(req.Collection, saved, "update")
+	}
+
+	return docToProto(&saved), nil
+}
+
+// GetDocumentMeta implements the GetDocumentMeta RPC - returns metadata only
+func (g *GRPCServer) GetDocumentMeta(ctx context.Context, req *proto.GetDocumentMetaRequest) (*proto.GetDocumentMetaResponse, error) {
+	if req.Collection == "" || req.Key == "" || req.Lang == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing required fields: collection, key, lang")
+	}
+
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermRead); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
+	var doc Doc
+	err := g.server.DB.View(func(tx *bolt.Tx) error {
+		bByK := tx.Bucket([]byte("bykey"))
+		bDocs := tx.Bucket([]byte("docs"))
+		docID := bByK.Get(kByKey(req.Collection, req.Key, req.Lang))
+		if docID == nil {
+			return errors.New("not found")
+		}
+		v := bDocs.Get(kDoc(req.Collection, string(docID)))
+		if v == nil {
+			return errors.New("not found")
+		}
+		d, err := loadDoc(v)
+		if err != nil {
+			return err
+		}
+		doc = *d
+		return nil
+	})
+	if err != nil {
+		if err.Error() == "not found" {
+			return nil, status.Error(codes.NotFound, "document not found")
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	if doc.ExpiresAt > 0 && doc.ExpiresAt < time.Now().Unix() {
+		return nil, status.Error(codes.NotFound, "document not found")
+	}
+
+	protoMeta := make(map[string]*proto.MetaValues)
+	for k, v := range doc.Meta {
+		protoMeta[k] = &proto.MetaValues{Values: v}
+	}
+
+	return &proto.GetDocumentMetaResponse{
+		Key:       doc.Key,
+		Lang:      doc.Lang,
+		Meta:      protoMeta,
+		AddedAt:   doc.AddedAt,
+		UpdatedAt: doc.UpdatedAt,
+		ExpiresAt: doc.ExpiresAt,
+	}, nil
+}
+
+// Classify implements the Classify RPC — zero-shot document classification.
+func (g *GRPCServer) Classify(ctx context.Context, req *proto.ClassifyRequest) (*proto.ClassifyResponse, error) {
+	if g.server.AuthManager != nil && req.Collection != "" {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermRead); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
+	if len(req.Labels) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "labels are required")
+	}
+
+	resp, err := g.server.classifyDocument(ctx, req.Collection, req.Key, req.Lang, req.Text, req.Labels, int(req.TopK), req.Multi, req.Threshold)
+	if err != nil {
+		if err.Error() == "no embedding provider configured" {
+			return nil, status.Error(codes.FailedPrecondition, err.Error())
+		}
+		if err.Error() == "not found" {
+			return nil, status.Error(codes.NotFound, "document not found")
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	protoResults := make([]*proto.ClassifyLabelScore, len(resp.Results))
+	for i, r := range resp.Results {
+		protoResults[i] = &proto.ClassifyLabelScore{
+			Label: r.Label,
+			Score: r.Score,
+		}
+	}
+
+	return &proto.ClassifyResponse{
+		Results:    protoResults,
+		Model:      resp.Model,
+		Dimensions: int32(resp.Dimensions),
+	}, nil
+}

@@ -83,6 +83,15 @@ service MDDB {
 
   // Validate document metadata against collection schema
   rpc ValidateDocument(ValidateDocumentRequest) returns (ValidateDocumentResponse);
+
+  // Partial document update (meta and/or content independently)
+  rpc UpdateDocument(UpdateDocumentRequest) returns (Document);
+
+  // Get document metadata only (without content)
+  rpc GetDocumentMeta(GetDocumentMetaRequest) returns (GetDocumentMetaResponse);
+
+  // Zero-shot document classification using embedding similarity
+  rpc Classify(ClassifyRequest) returns (ClassifyResponse);
 }
 
 // Document represents a markdown document
@@ -494,6 +503,59 @@ message ValidateDocumentRequest {
 message ValidateDocumentResponse {
   bool valid = 1;
   repeated string errors = 2;
+}
+
+// --- Partial Update ---
+
+message UpdateDocumentRequest {
+  string collection = 1;
+  string key = 2;
+  string lang = 3;
+  map<string, MetaValues> meta = 4;
+  string content_md = 5;
+  int64 ttl = 6;
+  bool update_meta = 7;     // explicit flag: should meta be updated?
+  bool update_content = 8;  // explicit flag: should content be updated?
+  bool update_ttl = 9;      // explicit flag: should TTL be updated?
+}
+
+message GetDocumentMetaRequest {
+  string collection = 1;
+  string key = 2;
+  string lang = 3;
+}
+
+message GetDocumentMetaResponse {
+  string key = 1;
+  string lang = 2;
+  map<string, MetaValues> meta = 3;
+  int64 added_at = 4;
+  int64 updated_at = 5;
+  int64 expires_at = 6;
+}
+
+// --- Zero-shot Classification ---
+
+message ClassifyRequest {
+  string collection = 1;          // Collection name (for doc reference)
+  string key = 2;                 // Document key (for doc reference)
+  string lang = 3;                // Language code (for doc reference)
+  string text = 4;                // Raw text to classify (alternative to doc reference)
+  repeated string labels = 5;     // Candidate labels (required)
+  int32 top_k = 6;                // Return top K labels (0 = all)
+  bool multi = 7;                 // If true, return all labels above threshold
+  double threshold = 8;           // Minimum similarity score (default: 0.0)
+}
+
+message ClassifyLabelScore {
+  string label = 1;
+  double score = 2;
+}
+
+message ClassifyResponse {
+  repeated ClassifyLabelScore results = 1;
+  string model = 2;               // Embedding model used
+  int32 dimensions = 3;           // Embedding dimensions
 }
 
 // ---- Replication Service ----

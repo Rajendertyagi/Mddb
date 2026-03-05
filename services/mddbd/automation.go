@@ -29,12 +29,12 @@ type AutomationRule struct {
 	Headers map[string]string `json:"headers,omitempty"`
 
 	// Trigger fields (type=trigger)
-	Collection   string                 `json:"collection,omitempty"`
-	SearchType   string                 `json:"searchType,omitempty"` // "fts" | "vector" | "hybrid"
-	Query        string                 `json:"query,omitempty"`
-	Threshold    float64                `json:"threshold,omitempty"` // 0-100
-	WebhookID    string                 `json:"webhookId,omitempty"`
-	SearchParams map[string]interface{} `json:"searchParams,omitempty"` // extra: algorithm, fuzzy, etc.
+	Collection       string                 `json:"collection,omitempty"`
+	SearchType       string                 `json:"searchType,omitempty"` // "fts" | "vector" | "hybrid"
+	Query            string                 `json:"query,omitempty"`
+	Threshold        float64                `json:"threshold,omitempty"` // 0-100
+	WebhookID        string                 `json:"webhookId,omitempty"`
+	SearchParams     map[string]interface{} `json:"searchParams,omitempty"`     // extra: algorithm, fuzzy, etc.
 	Events           []string               `json:"events,omitempty"`           // "insert", "update", "delete" (MySQL-style)
 	SentimentEnabled bool                   `json:"sentimentEnabled,omitempty"` // enable sentiment condition
 	SentimentMin     float64                `json:"sentimentMin,omitempty"`     // -1.0 to 1.0

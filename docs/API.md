@@ -12,6 +12,9 @@
   - [POST /v1/vector-search](#post-v1vector-search)
   - [POST /v1/vector-reindex](#post-v1vector-reindex)
   - [GET /v1/vector-stats](#get-v1vector-stats)
+  - [POST /v1/classify](#post-v1classify)
+  - [PATCH /v1/update](#patch-v1update)
+  - [GET /v1/doc-meta](#get-v1doc-meta)
   - [POST /v1/fts](#post-v1fts)
   - [POST /v1/synonyms](#post-v1synonyms)
   - [GET /v1/synonyms](#get-v1synonyms)
@@ -1256,6 +1259,99 @@ mddb-cli --api-key mddb_live_abc123def456... search blog -f "status=published"
 **API Key vs JWT Token**:
 - **JWT Tokens**: Short-lived (default 24h), obtained via login, ideal for interactive sessions
 - **API Keys**: Long-lived or permanent, ideal for automation, CI/CD, and third-party integrations
+
+---
+
+### POST /v1/classify
+
+Zero-shot document classification using embedding similarity. Ranks candidate labels by their semantic similarity to a document or text.
+
+**Request Body:**
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `collection` | string | No* | Collection name (for doc reference) |
+| `key` | string | No* | Document key (for doc reference) |
+| `lang` | string | No | Language code (default: "en") |
+| `text` | string | No* | Raw text to classify |
+| `labels` | string[] | Yes | Candidate labels (max 100) |
+| `topK` | int | No | Return top K labels (0 = all) |
+| `multi` | bool | No | Return all labels above threshold |
+| `threshold` | float | No | Minimum similarity score (default: 0.0) |
+
+*Provide either `text` OR `collection`+`key` (with optional `lang`).
+
+**Example Request:**
+```bash
+curl -X POST http://localhost:11023/v1/classify \
+  -d '{
+    "text": "Go is a statically typed, compiled language designed at Google",
+    "labels": ["programming", "cooking", "sports", "music"]
+  }'
+```
+
+**Example Response:**
+```json
+{
+  "results": [
+    {"label": "programming", "score": 0.87},
+    {"label": "music", "score": 0.21},
+    {"label": "sports", "score": 0.18},
+    {"label": "cooking", "score": 0.12}
+  ],
+  "model": "text-embedding-3-small",
+  "dimensions": 1536
+}
+```
+
+**Notes:**
+- Requires an embedding provider to be configured
+- For document references, reuses existing embedding from vector store if available
+- Labels are embedded in a single batch API call for efficiency
+
+---
+
+### PATCH /v1/update
+
+Partially update a document's metadata and/or content independently without re-sending the entire document.
+
+**Request Body:**
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `collection` | string | Yes | Collection name |
+| `key` | string | Yes | Document key |
+| `lang` | string | Yes | Language code |
+| `meta` | object | No | New metadata (replaces all). Use `{}` to clear |
+| `contentMd` | string | No | New content (replaces existing) |
+| `ttl` | int | No | New TTL in seconds (0 = remove) |
+
+**Example:**
+```bash
+# Update only metadata
+curl -X PATCH http://localhost:11023/v1/update \
+  -d '{"collection":"blog","key":"p1","lang":"en","meta":{"tag":["go","updated"]}}'
+
+# Update only content
+curl -X PATCH http://localhost:11023/v1/update \
+  -d '{"collection":"blog","key":"p1","lang":"en","contentMd":"# Updated content"}'
+```
+
+---
+
+### GET /v1/doc-meta
+
+Get document metadata without content. Lightweight read.
+
+**Query Parameters:**
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `collection` | Yes | Collection name |
+| `key` | Yes | Document key |
+| `lang` | No | Language code (default: "en") |
+
+**Example:**
+```bash
+curl "http://localhost:11023/v1/doc-meta?collection=blog&key=p1&lang=en"
+```
 
 ---
 

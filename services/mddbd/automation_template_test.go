@@ -97,20 +97,20 @@ func TestBuildTriggerVars(t *testing.T) {
 		vars := BuildTriggerVars(webhook, trigger, doc, "blog", 85.5, 0.65)
 
 		expected := map[string]string{
-			"doc.id":             "doc123",
-			"doc.key":            "test-doc",
-			"doc.lang":           "en",
-			"doc.addedAt":        "1000",
-			"doc.updatedAt":      "2000",
-			"doc.meta.title":     "Hello World",
-			"doc.meta.category":  "tech",
-			"collection":         "blog",
-			"event":              "trigger.matched",
-			"trigger.id":         "tr1",
-			"trigger.name":       "My Trigger",
-			"webhook.id":         "wh1",
-			"score":              "85.5000",
-			"sentiment":          "0.6500",
+			"doc.id":            "doc123",
+			"doc.key":           "test-doc",
+			"doc.lang":          "en",
+			"doc.addedAt":       "1000",
+			"doc.updatedAt":     "2000",
+			"doc.meta.title":    "Hello World",
+			"doc.meta.category": "tech",
+			"collection":        "blog",
+			"event":             "trigger.matched",
+			"trigger.id":        "tr1",
+			"trigger.name":      "My Trigger",
+			"webhook.id":        "wh1",
+			"score":             "85.5000",
+			"sentiment":         "0.6500",
 		}
 
 		for k, want := range expected {

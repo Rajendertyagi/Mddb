@@ -1166,6 +1166,131 @@ func (c *DirectClient) ValidateDocument(ctx context.Context, req *MCPValidateReq
 	return &MCPValidateResponse{Valid: true, Errors: []string{}}, nil
 }
 
+func (c *DirectClient) UpdateDocument(ctx context.Context, req *MCPUpdateDocumentRequest) (*MCPDocument, error) {
+	if req.Collection == "" || req.Key == "" || req.Lang == "" {
+		return nil, errors.New("missing required fields: collection, key, lang")
+	}
+
+	hasMeta := req.Meta != nil
+	hasContent := req.ContentMD != nil
+	hasTTL := req.TTL != nil
+
+	if !hasMeta && !hasContent && !hasTTL {
+		return nil, errors.New("no fields to update")
+	}
+
+	now := time.Now().Unix()
+	var saved Doc
+
+	err := c.server.DB.Update(func(tx *bolt.Tx) error {
+		bByK := tx.Bucket([]byte("bykey"))
+		bDocs := tx.Bucket([]byte("docs"))
+
+		docIDBytes := bByK.Get(kByKey(req.Collection, req.Key, req.Lang))
+		if docIDBytes == nil {
+			return errors.New("not found")
+		}
+		v := bDocs.Get(kDoc(req.Collection, string(docIDBytes)))
+		if v == nil {
+			return errors.New("not found")
+		}
+		existing, err := loadDoc(v)
+		if err != nil {
+			return err
+		}
+
+		doc := *existing
+		doc.UpdatedAt = now
+
+		if hasMeta {
+			doc.Meta = req.Meta
+		}
+		if hasContent {
+			doc.ContentMD = *req.ContentMD
+		}
+		if hasTTL {
+			if *req.TTL > 0 {
+				doc.ExpiresAt = now + *req.TTL
+			} else {
+				doc.ExpiresAt = 0
+			}
+		}
+
+		buf, err := marshalDoc(&doc)
+		if err != nil {
+			return err
+		}
+		if err := bDocs.Put(kDoc(req.Collection, doc.ID), buf); err != nil {
+			return err
+		}
+
+		saved = doc
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	result := docToMCPDocument(saved)
+	return &result, nil
+}
+
+func (c *DirectClient) GetDocumentMeta(ctx context.Context, req *MCPGetDocMetaRequest) (*MCPDocMetaResponse, error) {
+	if req.Collection == "" || req.Key == "" || req.Lang == "" {
+		return nil, errors.New("missing required fields: collection, key, lang")
+	}
+
+	var doc Doc
+	err := c.server.DB.View(func(tx *bolt.Tx) error {
+		bByK := tx.Bucket([]byte("bykey"))
+		bDocs := tx.Bucket([]byte("docs"))
+		docID := bByK.Get(kByKey(req.Collection, req.Key, req.Lang))
+		if docID == nil {
+			return errors.New("not found")
+		}
+		v := bDocs.Get(kDoc(req.Collection, string(docID)))
+		if v == nil {
+			return errors.New("not found")
+		}
+		d, err := loadDoc(v)
+		if err != nil {
+			return err
+		}
+		doc = *d
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &MCPDocMetaResponse{
+		Key:       doc.Key,
+		Lang:      doc.Lang,
+		Meta:      doc.Meta,
+		AddedAt:   doc.AddedAt,
+		UpdatedAt: doc.UpdatedAt,
+		ExpiresAt: doc.ExpiresAt,
+	}, nil
+}
+
+func (c *DirectClient) Classify(ctx context.Context, req *MCPClassifyRequest) (*MCPClassifyResponse, error) {
+	resp, err := c.server.classifyDocument(ctx, req.Collection, req.Key, req.Lang, req.Text, req.Labels, req.TopK, req.Multi, req.Threshold)
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]MCPClassifyLabelScore, len(resp.Results))
+	for i, r := range resp.Results {
+		results[i] = MCPClassifyLabelScore(r)
+	}
+
+	return &MCPClassifyResponse{
+		Results:    results,
+		Model:      resp.Model,
+		Dimensions: resp.Dimensions,
+	}, nil
+}
+
 func (c *DirectClient) Close() error {
 	// No-op — Server owns all resources.
 	return nil
