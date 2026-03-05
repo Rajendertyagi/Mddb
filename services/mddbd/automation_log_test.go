@@ -30,7 +30,7 @@ func TestAutomationLogStore_EnsureBucket(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	ls := NewAutomationLogStore(db, 24*time.Hour)
 
@@ -584,7 +584,7 @@ func TestAutomationLogID(t *testing.T) {
 		t.Errorf("expected hex part to be 16 chars, got %d: %q", len(hexPart), hexPart)
 	}
 	for _, c := range hexPart {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
 			t.Errorf("hex part contains non-hex character: %c in %q", c, hexPart)
 			break
 		}
