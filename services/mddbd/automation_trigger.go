@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -20,12 +21,13 @@ type TriggerMatch struct {
 
 // TriggerPayload is sent to webhook URLs when a trigger fires.
 type TriggerPayload struct {
-	Event      string                `json:"event"` // "trigger.matched"
-	Trigger    TriggerPayloadTrigger `json:"trigger"`
-	Collection string                `json:"collection"`
-	Document   *Doc                  `json:"document,omitempty"`
-	Score      float64               `json:"score"`
-	Timestamp  int64                 `json:"timestamp"`
+	Event          string                `json:"event"` // "trigger.matched"
+	Trigger        TriggerPayloadTrigger `json:"trigger"`
+	Collection     string                `json:"collection"`
+	Document       *Doc                  `json:"document,omitempty"`
+	Score          float64               `json:"score"`
+	SentimentScore float64               `json:"sentimentScore,omitempty"`
+	Timestamp      int64                 `json:"timestamp"`
 }
 
 // TriggerPayloadTrigger is the trigger info in the payload.
@@ -34,10 +36,11 @@ type TriggerPayloadTrigger struct {
 	Name string `json:"name"`
 }
 
-// EvaluateTriggers checks all enabled triggers for a collection after a document is added.
-// Called asynchronously from addDocument().
-func (am *AutomationManager) EvaluateTriggers(collection string, doc Doc) {
-	triggers := am.EnabledTriggersForCollection(collection)
+// EvaluateTriggers checks all enabled triggers for a collection matching the given event.
+// event is one of "insert", "update", "delete" (MySQL-style).
+// Called asynchronously from addDocument() and deleteDocumentInternal().
+func (am *AutomationManager) EvaluateTriggers(collection string, doc Doc, event string) {
+	triggers := am.EnabledTriggersForEvent(collection, event)
 	if len(triggers) == 0 {
 		return
 	}
@@ -48,40 +51,97 @@ func (am *AutomationManager) EvaluateTriggers(collection string, doc Doc) {
 	}
 }
 
-// evaluateSingleTrigger runs a trigger's search and fires webhook if the doc matches.
+// evaluateSingleTrigger runs a trigger's conditions and fires webhook if the doc matches.
+// Supports search conditions (FTS/vector/hybrid), sentiment conditions, or both (AND/OR).
+// If no conditions are set, fires unconditionally.
 func (am *AutomationManager) evaluateSingleTrigger(trigger *AutomationRule, doc *Doc) {
 	if am.server == nil {
 		return
 	}
 
-	var score float64
-	var matched bool
+	hasSearch := trigger.Query != ""
+	hasSentiment := trigger.SentimentEnabled
+	conditionLogic := trigger.ConditionLogic
+	if conditionLogic == "" {
+		conditionLogic = "and"
+	}
 
-	switch trigger.SearchType {
-	case "fts":
-		score, matched = am.evalFTS(trigger, doc)
-	case "vector":
-		score, matched = am.evalVector(trigger, doc)
-	case "hybrid":
-		score, matched = am.evalHybrid(trigger, doc)
+	var searchScore float64
+	var searchMatched bool
+	var sentimentScore float64
+	var sentimentMatched bool
+
+	// Evaluate search condition
+	if hasSearch {
+		switch trigger.SearchType {
+		case "fts":
+			searchScore, searchMatched = am.evalFTS(trigger, doc)
+		case "vector":
+			searchScore, searchMatched = am.evalVector(trigger, doc)
+		case "hybrid":
+			searchScore, searchMatched = am.evalHybrid(trigger, doc)
+		}
+	}
+
+	// Evaluate sentiment condition
+	if hasSentiment {
+		sentimentScore = AnalyzeSentiment(doc.ContentMD)
+		sentimentMatched = sentimentScore >= trigger.SentimentMin && sentimentScore <= trigger.SentimentMax
+	}
+
+	// Determine overall match
+	var matched bool
+	if !hasSearch && !hasSentiment {
+		matched = true
+	} else if hasSearch && hasSentiment {
+		if conditionLogic == "or" {
+			matched = searchMatched || sentimentMatched
+		} else {
+			matched = searchMatched && sentimentMatched
+		}
+	} else if hasSearch {
+		matched = searchMatched
+	} else {
+		matched = sentimentMatched
 	}
 
 	if !matched {
 		return
 	}
 
+	// Use search score if available, otherwise sentiment score
+	score := searchScore
+	if !hasSearch {
+		score = sentimentScore
+	}
+
 	// Track trigger fire
 	if am.server != nil && am.server.Metrics != nil {
-		am.server.Metrics.IncOp("automation_trigger", trigger.SearchType)
+		searchType := trigger.SearchType
+		if searchType == "" && hasSentiment {
+			searchType = "sentiment"
+		}
+		am.server.Metrics.IncOp("automation_trigger", searchType)
 	}
 
 	// Resolve webhook
 	webhook := am.GetWebhook(trigger.WebhookID)
 	if webhook == nil || !webhook.Enabled {
+		if am.logStore != nil {
+			_ = am.logStore.Log(AutomationLogEntry{
+				Timestamp: time.Now().Unix(),
+				RuleID:    trigger.ID,
+				RuleName:  trigger.Name,
+				RuleType:  "trigger",
+				WebhookID: trigger.WebhookID,
+				Status:    "skipped",
+				Error:     "webhook not found or disabled",
+			})
+		}
 		return
 	}
 
-	go fireAutomationWebhook(webhook, trigger, doc, trigger.Collection, score)
+	go fireAutomationWebhook(webhook, trigger, doc, trigger.Collection, score, sentimentScore, am.logStore)
 }
 
 // evalFTS runs FTS search and checks if doc appears in results above threshold.
@@ -354,7 +414,7 @@ func (am *AutomationManager) RunTriggerAndFire(trigger *AutomationRule) {
 	}
 
 	for _, match := range matches {
-		go fireAutomationWebhook(webhook, trigger, nil, match.Collection, match.Score)
+		go fireAutomationWebhook(webhook, trigger, nil, match.Collection, match.Score, 0, am.logStore)
 	}
 
 	if len(matches) > 0 {
@@ -362,18 +422,135 @@ func (am *AutomationManager) RunTriggerAndFire(trigger *AutomationRule) {
 	}
 }
 
+// CronPayload is sent to webhook URLs when a cron fires.
+type CronPayload struct {
+	Event     string           `json:"event"` // "cron.fired"
+	Cron      CronPayloadCron  `json:"cron"`
+	Timestamp int64            `json:"timestamp"`
+}
+
+// CronPayloadCron is the cron info in the payload.
+type CronPayloadCron struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// fireCronWebhook sends a cron payload to a webhook URL.
+func fireCronWebhook(webhook *AutomationRule, cronID, cronName string, logStore *AutomationLogStore) {
+	start := time.Now()
+
+	payload := CronPayload{
+		Event: "cron.fired",
+		Cron: CronPayloadCron{
+			ID:   cronID,
+			Name: cronName,
+		},
+		Timestamp: start.Unix(),
+	}
+
+	data, err := json.Marshal(payload)
+	if err != nil {
+		log.Printf("cron %s: marshal error: %v", cronID, err)
+		return
+	}
+
+	method := webhook.Method
+	if method == "" {
+		method = "POST"
+	}
+
+	// Expand template variables in webhook URL and headers
+	cronVars := BuildCronVars(webhook, cronID, cronName)
+	expandedURL, expandedHeaders := expandWebhookURLAndHeaders(webhook.URL, webhook.Headers, cronVars)
+
+	var finalStatus string
+	var lastHTTPStatus int
+	var lastError string
+	var lastAttempt int
+
+	backoffs := []time.Duration{0, 1 * time.Second, 5 * time.Second, 15 * time.Second}
+	for attempt, backoff := range backoffs {
+		if backoff > 0 {
+			time.Sleep(backoff)
+		}
+		lastAttempt = attempt + 1
+
+		req, err := http.NewRequest(method, expandedURL, bytes.NewReader(data))
+		if err != nil {
+			log.Printf("cron %s → webhook %s: request error: %v", cronID, webhook.ID, err)
+			lastError = err.Error()
+			finalStatus = "error"
+			break
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-MDDB-Event", "cron.fired")
+		req.Header.Set("X-MDDB-Cron-ID", cronID)
+		req.Header.Set("X-MDDB-Webhook-ID", webhook.ID)
+
+		for k, v := range expandedHeaders {
+			req.Header.Set(k, v)
+		}
+
+		client := &http.Client{Timeout: 10 * time.Second}
+		resp, err := client.Do(req)
+		if err != nil {
+			log.Printf("cron %s → webhook %s: attempt %d failed: %v", cronID, webhook.ID, attempt+1, err)
+			lastError = err.Error()
+			finalStatus = "error"
+			continue
+		}
+		lastHTTPStatus = resp.StatusCode
+		_ = resp.Body.Close()
+
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			finalStatus = "success"
+			lastError = ""
+			break
+		}
+		log.Printf("cron %s → webhook %s: attempt %d got status %d", cronID, webhook.ID, attempt+1, resp.StatusCode)
+		lastError = fmt.Sprintf("HTTP %d", resp.StatusCode)
+		finalStatus = "error"
+	}
+
+	if finalStatus == "" {
+		finalStatus = "error"
+	}
+	if finalStatus == "error" {
+		log.Printf("cron %s → webhook %s: all retries exhausted", cronID, webhook.ID)
+	}
+
+	if logStore != nil {
+		_ = logStore.Log(AutomationLogEntry{
+			Timestamp:  start.Unix(),
+			RuleID:     cronID,
+			RuleName:   cronName,
+			RuleType:   "cron",
+			WebhookID:  webhook.ID,
+			WebhookURL: expandedURL,
+			Status:     finalStatus,
+			HTTPStatus: lastHTTPStatus,
+			DurationMs: time.Since(start).Milliseconds(),
+			Error:      lastError,
+			Attempt:    lastAttempt,
+		})
+	}
+}
+
 // fireAutomationWebhook sends the trigger payload to a webhook URL.
-func fireAutomationWebhook(webhook *AutomationRule, trigger *AutomationRule, doc *Doc, collection string, score float64) {
+func fireAutomationWebhook(webhook *AutomationRule, trigger *AutomationRule, doc *Doc, collection string, score float64, sentimentScore float64, logStore *AutomationLogStore) {
+	start := time.Now()
+
 	payload := TriggerPayload{
 		Event: "trigger.matched",
 		Trigger: TriggerPayloadTrigger{
 			ID:   trigger.ID,
 			Name: trigger.Name,
 		},
-		Collection: collection,
-		Document:   doc,
-		Score:      score,
-		Timestamp:  time.Now().Unix(),
+		Collection:     collection,
+		Document:       doc,
+		Score:          score,
+		SentimentScore: sentimentScore,
+		Timestamp:      start.Unix(),
 	}
 
 	data, err := json.Marshal(payload)
@@ -387,24 +564,35 @@ func fireAutomationWebhook(webhook *AutomationRule, trigger *AutomationRule, doc
 		method = "POST"
 	}
 
+	// Expand template variables in webhook URL and headers
+	triggerVars := BuildTriggerVars(webhook, trigger, doc, collection, score, sentimentScore)
+	expandedURL, expandedHeaders := expandWebhookURLAndHeaders(webhook.URL, webhook.Headers, triggerVars)
+
+	var finalStatus string
+	var lastHTTPStatus int
+	var lastError string
+	var lastAttempt int
+
 	backoffs := []time.Duration{0, 1 * time.Second, 5 * time.Second, 15 * time.Second}
 	for attempt, backoff := range backoffs {
 		if backoff > 0 {
 			time.Sleep(backoff)
 		}
+		lastAttempt = attempt + 1
 
-		req, err := http.NewRequest(method, webhook.URL, bytes.NewReader(data))
+		req, err := http.NewRequest(method, expandedURL, bytes.NewReader(data))
 		if err != nil {
 			log.Printf("trigger %s → webhook %s: request error: %v", trigger.ID, webhook.ID, err)
-			return
+			lastError = err.Error()
+			finalStatus = "error"
+			break
 		}
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-MDDB-Event", "trigger.matched")
 		req.Header.Set("X-MDDB-Trigger-ID", trigger.ID)
 		req.Header.Set("X-MDDB-Webhook-ID", webhook.ID)
 
-		// Custom headers from webhook config
-		for k, v := range webhook.Headers {
+		for k, v := range expandedHeaders {
 			req.Header.Set(k, v)
 		}
 
@@ -412,14 +600,43 @@ func fireAutomationWebhook(webhook *AutomationRule, trigger *AutomationRule, doc
 		resp, err := client.Do(req)
 		if err != nil {
 			log.Printf("trigger %s → webhook %s: attempt %d failed: %v", trigger.ID, webhook.ID, attempt+1, err)
+			lastError = err.Error()
+			finalStatus = "error"
 			continue
 		}
+		lastHTTPStatus = resp.StatusCode
 		_ = resp.Body.Close()
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			return // success
+			finalStatus = "success"
+			lastError = ""
+			break
 		}
 		log.Printf("trigger %s → webhook %s: attempt %d got status %d", trigger.ID, webhook.ID, attempt+1, resp.StatusCode)
+		lastError = fmt.Sprintf("HTTP %d", resp.StatusCode)
+		finalStatus = "error"
 	}
-	log.Printf("trigger %s → webhook %s: all retries exhausted", trigger.ID, webhook.ID)
+
+	if finalStatus == "" {
+		finalStatus = "error"
+	}
+	if finalStatus == "error" {
+		log.Printf("trigger %s → webhook %s: all retries exhausted", trigger.ID, webhook.ID)
+	}
+
+	if logStore != nil {
+		_ = logStore.Log(AutomationLogEntry{
+			Timestamp:  start.Unix(),
+			RuleID:     trigger.ID,
+			RuleName:   trigger.Name,
+			RuleType:   "trigger",
+			WebhookID:  webhook.ID,
+			WebhookURL: expandedURL,
+			Status:     finalStatus,
+			HTTPStatus: lastHTTPStatus,
+			DurationMs: time.Since(start).Milliseconds(),
+			Error:      lastError,
+			Attempt:    lastAttempt,
+		})
+	}
 }

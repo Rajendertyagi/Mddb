@@ -87,13 +87,13 @@ func TestAutomationCRUD(t *testing.T) {
 		t.Errorf("expected type trigger, got %s", tr.Type)
 	}
 
-	// Create a cron referencing the trigger
+	// Create a cron referencing the webhook
 	cr, err := am.Create(AutomationRule{
 		Type:      "cron",
 		Name:      "My Cron",
 		Enabled:   true,
 		Schedule:  "0 9 * * *",
-		TriggerID: tr.ID,
+		WebhookID: wh.ID,
 	})
 	if err != nil {
 		t.Fatalf("failed to create cron: %v", err)
@@ -240,7 +240,7 @@ func TestAutomationTriggerValidation(t *testing.T) {
 		t.Error("expected error for trigger without collection")
 	}
 
-	// Missing searchType
+	// Missing searchType when query is set
 	_, err = am.Create(AutomationRule{
 		Type:       "trigger",
 		Name:       "Bad Trigger",
@@ -249,7 +249,7 @@ func TestAutomationTriggerValidation(t *testing.T) {
 		WebhookID:  wh.ID,
 	})
 	if err == nil {
-		t.Error("expected error for trigger without searchType")
+		t.Error("expected error for trigger with query but without searchType")
 	}
 
 	// Invalid searchType
@@ -265,16 +265,15 @@ func TestAutomationTriggerValidation(t *testing.T) {
 		t.Error("expected error for trigger with invalid searchType")
 	}
 
-	// Missing query
+	// Empty query is valid (fires unconditionally)
 	_, err = am.Create(AutomationRule{
 		Type:       "trigger",
-		Name:       "Bad Trigger",
+		Name:       "No Query Trigger",
 		Collection: "blog",
-		SearchType: "fts",
 		WebhookID:  wh.ID,
 	})
-	if err == nil {
-		t.Error("expected error for trigger without query")
+	if err != nil {
+		t.Errorf("expected no error for trigger without query (unconditional), got: %v", err)
 	}
 
 	// Missing webhookId
@@ -347,42 +346,143 @@ func TestAutomationTriggerValidation(t *testing.T) {
 	}
 }
 
+func TestAutomationTriggerSentimentValidation(t *testing.T) {
+	am, cleanup := setupAutomationTest(t)
+	defer cleanup()
+
+	wh := createWebhook(t, am, "Hook", "https://example.com/hook")
+
+	// 1. Valid sentiment-only trigger (no query) should succeed
+	_, err := am.Create(AutomationRule{
+		Type:             "trigger",
+		Name:             "Sentiment Only",
+		Enabled:          true,
+		Collection:       "blog",
+		WebhookID:        wh.ID,
+		SentimentEnabled: true,
+		SentimentMin:     -0.5,
+		SentimentMax:     0.5,
+	})
+	if err != nil {
+		t.Errorf("expected no error for valid sentiment-only trigger, got: %v", err)
+	}
+
+	// 2. sentimentMin > sentimentMax should fail
+	_, err = am.Create(AutomationRule{
+		Type:             "trigger",
+		Name:             "Bad Sentiment Range",
+		Enabled:          true,
+		Collection:       "blog",
+		WebhookID:        wh.ID,
+		SentimentEnabled: true,
+		SentimentMin:     0.5,
+		SentimentMax:     -0.5,
+	})
+	if err == nil {
+		t.Error("expected error for sentimentMin > sentimentMax")
+	}
+
+	// 3. sentimentMin < -1.0 should fail
+	_, err = am.Create(AutomationRule{
+		Type:             "trigger",
+		Name:             "Min Too Low",
+		Enabled:          true,
+		Collection:       "blog",
+		WebhookID:        wh.ID,
+		SentimentEnabled: true,
+		SentimentMin:     -1.5,
+		SentimentMax:     0.5,
+	})
+	if err == nil {
+		t.Error("expected error for sentimentMin < -1.0")
+	}
+
+	// 4. sentimentMax > 1.0 should fail
+	_, err = am.Create(AutomationRule{
+		Type:             "trigger",
+		Name:             "Max Too High",
+		Enabled:          true,
+		Collection:       "blog",
+		WebhookID:        wh.ID,
+		SentimentEnabled: true,
+		SentimentMin:     -0.5,
+		SentimentMax:     1.5,
+	})
+	if err == nil {
+		t.Error("expected error for sentimentMax > 1.0")
+	}
+
+	// 5. Invalid conditionLogic "xor" should fail
+	_, err = am.Create(AutomationRule{
+		Type:             "trigger",
+		Name:             "Bad Logic",
+		Enabled:          true,
+		Collection:       "blog",
+		WebhookID:        wh.ID,
+		SentimentEnabled: true,
+		SentimentMin:     -0.5,
+		SentimentMax:     0.5,
+		ConditionLogic:   "xor",
+	})
+	if err == nil {
+		t.Error("expected error for invalid conditionLogic \"xor\"")
+	}
+
+	// 6. Valid conditionLogic "or" with both search + sentiment should succeed
+	_, err = am.Create(AutomationRule{
+		Type:             "trigger",
+		Name:             "Search And Sentiment",
+		Enabled:          true,
+		Collection:       "blog",
+		SearchType:       "fts",
+		Query:            "test query",
+		Threshold:        50,
+		WebhookID:        wh.ID,
+		SentimentEnabled: true,
+		SentimentMin:     -0.3,
+		SentimentMax:     0.8,
+		ConditionLogic:   "or",
+	})
+	if err != nil {
+		t.Errorf("expected no error for valid trigger with search + sentiment + conditionLogic \"or\", got: %v", err)
+	}
+}
+
 func TestAutomationCronValidation(t *testing.T) {
 	am, cleanup := setupAutomationTest(t)
 	defer cleanup()
 
 	wh := createWebhook(t, am, "Hook", "https://example.com/hook")
-	tr := createTrigger(t, am, "Trigger", wh.ID)
 
 	// Missing schedule
 	_, err := am.Create(AutomationRule{
 		Type:      "cron",
 		Name:      "Bad Cron",
-		TriggerID: tr.ID,
+		WebhookID: wh.ID,
 	})
 	if err == nil {
 		t.Error("expected error for cron without schedule")
 	}
 
-	// Missing triggerId
+	// Missing webhookId
 	_, err = am.Create(AutomationRule{
 		Type:     "cron",
 		Name:     "Bad Cron",
 		Schedule: "0 9 * * *",
 	})
 	if err == nil {
-		t.Error("expected error for cron without triggerId")
+		t.Error("expected error for cron without webhookId")
 	}
 
-	// Non-existent triggerId
+	// Non-existent webhookId
 	_, err = am.Create(AutomationRule{
 		Type:      "cron",
 		Name:      "Bad Cron",
 		Schedule:  "0 9 * * *",
-		TriggerID: "nonexistent",
+		WebhookID: "nonexistent",
 	})
 	if err == nil {
-		t.Error("expected error for cron with non-existent triggerId")
+		t.Error("expected error for cron with non-existent webhookId")
 	}
 
 	// Valid cron
@@ -390,7 +490,7 @@ func TestAutomationCronValidation(t *testing.T) {
 		Type:      "cron",
 		Name:      "Valid Cron",
 		Schedule:  "0 9 * * *",
-		TriggerID: tr.ID,
+		WebhookID: wh.ID,
 	})
 	if err != nil {
 		t.Errorf("expected no error for valid cron, got: %v", err)
@@ -404,7 +504,7 @@ func TestAutomationList(t *testing.T) {
 	// Create multiple rules of different types
 	wh1 := createWebhook(t, am, "Webhook 1", "https://example.com/hook1")
 	createWebhook(t, am, "Webhook 2", "https://example.com/hook2")
-	tr1 := createTrigger(t, am, "Trigger 1", wh1.ID)
+	createTrigger(t, am, "Trigger 1", wh1.ID)
 	createTrigger(t, am, "Trigger 2", wh1.ID)
 
 	_, err := am.Create(AutomationRule{
@@ -412,7 +512,7 @@ func TestAutomationList(t *testing.T) {
 		Name:      "Cron 1",
 		Enabled:   true,
 		Schedule:  "0 9 * * *",
-		TriggerID: tr1.ID,
+		WebhookID: wh1.ID,
 	})
 	if err != nil {
 		t.Fatalf("failed to create cron: %v", err)
@@ -652,7 +752,7 @@ func TestAutomationGetWebhookAndGetTrigger(t *testing.T) {
 	}
 }
 
-func TestAutomationEnabledTriggersForCollection(t *testing.T) {
+func TestAutomationEnabledTriggersForEvent(t *testing.T) {
 	am, cleanup := setupAutomationTest(t)
 	defer cleanup()
 
@@ -718,22 +818,28 @@ func TestAutomationEnabledTriggersForCollection(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Only enabled triggers for "blog" should be returned
-	blogTriggers := am.EnabledTriggersForCollection("blog")
+	// Only enabled triggers for "blog" on insert should be returned (default events: insert+update)
+	blogTriggers := am.EnabledTriggersForEvent("blog", "insert")
 	if len(blogTriggers) != 2 {
 		t.Errorf("expected 2 enabled blog triggers, got %d", len(blogTriggers))
 	}
 
 	// Only enabled triggers for "docs"
-	docsTriggers := am.EnabledTriggersForCollection("docs")
+	docsTriggers := am.EnabledTriggersForEvent("docs", "insert")
 	if len(docsTriggers) != 1 {
 		t.Errorf("expected 1 enabled docs trigger, got %d", len(docsTriggers))
 	}
 
 	// No triggers for non-existent collection
-	empty := am.EnabledTriggersForCollection("nonexistent")
+	empty := am.EnabledTriggersForEvent("nonexistent", "insert")
 	if len(empty) != 0 {
 		t.Errorf("expected 0 triggers for nonexistent collection, got %d", len(empty))
+	}
+
+	// No triggers for "delete" event (default events are insert+update only)
+	deleteTriggers := am.EnabledTriggersForEvent("blog", "delete")
+	if len(deleteTriggers) != 0 {
+		t.Errorf("expected 0 triggers for delete event, got %d", len(deleteTriggers))
 	}
 }
 
@@ -812,14 +918,13 @@ func TestAutomationUpdateLastRun(t *testing.T) {
 	defer cleanup()
 
 	wh := createWebhook(t, am, "Hook", "https://example.com/hook")
-	tr := createTrigger(t, am, "Trigger", wh.ID)
 
 	cr, err := am.Create(AutomationRule{
 		Type:      "cron",
 		Name:      "Cron",
 		Enabled:   true,
 		Schedule:  "0 9 * * *",
-		TriggerID: tr.ID,
+		WebhookID: wh.ID,
 	})
 	if err != nil {
 		t.Fatalf("create cron failed: %v", err)

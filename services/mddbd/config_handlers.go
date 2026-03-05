@@ -10,16 +10,18 @@ import (
 // ---- Request/Response types ----
 
 type ConfigResponse struct {
-	Version         string          `json:"version"`
-	DatabasePath    string          `json:"databasePath"`
-	Mode            string          `json:"mode"`
-	PanelMode       string          `json:"panelMode"`
-	Protocols       ProtocolsConfig `json:"protocols"`
-	AuthEnabled     bool            `json:"authEnabled"`
-	MetricsEnabled  bool            `json:"metricsEnabled"`
-	ReplicationRole string          `json:"replicationRole"`
-	VectorConfig    *VectorConfig   `json:"vectorConfig,omitempty"`
-	ChunkConfig     *ChunkConfig    `json:"chunkConfig,omitempty"`
+	Version               string          `json:"version"`
+	DatabasePath          string          `json:"databasePath"`
+	Mode                  string          `json:"mode"`
+	PanelMode             string          `json:"panelMode"`
+	Protocols             ProtocolsConfig `json:"protocols"`
+	AuthEnabled           bool            `json:"authEnabled"`
+	MetricsEnabled        bool            `json:"metricsEnabled"`
+	ReplicationRole       string          `json:"replicationRole"`
+	VectorConfig          *VectorConfig   `json:"vectorConfig,omitempty"`
+	ChunkConfig           *ChunkConfig    `json:"chunkConfig,omitempty"`
+	AutomationsEnabled    bool            `json:"automationsEnabled"`
+	AutomationLogsEnabled bool            `json:"automationLogsEnabled"`
 }
 
 type ChunkConfig struct {
@@ -97,9 +99,11 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 				Addr:    s.Config.HTTP3.Addr,
 			},
 		},
-		AuthEnabled:     env("MDDB_AUTH_ENABLED", "false") == "true",
-		MetricsEnabled:  env("MDDB_METRICS", "true") != "false",
-		ReplicationRole: s.ReplicationRole,
+		AuthEnabled:           env("MDDB_AUTH_ENABLED", "false") == "true",
+		MetricsEnabled:        env("MDDB_METRICS", "true") != "false",
+		ReplicationRole:       s.ReplicationRole,
+		AutomationsEnabled:    env("MDDB_AUTOMATIONS", "enable") != "disable",
+		AutomationLogsEnabled: env("MDDB_AUTOMATION_LOGS", "enable") != "disable",
 	}
 
 	// Add vector configuration if embedding provider is set

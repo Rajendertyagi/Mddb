@@ -404,13 +404,13 @@ func TestEvaluateTriggers_NoTriggers(t *testing.T) {
 	s, cleanup := newTestServerForAutomation(t)
 	defer cleanup()
 
-	s.AutomationManager.EvaluateTriggers("blog", Doc{ID: "doc1"})
+	s.AutomationManager.EvaluateTriggers("blog", Doc{ID: "doc1"}, "insert")
 }
 
 func TestEvaluateTriggers_NoServer(t *testing.T) {
 	am, cleanup := setupAutomationTest(t)
 	defer cleanup()
-	am.EvaluateTriggers("blog", Doc{ID: "doc1"})
+	am.EvaluateTriggers("blog", Doc{ID: "doc1"}, "insert")
 }
 
 func TestEvalFTS_NoIndex(t *testing.T) {
@@ -669,7 +669,7 @@ func TestEvaluateTriggers_FTSMatch(t *testing.T) {
 		SearchType: "fts", Query: "golang", Threshold: 0, WebhookID: wh.ID, Enabled: true,
 	})
 
-	s.AutomationManager.EvaluateTriggers("blog", Doc{ID: "doc1"})
+	s.AutomationManager.EvaluateTriggers("blog", Doc{ID: "doc1"}, "insert")
 }
 
 // --- Webhook Firing Tests ---
@@ -699,7 +699,7 @@ func TestFireAutomationWebhook(t *testing.T) {
 	}
 	doc := &Doc{ID: "doc1", ContentMD: "test content"}
 
-	fireAutomationWebhook(webhook, trigger, doc, "blog", 85.5)
+	fireAutomationWebhook(webhook, trigger, doc, "blog", 85.5, 0, nil)
 
 	if len(receivedBody) == 0 {
 		t.Fatal("expected webhook to receive a body")
@@ -757,7 +757,7 @@ func TestFireAutomationWebhook_DefaultMethod(t *testing.T) {
 	webhook := &AutomationRule{ID: "wh1", URL: ts.URL}
 	trigger := &AutomationRule{ID: "tr1", Name: "Trig"}
 
-	fireAutomationWebhook(webhook, trigger, nil, "blog", 50)
+	fireAutomationWebhook(webhook, trigger, nil, "blog", 50, 0, nil)
 
 	if receivedMethod != "POST" {
 		t.Errorf("expected default method POST, got %q", receivedMethod)
@@ -775,7 +775,7 @@ func TestFireAutomationWebhook_NilDoc(t *testing.T) {
 	webhook := &AutomationRule{ID: "wh1", URL: ts.URL, Method: "POST"}
 	trigger := &AutomationRule{ID: "tr1", Name: "Trig"}
 
-	fireAutomationWebhook(webhook, trigger, nil, "blog", 50)
+	fireAutomationWebhook(webhook, trigger, nil, "blog", 50, 0, nil)
 
 	var payload TriggerPayload
 	if err := json.Unmarshal(receivedBody, &payload); err != nil {
@@ -816,13 +816,9 @@ func TestCronScheduler_Reload_WithCrons(t *testing.T) {
 	defer cleanup()
 
 	wh, _ := s.AutomationManager.Create(AutomationRule{Type: "webhook", Name: "Hook", URL: "https://example.com", Enabled: true})
-	tr, _ := s.AutomationManager.Create(AutomationRule{
-		Type: "trigger", Name: "Trig", Collection: "blog",
-		SearchType: "fts", Query: "test", Threshold: 50, WebhookID: wh.ID, Enabled: true,
-	})
 	_, _ = s.AutomationManager.Create(AutomationRule{
 		Type: "cron", Name: "Cron", Schedule: "0 0 * * * *",
-		TriggerID: tr.ID, Enabled: true,
+		WebhookID: wh.ID, Enabled: true,
 	})
 
 	cs := NewCronScheduler(s)
@@ -840,13 +836,9 @@ func TestCronScheduler_Reload_DisabledCronSkipped(t *testing.T) {
 	defer cleanup()
 
 	wh, _ := s.AutomationManager.Create(AutomationRule{Type: "webhook", Name: "Hook", URL: "https://example.com", Enabled: true})
-	tr, _ := s.AutomationManager.Create(AutomationRule{
-		Type: "trigger", Name: "Trig", Collection: "blog",
-		SearchType: "fts", Query: "test", Threshold: 50, WebhookID: wh.ID, Enabled: true,
-	})
 	_, _ = s.AutomationManager.Create(AutomationRule{
 		Type: "cron", Name: "Disabled Cron", Schedule: "0 0 * * * *",
-		TriggerID: tr.ID, Enabled: false,
+		WebhookID: wh.ID, Enabled: false,
 	})
 
 	cs := NewCronScheduler(s)
@@ -864,15 +856,11 @@ func TestCronScheduler_Reload_InvalidSchedule(t *testing.T) {
 	defer cleanup()
 
 	wh, _ := s.AutomationManager.Create(AutomationRule{Type: "webhook", Name: "Hook", URL: "https://example.com", Enabled: true})
-	tr, _ := s.AutomationManager.Create(AutomationRule{
-		Type: "trigger", Name: "Trig", Collection: "blog",
-		SearchType: "fts", Query: "test", Threshold: 50, WebhookID: wh.ID, Enabled: true,
-	})
 
 	s.AutomationManager.mu.Lock()
 	s.AutomationManager.rules = append(s.AutomationManager.rules, AutomationRule{
 		ID: "bad-cron", Type: "cron", Name: "Bad", Enabled: true,
-		Schedule: "not-a-schedule", TriggerID: tr.ID,
+		Schedule: "not-a-schedule", WebhookID: wh.ID,
 	})
 	s.AutomationManager.mu.Unlock()
 
@@ -886,14 +874,14 @@ func TestCronScheduler_Reload_InvalidSchedule(t *testing.T) {
 	}
 }
 
-func TestCronScheduler_Reload_MissingTrigger(t *testing.T) {
+func TestCronScheduler_Reload_MissingWebhook(t *testing.T) {
 	s, cleanup := newTestServerForAutomation(t)
 	defer cleanup()
 
 	s.AutomationManager.mu.Lock()
 	s.AutomationManager.rules = append(s.AutomationManager.rules, AutomationRule{
 		ID: "orphan-cron", Type: "cron", Name: "Orphan", Enabled: true,
-		Schedule: "0 0 * * * *", TriggerID: "nonexistent",
+		Schedule: "0 0 * * * *", WebhookID: "nonexistent",
 	})
 	s.AutomationManager.mu.Unlock()
 
@@ -912,13 +900,9 @@ func TestCronScheduler_ReloadClearsPrevious(t *testing.T) {
 	defer cleanup()
 
 	wh, _ := s.AutomationManager.Create(AutomationRule{Type: "webhook", Name: "Hook", URL: "https://example.com", Enabled: true})
-	tr, _ := s.AutomationManager.Create(AutomationRule{
-		Type: "trigger", Name: "Trig", Collection: "blog",
-		SearchType: "fts", Query: "test", Threshold: 50, WebhookID: wh.ID, Enabled: true,
-	})
 	cr, _ := s.AutomationManager.Create(AutomationRule{
 		Type: "cron", Name: "Cron", Schedule: "0 0 * * * *",
-		TriggerID: tr.ID, Enabled: true,
+		WebhookID: wh.ID, Enabled: true,
 	})
 
 	cs := NewCronScheduler(s)

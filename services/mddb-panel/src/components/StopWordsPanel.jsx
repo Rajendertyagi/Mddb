@@ -22,7 +22,7 @@ export default function StopWordsPanel() {
   const [deleting, setDeleting] = useState(null);
 
   // Collapsible defaults section
-  const [showDefaults, setShowDefaults] = useState(false);
+  const [showDefaults, setShowDefaults] = useState(true);
 
   useEffect(() => {
     if (collection) {

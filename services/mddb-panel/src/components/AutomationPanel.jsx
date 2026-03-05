@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
+import AutomationLogsTab from './AutomationLogsTab';
 
 const TYPE_CONFIG = {
   webhook: { icon: Webhook, label: 'Webhook', badgeClass: 'bg-blue-100 text-blue-800' },
@@ -36,20 +37,38 @@ const EMPTY_RULE = {
   query: '',
   threshold: 50,
   webhookId: '',
+  events: ['insert', 'update'],
+  sentimentEnabled: false,
+  sentimentMin: -1.0,
+  sentimentMax: 1.0,
+  conditionLogic: 'and',
   // cron fields
   schedule: '',
-  triggerId: '',
 };
+
+const EVENT_OPTIONS = [
+  { value: 'insert', label: 'INSERT (new doc)' },
+  { value: 'update', label: 'UPDATE (doc changed)' },
+  { value: 'delete', label: 'DELETE (doc removed)' },
+];
 
 export default function AutomationPanel() {
   const { stats } = useStore();
+  const config = useStore(s => s.config);
   const collections = stats?.collections || [];
+  const [activeTab, setActiveTab] = useState('rules');
+  const logsEnabled = config?.automationLogsEnabled !== false;
 
   // Data state
   const [rules, setRules] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [filterType, setFilterType] = useState('');
+
+  // Separate state for all rules (not affected by tab filter) — used for dropdowns and tab counts
+  const [allRules, setAllRules] = useState([]);
+  const [allWebhooks, setAllWebhooks] = useState([]);
+  const [allTriggers, setAllTriggers] = useState([]);
 
   // Add form state
   const [showAddForm, setShowAddForm] = useState(false);
@@ -73,6 +92,10 @@ export default function AutomationPanel() {
     loadRules();
   }, [filterType]);
 
+  useEffect(() => {
+    loadDropdownData();
+  }, []);
+
   const loadRules = async () => {
     setLoading(true);
     setError(null);
@@ -87,15 +110,23 @@ export default function AutomationPanel() {
     }
   };
 
-  // ---- Helpers: extract webhooks / triggers from current rules for dropdowns ----
-  const webhookRules = rules.filter((r) => r.type === 'webhook');
-  const triggerRules = rules.filter((r) => r.type === 'trigger');
+  const loadDropdownData = async () => {
+    try {
+      const data = await mddbClient.listAutomation();
+      const all = Array.isArray(data) ? data : data.rules || [];
+      setAllRules(all);
+      setAllWebhooks(all.filter((r) => r.type === 'webhook'));
+      setAllTriggers(all.filter((r) => r.type === 'trigger'));
+    } catch (err) {
+      console.error('Failed to load dropdown data:', err);
+    }
+  };
 
-  // ---- Counts for filter tabs ----
-  const allCount = rules.length;
-  const webhookCount = webhookRules.length;
-  const triggerCount = triggerRules.length;
-  const cronCount = rules.filter((r) => r.type === 'cron').length;
+  // ---- Counts for filter tabs (always from full unfiltered list) ----
+  const allCount = allRules.length;
+  const webhookCount = allRules.filter((r) => r.type === 'webhook').length;
+  const triggerCount = allRules.filter((r) => r.type === 'trigger').length;
+  const cronCount = allRules.filter((r) => r.type === 'cron').length;
 
   // ---- Build payload from form state ----
   const buildPayload = (form) => {
@@ -119,10 +150,19 @@ export default function AutomationPanel() {
       payload.searchType = form.searchType;
       payload.query = form.query;
       payload.threshold = form.threshold;
+      payload.events = form.events && form.events.length > 0 ? form.events : ['insert', 'update'];
       if (form.webhookId) payload.webhookId = form.webhookId;
+      payload.sentimentEnabled = form.sentimentEnabled;
+      if (form.sentimentEnabled) {
+        payload.sentimentMin = form.sentimentMin;
+        payload.sentimentMax = form.sentimentMax;
+      }
+      if (form.query && form.sentimentEnabled) {
+        payload.conditionLogic = form.conditionLogic;
+      }
     } else if (form.type === 'cron') {
       payload.schedule = form.schedule;
-      if (form.triggerId) payload.triggerId = form.triggerId;
+      if (form.webhookId) payload.webhookId = form.webhookId;
     }
     return payload;
   };
@@ -140,8 +180,12 @@ export default function AutomationPanel() {
     query: rule.query || '',
     threshold: rule.threshold ?? 50,
     webhookId: rule.webhookId || '',
+    events: rule.events && rule.events.length > 0 ? [...rule.events] : ['insert', 'update'],
+    sentimentEnabled: rule.sentimentEnabled ?? false,
+    sentimentMin: rule.sentimentMin ?? -1.0,
+    sentimentMax: rule.sentimentMax ?? 1.0,
+    conditionLogic: rule.conditionLogic || 'and',
     schedule: rule.schedule || '',
-    triggerId: rule.triggerId || '',
   });
 
   // ---- CRUD handlers ----
@@ -155,6 +199,7 @@ export default function AutomationPanel() {
       setNewRule({ ...EMPTY_RULE });
       setShowAddForm(false);
       await loadRules();
+      loadDropdownData();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -180,6 +225,7 @@ export default function AutomationPanel() {
       setEditingId(null);
       setEditRule({ ...EMPTY_RULE });
       await loadRules();
+      loadDropdownData();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -194,6 +240,7 @@ export default function AutomationPanel() {
     try {
       await mddbClient.deleteAutomation(id);
       await loadRules();
+      loadDropdownData();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -296,6 +343,41 @@ export default function AutomationPanel() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono"
             />
           </div>
+          <div className="md:col-span-2">
+            <details className="text-xs text-gray-500">
+              <summary className="cursor-pointer text-blue-600 hover:text-blue-800 font-medium select-none">
+                Template Variables
+              </summary>
+              <div className="mt-2 bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2">
+                <p>
+                  Use <code className="bg-gray-200 px-1 rounded text-gray-700">{'{{variable}}'}</code> in URL or header values. Variables are replaced when the webhook fires.
+                </p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+                  <div className="font-semibold mt-1 col-span-2 text-gray-700">Trigger Variables</div>
+                  <code className="text-gray-600">{'{{doc.id}}'}</code><span>Document ID</span>
+                  <code className="text-gray-600">{'{{doc.key}}'}</code><span>Document key</span>
+                  <code className="text-gray-600">{'{{doc.lang}}'}</code><span>Document language</span>
+                  <code className="text-gray-600">{'{{doc.addedAt}}'}</code><span>Added timestamp</span>
+                  <code className="text-gray-600">{'{{doc.updatedAt}}'}</code><span>Updated timestamp</span>
+                  <code className="text-gray-600">{'{{doc.meta.FIELD}}'}</code><span>Meta field value</span>
+                  <code className="text-gray-600">{'{{collection}}'}</code><span>Collection name</span>
+                  <code className="text-gray-600">{'{{trigger.id}}'}</code><span>Trigger ID</span>
+                  <code className="text-gray-600">{'{{trigger.name}}'}</code><span>Trigger name</span>
+                  <code className="text-gray-600">{'{{score}}'}</code><span>Search score</span>
+                  <code className="text-gray-600">{'{{sentiment}}'}</code><span>Sentiment score</span>
+                  <code className="text-gray-600">{'{{timestamp}}'}</code><span>Unix timestamp</span>
+                  <code className="text-gray-600">{'{{webhook.id}}'}</code><span>Webhook ID</span>
+                  <code className="text-gray-600">{'{{event}}'}</code><span>Event type</span>
+                  <div className="font-semibold mt-1 col-span-2 text-gray-700">Cron Variables</div>
+                  <code className="text-gray-600">{'{{cron.id}}'}</code><span>Cron ID</span>
+                  <code className="text-gray-600">{'{{cron.name}}'}</code><span>Cron name</span>
+                  <code className="text-gray-600">{'{{timestamp}}'}</code><span>Unix timestamp</span>
+                  <code className="text-gray-600">{'{{webhook.id}}'}</code><span>Webhook ID</span>
+                  <code className="text-gray-600">{'{{event}}'}</code><span>Event type</span>
+                </div>
+              </div>
+            </details>
+          </div>
         </>
       );
     }
@@ -303,67 +385,143 @@ export default function AutomationPanel() {
     if (form.type === 'trigger') {
       return (
         <>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Collection</label>
-            <select
-              value={form.collection}
-              onChange={(e) => setForm({ ...form, collection: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            >
-              <option value="">Select collection</option>
-              {collections.map((c) => (
-                <option key={c.name} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+          {/* ── WHEN ── */}
+          <div className="md:col-span-2 bg-gray-50 rounded-lg p-4 space-y-3">
+            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">When</div>
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex flex-wrap gap-3">
+                {EVENT_OPTIONS.map((ev) => (
+                  <label key={ev.value} className="flex items-center gap-1.5 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={(form.events || []).includes(ev.value)}
+                      onChange={() => {
+                        const current = form.events || [];
+                        const next = current.includes(ev.value)
+                          ? current.filter((e) => e !== ev.value)
+                          : [...current, ev.value];
+                        setForm({ ...form, events: next });
+                      }}
+                      className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                    />
+                    {ev.label}
+                  </label>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500">in</span>
+                <select
+                  value={form.collection}
+                  onChange={(e) => setForm({ ...form, collection: e.target.value })}
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                >
+                  <option value="">Select collection</option>
+                  {collections.map((c) => (
+                    <option key={c.name} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Search Type</label>
-            <select
-              value={form.searchType}
-              onChange={(e) => setForm({ ...form, searchType: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            >
-              <option value="fts">Full-Text Search</option>
-              <option value="vector">Vector Search</option>
-              <option value="hybrid">Hybrid Search</option>
-            </select>
+
+          {/* ── IF (optional condition) ── */}
+          <div className="md:col-span-2 bg-amber-50 rounded-lg p-4 space-y-3">
+            <div className="text-xs font-semibold text-amber-500 uppercase tracking-wider">
+              If matches (optional)
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Search method</label>
+                <select
+                  value={form.searchType}
+                  onChange={(e) => setForm({ ...form, searchType: e.target.value })}
+                  className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                >
+                  <option value="fts">Full-Text Search</option>
+                  <option value="vector">Vector Search</option>
+                  <option value="hybrid">Hybrid Search</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Query</label>
+                <input
+                  type="text"
+                  value={form.query}
+                  onChange={(e) => setForm({ ...form, query: e.target.value })}
+                  placeholder="e.g. breaking news"
+                  className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">
+                  Score &ge; {form.threshold}%
+                </label>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={form.threshold}
+                  onChange={(e) => setForm({ ...form, threshold: parseInt(e.target.value, 10) })}
+                  className="w-full mt-1"
+                />
+              </div>
+            </div>
+            {/* Sentiment condition */}
+            <div className="border-t border-amber-200 pt-3 mt-3">
+              <label className="flex items-center gap-2 cursor-pointer mb-2">
+                <input
+                  type="checkbox"
+                  checked={form.sentimentEnabled}
+                  onChange={(e) => setForm({ ...form, sentimentEnabled: e.target.checked })}
+                  className="w-4 h-4 text-amber-600 rounded border-gray-300 focus:ring-amber-500"
+                />
+                <span className="text-sm text-gray-700 font-medium">Sentiment condition</span>
+              </label>
+              {form.sentimentEnabled && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 ml-6">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Min score: {form.sentimentMin.toFixed(1)} <span className="text-gray-400">(Negative &minus;1.0)</span></label>
+                    <input type="range" min={-100} max={100} value={Math.round(form.sentimentMin * 100)} onChange={(e) => setForm({ ...form, sentimentMin: parseInt(e.target.value, 10) / 100 })} className="w-full" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Max score: {form.sentimentMax.toFixed(1)} <span className="text-gray-400">(Positive 1.0)</span></label>
+                    <input type="range" min={-100} max={100} value={Math.round(form.sentimentMax * 100)} onChange={(e) => setForm({ ...form, sentimentMax: parseInt(e.target.value, 10) / 100 })} className="w-full" />
+                  </div>
+                </div>
+              )}
+            </div>
+            {form.query && form.sentimentEnabled && (
+              <div className="border-t border-amber-200 pt-3 mt-3">
+                <span className="text-xs text-gray-500 mr-3">Combine conditions:</span>
+                <label className="inline-flex items-center gap-1.5 mr-4 text-sm">
+                  <input type="radio" value="and" checked={form.conditionLogic === 'and'} onChange={() => setForm({ ...form, conditionLogic: 'and' })} className="w-4 h-4 text-amber-600" />
+                  AND (both must match)
+                </label>
+                <label className="inline-flex items-center gap-1.5 text-sm">
+                  <input type="radio" value="or" checked={form.conditionLogic === 'or'} onChange={() => setForm({ ...form, conditionLogic: 'or' })} className="w-4 h-4 text-amber-600" />
+                  OR (either must match)
+                </label>
+              </div>
+            )}
+            <p className="text-xs text-gray-400">
+              Leave query empty and sentiment unchecked to fire on every matching event.
+            </p>
           </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Query</label>
-            <textarea
-              value={form.query}
-              onChange={(e) => setForm({ ...form, query: e.target.value })}
-              placeholder="Enter search query..."
-              rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">
-              Threshold: {form.threshold}
-            </label>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={form.threshold}
-              onChange={(e) => setForm({ ...form, threshold: parseInt(e.target.value, 10) })}
-              className="w-full"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Webhook</label>
+
+          {/* ── THEN ── */}
+          <div className="md:col-span-2 bg-blue-50 rounded-lg p-4 space-y-3">
+            <div className="text-xs font-semibold text-blue-500 uppercase tracking-wider">Then call</div>
             <select
               value={form.webhookId}
               onChange={(e) => setForm({ ...form, webhookId: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              className="w-full md:w-64 px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             >
               <option value="">Select webhook</option>
-              {webhookRules.map((w) => (
+              {allWebhooks.map((w) => (
                 <option key={w.id} value={w.id}>
-                  {w.name}
+                  {w.name} ({w.method || 'POST'} {w.url})
                 </option>
               ))}
             </select>
@@ -376,26 +534,27 @@ export default function AutomationPanel() {
       return (
         <>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Schedule</label>
+            <label className="block text-xs text-gray-500 mb-1">Schedule (cron expression)</label>
             <input
               type="text"
               value={form.schedule}
               onChange={(e) => setForm({ ...form, schedule: e.target.value })}
-              placeholder="0 9 * * *"
+              placeholder="0 0 9 * * *"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono"
             />
+            <p className="text-xs text-gray-400 mt-1">6 fields: sec min hour day month weekday</p>
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Trigger</label>
+            <label className="block text-xs text-gray-500 mb-1">Webhook</label>
             <select
-              value={form.triggerId}
-              onChange={(e) => setForm({ ...form, triggerId: e.target.value })}
+              value={form.webhookId}
+              onChange={(e) => setForm({ ...form, webhookId: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             >
-              <option value="">Select trigger</option>
-              {triggerRules.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
+              <option value="">Select webhook</option>
+              {allWebhooks.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name} ({w.method || 'POST'} {w.url})
                 </option>
               ))}
             </select>
@@ -440,8 +599,14 @@ export default function AutomationPanel() {
         </div>
       </div>
 
+      {/* Tab bar */}
+      <div className="bg-white border-b px-6 flex items-center gap-4">
+        <button onClick={() => setActiveTab('rules')} className={`py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'rules' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Rules</button>
+        {logsEnabled && <button onClick={() => setActiveTab('logs')} className={`py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'logs' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Logs</button>}
+      </div>
+
       {/* Main content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      {activeTab === 'rules' && <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-6xl mx-auto space-y-6">
           {/* Type filter tabs */}
           <div className="flex items-center gap-2">
@@ -657,8 +822,37 @@ export default function AutomationPanel() {
                             <td className="px-6 py-4">
                               <TypeIcon type={rule.type} />
                             </td>
-                            <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                              {rule.name}
+                            <td className="px-6 py-4">
+                              <div className="text-sm font-medium text-gray-900">{rule.name}</div>
+                              {rule.type === 'webhook' && rule.url && (
+                                <div className="text-xs text-gray-500 font-mono mt-0.5 truncate max-w-xs">
+                                  {rule.method || 'POST'} {rule.url}
+                                </div>
+                              )}
+                              {rule.type === 'trigger' && (
+                                <div className="text-xs text-gray-500 mt-0.5">
+                                  {rule.collection && <span>{rule.collection}</span>}
+                                  {rule.query && <span className="ml-1 font-mono">"{rule.query}"</span>}
+                                  {rule.sentimentEnabled && (
+                                    <span className="ml-1.5 text-amber-600">
+                                      sentiment [{rule.sentimentMin?.toFixed(1)}, {rule.sentimentMax?.toFixed(1)}]
+                                    </span>
+                                  )}
+                                  {rule.query && rule.sentimentEnabled && (
+                                    <span className="ml-1 text-gray-400 uppercase text-[10px]">{rule.conditionLogic || 'and'}</span>
+                                  )}
+                                  {rule.events && rule.events.length > 0 && (
+                                    <span className="ml-1.5">
+                                      ON {rule.events.map((e) => e.toUpperCase()).join(', ')}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              {rule.type === 'cron' && rule.schedule && (
+                                <div className="text-xs text-gray-500 font-mono mt-0.5">
+                                  {rule.schedule}
+                                </div>
+                              )}
                             </td>
                             <td className="px-6 py-4">
                               <TypeBadge type={rule.type} />
@@ -750,7 +944,8 @@ export default function AutomationPanel() {
             </div>
           )}
         </div>
-      </div>
+      </div>}
+      {activeTab === 'logs' && logsEnabled && <AutomationLogsTab />}
     </div>
   );
 }

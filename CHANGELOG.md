@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.7] - 2026-03-05
+
+### Added
+- **PMISparse Search Algorithm** - Two-phase sparse retrieval with PMI query expansion (invented by Tradik Limited)
+  - BM25 scoring for direct term matches + automatic PPMI-based query expansion from corpus co-occurrence statistics
+  - Lazy per-collection training with sliding-window co-occurrence matrix, automatic invalidation on document changes
+  - Fuzzy variant combining edit-distance tolerance with PMI expansion for maximum recall
+  - Works standalone (`algorithm: "pmisparse"`) and as the FTS component in hybrid search
+  - Configurable parameters: k1, b, alpha, expansionK, windowSize, minCount, topK
+  - Expansion matches marked with `~` prefix in `matchedTerms` for transparency
+  - Dedicated documentation: `docs/PMISPARSE.md`
+- **Sentiment Analysis for Triggers** - Keyword-based sentiment scoring for automation triggers
+  - `AnalyzeSentiment()` returns score from -1.0 (negative) to +1.0 (positive) using built-in lexicon (~100 positive, ~100 negative words)
+  - Optional `sentimentEnabled` condition on triggers with configurable min/max range
+  - AND/OR logic (`conditionLogic`) when combining sentiment with search conditions
+  - Markdown-aware text stripping before analysis
+- **Automation Execution Logs** - Track webhook execution history
+  - `GET /v1/automation-logs` endpoint with cursor-based pagination
+  - Filter by `ruleId` and `status` (success, error, skipped)
+  - TTL-based automatic cleanup with configurable retention (`MDDB_AUTOMATION_LOGS_TTL`, default: 7d)
+  - Panel Logs tab with auto-refresh toggle and status filter
+- **`MDDB_AUTOMATIONS` env var** - Single toggle to enable/disable entire automation system
+  - `MDDB_AUTOMATION_LOGS` - Enable/disable automation execution logging
+  - `MDDB_AUTOMATION_LOGS_TTL` - Log retention period (default: 7d)
+- **Webhook Template Variables** - Dynamic `{{variable}}` substitution in webhook URLs and custom headers
+  - Trigger variables: `{{doc.id}}`, `{{doc.key}}`, `{{doc.lang}}`, `{{doc.meta.FIELD}}`, `{{collection}}`, `{{score}}`, `{{sentiment}}`, `{{trigger.id}}`, `{{trigger.name}}`, `{{timestamp}}`, `{{webhook.id}}`, `{{event}}`
+  - Cron variables: `{{cron.id}}`, `{{cron.name}}`, `{{timestamp}}`, `{{webhook.id}}`, `{{event}}`
+  - Panel: collapsible help section listing available variables in webhook form
+
+### Changed
+- Version bumped to 2.6.7 across all services and documentation
+
 ## [2.6.6] - 2026-03-04
 
 ### Added

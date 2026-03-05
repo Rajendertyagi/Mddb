@@ -217,7 +217,11 @@ func (g *GRPCServer) Add(ctx context.Context, req *proto.AddRequest) (*proto.Doc
 
 	// Automation triggers
 	if g.server.AutomationManager != nil && env("MDDB_TRIGGERS", "false") == "true" {
-		go g.server.AutomationManager.EvaluateTriggers(req.Collection, saved)
+		triggerEvent := "update"
+		if saved.AddedAt == saved.UpdatedAt {
+			triggerEvent = "insert"
+		}
+		go g.server.AutomationManager.EvaluateTriggers(req.Collection, saved, triggerEvent)
 	}
 
 	return docToProto(&saved), nil

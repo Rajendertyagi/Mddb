@@ -40,8 +40,8 @@ services:
   # MDDB Panel (Frontend)
   mddb-panel:
     build:
-      context: ./services/mddb-panel
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/mddb-panel/Dockerfile
       target: development
     container_name: mddb-panel
     ports:
@@ -49,6 +49,7 @@ services:
     volumes:
       - ./services/mddb-panel:/app
       - /app/node_modules
+      - ./scripts:/app/scripts
     environment:
       - MDDB_SERVER=http://mddbd:11023
       - NODE_ENV=development
