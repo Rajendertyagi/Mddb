@@ -83,7 +83,7 @@ Create a Custom GPT that connects to MDDB via its REST API.
 ```json
 {
   "openapi": "3.1.0",
-  "info": { "title": "MDDB API", "version": "2.6.6" },
+  "info": { "title": "MDDB API", "version": "2.6.9" },
   "servers": [{ "url": "https://your-mddb-server.com" }],
   "paths": {
     "/v1/search": {
