@@ -1543,13 +1543,13 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	// Required fields
 	var collection, key, lang string
 	if v, ok := raw["collection"]; ok {
-		json.Unmarshal(v, &collection)
+		_ = json.Unmarshal(v, &collection)
 	}
 	if v, ok := raw["key"]; ok {
-		json.Unmarshal(v, &key)
+		_ = json.Unmarshal(v, &key)
 	}
 	if v, ok := raw["lang"]; ok {
-		json.Unmarshal(v, &lang)
+		_ = json.Unmarshal(v, &lang)
 	}
 
 	if collection == "" || key == "" || lang == "" {
