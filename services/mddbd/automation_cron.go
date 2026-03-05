@@ -80,6 +80,11 @@ func (cs *CronScheduler) addEntry(cronRule AutomationRule) {
 	entryID, err := cs.cron.AddFunc(cronRule.Schedule, func() {
 		log.Printf("cron %s: executing trigger %s (%s)", ruleID, triggerCopy.ID, triggerCopy.Name)
 
+		// Track cron execution
+		if cs.server.Metrics != nil {
+			cs.server.Metrics.IncOp("automation_cron", ruleID)
+		}
+
 		// Re-fetch trigger in case it was updated
 		currentTrigger := am.GetTrigger(triggerCopy.ID)
 		if currentTrigger == nil || !currentTrigger.Enabled {

@@ -38,10 +38,11 @@ type WebhookPayload struct {
 
 // WebhookManager manages webhook registrations and delivery.
 type WebhookManager struct {
-	db     *bolt.DB
-	mu     sync.RWMutex
-	hooks  []Webhook
-	binlog *Binlog
+	db      *bolt.DB
+	mu      sync.RWMutex
+	hooks   []Webhook
+	binlog  *Binlog
+	metrics *Metrics
 }
 
 // SetBinlog sets the binlog for replication logging.
@@ -184,6 +185,9 @@ func (wm *WebhookManager) Fire(event, collection, key, lang string, doc *Doc) {
 	for _, hook := range wm.hooks {
 		if !hookMatches(hook, event, collection) {
 			continue
+		}
+		if wm.metrics != nil {
+			wm.metrics.IncOp("webhook_fire", event)
 		}
 		go fireWebhook(hook, payload)
 	}

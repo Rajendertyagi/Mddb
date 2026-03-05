@@ -280,7 +280,7 @@ func (rc *ReplicationClient) requestSnapshot(ctx context.Context) error {
 	}
 
 	// Set the applier's LSN to the snapshot LSN
-	rc.applier.lastApplied = snapshotLSN
+	rc.applier.SetLastAppliedLSN(snapshotLSN)
 	rc.lastAppliedAt.Store(time.Now().Unix())
 
 	// Rebuild in-memory state

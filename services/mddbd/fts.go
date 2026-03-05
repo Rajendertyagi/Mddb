@@ -608,6 +608,11 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Track FTS search operation
+	if s.Metrics != nil {
+		s.Metrics.IncOp("fts_search", algo)
+	}
+
 	// Apply metadata filter to results
 	if allowed != nil {
 		filtered := results[:0]

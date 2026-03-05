@@ -373,6 +373,14 @@ func main() {
 		log.Println("Prometheus metrics enabled (GET /metrics)")
 	}
 
+	// Wire metrics into subsystems
+	if s.EmbeddingWorker != nil {
+		s.EmbeddingWorker.metrics = s.Metrics
+	}
+	if s.WebhookManager != nil {
+		s.WebhookManager.metrics = s.Metrics
+	}
+
 	// Initialize replication
 	s.ReplicationRole = env("MDDB_REPLICATION_ROLE", "") // "leader", "follower", ""
 	s.NodeID = env("MDDB_NODE_ID", "")
@@ -1309,6 +1317,14 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.DB = db
+
+	// Reset binlog after restore — forces followers to re-snapshot
+	if s.Binlog != nil {
+		if err := s.Binlog.Rotate(0); err != nil {
+			log.Printf("Warning: failed to reset binlog after restore: %v", err)
+		}
+	}
+
 	ok(w, map[string]string{"restored": body.From})
 }
 
@@ -1331,6 +1347,7 @@ func (s *Server) handleTruncate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	var bo BinlogOps
 	err := s.DB.Update(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket([]byte("rev"))
 		bDocs := tx.Bucket([]byte("docs"))
@@ -1359,6 +1376,7 @@ func (s *Server) handleTruncate(w http.ResponseWriter, r *http.Request) {
 				toDel := revKeys[:len(revKeys)-req.KeepRevs]
 				for _, delk := range toDel {
 					_ = bRev.Delete(delk)
+					bo.Delete("rev", delk)
 				}
 			}
 			// DropCache placeholder — jeśli trzymasz rendery, wyczyść je tutaj
@@ -1366,6 +1384,9 @@ func (s *Server) handleTruncate(w http.ResponseWriter, r *http.Request) {
 		}
 		return nil
 	})
+	if err == nil {
+		bo.FlushTo(s.Binlog)
+	}
 	if err != nil {
 		bad(w, err)
 		return
@@ -1697,6 +1718,7 @@ func (s *Server) handleDeleteCollection(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var deletedCount int
+	var bo BinlogOps
 
 	err := s.DB.Update(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
@@ -1719,11 +1741,14 @@ func (s *Server) handleDeleteCollection(w http.ResponseWriter, r *http.Request) 
 			if err := bDocs.Delete(k); err != nil {
 				return err
 			}
+			bo.Delete("docs", k)
 
 			// Delete from bykey index
-			if err := bByK.Delete(kByKey(req.Collection, doc.Key, doc.Lang)); err != nil {
+			bykKey := kByKey(req.Collection, doc.Key, doc.Lang)
+			if err := bByK.Delete(bykKey); err != nil {
 				return err
 			}
+			bo.Delete("bykey", bykKey)
 
 			// Delete all revisions
 			rc := bRev.Cursor()
@@ -1732,15 +1757,17 @@ func (s *Server) handleDeleteCollection(w http.ResponseWriter, r *http.Request) 
 				if err := bRev.Delete(rk); err != nil {
 					return err
 				}
+				bo.Delete("rev", rk)
 			}
 
 			// Delete metadata indices
 			for mk, vals := range doc.Meta {
 				for _, mv := range vals {
-					key := append(kMetaKeyPrefix(req.Collection, mk, mv), []byte(doc.ID)...)
-					if err := bIdx.Delete(key); err != nil {
+					mkey := append(kMetaKeyPrefix(req.Collection, mk, mv), []byte(doc.ID)...)
+					if err := bIdx.Delete(mkey); err != nil {
 						return err
 					}
+					bo.Delete("idxmeta", mkey)
 				}
 			}
 
@@ -1749,6 +1776,9 @@ func (s *Server) handleDeleteCollection(w http.ResponseWriter, r *http.Request) 
 
 		return nil
 	})
+	if err == nil {
+		bo.FlushTo(s.Binlog)
+	}
 
 	if err != nil {
 		bad(w, err)

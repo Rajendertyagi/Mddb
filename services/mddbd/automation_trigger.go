@@ -70,6 +70,11 @@ func (am *AutomationManager) evaluateSingleTrigger(trigger *AutomationRule, doc 
 		return
 	}
 
+	// Track trigger fire
+	if am.server != nil && am.server.Metrics != nil {
+		am.server.Metrics.IncOp("automation_trigger", trigger.SearchType)
+	}
+
 	// Resolve webhook
 	webhook := am.GetWebhook(trigger.WebhookID)
 	if webhook == nil || !webhook.Enabled {

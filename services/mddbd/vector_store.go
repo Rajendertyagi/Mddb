@@ -120,6 +120,7 @@ func (vs *VectorStore) PutChunks(collection, docID string, chunks []ChunkEmbeddi
 func (vs *VectorStore) CleanStaleChunks(collection, docID string, currentChunkCount int, index *VectorIndex) {
 	prefix := []byte("vec|" + collection + "|" + docID + "#")
 
+	var bo BinlogOps
 	_ = vs.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(vs.bucketName)
 		if b == nil {
@@ -134,6 +135,7 @@ func (vs *VectorStore) CleanStaleChunks(collection, docID string, currentChunkCo
 			}
 			if idx >= currentChunkCount {
 				_ = b.Delete(k)
+				bo.Delete("vectors", k)
 				if index != nil {
 					chunkKey := fmt.Sprintf("%s#%d", docID, idx)
 					index.Remove(collection, chunkKey)
@@ -142,10 +144,12 @@ func (vs *VectorStore) CleanStaleChunks(collection, docID string, currentChunkCo
 		}
 		return nil
 	})
+	bo.FlushTo(vs.binlog)
 
 	// Also clean the old non-chunked key if chunks > 1
 	if currentChunkCount > 1 {
 		oldKey := buildVecKey(collection, docID)
+		var bo2 BinlogOps
 		_ = vs.db.Update(func(tx *bolt.Tx) error {
 			b := tx.Bucket(vs.bucketName)
 			if b == nil {
@@ -153,12 +157,14 @@ func (vs *VectorStore) CleanStaleChunks(collection, docID string, currentChunkCo
 			}
 			if v := b.Get(oldKey); v != nil {
 				_ = b.Delete(oldKey)
+				bo2.Delete("vectors", oldKey)
 				if index != nil {
 					index.Remove(collection, docID)
 				}
 			}
 			return nil
 		})
+		bo2.FlushTo(vs.binlog)
 	}
 }
 
@@ -196,23 +202,28 @@ func (vs *VectorStore) Delete(collection, docID string) error {
 	legacyKey := buildVecKey(collection, docID)
 	prefix := []byte("vec|" + collection + "|" + docID + "#")
 
+	var bo BinlogOps
 	err := vs.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(vs.bucketName)
 		if b == nil {
 			return nil
 		}
-		_ = b.Delete(legacyKey)
+		if b.Get(legacyKey) != nil {
+			_ = b.Delete(legacyKey)
+			bo.Delete("vectors", legacyKey)
+		}
 
 		c := b.Cursor()
 		for k, _ := c.Seek(prefix); k != nil && len(k) >= len(prefix) && string(k[:len(prefix)]) == string(prefix); k, _ = c.Next() {
 			if err := b.Delete(k); err != nil {
 				return err
 			}
+			bo.Delete("vectors", k)
 		}
 		return nil
 	})
-	if err == nil && vs.binlog != nil {
-		_ = vs.binlog.Append(&BinlogEntry{Type: BinlogDelete, BucketName: "vectors", Key: copyBytes(legacyKey)})
+	if err == nil {
+		bo.FlushTo(vs.binlog)
 	}
 	return err
 }

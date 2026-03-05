@@ -188,6 +188,11 @@ func (s *Server) handleVectorSearch(w http.ResponseWriter, r *http.Request) {
 		results = results[:topK]
 	}
 
+	// Track vector search operation
+	if s.Metrics != nil {
+		s.Metrics.IncOp("vector_search", algo)
+	}
+
 	// Load full documents for results
 	items := make([]VectorSearchResultItem, 0, len(results))
 	_ = s.DB.View(func(tx *bolt.Tx) error {

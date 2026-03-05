@@ -25,6 +25,7 @@ type EmbeddingWorker struct {
 	stopCh       chan struct{}
 	chunkSize    int
 	chunkEnabled bool
+	metrics      *Metrics
 }
 
 // NewEmbeddingWorker creates a new background embedding worker.
@@ -128,6 +129,9 @@ func (w *EmbeddingWorker) processJob(job EmbeddingJob) {
 
 		if embedErr != nil {
 			log.Printf("ERROR: failed to embed %s/%s chunk %d after 3 attempts: %v", job.Collection, job.DocID, i, embedErr)
+			if w.metrics != nil {
+				w.metrics.IncOp("embedding", "error")
+			}
 			return
 		}
 
@@ -151,4 +155,8 @@ func (w *EmbeddingWorker) processJob(job EmbeddingJob) {
 
 	// Clean stale chunks from index (if document shrank)
 	w.vectorStore.CleanStaleChunks(job.Collection, job.DocID, len(chunkEmbeddings), w.vectorIndex)
+
+	if w.metrics != nil {
+		w.metrics.IncOp("embedding", "completed")
+	}
 }

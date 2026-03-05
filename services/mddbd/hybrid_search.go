@@ -136,6 +136,11 @@ func (s *Server) handleHybridSearch(w http.ResponseWriter, r *http.Request) {
 		resp.RRFK = req.RRFK
 	}
 
+	// Track hybrid search operation
+	if s.Metrics != nil {
+		s.Metrics.IncOp("hybrid_search", req.Strategy)
+	}
+
 	ok(w, resp)
 }
 
