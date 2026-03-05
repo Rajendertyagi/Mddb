@@ -52,7 +52,7 @@ make dev-start-with-ollama
 
 | Service | Port | Image | Description |
 |---------|------|-------|-------------|
-| **mddbd** | 11023 (HTTP), 11024 (gRPC) | `tradik/mddb:latest` | Database server (includes MCP) |
+| **mddbd** | 11023 (HTTP), 11024 (gRPC), 9000 (MCP), 11443 (HTTP/3) | `tradik/mddb:latest` | Database server with MCP built-in |
 | **mddb-panel** | 3000 | `tradik/mddb:panel` | React web admin UI |
 
 ### Docker - Individual Services
@@ -60,7 +60,7 @@ make dev-start-with-ollama
 ```bash
 # MDDB Server only
 docker run -d --name mddb \
-  -p 11023:11023 -p 11024:11024 \
+  -p 11023:11023 -p 11024:11024 -p 9000:9000 \
   -v mddb-data:/data \
   tradik/mddb:latest
 
@@ -198,6 +198,8 @@ Proto definitions at `proto/mddb.proto` - generate clients for any language supp
 - ✅ **Vector Search** - Semantic similarity with auto-embeddings
 - ✅ **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, BM25F, and PMISparse scoring, typo tolerance, metadata pre-filtering
 - ✅ **Hybrid Search** - Sparse (BM25) + dense (vector) fusion with alpha blending or RRF
+- ✅ **Zero-Shot Classification** - Classify documents against candidate labels using embedding similarity
+- ✅ **Partial Document Update** - Update metadata and/or content independently
 - ✅ **Document TTL** - Time-to-live with automatic cleanup
 - ✅ **Automation** - Triggers, crons, webhooks with template variables, sentiment analysis, execution logs
 - ✅ **Multi-language** - Same key, multiple languages
@@ -385,6 +387,7 @@ mddb-cli stats
 - **[RAG Pipeline](docs/RAG-PIPELINE.md)** - Complete RAG implementation guide
 - **[Search Algorithms](docs/SEARCH.md)** - TF-IDF, BM25, BM25F, PMISparse, Flat, HNSW, IVF, PQ, SQ, BQ
 - **[Full-Text Search](docs/FTS.md)** - Built-in inverted index
+- **[Zero-Shot Classification](docs/ZERO-SHOT-CLASSIFICATION.md)** - Classify documents against labels using embeddings
 - **[PMISparse](docs/PMISPARSE.md)** - Two-phase BM25 + PPMI query expansion (invented by Tradik Limited)
 - **[Webhooks](docs/WEBHOOKS.md)** - Event-driven integration
 - **[Automations](docs/AUTOMATIONS.md)** - Triggers, crons, webhooks, sentiment, template variables
