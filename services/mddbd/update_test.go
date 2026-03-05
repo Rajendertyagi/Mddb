@@ -53,7 +53,9 @@ func TestHandleUpdate(t *testing.T) {
 		}
 
 		var doc Doc
-		json.Unmarshal(w.Body.Bytes(), &doc)
+		if err := json.Unmarshal(w.Body.Bytes(), &doc); err != nil {
+			t.Fatal(err)
+		}
 		if doc.ContentMD != "new content" {
 			t.Fatalf("expected new content, got %q", doc.ContentMD)
 		}
@@ -75,7 +77,9 @@ func TestHandleUpdate(t *testing.T) {
 		}
 
 		var doc Doc
-		json.Unmarshal(w.Body.Bytes(), &doc)
+		if err := json.Unmarshal(w.Body.Bytes(), &doc); err != nil {
+			t.Fatal(err)
+		}
 		if doc.ContentMD != "both changed" {
 			t.Fatalf("expected both changed, got %q", doc.ContentMD)
 		}
@@ -100,7 +104,9 @@ func TestHandleUpdate(t *testing.T) {
 		}
 
 		var doc Doc
-		json.Unmarshal(w.Body.Bytes(), &doc)
+		if err := json.Unmarshal(w.Body.Bytes(), &doc); err != nil {
+			t.Fatal(err)
+		}
 		if len(doc.Meta) != 0 {
 			t.Fatalf("meta should be empty after clear, got %v", doc.Meta)
 		}
@@ -166,7 +172,9 @@ func TestHandleUpdate(t *testing.T) {
 		}
 
 		var doc Doc
-		json.Unmarshal(w.Body.Bytes(), &doc)
+		if err := json.Unmarshal(w.Body.Bytes(), &doc); err != nil {
+			t.Fatal(err)
+		}
 		if doc.ExpiresAt == 0 {
 			t.Fatal("expected non-zero expiresAt after TTL update")
 		}

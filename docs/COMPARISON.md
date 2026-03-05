@@ -10,7 +10,7 @@ How MDDB compares to other database and content management solutions.
 - ✅ **Specialized for Markdown** - Native support, not plain text blobs
 - ✅ **Zero Configuration** - No database server to install and manage
 - ✅ **Built-in Versioning** - Automatic revision history without triggers
-- ✅ **Simpler Deployment** - Single ~27MB binary vs database server
+- ✅ **Simpler Deployment** - Single ~29MB binary vs database server
 - ✅ **Lower Resource Usage** - Minimal memory footprint (~50MB)
 - ✅ **Embedded** - No network latency, direct file access
 - ✅ **Vector Search Built-in** - No pgvector extension needed
@@ -83,7 +83,7 @@ How MDDB compares to other database and content management solutions.
 ### WordPress
 
 **Advantages of MDDB:**
-- ✅ **Lightweight** - 27MB binary vs ~200MB PHP + MySQL
+- ✅ **Lightweight** - 29MB binary vs ~200MB PHP + MySQL
 - ✅ **API-First** - Built for programmatic access
 - ✅ **No PHP/Database** - Single Go binary
 - ✅ **Version Control** - Built-in, not plugin-based

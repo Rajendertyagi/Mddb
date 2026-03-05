@@ -1570,15 +1570,15 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	// Parse optional fields
 	var newMeta map[string][]string
 	if hasMeta {
-		json.Unmarshal(raw["meta"], &newMeta)
+		_ = json.Unmarshal(raw["meta"], &newMeta)
 	}
 	var newContent string
 	if hasContent {
-		json.Unmarshal(raw["contentMd"], &newContent)
+		_ = json.Unmarshal(raw["contentMd"], &newContent)
 	}
 	var newTTL int64
 	if hasTTL {
-		json.Unmarshal(raw["ttl"], &newTTL)
+		_ = json.Unmarshal(raw["ttl"], &newTTL)
 	}
 
 	// Auth check
