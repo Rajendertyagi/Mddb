@@ -3,6 +3,7 @@ import { Search, AlertCircle, Tag, ChevronDown, ChevronUp, Plus, X, Terminal } f
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
 import CommandModal from './CommandModal';
+import MetaFilterBar from './MetaFilterBar';
 
 export default function FTSSearchPanel() {
   const {
@@ -17,6 +18,7 @@ export default function FTSSearchPanel() {
     ftsResults, setFtsResults,
     ftsLoading, setFtsLoading,
     ftsError, setFtsError,
+    searchFilterMeta,
     setCurrentDocument,
   } = useStore();
 
@@ -39,6 +41,7 @@ export default function FTSSearchPanel() {
         disableStem: !ftsStemming,
         disableSynonyms: !ftsSynonyms,
         fieldWeights: ftsAlgorithm === 'bm25f' ? ftsFieldWeights : null,
+        filterMeta: searchFilterMeta,
       });
       setFtsResults(data.results || []);
     } catch (error) {
@@ -212,6 +215,8 @@ export default function FTSSearchPanel() {
           </div>
         )}
 
+        <MetaFilterBar collection={currentCollection} />
+
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <label className="flex items-center space-x-1.5 text-sm text-gray-600">
@@ -363,6 +368,7 @@ export default function FTSSearchPanel() {
           disableStem: !ftsStemming,
           disableSynonyms: !ftsSynonyms,
           fieldWeights: ftsAlgorithm === 'bm25f' ? ftsFieldWeights : null,
+          filterMeta: searchFilterMeta,
         }}
       />
     </div>

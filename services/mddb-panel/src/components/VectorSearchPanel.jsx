@@ -3,6 +3,7 @@ import { Search, RotateCcw, FileText, Tag, AlertCircle, Terminal } from 'lucide-
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
 import CommandModal from './CommandModal';
+import MetaFilterBar from './MetaFilterBar';
 
 export default function VectorSearchPanel() {
   const {
@@ -14,6 +15,7 @@ export default function VectorSearchPanel() {
     vectorResults, setVectorResults,
     vectorLoading, setVectorLoading,
     vectorError, setVectorError,
+    searchFilterMeta,
     setCurrentDocument,
   } = useStore();
 
@@ -36,6 +38,7 @@ export default function VectorSearchPanel() {
         threshold: vectorThreshold,
         includeContent,
         algorithm: vectorAlgorithm,
+        filterMeta: searchFilterMeta,
       });
       setVectorResults(data.results || []);
     } catch (error) {
@@ -183,6 +186,8 @@ export default function VectorSearchPanel() {
             <span>Include content</span>
           </label>
         </div>
+
+        <MetaFilterBar collection={currentCollection} />
 
         <div className="flex items-center justify-end space-x-2">
           <button
@@ -332,6 +337,7 @@ export default function VectorSearchPanel() {
           threshold: vectorThreshold,
           algorithm: vectorAlgorithm,
           includeContent,
+          filterMeta: searchFilterMeta,
         }}
       />
     </div>

@@ -249,8 +249,11 @@ class MDDBClient {
   /**
    * Full-text search
    */
-  async ftsSearch({ collection, query, limit = 50, algorithm = 'tfidf', fuzzy = 0, disableStem = false, disableSynonyms = false, fieldWeights = null }) {
+  async ftsSearch({ collection, query, limit = 50, algorithm = 'tfidf', fuzzy = 0, disableStem = false, disableSynonyms = false, fieldWeights = null, filterMeta = {} }) {
     const body = { collection, query, limit, algorithm, fuzzy, disableStem, disableSynonyms };
+    if (filterMeta && Object.keys(filterMeta).length > 0) {
+      body.filterMeta = filterMeta;
+    }
     if (algorithm === 'bm25f' && fieldWeights) {
       body.fieldWeights = fieldWeights;
     }
@@ -258,6 +261,13 @@ class MDDBClient {
       method: 'POST',
       body: JSON.stringify(body),
     });
+  }
+
+  /**
+   * Get metadata keys and values for a collection
+   */
+  async getMetaKeys(collection) {
+    return this.request(`/meta-keys?collection=${encodeURIComponent(collection)}`);
   }
 
   /**

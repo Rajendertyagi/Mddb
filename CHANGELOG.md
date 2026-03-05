@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.8] - 2026-03-05
+
+### Added
+- **Metadata Tag Filtering in Search** — Select metadata tags to filter FTS, vector, and hybrid search results in the panel. Dynamically loads available tags from collection. Multi-select with AND across keys, OR within values. New `MetaFilterBar` component.
+- **`GET /v1/meta-keys` Endpoint** — List unique metadata keys and values for a collection. Powers the tag filter UI in the panel.
+- **`GET /v1/checksum` Endpoint** — Lightweight CRC32-based collection checksum that changes on any document add/update/delete. Enables cache invalidation without downloading all documents. Also included in `/v1/stats` response per collection.
+- **FTS `filterMeta` Support** — Full-text search now accepts `filterMeta` parameter for metadata pre-filtering (already supported in vector and hybrid search).
+
+### Changed
+- Version bumped to 2.6.8 across all services and documentation
+
 ## [2.6.7] - 2026-03-05
 
 ### Added

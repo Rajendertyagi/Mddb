@@ -70,6 +70,9 @@ export const useStore = create((set, get) => ({
   hybridLoading: false,
   hybridError: null,
 
+  // Search metadata filter (shared across FTS, vector, hybrid)
+  searchFilterMeta: {},
+
   // Sidebar
   sidebarWidth: parseInt(localStorage.getItem('sidebarWidth')) || 256,
   sidebarCollapsed: localStorage.getItem('sidebarCollapsed') === 'true',
@@ -170,6 +173,9 @@ export const useStore = create((set, get) => ({
   setHybridResults: (v) => set({ hybridResults: v }),
   setHybridLoading: (v) => set({ hybridLoading: v }),
   setHybridError: (v) => set({ hybridError: v }),
+
+  setSearchFilterMeta: (meta) => set({ searchFilterMeta: meta }),
+  clearSearchFilterMeta: () => set({ searchFilterMeta: {} }),
 
   // Sidebar actions
   setSidebarWidth: (w) => { localStorage.setItem('sidebarWidth', w); set({ sidebarWidth: w }); },
