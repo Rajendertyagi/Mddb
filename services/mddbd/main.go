@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"hash/crc32"
 	"io"
 	"log"
 	"net/http"
@@ -22,7 +23,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-const VERSION = "2.6.7"
+const VERSION = "2.6.8"
 
 type AccessMode string
 
@@ -529,6 +530,8 @@ func main() {
 	mux.HandleFunc("/v1/import-url", s.guardWrite(s.handleImportURL))
 	mux.HandleFunc("/v1/set-ttl", s.guardWrite(s.handleSetTTL))
 	mux.HandleFunc("/v1/fts", s.handleFTS)
+	mux.HandleFunc("/v1/meta-keys", s.handleMetaKeys)
+	mux.HandleFunc("/v1/checksum", s.handleChecksum)
 	mux.HandleFunc("/v1/hybrid-search", s.handleHybridSearch)
 	mux.HandleFunc("/v1/synonyms", s.handleSynonyms)
 	mux.HandleFunc("/v1/stopwords", s.handleStopWords)
@@ -1464,12 +1467,123 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(`{"status":"healthy","mode":"` + string(s.Mode) + `"}`))
 }
 
+func (s *Server) collectionChecksum(collection string) (string, int) {
+	var checksum uint32
+	var count int
+
+	_ = s.DB.View(func(tx *bolt.Tx) error {
+		bDocs := tx.Bucket([]byte("docs"))
+		if bDocs == nil {
+			return nil
+		}
+		prefix := []byte("doc|" + collection + "|")
+		c := bDocs.Cursor()
+		for k, v := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = c.Next() {
+			count++
+			// Hash key + first 64 bytes of value (contains updatedAt in serialized form)
+			h := crc32.ChecksumIEEE(k)
+			if len(v) > 64 {
+				h ^= crc32.ChecksumIEEE(v[:64])
+			} else {
+				h ^= crc32.ChecksumIEEE(v)
+			}
+			checksum ^= h
+		}
+		return nil
+	})
+
+	return fmt.Sprintf("%08x", checksum), count
+}
+
+func (s *Server) handleChecksum(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	collection := r.URL.Query().Get("collection")
+	if collection == "" {
+		http.Error(w, `{"error":"collection is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	if s.AuthManager != nil {
+		if err := s.AuthManager.CheckPermission(r.Context(), collection, PermRead); err != nil {
+			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+			return
+		}
+	}
+
+	checksum, count := s.collectionChecksum(collection)
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"collection":    collection,
+		"checksum":      checksum,
+		"documentCount": count,
+	})
+}
+
+func (s *Server) handleMetaKeys(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	collection := r.URL.Query().Get("collection")
+	if collection == "" {
+		http.Error(w, `{"error":"collection is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	if s.AuthManager != nil {
+		if err := s.AuthManager.CheckPermission(r.Context(), collection, PermRead); err != nil {
+			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+			return
+		}
+	}
+
+	meta := make(map[string][]string)
+
+	_ = s.DB.View(func(tx *bolt.Tx) error {
+		bIdx := tx.Bucket([]byte("idxmeta"))
+		if bIdx == nil {
+			return nil
+		}
+
+		prefix := []byte("meta|" + collection + "|")
+		c := bIdx.Cursor()
+		seen := make(map[string]map[string]bool)
+
+		for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
+			rest := string(k[len(prefix):])
+			parts := strings.SplitN(rest, "|", 3)
+			if len(parts) < 2 {
+				continue
+			}
+			mk, mv := parts[0], parts[1]
+			if seen[mk] == nil {
+				seen[mk] = make(map[string]bool)
+			}
+			if !seen[mk][mv] {
+				seen[mk][mv] = true
+				meta[mk] = append(meta[mk], mv)
+			}
+		}
+		return nil
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"meta": meta})
+}
+
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	type CollectionStats struct {
 		Name           string `json:"name"`
 		DocumentCount  int    `json:"documentCount"`
 		RevisionCount  int    `json:"revisionCount"`
 		MetaIndexCount int    `json:"metaIndexCount"`
+		Checksum       string `json:"checksum"`
 	}
 
 	// Check read permission (database-wide stats)
@@ -1566,6 +1680,11 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		bad(w, err)
 		return
+	}
+
+	// Compute checksums per collection
+	for name, cs := range collectionMap {
+		cs.Checksum, _ = s.collectionChecksum(name)
 	}
 
 	// Convert map to slice

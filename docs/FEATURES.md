@@ -54,6 +54,7 @@ Complete list of MDDB features organized by category.
 - **Stop Word Filtering** - Remove common words
 - **Multi-field Search** - Search in content and metadata
 - **Language-aware** - Per-language stop words
+- **Metadata Pre-filtering** - `filterMeta` parameter to scope FTS results by metadata before BM25 scoring (AND across keys, OR within key)
 
 #### Hybrid Search
 - **Combined Retrieval** - Merge BM25/BM25F/PMISparse keyword scores with vector semantic scores in a single query
@@ -71,6 +72,8 @@ Complete list of MDDB features organized by category.
 - **CORS Support** - Cross-origin requests
 - **Content Negotiation** - Accept headers
 - **Rate Limiting** - Configurable request limits
+- **`GET /v1/meta-keys`** — List unique metadata keys and values for a collection
+- **`GET /v1/checksum`** — Lightweight collection checksum for cache invalidation
 
 ### gRPC/Protobuf API
 - **High Performance** - 16x faster than HTTP/JSON
@@ -213,6 +216,7 @@ Complete list of MDDB features organized by category.
 - **Hybrid Search Mode** - Combined FTS + vector search with strategy/alpha/algorithm controls
 - **Command Modal** - Copy-ready API examples in curl, PHP, Python, and JavaScript for all search operations
 - **Webhook Template Variables Help** - Collapsible reference for available `{{variable}}` names in webhook forms
+- **Metadata Tag Filter** — Filter search results by metadata tags across FTS, vector, and hybrid modes. Dynamically loads available tags from collection. Multi-select with AND/OR semantics.
 
 ### Docker Support
 - **Multi-arch Images** - amd64, arm64, armv7

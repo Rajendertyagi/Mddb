@@ -61,7 +61,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: "2.6.7"
+  version: "2.6.8"
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -2346,6 +2346,75 @@ paths:
                   hasMore:
                     type: boolean
 
+  /v1/meta-keys:
+    get:
+      tags:
+        - Search
+      summary: List metadata keys and values for a collection
+      description: Returns all unique metadata keys and their unique values for a given collection. Useful for building filter UIs.
+      parameters:
+        - name: collection
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Collection name
+      responses:
+        '200':
+          description: Metadata keys with their unique values
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    additionalProperties:
+                      type: array
+                      items:
+                        type: string
+                example:
+                  meta:
+                    tag: ["go", "rust", "python"]
+                    author: ["alice", "bob"]
+        '400':
+          description: Missing collection parameter
+
+  /v1/checksum:
+    get:
+      tags:
+        - Collections
+      summary: Get collection checksum
+      description: Returns a CRC32-based checksum for a collection that changes whenever documents are added, updated, or deleted. Useful for cache invalidation - clients can poll this lightweight endpoint to detect changes without downloading all documents.
+      parameters:
+        - name: collection
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Collection name
+      responses:
+        '200':
+          description: Collection checksum and document count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collection:
+                    type: string
+                  checksum:
+                    type: string
+                    description: 8-character hex CRC32 checksum
+                  documentCount:
+                    type: integer
+                example:
+                  collection: "blog"
+                  checksum: "a1b2c3d4"
+                  documentCount: 42
+        '400':
+          description: Missing collection parameter
+
 components:
   schemas:
     Document:
@@ -2595,6 +2664,10 @@ components:
               metaIndexCount:
                 type: integer
                 example: 84
+              checksum:
+                type: string
+                description: 8-character hex CRC32 checksum of the collection
+                example: a1b2c3d4
         totalDocuments:
           type: integer
           example: 42

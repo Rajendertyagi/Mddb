@@ -193,6 +193,7 @@ Proto definitions at `proto/mddb.proto` - generate clients for any language supp
 - ✅ **Document Management** - Full CRUD with metadata and collections
 - ✅ **Revision History** - Complete version control with snapshots
 - ✅ **Metadata Search** - Fast indexed queries with multi-value tags
+- ✅ **Collection Checksum** - Lightweight CRC32 checksum per collection for cache invalidation
 - ✅ **Vector Search** - Semantic similarity with auto-embeddings
 - ✅ **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, BM25F, and PMISparse scoring, typo tolerance, metadata pre-filtering
 - ✅ **Hybrid Search** - Sparse (BM25) + dense (vector) fusion with alpha blending or RRF

@@ -3,6 +3,7 @@ import { Search, AlertCircle, Tag, Terminal } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
 import CommandModal from './CommandModal';
+import MetaFilterBar from './MetaFilterBar';
 
 export default function HybridSearchPanel() {
   const {
@@ -19,6 +20,7 @@ export default function HybridSearchPanel() {
     hybridResults, setHybridResults,
     hybridLoading, setHybridLoading,
     hybridError, setHybridError,
+    searchFilterMeta,
     setCurrentDocument,
   } = useStore();
 
@@ -43,6 +45,7 @@ export default function HybridSearchPanel() {
         fuzzy: hybridFuzzy,
         threshold: hybridThreshold,
         includeContent,
+        filterMeta: searchFilterMeta,
       });
       setHybridResults(data.results || []);
     } catch (error) {
@@ -234,6 +237,8 @@ export default function HybridSearchPanel() {
           </div>
         </div>
 
+        <MetaFilterBar collection={currentCollection} />
+
         <div className="flex items-center justify-between">
           <label className="flex items-center space-x-2 text-sm text-gray-600">
             <input
@@ -391,6 +396,7 @@ export default function HybridSearchPanel() {
           fuzzy: hybridFuzzy,
           threshold: hybridThreshold,
           includeContent,
+          filterMeta: searchFilterMeta,
         }}
       />
     </div>
