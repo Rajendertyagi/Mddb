@@ -4,7 +4,7 @@ Define website-specific MCP tools in YAML that simplify AI interactions with you
 
 ## Overview
 
-By default, `mddbd` exposes 23 built-in MCP tools (add_document, search_documents, semantic_search, etc.). Custom tools let you create **domain-specific wrappers** with preconfigured defaults — so the AI sees `search_faq(query)` instead of `semantic_search(collection, query, topK, threshold, ...)`.
+By default, `mddbd` exposes 44 built-in MCP tools (add_document, search_documents, semantic_search, hybrid_search, list_automation, etc.). Custom tools let you create **domain-specific wrappers** with preconfigured defaults — so the AI sees `search_faq(query)` instead of `semantic_search(collection, query, topK, threshold, ...)`.
 
 Custom tools are defined in a YAML file under the `custom_tools:` key. Point `mddbd` to the file via `MDDB_MCP_CONFIG=/path/to/config.yaml`. They are registered alongside built-in tools and work on both transports (stdio and HTTP).
 
@@ -112,7 +112,7 @@ User arguments always override defaults. For example, if a custom tool has `defa
 
 At startup, `mddbd` validates all custom tools:
 
-- **Name conflicts**: Custom tool names cannot match any of the 23 built-in names
+- **Name conflicts**: Custom tool names cannot match any of the 44 built-in names
 - **Duplicate names**: No two custom tools can share the same name
 - **Valid action**: Must be one of `semantic_search`, `search_documents`, `full_text_search`
 - **Valid parameter types**: Must be valid JSON Schema types

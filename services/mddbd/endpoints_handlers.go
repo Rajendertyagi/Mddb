@@ -136,6 +136,8 @@ func (s *Server) handleEndpoints(w http.ResponseWriter, r *http.Request) {
 			{Method: "POST", Path: "/v1/auth/login", Description: "Login with username/password", RequiresAuth: false},
 			{Method: "POST", Path: "/v1/auth/register", Description: "Register new user", RequiresAuth: true},
 			{Method: "POST", Path: "/v1/auth/api-key", Description: "Create/manage API keys", RequiresAuth: true},
+			{Method: "GET", Path: "/v1/auth/api-keys", Description: "List API keys", RequiresAuth: true},
+			{Method: "DELETE", Path: "/v1/auth/api-keys/{keyHash}", Description: "Delete API key", RequiresAuth: true},
 			{Method: "POST", Path: "/v1/auth/me", Description: "Get current user info", RequiresAuth: true},
 			{Method: "POST", Path: "/v1/auth/permissions", Description: "Get user permissions", RequiresAuth: true},
 			{Method: "GET", Path: "/v1/auth/users", Description: "List all users", RequiresAuth: true},
@@ -182,11 +184,6 @@ func (s *Server) handleEndpoints(w http.ResponseWriter, r *http.Request) {
 		{Name: "UpdateDocument", Description: "Partial document update (meta/content/ttl)"},
 		{Name: "GetDocumentMeta", Description: "Get document metadata without content"},
 		{Name: "Classify", Description: "Zero-shot document classification"},
-		{Name: "ListAutomation", Description: "List automation rules"},
-		{Name: "CreateAutomation", Description: "Create automation rule"},
-		{Name: "UpdateAutomation", Description: "Update automation rule"},
-		{Name: "DeleteAutomation", Description: "Delete automation rule"},
-		{Name: "TestAutomation", Description: "Test trigger (dry run)"},
 	}
 
 	// MCP Tools
@@ -218,11 +215,23 @@ func (s *Server) handleEndpoints(w http.ResponseWriter, r *http.Request) {
 		{Name: "update_document", Description: "Partial document update"},
 		{Name: "get_document_meta", Description: "Get document metadata"},
 		{Name: "classify_document", Description: "Zero-shot classification"},
+		{Name: "delete_collection", Description: "Delete entire collection"},
+		{Name: "truncate_revisions", Description: "Truncate revision history"},
+		{Name: "list_synonyms", Description: "List FTS synonyms"},
+		{Name: "add_synonym", Description: "Add/update synonym group"},
+		{Name: "delete_synonym", Description: "Delete synonym group"},
+		{Name: "list_stopwords", Description: "List FTS stop words"},
+		{Name: "add_stopwords", Description: "Add custom stop words"},
+		{Name: "delete_stopwords", Description: "Remove custom stop words"},
+		{Name: "get_meta_keys", Description: "List metadata keys and values"},
+		{Name: "get_checksum", Description: "Collection CRC32 checksum"},
 		{Name: "list_automation", Description: "List automation rules"},
 		{Name: "create_automation", Description: "Create automation rule"},
+		{Name: "get_automation", Description: "Get automation rule by ID"},
 		{Name: "update_automation", Description: "Update automation rule"},
 		{Name: "delete_automation", Description: "Delete automation rule"},
 		{Name: "test_automation", Description: "Test trigger (dry run)"},
+		{Name: "get_automation_logs", Description: "List automation execution logs"},
 	}
 
 	response := EndpointsResponse{

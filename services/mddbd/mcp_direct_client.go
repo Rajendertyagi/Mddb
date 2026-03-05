@@ -1291,6 +1291,217 @@ func (c *DirectClient) Classify(ctx context.Context, req *MCPClassifyRequest) (*
 	}, nil
 }
 
+// --- Synonyms ---
+
+func (c *DirectClient) ListSynonyms(ctx context.Context, collection string) (*MCPSynonymListResponse, error) {
+	if c.server.SynonymManager == nil {
+		return nil, errors.New("synonym manager not initialized")
+	}
+	m := c.server.SynonymManager.List(collection)
+	entries := make([]MCPSynonymEntry, 0, len(m))
+	for term, syns := range m {
+		entries = append(entries, MCPSynonymEntry{Term: term, Synonyms: syns})
+	}
+	return &MCPSynonymListResponse{
+		Collection: collection,
+		Entries:    entries,
+		Total:      len(entries),
+	}, nil
+}
+
+func (c *DirectClient) SetSynonym(ctx context.Context, collection, term string, synonyms []string) error {
+	if c.server.SynonymManager == nil {
+		return errors.New("synonym manager not initialized")
+	}
+	return c.server.SynonymManager.Set(collection, term, synonyms)
+}
+
+func (c *DirectClient) DeleteSynonym(ctx context.Context, collection, term string) error {
+	if c.server.SynonymManager == nil {
+		return errors.New("synonym manager not initialized")
+	}
+	return c.server.SynonymManager.Delete(collection, term)
+}
+
+// --- Stop Words ---
+
+func (c *DirectClient) ListStopWords(ctx context.Context, collection string) (*MCPStopWordListResponse, error) {
+	if c.server.StopWordManager == nil {
+		return nil, errors.New("stop word manager not initialized")
+	}
+	defaults, custom := c.server.StopWordManager.List(collection)
+	entries := make([]MCPStopWordEntry, 0, len(defaults)+len(custom))
+	for _, w := range defaults {
+		entries = append(entries, MCPStopWordEntry{Word: w, IsDefault: true})
+	}
+	for _, w := range custom {
+		entries = append(entries, MCPStopWordEntry{Word: w, IsDefault: false})
+	}
+	return &MCPStopWordListResponse{
+		Collection: collection,
+		Entries:    entries,
+		Total:      len(entries),
+		Defaults:   len(defaults),
+		Custom:     len(custom),
+	}, nil
+}
+
+func (c *DirectClient) AddStopWords(ctx context.Context, collection string, words []string) error {
+	if c.server.StopWordManager == nil {
+		return errors.New("stop word manager not initialized")
+	}
+	return c.server.StopWordManager.Add(collection, words)
+}
+
+func (c *DirectClient) DeleteStopWords(ctx context.Context, collection string, words []string) error {
+	if c.server.StopWordManager == nil {
+		return errors.New("stop word manager not initialized")
+	}
+	var errs []string
+	for _, w := range words {
+		if err := c.server.StopWordManager.Delete(collection, w); err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("some deletions failed: %s", strings.Join(errs, "; "))
+	}
+	return nil
+}
+
+// --- Meta Keys / Checksum ---
+
+func (c *DirectClient) GetMetaKeys(ctx context.Context, collection string) (*MCPMetaKeysResponse, error) {
+	meta := make(map[string][]string)
+	_ = c.server.DB.View(func(tx *bolt.Tx) error {
+		bIdx := tx.Bucket([]byte("idxmeta"))
+		if bIdx == nil {
+			return nil
+		}
+		prefix := []byte("meta|" + collection + "|")
+		cur := bIdx.Cursor()
+		seen := make(map[string]map[string]bool)
+		for k, _ := cur.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = cur.Next() {
+			rest := string(k[len(prefix):])
+			parts := strings.SplitN(rest, "|", 3)
+			if len(parts) < 2 {
+				continue
+			}
+			mk, mv := parts[0], parts[1]
+			if seen[mk] == nil {
+				seen[mk] = make(map[string]bool)
+			}
+			if !seen[mk][mv] {
+				seen[mk][mv] = true
+				meta[mk] = append(meta[mk], mv)
+			}
+		}
+		return nil
+	})
+	return &MCPMetaKeysResponse{Meta: meta}, nil
+}
+
+func (c *DirectClient) GetChecksum(ctx context.Context, collection string) (*MCPChecksumResponse, error) {
+	checksum, count := c.server.collectionChecksum(collection)
+	return &MCPChecksumResponse{
+		Collection:    collection,
+		Checksum:      checksum,
+		DocumentCount: count,
+	}, nil
+}
+
+// --- Automation ---
+
+func (c *DirectClient) ListAutomation(ctx context.Context, filterType string) (*MCPAutomationListResponse, error) {
+	if c.server.AutomationManager == nil {
+		return nil, errors.New("automation not initialized")
+	}
+	rules := c.server.AutomationManager.List(filterType)
+	return &MCPAutomationListResponse{Rules: rules, Total: len(rules)}, nil
+}
+
+func (c *DirectClient) CreateAutomation(ctx context.Context, rule AutomationRule) (*AutomationRule, error) {
+	if c.server.AutomationManager == nil {
+		return nil, errors.New("automation not initialized")
+	}
+	return c.server.AutomationManager.Create(rule)
+}
+
+func (c *DirectClient) GetAutomation(ctx context.Context, id string) (*AutomationRule, error) {
+	if c.server.AutomationManager == nil {
+		return nil, errors.New("automation not initialized")
+	}
+	rule := c.server.AutomationManager.Get(id)
+	if rule == nil {
+		return nil, errors.New("not found")
+	}
+	return rule, nil
+}
+
+func (c *DirectClient) UpdateAutomation(ctx context.Context, id string, rule AutomationRule) (*AutomationRule, error) {
+	if c.server.AutomationManager == nil {
+		return nil, errors.New("automation not initialized")
+	}
+	return c.server.AutomationManager.Update(id, rule)
+}
+
+func (c *DirectClient) DeleteAutomation(ctx context.Context, id string) error {
+	if c.server.AutomationManager == nil {
+		return errors.New("automation not initialized")
+	}
+	return c.server.AutomationManager.Delete(id)
+}
+
+func (c *DirectClient) TestAutomation(ctx context.Context, id string) (string, error) {
+	if c.server.AutomationManager == nil {
+		return "", errors.New("automation not initialized")
+	}
+	rule := c.server.AutomationManager.Get(id)
+	if rule == nil {
+		return "", errors.New("not found")
+	}
+	if rule.Type != "trigger" {
+		return "", fmt.Errorf("can only test trigger rules, got: %s", rule.Type)
+	}
+	matches, err := c.server.AutomationManager.RunTrigger(rule)
+	if err != nil {
+		return "", err
+	}
+	resp := map[string]interface{}{
+		"trigger": map[string]interface{}{
+			"id":         rule.ID,
+			"name":       rule.Name,
+			"searchType": rule.SearchType,
+			"query":      rule.Query,
+			"threshold":  rule.Threshold,
+		},
+		"matches": matches,
+		"total":   len(matches),
+	}
+	data, _ := json.MarshalIndent(resp, "", "  ")
+	return string(data), nil
+}
+
+func (c *DirectClient) ListAutomationLogs(ctx context.Context, limit int, cursor, ruleID, status string) (*MCPAutomationLogListResponse, error) {
+	if c.server.AutomationLogStore == nil {
+		return nil, errors.New("automation logs not initialized")
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+	logs, nextCursor, err := c.server.AutomationLogStore.List(limit, cursor, ruleID, status)
+	if err != nil {
+		return nil, err
+	}
+	total, _ := c.server.AutomationLogStore.Count(ruleID, status)
+	return &MCPAutomationLogListResponse{
+		Logs:       logs,
+		Total:      total,
+		NextCursor: nextCursor,
+		HasMore:    nextCursor != "",
+	}, nil
+}
+
 func (c *DirectClient) Close() error {
 	// No-op — Server owns all resources.
 	return nil

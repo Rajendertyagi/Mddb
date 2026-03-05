@@ -440,6 +440,60 @@ type MCPClassifyResponse struct {
 	Dimensions int                     `json:"dimensions"`
 }
 
+// MCPSynonymEntry represents a synonym group.
+type MCPSynonymEntry struct {
+	Term     string   `json:"term"`
+	Synonyms []string `json:"synonyms"`
+}
+
+// MCPSynonymListResponse represents list of synonyms.
+type MCPSynonymListResponse struct {
+	Collection string            `json:"collection"`
+	Entries    []MCPSynonymEntry `json:"entries"`
+	Total      int               `json:"total"`
+}
+
+// MCPStopWordEntry represents a stop word entry.
+type MCPStopWordEntry struct {
+	Word      string `json:"word"`
+	IsDefault bool   `json:"isDefault"`
+}
+
+// MCPStopWordListResponse represents list of stop words.
+type MCPStopWordListResponse struct {
+	Collection string             `json:"collection"`
+	Entries    []MCPStopWordEntry `json:"entries"`
+	Total      int                `json:"total"`
+	Defaults   int                `json:"defaults"`
+	Custom     int                `json:"custom"`
+}
+
+// MCPMetaKeysResponse represents metadata keys and values.
+type MCPMetaKeysResponse struct {
+	Meta map[string][]string `json:"meta"`
+}
+
+// MCPChecksumResponse represents collection checksum.
+type MCPChecksumResponse struct {
+	Collection    string `json:"collection"`
+	Checksum      string `json:"checksum"`
+	DocumentCount int    `json:"documentCount"`
+}
+
+// MCPAutomationListResponse represents list of automation rules.
+type MCPAutomationListResponse struct {
+	Rules []AutomationRule `json:"rules"`
+	Total int              `json:"total"`
+}
+
+// MCPAutomationLogListResponse represents list of automation logs.
+type MCPAutomationLogListResponse struct {
+	Logs       []AutomationLogEntry `json:"logs"`
+	Total      int                  `json:"total"`
+	NextCursor string               `json:"nextCursor,omitempty"`
+	HasMore    bool                 `json:"hasMore"`
+}
+
 // --- MCP Protocol Types ---
 
 // MCPResource represents an MCP resource.
@@ -497,6 +551,25 @@ type MCPClient interface {
 	UpdateDocument(ctx context.Context, req *MCPUpdateDocumentRequest) (*MCPDocument, error)
 	GetDocumentMeta(ctx context.Context, req *MCPGetDocMetaRequest) (*MCPDocMetaResponse, error)
 	Classify(ctx context.Context, req *MCPClassifyRequest) (*MCPClassifyResponse, error)
+	// Synonyms
+	ListSynonyms(ctx context.Context, collection string) (*MCPSynonymListResponse, error)
+	SetSynonym(ctx context.Context, collection, term string, synonyms []string) error
+	DeleteSynonym(ctx context.Context, collection, term string) error
+	// Stopwords
+	ListStopWords(ctx context.Context, collection string) (*MCPStopWordListResponse, error)
+	AddStopWords(ctx context.Context, collection string, words []string) error
+	DeleteStopWords(ctx context.Context, collection string, words []string) error
+	// MetaKeys / Checksum
+	GetMetaKeys(ctx context.Context, collection string) (*MCPMetaKeysResponse, error)
+	GetChecksum(ctx context.Context, collection string) (*MCPChecksumResponse, error)
+	// Automation
+	ListAutomation(ctx context.Context, filterType string) (*MCPAutomationListResponse, error)
+	CreateAutomation(ctx context.Context, rule AutomationRule) (*AutomationRule, error)
+	GetAutomation(ctx context.Context, id string) (*AutomationRule, error)
+	UpdateAutomation(ctx context.Context, id string, rule AutomationRule) (*AutomationRule, error)
+	DeleteAutomation(ctx context.Context, id string) error
+	TestAutomation(ctx context.Context, id string) (string, error)
+	ListAutomationLogs(ctx context.Context, limit int, cursor, ruleID, status string) (*MCPAutomationLogListResponse, error)
 	Close() error
 }
 

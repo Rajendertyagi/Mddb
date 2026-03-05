@@ -156,8 +156,7 @@ Complete list of MDDB features organized by category.
 - **Retry Logic** - Exponential backoff (0s, 1s, 5s, 15s) with custom X-MDDB headers
 - **Unified Storage** - All rules (webhooks, triggers, crons) in single `automation` BoltDB bucket
 - **HTTP API** - `GET/POST /v1/automation`, `GET/PUT/DELETE /v1/automation/{id}`, `POST /v1/automation/{id}/test`
-- **gRPC RPCs** - `ListAutomation`, `CreateAutomation`, `UpdateAutomation`, `DeleteAutomation`, `TestAutomation`
-- **MCP Tools** - `list_automation`, `create_automation`, `update_automation`, `delete_automation`, `test_automation`
+- **MCP Tools** - `list_automation`, `create_automation`, `get_automation`, `update_automation`, `delete_automation`, `test_automation`, `get_automation_logs`
 - **Configurable** - `MDDB_AUTOMATIONS`, `MDDB_AUTOMATION_LOGS`, `MDDB_AUTOMATION_LOGS_TTL`, `MDDB_TRIGGERS`, `MDDB_CRONS`, `MDDB_WEBHOOKS`
 
 ### Import from URL
@@ -225,6 +224,7 @@ Complete list of MDDB features organized by category.
 - **Command Modal** - Copy-ready API examples in curl, PHP, Python, and JavaScript for all search operations
 - **Webhook Template Variables Help** - Collapsible reference for available `{{variable}}` names in webhook forms
 - **Metadata Tag Filter** — Filter search results by metadata tags across FTS, vector, and hybrid modes. Dynamically loads available tags from collection. Multi-select with AND/OR semantics.
+- **API Endpoints Browser** — Tabbed view of all HTTP endpoints, gRPC methods, and MCP tools with auth status indicators. Includes link to versioned OpenAPI spec on GitHub.
 
 ### Docker Support
 - **Multi-arch Images** - amd64, arm64, armv7

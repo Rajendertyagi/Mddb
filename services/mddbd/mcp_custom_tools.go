@@ -354,6 +354,241 @@ func mcpBuiltinTools() []MCPTool {
 				"required": []string{"labels"},
 			},
 		},
+		{
+			Name:        "hybrid_search",
+			Description: "Combined sparse (FTS) + dense (vector) search with alpha blending or Reciprocal Rank Fusion. Requires both FTS index and embedding provider.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection":       map[string]interface{}{"type": "string", "description": "Collection to search"},
+					"query":            map[string]interface{}{"type": "string", "description": "Search query (used for both FTS and embedding)"},
+					"top_k":            map[string]interface{}{"type": "integer", "description": "Number of results (default: 10)"},
+					"algorithm":        map[string]interface{}{"type": "string", "description": "FTS algorithm: bm25, bm25f (default: bm25)"},
+					"vector_algorithm": map[string]interface{}{"type": "string", "description": "Vector algorithm: flat, hnsw, ivf, pq (default: flat)"},
+					"strategy":         map[string]interface{}{"type": "string", "description": "Fusion strategy: alpha or rrf (default: alpha)"},
+					"alpha":            map[string]interface{}{"type": "number", "description": "Alpha weight 0-1 (0=keyword, 1=semantic, default: 0.5)"},
+					"rrf_k":            map[string]interface{}{"type": "integer", "description": "RRF k parameter (default: 60)"},
+					"fuzzy":            map[string]interface{}{"type": "integer", "description": "Typo tolerance: 0, 1, 2 (default: 0)"},
+					"threshold":        map[string]interface{}{"type": "number", "description": "Min vector similarity 0-1"},
+					"filter_meta":      map[string]interface{}{"type": "object", "description": "Metadata filter"},
+				},
+				"required": []string{"collection", "query"},
+			},
+		},
+		{
+			Name:        "delete_collection",
+			Description: "Delete an entire collection and all its documents, revisions, and metadata indices.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection name to delete"},
+				},
+				"required": []string{"collection"},
+			},
+		},
+		{
+			Name:        "truncate_revisions",
+			Description: "Truncate revision history for a collection, keeping only the N most recent revisions per document.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection name"},
+					"keep_revs":  map[string]interface{}{"type": "integer", "description": "Number of revisions to keep (0 = delete all history)"},
+					"drop_cache": map[string]interface{}{"type": "boolean", "description": "Clear cache after truncation"},
+				},
+				"required": []string{"collection", "keep_revs"},
+			},
+		},
+		{
+			Name:        "list_synonyms",
+			Description: "List all synonym entries for a collection. Synonyms expand FTS queries with related terms.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection name"},
+				},
+				"required": []string{"collection"},
+			},
+		},
+		{
+			Name:        "add_synonym",
+			Description: "Add or update a synonym group for a term. Synonyms are bidirectional in FTS queries.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection name"},
+					"term":       map[string]interface{}{"type": "string", "description": "Base term"},
+					"synonyms":   map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}, "description": "List of synonyms"},
+				},
+				"required": []string{"collection", "term", "synonyms"},
+			},
+		},
+		{
+			Name:        "delete_synonym",
+			Description: "Delete a synonym group for a term in a collection.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection name"},
+					"term":       map[string]interface{}{"type": "string", "description": "Term to remove synonyms for"},
+				},
+				"required": []string{"collection", "term"},
+			},
+		},
+		{
+			Name:        "list_stopwords",
+			Description: "List all stop words (default + custom) for a collection. Stop words are excluded from FTS indexing.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection name"},
+				},
+				"required": []string{"collection"},
+			},
+		},
+		{
+			Name:        "add_stopwords",
+			Description: "Add custom stop words to a collection's FTS index.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection name"},
+					"words":      map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}, "description": "Words to add as stop words"},
+				},
+				"required": []string{"collection", "words"},
+			},
+		},
+		{
+			Name:        "delete_stopwords",
+			Description: "Remove custom stop words from a collection.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection name"},
+					"words":      map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}, "description": "Words to remove"},
+				},
+				"required": []string{"collection", "words"},
+			},
+		},
+		{
+			Name:        "get_meta_keys",
+			Description: "List all unique metadata keys and their values for a collection. Useful for discovering available filter options.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection name"},
+				},
+				"required": []string{"collection"},
+			},
+		},
+		{
+			Name:        "get_checksum",
+			Description: "Get a CRC32 checksum for a collection that changes when documents are modified. Useful for cache invalidation.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection name"},
+				},
+				"required": []string{"collection"},
+			},
+		},
+		{
+			Name:        "list_automation",
+			Description: "List all automation rules (webhooks, triggers, crons). Optionally filter by type.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"type": map[string]interface{}{"type": "string", "description": "Filter by rule type: webhook, trigger, or cron"},
+				},
+			},
+		},
+		{
+			Name:        "create_automation",
+			Description: "Create a new automation rule (webhook target, search trigger, or cron schedule).",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"type":       map[string]interface{}{"type": "string", "description": "Rule type: webhook, trigger, or cron"},
+					"name":       map[string]interface{}{"type": "string", "description": "Rule name"},
+					"enabled":    map[string]interface{}{"type": "boolean", "description": "Whether rule is enabled (default: true)"},
+					"url":        map[string]interface{}{"type": "string", "description": "Webhook URL (type=webhook)"},
+					"method":     map[string]interface{}{"type": "string", "description": "HTTP method POST/GET/PUT (type=webhook)"},
+					"collection": map[string]interface{}{"type": "string", "description": "Target collection (type=trigger)"},
+					"searchType": map[string]interface{}{"type": "string", "description": "Search type: fts, vector, hybrid (type=trigger)"},
+					"query":      map[string]interface{}{"type": "string", "description": "Search query (type=trigger)"},
+					"threshold":  map[string]interface{}{"type": "number", "description": "Score threshold 0-100 (type=trigger)"},
+					"webhookId":  map[string]interface{}{"type": "string", "description": "Target webhook ID (type=trigger/cron)"},
+					"events":     map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}, "description": "Events: insert, update, delete (type=trigger)"},
+					"schedule":   map[string]interface{}{"type": "string", "description": "Cron expression (type=cron)"},
+					"triggerId":  map[string]interface{}{"type": "string", "description": "Target trigger ID (type=cron)"},
+				},
+				"required": []string{"type", "name"},
+			},
+		},
+		{
+			Name:        "get_automation",
+			Description: "Get a specific automation rule by ID.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"id": map[string]interface{}{"type": "string", "description": "Rule ID"},
+				},
+				"required": []string{"id"},
+			},
+		},
+		{
+			Name:        "update_automation",
+			Description: "Update an existing automation rule.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"id":         map[string]interface{}{"type": "string", "description": "Rule ID to update"},
+					"name":       map[string]interface{}{"type": "string", "description": "Updated name"},
+					"enabled":    map[string]interface{}{"type": "boolean", "description": "Enable/disable"},
+					"url":        map[string]interface{}{"type": "string", "description": "Updated webhook URL"},
+					"collection": map[string]interface{}{"type": "string", "description": "Updated collection"},
+					"query":      map[string]interface{}{"type": "string", "description": "Updated query"},
+					"threshold":  map[string]interface{}{"type": "number", "description": "Updated threshold"},
+					"schedule":   map[string]interface{}{"type": "string", "description": "Updated cron schedule"},
+				},
+				"required": []string{"id"},
+			},
+		},
+		{
+			Name:        "delete_automation",
+			Description: "Delete an automation rule by ID.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"id": map[string]interface{}{"type": "string", "description": "Rule ID to delete"},
+				},
+				"required": []string{"id"},
+			},
+		},
+		{
+			Name:        "test_automation",
+			Description: "Test a trigger rule by running its search and returning matches (dry run, no webhook fired).",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"id": map[string]interface{}{"type": "string", "description": "Trigger rule ID to test"},
+				},
+				"required": []string{"id"},
+			},
+		},
+		{
+			Name:        "get_automation_logs",
+			Description: "List automation execution logs with optional filtering by rule ID and status.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"limit":   map[string]interface{}{"type": "integer", "description": "Max entries (default: 50)"},
+					"cursor":  map[string]interface{}{"type": "string", "description": "Pagination cursor"},
+					"rule_id": map[string]interface{}{"type": "string", "description": "Filter by rule ID"},
+					"status":  map[string]interface{}{"type": "string", "description": "Filter by status: success, error, skipped"},
+				},
+			},
+		},
 	}
 }
 
@@ -473,11 +708,19 @@ func validateMCPCustomTools(tools []MCPCustomToolConfig) error {
 		"export_documents": true, "create_backup": true, "restore_backup": true,
 		"semantic_search": true, "vector_reindex": true, "vector_stats": true,
 		"import_url": true, "set_ttl": true, "full_text_search": true,
+		"hybrid_search":    true,
 		"register_webhook": true, "list_webhooks": true, "delete_webhook": true,
 		"set_schema": true, "get_schema": true, "delete_schema": true,
 		"list_schemas": true, "validate_document": true,
 		"update_document": true, "get_document_meta": true,
 		"classify_document": true,
+		"delete_collection": true, "truncate_revisions": true,
+		"list_synonyms": true, "add_synonym": true, "delete_synonym": true,
+		"list_stopwords": true, "add_stopwords": true, "delete_stopwords": true,
+		"get_meta_keys": true, "get_checksum": true,
+		"list_automation": true, "create_automation": true, "get_automation": true,
+		"update_automation": true, "delete_automation": true, "test_automation": true,
+		"get_automation_logs": true,
 	}
 	validActions := map[string]bool{
 		"semantic_search": true, "search_documents": true, "full_text_search": true,

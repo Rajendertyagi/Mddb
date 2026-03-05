@@ -30,6 +30,13 @@ MDDB Panel is a modern, web-based admin interface for MDDB (Markdown Database). 
 - Copy markdown content to clipboard
 - View document revision information
 
+### 🌐 API Endpoints Browser
+- Tabbed view of all HTTP, gRPC, and MCP endpoints
+- HTTP tab with method badges, paths, descriptions, and auth status icons
+- gRPC tab with method names and descriptions
+- MCP tab with all 44 built-in tool names and descriptions
+- Link to versioned OpenAPI spec on GitHub (auto-detects server version)
+
 ### 🔍 Advanced Filtering
 - Filter documents by metadata fields
 - Multiple filter criteria support
@@ -310,6 +317,7 @@ services/mddb-panel/
 │   │   ├── NewDocumentModal.jsx # New document creation
 │   │   ├── MarkdownEditor.jsx   # Markdown editor with preview
 │   │   ├── MarkdownToolbar.jsx  # Formatting toolbar
+│   │   ├── EndpointsPanel.jsx   # API endpoints browser
 │   │   └── FilterPanel.jsx      # Filter controls
 │   ├── lib/
 │   │   ├── mddb-client.js       # API client
@@ -357,6 +365,7 @@ The panel communicates with MDDB server via HTTP API:
 - export()           // Export documents
 - backup()           // Create backup
 - truncate()         // Clean old revisions
+- getEndpoints()     // List all API endpoints
 ```
 
 ## API Integration
@@ -379,6 +388,9 @@ Search documents with filters:
   "limit": 100
 }
 ```
+
+### GET /v1/endpoints
+Get all available HTTP, gRPC, and MCP endpoints with descriptions and auth status.
 
 ### POST /v1/get
 Get a specific document:
@@ -560,6 +572,8 @@ npm run lint -- --fix
 - [x] Markdown toolbar with formatting buttons
 - [x] Syntax highlighting for code blocks (100+ languages)
 - [x] Document templates (blog, docs, README, API, changelog)
+- [x] API Endpoints browser with HTTP/gRPC/MCP tabs
+- [x] OpenAPI spec link with auto-detected version
 
 ### Planned Features
 

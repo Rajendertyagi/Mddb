@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Network, Lock, Unlock } from 'lucide-react';
+import { Network, Lock, Unlock, ExternalLink } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
 
@@ -11,6 +11,7 @@ export default function EndpointsPanel() {
     setEndpoints,
     setEndpointsLoading,
     setEndpointsError,
+    config,
   } = useStore();
 
   const [activeTab, setActiveTab] = useState('http');
@@ -76,8 +77,21 @@ export default function EndpointsPanel() {
   return (
     <div className="h-full flex flex-col bg-gray-50">
       <div className="bg-white border-b px-6 py-4">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">API Endpoints</h1>
-        <p className="text-gray-600">Documentation for all available endpoints</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">API Endpoints</h1>
+            <p className="text-gray-600">Documentation for all available endpoints</p>
+          </div>
+          <a
+            href={`https://github.com/tradik/mddb/blob/${config?.version ? `v${config.version}` : 'main'}/docs/openapi.yaml`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded-lg hover:bg-primary-100 transition-colors"
+          >
+            <ExternalLink className="w-4 h-4" />
+            OpenAPI Spec {config?.version && <span className="text-xs text-primary-500">v{config.version}</span>}
+          </a>
+        </div>
       </div>
 
       {/* Tabs */}
