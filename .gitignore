@@ -54,6 +54,7 @@ tmp/
 
 # Test results and binaries
 test/performance-results-*.txt
+test/search-benchmark-results-*.txt
 test/lorem-*.md
 test/protocol-comparison-*.txt
 test/database-comparison-*.txt
