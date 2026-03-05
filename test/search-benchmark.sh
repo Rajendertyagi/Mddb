@@ -9,12 +9,14 @@
 # Usage:
 #   ./test/search-benchmark.sh
 #   ITERATIONS=100 DOCS=5000 PORT=11099 ./test/search-benchmark.sh
+#   RUNS=10 ITERATIONS=50 ./test/search-benchmark.sh
 
 set -euo pipefail
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 DOCS=${DOCS:-10000}
 ITERATIONS=${ITERATIONS:-50}
+RUNS=${RUNS:-1}
 PORT=${PORT:-11099}
 COLLECTION="bench"
 WARMUP=5
@@ -236,50 +238,62 @@ QUERIES=(
 ALGORITHMS=("tfidf" "bm25" "bm25f" "pmisparse")
 FUZZY_MODES=(0 1)
 
-echo -e "${P}Running benchmarks: ${#ALGORITHMS[@]} algorithms x ${#FUZZY_MODES[@]} fuzzy modes x ${#QUERIES[@]} queries x $ITERATIONS iterations${NC}"
+TOTAL_ITERS=$((RUNS * ITERATIONS))
+echo -e "${P}Running benchmarks: ${#ALGORITHMS[@]} algorithms x ${#FUZZY_MODES[@]} fuzzy modes x ${#QUERIES[@]} queries x $ITERATIONS iterations x $RUNS runs${NC}"
+echo -e "${P}Total samples per config: $((TOTAL_ITERS * ${#QUERIES[@]}))${NC}"
 echo ""
 
+# Initialize latency files
 for algo in "${ALGORITHMS[@]}"; do
     for fz in "${FUZZY_MODES[@]}"; do
-        label="$algo"
-        [ "$fz" -gt 0 ] && label="${algo}+fuzzy"
-        latfile="$BENCH_TMP/${algo}_${fz}.lat"
-        > "$latfile"
-
-        echo -ne "  ${C}$label${NC}: "
-
-        # Warmup
-        for _ in $(seq 1 $WARMUP); do
-            q="${QUERIES[$((RANDOM % ${#QUERIES[@]}))]}"
-            curl -s -X POST "$SERVER_URL/v1/fts" \
-                -H "Content-Type: application/json" \
-                -d "{\"collection\":\"$COLLECTION\",\"query\":\"$q\",\"algorithm\":\"$algo\",\"limit\":10,\"fuzzy\":$fz}" \
-                > /dev/null
-        done
-
-        # Measured runs
-        for qi in $(seq 0 $(( ${#QUERIES[@]} - 1 ))); do
-            q="${QUERIES[$qi]}"
-            for _ in $(seq 1 "$ITERATIONS"); do
-                t_start=$(now_ns)
-                resp=$(curl -s -X POST "$SERVER_URL/v1/fts" \
-                    -H "Content-Type: application/json" \
-                    -d "{\"collection\":\"$COLLECTION\",\"query\":\"$q\",\"algorithm\":\"$algo\",\"limit\":10,\"fuzzy\":$fz}")
-                t_end=$(now_ns)
-                echo $((t_end - t_start)) >> "$latfile"
-            done
-            # Save result count from last response for this query
-            rc=$(echo "$resp" | jq -r '.total // 0' 2>/dev/null || echo "0")
-            echo "$rc" > "$BENCH_TMP/${algo}_${fz}_q${qi}.rc"
-        done
-
-        # Stats
-        read -r avg_ms p50_ms p95_ms p99_ms min_ms max_ms qps count <<< "$(compute_stats "$latfile")"
-        echo -e "avg=${Y}${avg_ms}ms${NC}  p50=${p50_ms}ms  p95=${p95_ms}ms  p99=${p99_ms}ms  qps=${G}${qps}${NC}  (${count} samples)"
+        > "$BENCH_TMP/${algo}_${fz}.lat"
     done
 done
 
-echo ""
+for run in $(seq 1 "$RUNS"); do
+    echo -e "${B}── Run $run/$RUNS ──${NC}"
+
+    for algo in "${ALGORITHMS[@]}"; do
+        for fz in "${FUZZY_MODES[@]}"; do
+            label="$algo"
+            [ "$fz" -gt 0 ] && label="${algo}+fuzzy"
+            latfile="$BENCH_TMP/${algo}_${fz}.lat"
+
+            echo -ne "  ${C}$label${NC}: "
+
+            # Warmup
+            for _ in $(seq 1 $WARMUP); do
+                q="${QUERIES[$((RANDOM % ${#QUERIES[@]}))]}"
+                curl -s -X POST "$SERVER_URL/v1/fts" \
+                    -H "Content-Type: application/json" \
+                    -d "{\"collection\":\"$COLLECTION\",\"query\":\"$q\",\"algorithm\":\"$algo\",\"limit\":10,\"fuzzy\":$fz}" \
+                    > /dev/null
+            done
+
+            # Measured runs
+            for qi in $(seq 0 $(( ${#QUERIES[@]} - 1 ))); do
+                q="${QUERIES[$qi]}"
+                for _ in $(seq 1 "$ITERATIONS"); do
+                    t_start=$(now_ns)
+                    resp=$(curl -s -X POST "$SERVER_URL/v1/fts" \
+                        -H "Content-Type: application/json" \
+                        -d "{\"collection\":\"$COLLECTION\",\"query\":\"$q\",\"algorithm\":\"$algo\",\"limit\":10,\"fuzzy\":$fz}")
+                    t_end=$(now_ns)
+                    echo $((t_end - t_start)) >> "$latfile"
+                done
+                # Save result count from last response for this query
+                rc=$(echo "$resp" | jq -r '.total // 0' 2>/dev/null || echo "0")
+                echo "$rc" > "$BENCH_TMP/${algo}_${fz}_q${qi}.rc"
+            done
+
+            # Per-run stats
+            run_count=$(wc -l < "$latfile" | tr -d ' ')
+            read -r avg_ms p50_ms p95_ms p99_ms min_ms max_ms qps count <<< "$(compute_stats "$latfile")"
+            echo -e "avg=${Y}${avg_ms}ms${NC}  p50=${p50_ms}ms  p95=${p95_ms}ms  p99=${p99_ms}ms  qps=${G}${qps}${NC}  (${count} total samples)"
+        done
+    done
+    echo ""
+done
 
 # ── Phase 4: Generate report ─────────────────────────────────────────────────
 echo -e "${P}Generating report...${NC}"
@@ -287,7 +301,7 @@ echo -e "${P}Generating report...${NC}"
 GO_VERSION=$(go version | awk '{print $3}')
 OS_INFO=$(uname -srm)
 RUN_DATE=$(date '+%Y-%m-%d %H:%M:%S')
-TOTAL_QUERIES=$(( ${#QUERIES[@]} * ITERATIONS ))
+TOTAL_QUERIES=$(( ${#QUERIES[@]} * ITERATIONS * RUNS ))
 
 TABLE_ROWS=""
 CHART_LABELS=""
@@ -345,8 +359,9 @@ cat > "$REPORT_FILE" << ENDOFMD
 | Documents | ${DOCS} |
 | Queries | ${#QUERIES[@]} diverse queries |
 | Iterations | ${ITERATIONS} per query per algorithm |
+| Runs | ${RUNS} (benchmark repeated ${RUNS}x, results aggregated) |
 | Total searches | ${TOTAL_QUERIES} per algorithm config |
-| Warmup | ${WARMUP} queries (discarded) |
+| Warmup | ${WARMUP} queries per run (discarded) |
 
 ## Algorithms
 
