@@ -22,6 +22,7 @@ import SettingsPanel from './components/SettingsPanel';
 import ClusterPanel from './components/ClusterPanel';
 import SynonymsPanel from './components/SynonymsPanel';
 import StopWordsPanel from './components/StopWordsPanel';
+import AutomationPanel from './components/AutomationPanel';
 
 function App() {
   const {
@@ -220,6 +221,11 @@ function App() {
           {viewMode === 'stopwords' && (
             <div className="flex-1 border-l border-gray-200">
               <StopWordsPanel />
+            </div>
+          )}
+          {viewMode === 'automation' && (
+            <div className="flex-1 border-l border-gray-200">
+              <AutomationPanel />
             </div>
           )}
           {viewMode === 'settings' && (

@@ -136,6 +136,11 @@ func (s *Server) handleHybridSearch(w http.ResponseWriter, r *http.Request) {
 		resp.RRFK = req.RRFK
 	}
 
+	// Track hybrid search operation
+	if s.Metrics != nil {
+		s.Metrics.IncOp("hybrid_search", req.Strategy)
+	}
+
 	ok(w, resp)
 }
 
@@ -191,6 +196,12 @@ func (s *Server) runFTSSearch(req HybridSearchRequest) ([]FTSResult, error) {
 			results, err = s.FTSIndex.SearchBM25Fuzzy(req.Collection, req.Query, searchLimit, req.Fuzzy)
 		} else {
 			results, err = s.FTSIndex.SearchBM25(req.Collection, req.Query, searchLimit)
+		}
+	case "pmisparse":
+		if req.Fuzzy > 0 {
+			results, err = s.FTSIndex.SearchPMISparseFuzzy(req.Collection, req.Query, searchLimit, req.Fuzzy)
+		} else {
+			results, err = s.FTSIndex.SearchPMISparse(req.Collection, req.Query, searchLimit)
 		}
 	default:
 		if req.Fuzzy > 0 {

@@ -215,6 +215,11 @@ func (g *GRPCServer) Add(ctx context.Context, req *proto.AddRequest) (*proto.Doc
 		})
 	}
 
+	// Automation triggers
+	if g.server.AutomationManager != nil && env("MDDB_TRIGGERS", "false") == "true" {
+		go g.server.AutomationManager.EvaluateTriggers(req.Collection, saved)
+	}
+
 	return docToProto(&saved), nil
 }
 
@@ -1174,8 +1179,14 @@ func (g *GRPCServer) FTS(ctx context.Context, req *proto.FTSRequest) (*proto.FTS
 		} else {
 			results, err = g.server.FTSIndex.Search(req.Collection, req.Query, limit)
 		}
+	case "pmisparse":
+		if fuzzy > 0 {
+			results, err = g.server.FTSIndex.SearchPMISparseFuzzy(req.Collection, req.Query, limit, fuzzy)
+		} else {
+			results, err = g.server.FTSIndex.SearchPMISparse(req.Collection, req.Query, limit)
+		}
 	default:
-		return nil, status.Error(codes.InvalidArgument, "unknown algorithm: "+algo+", available: tfidf, bm25, bm25f")
+		return nil, status.Error(codes.InvalidArgument, "unknown algorithm: "+algo+", available: tfidf, bm25, bm25f, pmisparse")
 	}
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())

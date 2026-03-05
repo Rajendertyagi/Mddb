@@ -172,6 +172,7 @@ export default function HybridSearchPanel() {
             >
               <option value="bm25">BM25</option>
               <option value="bm25f">BM25F (Field-Weighted)</option>
+              <option value="pmisparse">PMISparse</option>
             </select>
           </div>
           <div>

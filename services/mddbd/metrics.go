@@ -31,6 +31,7 @@ type Metrics struct {
 	mu         sync.Mutex
 	reqCount   map[string]int64      // "method|path|status" -> count
 	histograms map[string]*histogram // "method|path" -> histogram
+	opsCount   map[string]int64      // operation counters (e.g. "fts_search|bm25" -> count)
 
 	// Cached DB stats (refreshed at most every 15s)
 	cacheMu    sync.Mutex
@@ -67,7 +68,19 @@ func NewMetrics(s *Server, enabled bool) *Metrics {
 		server:     s,
 		reqCount:   make(map[string]int64),
 		histograms: make(map[string]*histogram),
+		opsCount:   make(map[string]int64),
 	}
+}
+
+// IncOp increments an operation counter. Labels are joined with "|".
+func (m *Metrics) IncOp(labels ...string) {
+	if !m.enabled {
+		return
+	}
+	key := strings.Join(labels, "|")
+	m.mu.Lock()
+	m.opsCount[key]++
+	m.mu.Unlock()
 }
 
 func newHistogram() *histogram {
@@ -197,6 +210,10 @@ func (m *Metrics) HandleMetrics(w http.ResponseWriter, r *http.Request) {
 	for k, v := range m.histograms {
 		histSnapshot[k] = v.clone()
 	}
+	opsSnapshot := make(map[string]int64, len(m.opsCount))
+	for k, v := range m.opsCount {
+		opsSnapshot[k] = v
+	}
 	m.mu.Unlock()
 
 	writef(&buf, "# HELP mddb_http_requests_total Total number of HTTP requests.\n")
@@ -226,6 +243,23 @@ func (m *Metrics) HandleMetrics(w http.ResponseWriter, r *http.Request) {
 		writef(&buf, "mddb_http_request_duration_seconds_count{%s} %d\n", labels, h.total)
 	}
 	buf.WriteString("\n")
+
+	// --- Operation counters ---
+	if len(opsSnapshot) > 0 {
+		writef(&buf, "# HELP mddb_operations_total Total count of operations by type.\n")
+		writef(&buf, "# TYPE mddb_operations_total counter\n")
+		for _, k := range sortedMapKeys(opsSnapshot) {
+			parts := strings.SplitN(k, "|", 2)
+			if len(parts) == 2 {
+				writef(&buf, "mddb_operations_total{operation=%q,label=%q} %d\n",
+					parts[0], parts[1], opsSnapshot[k])
+			} else {
+				writef(&buf, "mddb_operations_total{operation=%q} %d\n",
+					parts[0], opsSnapshot[k])
+			}
+		}
+		buf.WriteString("\n")
+	}
 
 	// --- Database metrics (cached) ---
 	ds := m.getDBStats()

@@ -418,7 +418,7 @@ score = 1/(k + rank_fts) + 1/(k + rank_vector)
 | `strategy` | `"alpha"` | `"alpha"` or `"rrf"` |
 | `alpha` | `0.5` | Weight for alpha blending (0-1) |
 | `rrfK` | `60` | RRF k parameter |
-| `algorithm` | `"bm25"` | FTS algorithm: `"bm25"`, `"bm25f"` |
+| `algorithm` | `"bm25"` | FTS algorithm: `"bm25"`, `"bm25f"`, `"pmisparse"` |
 | `vectorAlgorithm` | `"flat"` | Vector algorithm: `"flat"`, `"hnsw"`, `"ivf"`, `"pq"`, `"sq"` |
 | `topK` | `10` | Number of results to return |
 | `fuzzy` | `0` | Typo tolerance for FTS (0, 1, 2) |
@@ -580,5 +580,110 @@ For best results, combine search methods:
 3. **FTS + Metadata** (v2.6.5+): Use `filterMeta` in FTS to scope keyword search to specific metadata values
 4. **FTS for keywords, Vector for meaning**: Use FTS when users search for specific terms, vector when queries are natural language questions
 5. **BM25F for structured docs**: Use BM25F when documents have meaningful titles and tags — matches in titles will rank higher than body-only matches
+
+## Automation Triggers (v2.6.6+)
+
+MDDB supports **automation triggers** that fire webhooks when documents matching search criteria are added to a collection.
+
+### Concepts
+
+| Type | Purpose |
+|------|---------|
+| **Webhook** | Named HTTP endpoint target (url, method, headers) |
+| **Trigger** | Rule: when a document in `{collection}` matches `{searchType}` query `{query}` above `{threshold}`, fire `{webhook}` |
+| **Cron** | Scheduled execution of a trigger on a cron schedule |
+
+All three types are stored together in the automation system with a `type` field.
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MDDB_TRIGGERS` | `false` | Enable real-time trigger evaluation after document add |
+| `MDDB_CRONS` | `false` | Enable cron scheduler for periodic trigger execution |
+
+### Trigger Evaluation
+
+When `MDDB_TRIGGERS=true` and a document is added:
+
+1. All enabled triggers watching that collection are loaded
+2. Each trigger's search query runs (FTS, vector, or hybrid)
+3. If the new document appears in results with score >= threshold, the webhook fires
+4. Webhook firing is async with retry backoff (0s, 1s, 5s, 15s)
+
+### Threshold Behavior
+
+| Search Type | Threshold Meaning | Example |
+|-------------|-------------------|---------|
+| `fts` | Raw BM25 score | threshold=5 means BM25 score >= 5 |
+| `vector` | Similarity × 100 | threshold=80 means cosine similarity >= 0.8 |
+| `hybrid` | Combined score × 100 | threshold=50 means combined score >= 0.5 |
+
+### API Examples
+
+**Create a webhook target:**
+```bash
+curl -X POST http://localhost:7890/v1/automation \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "type": "webhook",
+    "name": "Slack Alert",
+    "url": "https://hooks.slack.com/services/...",
+    "method": "POST",
+    "enabled": true
+  }'
+```
+
+**Create a trigger:**
+```bash
+curl -X POST http://localhost:7890/v1/automation \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "type": "trigger",
+    "name": "AI Article Alert",
+    "collection": "articles",
+    "searchType": "fts",
+    "query": "artificial intelligence machine learning",
+    "threshold": 5,
+    "webhookId": "<webhook-id>",
+    "enabled": true
+  }'
+```
+
+**Create a cron:**
+```bash
+curl -X POST http://localhost:7890/v1/automation \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "type": "cron",
+    "name": "Daily AI Check",
+    "schedule": "0 0 9 * * *",
+    "triggerId": "<trigger-id>",
+    "enabled": true
+  }'
+```
+
+**Test a trigger (dry run):**
+```bash
+curl -X POST http://localhost:7890/v1/automation/<trigger-id>/test
+```
+
+### Webhook Payload
+
+When a trigger fires, it sends a POST to the webhook URL:
+
+```json
+{
+  "event": "trigger.matched",
+  "trigger": {
+    "id": "abc123",
+    "name": "AI Article Alert"
+  },
+  "collection": "articles",
+  "document": { "id": "...", "key": "...", "contentMd": "...", "meta": {...} },
+  "score": 85.5,
+  "timestamp": 1709510400
+}
+```
 
 **[← Back to README](../README.md)**

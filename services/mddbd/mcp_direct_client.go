@@ -952,8 +952,14 @@ func (c *DirectClient) FTSSearch(ctx context.Context, req *MCPFTSSearchRequest) 
 		} else {
 			results, err = c.server.FTSIndex.Search(req.Collection, req.Query, limit)
 		}
+	case "pmisparse":
+		if fuzzy > 0 {
+			results, err = c.server.FTSIndex.SearchPMISparseFuzzy(req.Collection, req.Query, limit, fuzzy)
+		} else {
+			results, err = c.server.FTSIndex.SearchPMISparse(req.Collection, req.Query, limit)
+		}
 	default:
-		return nil, fmt.Errorf("unknown algorithm: %s, available: tfidf, bm25", algo)
+		return nil, fmt.Errorf("unknown algorithm: %s, available: tfidf, bm25, pmisparse", algo)
 	}
 	if err != nil {
 		return nil, err

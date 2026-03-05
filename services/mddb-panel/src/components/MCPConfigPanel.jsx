@@ -113,7 +113,7 @@ custom_tools:
         filename: 'openai_actions.json',
         content: JSON.stringify({
           openapi: '3.1.0',
-          info: { title: 'MDDB API', version: '2.6.0', description: 'Markdown Database API for ChatGPT' },
+          info: { title: 'MDDB API', version: '2.6.6', description: 'Markdown Database API for ChatGPT' },
           servers: [{ url: httpBase }],
           paths: {
             '/v1/search': {

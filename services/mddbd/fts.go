@@ -32,6 +32,7 @@ type FTSIndex struct {
 	stemmer         *PorterStemmer
 	synonymManager  *SynonymManager
 	stopWordManager *StopWordManager
+	pmiData         *PMIData
 }
 
 // SetStemmer sets the Porter Stemmer for term normalization.
@@ -42,17 +43,6 @@ func (f *FTSIndex) SetSynonymManager(sm *SynonymManager) { f.synonymManager = sm
 
 // SetStopWordManager sets the stop word manager for per-collection custom stop words.
 func (f *FTSIndex) SetStopWordManager(swm *StopWordManager) { f.stopWordManager = swm }
-
-// isStopWord checks if a word is a stop word (default or per-collection custom).
-func (f *FTSIndex) isStopWord(collection, word string) bool {
-	if f.stopWords[word] {
-		return true
-	}
-	if f.stopWordManager != nil && collection != "" {
-		return f.stopWordManager.IsStopWord(collection, word)
-	}
-	return false
-}
 
 // SetBinlog sets the binlog for replication logging.
 func (f *FTSIndex) SetBinlog(bl *Binlog) {
@@ -243,6 +233,7 @@ func (f *FTSIndex) Index(collection, docID, content string) error {
 	})
 	if err == nil {
 		bo.FlushTo(f.binlog)
+		f.InvalidatePMI(collection)
 	}
 	return err
 }
@@ -278,6 +269,7 @@ func (f *FTSIndex) Remove(collection, docID string) error {
 	})
 	if err == nil {
 		bo.FlushTo(f.binlog)
+		f.InvalidatePMI(collection)
 	}
 	return err
 }
@@ -601,13 +593,24 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 		} else {
 			results, err = s.FTSIndex.Search(req.Collection, req.Query, req.Limit)
 		}
+	case "pmisparse":
+		if fuzzy > 0 {
+			results, err = s.FTSIndex.SearchPMISparseFuzzy(req.Collection, req.Query, req.Limit, fuzzy)
+		} else {
+			results, err = s.FTSIndex.SearchPMISparse(req.Collection, req.Query, req.Limit)
+		}
 	default:
-		bad(w, fmt.Errorf("unknown algorithm: %s, available: tfidf, bm25, bm25f", algo))
+		bad(w, fmt.Errorf("unknown algorithm: %s, available: tfidf, bm25, bm25f, pmisparse", algo))
 		return
 	}
 	if err != nil {
 		bad(w, err)
 		return
+	}
+
+	// Track FTS search operation
+	if s.Metrics != nil {
+		s.Metrics.IncOp("fts_search", algo)
 	}
 
 	// Apply metadata filter to results

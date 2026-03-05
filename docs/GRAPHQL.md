@@ -727,5 +727,5 @@ GraphQL resolver implementations are in progress. Contributions welcome:
 
 ---
 
-**Version:** 2.6.4
+**Version:** 2.6.6
 **Last Updated:** March 2026

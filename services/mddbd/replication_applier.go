@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"sync/atomic"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -9,7 +10,7 @@ import (
 // ReplicationApplier applies binlog entries from the leader to the local BoltDB and in-memory state.
 type ReplicationApplier struct {
 	server      *Server
-	lastApplied uint64
+	lastApplied atomic.Uint64
 }
 
 // NewReplicationApplier creates a new replication applier
@@ -45,7 +46,7 @@ func (ra *ReplicationApplier) Apply(entry *BinlogEntry) error {
 
 	// Update in-memory state based on bucket type
 	ra.updateInMemoryState(entry)
-	ra.lastApplied = entry.LSN
+	ra.lastApplied.Store(entry.LSN)
 
 	return nil
 }
@@ -96,13 +97,18 @@ func (ra *ReplicationApplier) ApplyBatch(entries []*BinlogEntry) error {
 		ra.updateInMemoryState(entry)
 	}
 
-	ra.lastApplied = entries[len(entries)-1].LSN
+	ra.lastApplied.Store(entries[len(entries)-1].LSN)
 	return nil
 }
 
 // LastAppliedLSN returns the last applied LSN
 func (ra *ReplicationApplier) LastAppliedLSN() uint64 {
-	return ra.lastApplied
+	return ra.lastApplied.Load()
+}
+
+// SetLastAppliedLSN sets the last applied LSN (used after snapshot restore).
+func (ra *ReplicationApplier) SetLastAppliedLSN(lsn uint64) {
+	ra.lastApplied.Store(lsn)
 }
 
 // updateInMemoryState updates in-memory caches and indices based on the replicated bucket
@@ -121,6 +127,14 @@ func (ra *ReplicationApplier) updateInMemoryState(entry *BinlogEntry) {
 		// Reload all schemas from DB
 		if ra.server.SchemaManager != nil {
 			_ = ra.server.SchemaManager.LoadAll()
+		}
+	case "automation":
+		// Reload all automation rules from DB
+		if ra.server.AutomationManager != nil {
+			_ = ra.server.AutomationManager.LoadAll()
+		}
+		if ra.server.CronScheduler != nil {
+			ra.server.CronScheduler.Reload()
 		}
 	}
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Folder, Database, Trash2, Brain, Server, Settings, Network, Users, UsersIcon, Upload, FolderPlus, Sliders, GitBranch, PanelLeftClose, BookOpen, Ban } from 'lucide-react';
+import { Folder, Database, Trash2, Brain, Server, Settings, Network, Users, UsersIcon, Upload, FolderPlus, Sliders, GitBranch, PanelLeftClose, BookOpen, Ban, Zap } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
 import UploadModal from './UploadModal';
@@ -265,6 +265,7 @@ export default function Sidebar({ stats, statsError, onStatsRefresh, onCollapse 
           <NavButton mode="embeddings" icon={Brain} label="Embedding Models" />
           <NavButton mode="synonyms" icon={BookOpen} label="Synonyms" />
           <NavButton mode="stopwords" icon={Ban} label="Stop Words" />
+          <NavButton mode="automation" icon={Zap} label="Automation" />
           <NavButton mode="settings" icon={Sliders} label="Client Settings" />
         </div>
       </div>
@@ -272,7 +273,7 @@ export default function Sidebar({ stats, statsError, onStatsRefresh, onCollapse 
       {/* Version Footer */}
       <div className="px-4 py-2 border-t border-gray-200 text-center">
         <span className="text-[10px] text-gray-400">
-          Server v{config?.version || '...'} · Panel v2.6.0
+          Server v{config?.version || '...'} · Panel v2.6.6
         </span>
       </div>
 
