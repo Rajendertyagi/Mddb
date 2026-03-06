@@ -113,7 +113,7 @@ custom_tools:
         filename: 'openai_actions.json',
         content: JSON.stringify({
           openapi: '3.1.0',
-          info: { title: 'MDDB API', version: '2.6.9', description: 'Markdown Database API for ChatGPT' },
+          info: { title: 'MDDB API', version: '2.7.0', description: 'Markdown Database API for ChatGPT' },
           servers: [{ url: httpBase }],
           paths: {
             '/v1/search': {
@@ -122,12 +122,18 @@ custom_tools:
                 summary: 'Search documents by metadata',
                 requestBody: {
                   required: true,
-                  content: { 'application/json': { schema: { type: 'object', properties: {
-                    collection: { type: 'string' },
-                    filterMeta: { type: 'object' },
-                    sort: { type: 'string' },
-                    limit: { type: 'integer', default: 10 },
-                  }}}},
+                  content: {
+                    'application/json': {
+                      schema: {
+                        type: 'object', properties: {
+                          collection: { type: 'string' },
+                          filterMeta: { type: 'object' },
+                          sort: { type: 'string' },
+                          limit: { type: 'integer', default: 10 },
+                        }
+                      }
+                    }
+                  },
                 },
               },
             },
@@ -137,12 +143,18 @@ custom_tools:
                 summary: 'Semantic search using vector embeddings',
                 requestBody: {
                   required: true,
-                  content: { 'application/json': { schema: { type: 'object', properties: {
-                    collection: { type: 'string' },
-                    query: { type: 'string' },
-                    topK: { type: 'integer', default: 5 },
-                    threshold: { type: 'number', default: 0.7 },
-                  }}}},
+                  content: {
+                    'application/json': {
+                      schema: {
+                        type: 'object', properties: {
+                          collection: { type: 'string' },
+                          query: { type: 'string' },
+                          topK: { type: 'integer', default: 5 },
+                          threshold: { type: 'number', default: 0.7 },
+                        }
+                      }
+                    }
+                  },
                 },
               },
             },
@@ -410,6 +422,12 @@ export default function MCPConfigPanel() {
   const [showAlt, setShowAlt] = useState(false);
   const [mcpYaml, setMcpYaml] = useState(null);
   const [mcpLoading, setMcpLoading] = useState(true);
+  const [domain, setDomain] = useState('');
+
+  useEffect(() => {
+    const cfgDomain = config?.protocols?.mcp?.domain;
+    setDomain(cfgDomain || window.location.hostname || 'localhost');
+  }, [config]);
 
   useEffect(() => {
     loadMCPConfig();
@@ -429,7 +447,8 @@ export default function MCPConfigPanel() {
   const grpcAddr = config?.protocols?.grpc?.addr || config?.grpcAddr || ':11024';
   const httpAddr = config?.protocols?.http?.addr || config?.httpAddr || ':11023';
   const mcpAddr = config?.protocols?.mcp?.addr || ':9000';
-  const tabConfig = generateConfig(activeTab, grpcAddr, `http://localhost${httpAddr}`, `http://localhost${mcpAddr}`);
+  const host = domain || window.location.hostname || 'localhost';
+  const tabConfig = generateConfig(activeTab, `${host}${grpcAddr}`, `http://${host}${httpAddr}`, `http://${host}${mcpAddr}`);
 
   // For MCP tab, prefer the live server config if available
   const displayContent = activeTab === 'mcp' && mcpYaml ? mcpYaml : (showAlt && tabConfig.alt ? tabConfig.alt.content : tabConfig.content);
@@ -467,6 +486,22 @@ export default function MCPConfigPanel() {
           <p className="text-gray-600">Configuration for connecting MDDB to AI agents and LLM tools</p>
         </div>
 
+        {/* Domain Input */}
+        <div className="bg-white rounded-lg shadow mb-6 p-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Server Domain</label>
+          <div className="flex items-center gap-3">
+            <input
+              type="text"
+              value={domain}
+              onChange={(e) => setDomain(e.target.value)}
+              placeholder="e.g. myserver.com"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-primary-500 focus:border-primary-500"
+            />
+            <span className="text-xs text-gray-400 whitespace-nowrap">All examples below use this domain</span>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">Set <code className="bg-gray-100 px-1 rounded">MDDB_MCP_DOMAIN</code> env var to persist this value.</p>
+        </div>
+
         {/* Tabs */}
         <div className="bg-white rounded-lg shadow mb-6">
           <div className="border-b border-gray-200 overflow-x-auto">
@@ -475,11 +510,10 @@ export default function MCPConfigPanel() {
                 <button
                   key={tab.id}
                   onClick={() => { setActiveTab(tab.id); setShowAlt(false); setCopied(false); }}
-                  className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                    activeTab === tab.id
+                  className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${activeTab === tab.id
                       ? 'border-primary-600 text-primary-700 bg-primary-50'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   {tab.label}
                 </button>

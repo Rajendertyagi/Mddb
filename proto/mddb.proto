@@ -92,6 +92,78 @@ service MDDB {
 
   // Zero-shot document classification using embedding similarity
   rpc Classify(ClassifyRequest) returns (ClassifyResponse);
+
+  // Delete a single document
+  rpc DeleteDocument(DeleteDocumentRequest) returns (DeleteDocumentResponse);
+
+  // Delete an entire collection
+  rpc DeleteCollection(DeleteCollectionRequest) returns (DeleteCollectionResponse);
+
+  // List synonyms for a collection
+  rpc ListSynonyms(ListSynonymsRequest) returns (ListSynonymsResponse);
+
+  // Add a synonym mapping
+  rpc AddSynonym(AddSynonymRequest) returns (AddSynonymResponse);
+
+  // Delete a synonym mapping
+  rpc DeleteSynonym(DeleteSynonymRequest) returns (DeleteSynonymResponse);
+
+  // List stop words for a collection
+  rpc ListStopwords(ListStopwordsRequest) returns (ListStopwordsResponse);
+
+  // Add custom stop words
+  rpc AddStopwords(AddStopwordsRequest) returns (AddStopwordsResponse);
+
+  // Delete custom stop words
+  rpc DeleteStopwords(DeleteStopwordsRequest) returns (DeleteStopwordsResponse);
+
+  // Get all unique metadata keys and values for a collection
+  rpc GetMetaKeys(GetMetaKeysRequest) returns (GetMetaKeysResponse);
+
+  // Get collection checksum (integrity hash)
+  rpc GetChecksum(GetChecksumRequest) returns (GetChecksumResponse);
+
+  // List automation rules
+  rpc ListAutomation(ListAutomationRequest) returns (ListAutomationResponse);
+
+  // Create an automation rule
+  rpc CreateAutomation(CreateAutomationRequest) returns (AutomationRuleProto);
+
+  // Get an automation rule by ID
+  rpc GetAutomation(GetAutomationRequest) returns (AutomationRuleProto);
+
+  // Update an automation rule
+  rpc UpdateAutomation(UpdateAutomationRequest) returns (AutomationRuleProto);
+
+  // Delete an automation rule
+  rpc DeleteAutomation(DeleteAutomationRequest) returns (DeleteAutomationResponse);
+
+  // Test an automation trigger (dry run)
+  rpc TestAutomation(TestAutomationRequest) returns (TestAutomationResponse);
+
+  // Get automation execution logs
+  rpc GetAutomationLogs(GetAutomationLogsRequest) returns (GetAutomationLogsResponse);
+
+  // Get collection configuration
+  rpc GetCollectionConfig(GetCollectionConfigRequest) returns (GetCollectionConfigResponse);
+
+  // Set collection configuration
+  rpc SetCollectionConfig(SetCollectionConfigRequest) returns (SetCollectionConfigResponse);
+
+  // List all collection configurations
+  rpc ListCollectionConfigs(ListCollectionConfigsRequest) returns (ListCollectionConfigsResponse);
+
+  // Cross-collection vector search
+  rpc CrossSearch(CrossSearchRequest) returns (CrossSearchResponse);
+
+  // Find duplicate documents in a collection
+  rpc FindDuplicates(FindDuplicatesRequest) returns (FindDuplicatesResponse);
+
+  // List revision history for a document
+  rpc ListRevisions(ListRevisionsRequest) returns (ListRevisionsResponse);
+
+  // Restore a document from a specific revision
+  rpc RestoreRevision(RestoreRevisionRequest) returns (Document);
 }
 
 // Document represents a markdown document
@@ -556,6 +628,381 @@ message ClassifyResponse {
   repeated ClassifyLabelScore results = 1;
   string model = 2;               // Embedding model used
   int32 dimensions = 3;           // Embedding dimensions
+}
+
+// --- Delete Document ---
+
+message DeleteDocumentRequest {
+  string collection = 1;
+  string key = 2;
+  string lang = 3;
+}
+
+message DeleteDocumentResponse {
+  string status = 1;
+  string collection = 2;
+  string key = 3;
+  string lang = 4;
+}
+
+// --- Delete Collection ---
+
+message DeleteCollectionRequest {
+  string collection = 1;
+}
+
+message DeleteCollectionResponse {
+  string status = 1;
+  string collection = 2;
+  int32 deleted_count = 3;
+}
+
+// --- Synonyms ---
+
+message SynonymEntry {
+  string term = 1;
+  repeated string synonyms = 2;
+}
+
+message ListSynonymsRequest {
+  string collection = 1;
+}
+
+message ListSynonymsResponse {
+  string collection = 1;
+  repeated SynonymEntry entries = 2;
+  int32 total = 3;
+}
+
+message AddSynonymRequest {
+  string collection = 1;
+  string term = 2;
+  repeated string synonyms = 3;
+}
+
+message AddSynonymResponse {
+  string status = 1;
+}
+
+message DeleteSynonymRequest {
+  string collection = 1;
+  string term = 2;
+}
+
+message DeleteSynonymResponse {
+  string status = 1;
+}
+
+// --- Stopwords ---
+
+message StopwordEntry {
+  string word = 1;
+  bool is_default = 2;
+}
+
+message ListStopwordsRequest {
+  string collection = 1;
+}
+
+message ListStopwordsResponse {
+  string collection = 1;
+  repeated StopwordEntry entries = 2;
+  int32 total = 3;
+  int32 defaults = 4;
+  int32 custom = 5;
+}
+
+message AddStopwordsRequest {
+  string collection = 1;
+  repeated string words = 2;
+}
+
+message AddStopwordsResponse {
+  string status = 1;
+  int32 added = 2;
+}
+
+message DeleteStopwordsRequest {
+  string collection = 1;
+  repeated string words = 2;
+}
+
+message DeleteStopwordsResponse {
+  string status = 1;
+  int32 deleted = 2;
+  repeated string errors = 3;
+}
+
+// --- Meta Keys ---
+
+message GetMetaKeysRequest {
+  string collection = 1;
+}
+
+message GetMetaKeysResponse {
+  map<string, MetaValues> meta = 1;
+}
+
+// --- Checksum ---
+
+message GetChecksumRequest {
+  string collection = 1;
+}
+
+message GetChecksumResponse {
+  string collection = 1;
+  string checksum = 2;
+  int32 document_count = 3;
+}
+
+// --- Automation ---
+
+message AutomationRuleProto {
+  string id = 1;
+  string type = 2;            // "webhook", "trigger", "cron"
+  string name = 3;
+  bool enabled = 4;
+  int64 created_at = 5;
+  int64 updated_at = 6;
+  // Webhook fields
+  string url = 7;
+  string method = 8;
+  map<string, string> headers = 9;
+  // Trigger fields
+  string collection = 10;
+  string search_type = 11;     // "fts", "vector", "hybrid"
+  string query = 12;
+  double threshold = 13;
+  string webhook_id = 14;
+  string search_params_json = 15; // JSON-encoded extra params
+  repeated string events = 16;
+  bool sentiment_enabled = 17;
+  double sentiment_min = 18;
+  double sentiment_max = 19;
+  string condition_logic = 20; // "and", "or"
+  // Cron fields
+  string schedule = 21;
+  string trigger_id = 22;
+  int64 last_run = 23;
+  int64 next_run = 24;
+}
+
+message ListAutomationRequest {
+  string type = 1; // optional filter: "trigger", "cron", "webhook"
+}
+
+message ListAutomationResponse {
+  repeated AutomationRuleProto rules = 1;
+  int32 total = 2;
+}
+
+message CreateAutomationRequest {
+  AutomationRuleProto rule = 1;
+}
+
+message GetAutomationRequest {
+  string id = 1;
+}
+
+message UpdateAutomationRequest {
+  string id = 1;
+  AutomationRuleProto rule = 2;
+}
+
+message DeleteAutomationResponse {
+  string status = 1;
+  string id = 2;
+}
+
+message DeleteAutomationRequest {
+  string id = 1;
+}
+
+message TestAutomationRequest {
+  string id = 1;
+}
+
+message TestAutomationResponse {
+  AutomationRuleProto trigger = 1;
+  repeated Document matches = 2;
+  int32 total = 3;
+}
+
+message AutomationLogEntryProto {
+  string id = 1;
+  int64 timestamp = 2;
+  string rule_id = 3;
+  string rule_name = 4;
+  string rule_type = 5;
+  string webhook_id = 6;
+  string webhook_url = 7;
+  string status = 8;
+  int32 http_status = 9;
+  int64 duration_ms = 10;
+  string error = 11;
+  int32 attempt = 12;
+}
+
+message GetAutomationLogsRequest {
+  int32 limit = 1;
+  string cursor = 2;
+  string rule_id = 3;
+  string status = 4;
+}
+
+message GetAutomationLogsResponse {
+  repeated AutomationLogEntryProto logs = 1;
+  int32 total = 2;
+  string next_cursor = 3;
+  bool has_more = 4;
+}
+
+// --- Collection Config ---
+
+message CollectionConfigProto {
+  string type = 1;
+  string description = 2;
+  string icon = 3;
+  string color = 4;
+  map<string, string> custom_meta = 5;
+}
+
+message GetCollectionConfigRequest {
+  string collection = 1;
+}
+
+message GetCollectionConfigResponse {
+  string collection = 1;
+  CollectionConfigProto config = 2;
+  bool configured = 3;
+}
+
+message SetCollectionConfigRequest {
+  string collection = 1;
+  string type = 2;
+  string description = 3;
+  string icon = 4;
+  string color = 5;
+  map<string, string> custom_meta = 6;
+}
+
+message SetCollectionConfigResponse {
+  string status = 1;
+  string collection = 2;
+}
+
+message ListCollectionConfigsRequest {}
+
+message CollectionConfigEntry {
+  string collection = 1;
+  CollectionConfigProto config = 2;
+}
+
+message ListCollectionConfigsResponse {
+  repeated CollectionConfigEntry configs = 1;
+  int32 total = 2;
+}
+
+// --- Cross Search ---
+
+message CrossSearchRequest {
+  string source_collection = 1;
+  string source_doc_id = 2;
+  string query = 3;
+  repeated float query_vector = 4;
+  repeated string target_collections = 5;
+  int32 top_k = 6;
+  double threshold = 7;
+  string algorithm = 8;
+  string distance_metric = 9;
+  map<string, MetaValues> filter_meta = 10;
+  bool include_content = 11;
+}
+
+message CrossSearchResultItem {
+  string collection = 1;
+  Document document = 2;
+  float score = 3;
+  int32 rank = 4;
+}
+
+message CrossSearchResponse {
+  repeated CrossSearchResultItem results = 1;
+  int32 total = 2;
+  string source_collection = 3;
+  string source_doc_id = 4;
+  repeated string target_collections = 5;
+  string algorithm = 6;
+  string distance_metric = 7;
+}
+
+// --- Find Duplicates ---
+
+message FindDuplicatesRequest {
+  string collection = 1;
+  string mode = 2;              // "exact", "similar", "both" (default)
+  double threshold = 3;         // 0.9 default
+  int32 max_docs = 4;           // 5000 default
+  string distance_metric = 5;   // "cosine" default
+  bool include_content = 6;
+}
+
+message DuplicateDocInfoProto {
+  string doc_id = 1;
+  string key = 2;
+  string content_hash = 3;
+  string content_md = 4;
+  float score = 5;
+}
+
+message DuplicateGroupProto {
+  int32 group_id = 1;
+  string type = 2;              // "exact" or "similar"
+  repeated DuplicateDocInfoProto documents = 3;
+  float score = 4;
+}
+
+message FindDuplicatesResponse {
+  string collection = 1;
+  string mode = 2;
+  double threshold = 3;
+  string distance_metric = 4;
+  int32 total_documents = 5;
+  int32 total_embedded = 6;
+  repeated DuplicateGroupProto exact_groups = 7;
+  repeated DuplicateGroupProto similar_groups = 8;
+  int32 exact_duplicates = 9;
+  int32 similar_pairs = 10;
+}
+
+// --- Revisions ---
+
+message ListRevisionsRequest {
+  string collection = 1;
+  string key = 2;
+  string lang = 3;
+}
+
+message RevisionEntryProto {
+  int64 timestamp = 1;
+  int64 updated_at = 2;
+  string content_md = 3;
+  map<string, MetaValues> meta = 4;
+}
+
+message ListRevisionsResponse {
+  string collection = 1;
+  string key = 2;
+  string lang = 3;
+  repeated RevisionEntryProto revisions = 4;
+  int32 total = 5;
+}
+
+message RestoreRevisionRequest {
+  string collection = 1;
+  string key = 2;
+  string lang = 3;
+  int64 timestamp = 4;
 }
 
 // ---- Replication Service ----

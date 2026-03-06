@@ -61,7 +61,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: "2.6.9"
+  version: "2.7.0"
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -122,6 +122,12 @@ tags:
     description: GraphQL API and interactive playground
   - name: Automation
     description: Triggers, crons, and webhook targets for automated workflows
+  - name: Revisions
+    description: Document revision history and restore operations
+  - name: Collection Config
+    description: Per-collection type, description, icon, color, and custom metadata
+  - name: Cross-Collection Search
+    description: Search across multiple collections using embeddings or text queries
 
 paths:
   /health:
@@ -2250,7 +2256,7 @@ paths:
                 query:
                   type: string
                   description: GraphQL query or mutation string
-                  example: '{ stats { totalDocuments } }'
+                  example: "{ stats { totalDocuments } }"
                 variables:
                   type: object
                   additionalProperties: true
@@ -2322,7 +2328,7 @@ paths:
                   rules:
                     type: array
                     items:
-                      $ref: '#/components/schemas/AutomationRule'
+                      $ref: "#/components/schemas/AutomationRule"
                   total:
                     type: integer
     post:
@@ -2334,14 +2340,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AutomationRule'
+              $ref: "#/components/schemas/AutomationRule"
       responses:
         "201":
           description: Rule created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AutomationRule'
+                $ref: "#/components/schemas/AutomationRule"
         "400":
           description: Validation error
 
@@ -2361,7 +2367,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AutomationRule'
+                $ref: "#/components/schemas/AutomationRule"
         "404":
           description: Not found
     put:
@@ -2378,14 +2384,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AutomationRule'
+              $ref: "#/components/schemas/AutomationRule"
       responses:
         "200":
           description: Rule updated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AutomationRule'
+                $ref: "#/components/schemas/AutomationRule"
     delete:
       tags: [Automation]
       summary: Delete automation rule
@@ -2434,7 +2440,7 @@ paths:
                   matches:
                     type: array
                     items:
-                      $ref: '#/components/schemas/TriggerMatch'
+                      $ref: "#/components/schemas/TriggerMatch"
                   total:
                     type: integer
 
@@ -2479,7 +2485,7 @@ paths:
                   logs:
                     type: array
                     items:
-                      $ref: '#/components/schemas/AutomationLogEntry'
+                      $ref: "#/components/schemas/AutomationLogEntry"
                   total:
                     type: integer
                   nextCursor:
@@ -2501,7 +2507,7 @@ paths:
             type: string
           description: Collection name
       responses:
-        '200':
+        "200":
           description: Metadata keys with their unique values
           content:
             application/json:
@@ -2518,7 +2524,7 @@ paths:
                   meta:
                     tag: ["go", "rust", "python"]
                     author: ["alice", "bob"]
-        '400':
+        "400":
           description: Missing collection parameter
 
   /v1/checksum:
@@ -2535,7 +2541,7 @@ paths:
             type: string
           description: Collection name
       responses:
-        '200':
+        "200":
           description: Collection checksum and document count
           content:
             application/json:
@@ -2553,7 +2559,7 @@ paths:
                   collection: "blog"
                   checksum: "a1b2c3d4"
                   documentCount: 42
-        '400':
+        "400":
           description: Missing collection parameter
 
   /v1/update:
@@ -2612,17 +2618,17 @@ paths:
                   lang: "en"
                   contentMd: "# New Content"
       responses:
-        '200':
+        "200":
           description: Updated document
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Document'
-        '400':
+                $ref: "#/components/schemas/Document"
+        "400":
           description: Missing required fields or no fields to update
-        '404':
+        "404":
           description: Document not found
-        '405':
+        "405":
           description: Method not allowed
 
   /v1/doc-meta:
@@ -2651,7 +2657,7 @@ paths:
             default: "en"
           description: Language code (defaults to "en")
       responses:
-        '200':
+        "200":
           description: Document metadata
           content:
             application/json:
@@ -2682,9 +2688,9 @@ paths:
                     author: ["alice"]
                   addedAt: 1709600000
                   updatedAt: 1709610000
-        '400':
+        "400":
           description: Missing required parameters
-        '404':
+        "404":
           description: Document not found
 
   /v1/classify:
@@ -2736,7 +2742,7 @@ paths:
               text: "Go is a statically typed, compiled language designed at Google"
               labels: ["programming", "cooking", "sports", "music"]
       responses:
-        '200':
+        "200":
           description: Classification results
           content:
             application/json:
@@ -2768,10 +2774,343 @@ paths:
                     score: 0.12
                 model: "text-embedding-3-small"
                 dimensions: 1536
-        '400':
+        "400":
           description: Missing labels, invalid request, or no embedding provider
-        '404':
+        "404":
           description: Referenced document not found
+
+  /v1/revisions:
+    post:
+      tags:
+        - Revisions
+      summary: List document revision history
+      description: |
+        Returns the revision history for a specific document, ordered by timestamp descending.
+        Each revision includes the content and metadata at that point in time.
+      operationId: listRevisions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - collection
+                - key
+                - lang
+              properties:
+                collection:
+                  type: string
+                  description: Collection name
+                  example: blog
+                key:
+                  type: string
+                  description: Document key
+                  example: hello-world
+                lang:
+                  type: string
+                  description: Language code
+                  example: en_US
+      responses:
+        "200":
+          description: Revision history retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collection:
+                    type: string
+                    example: blog
+                  key:
+                    type: string
+                    example: hello-world
+                  lang:
+                    type: string
+                    example: en_US
+                  revisions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RevisionEntry"
+                  total:
+                    type: integer
+                    description: Total number of revisions
+                    example: 3
+        "400":
+          description: Missing required fields
+        "404":
+          description: Document not found
+
+  /v1/revisions/restore:
+    post:
+      tags:
+        - Revisions
+      summary: Restore a document to a previous revision
+      description: |
+        Restores a document to the state it was in at a specific revision timestamp.
+        The restored content becomes the current version of the document.
+      operationId: restoreRevision
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - collection
+                - key
+                - lang
+                - timestamp
+              properties:
+                collection:
+                  type: string
+                  description: Collection name
+                  example: blog
+                key:
+                  type: string
+                  description: Document key
+                  example: hello-world
+                lang:
+                  type: string
+                  description: Language code
+                  example: en_US
+                timestamp:
+                  type: integer
+                  format: int64
+                  description: Unix timestamp of the revision to restore
+                  example: 1704844800
+      responses:
+        "200":
+          description: Document restored successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        "400":
+          description: Missing required fields or invalid timestamp
+        "404":
+          description: Document or revision not found
+
+  /v1/collection-config:
+    get:
+      tags:
+        - Collection Config
+      summary: Get collection configuration
+      description: Get the configuration for a specific collection including type, description, icon, color, and custom metadata.
+      operationId: getCollectionConfig
+      parameters:
+        - name: collection
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Collection name
+          example: blog
+      responses:
+        "200":
+          description: Collection configuration retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collection:
+                    type: string
+                    example: blog
+                  config:
+                    $ref: "#/components/schemas/CollectionConfig"
+                  configured:
+                    type: boolean
+                    description: Whether the collection has been explicitly configured
+                    example: true
+        "400":
+          description: Missing collection parameter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      tags:
+        - Collection Config
+      summary: Set collection configuration
+      description: Set or update the configuration for a collection.
+      operationId: setCollectionConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - collection
+              properties:
+                collection:
+                  type: string
+                  description: Collection name
+                  example: blog
+                type:
+                  type: string
+                  description: Collection type
+                  example: website
+                description:
+                  type: string
+                  description: Collection description
+                  example: Blog posts and articles
+                icon:
+                  type: string
+                  description: Collection icon (emoji or icon name)
+                  example: "\uD83C\uDF10"
+                color:
+                  type: string
+                  description: Collection color (hex code)
+                  example: "#3B82F6"
+                customMeta:
+                  type: object
+                  additionalProperties: true
+                  description: Custom key-value metadata for the collection
+      responses:
+        "200":
+          description: Collection configuration set successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  collection:
+                    type: string
+                    example: blog
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      tags:
+        - Collection Config
+      summary: Delete collection configuration
+      description: Delete the configuration for a specific collection.
+      operationId: deleteCollectionConfig
+      parameters:
+        - name: collection
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Collection name
+          example: blog
+      responses:
+        "200":
+          description: Collection configuration deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  collection:
+                    type: string
+                    example: blog
+        "400":
+          description: Missing collection parameter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/collection-configs:
+    get:
+      tags:
+        - Collection Config
+      summary: List all collection configurations
+      description: Get all collection configurations.
+      operationId: listCollectionConfigs
+      responses:
+        "200":
+          description: All collection configurations retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  configs:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        collection:
+                          type: string
+                          example: blog
+                        config:
+                          $ref: "#/components/schemas/CollectionConfig"
+                  total:
+                    type: integer
+                    description: Total number of configured collections
+                    example: 3
+
+  /v1/cross-search:
+    post:
+      tags:
+        - Cross-Collection Search
+      summary: Cross-collection vector search
+      description: |
+        Search across multiple collections using a source document's embedding vector or a text query.
+        Useful for finding related content across different collection types (e.g., images matching blog post content).
+      operationId: crossSearch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrossSearchRequest"
+      responses:
+        "200":
+          description: Cross-collection search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrossSearchResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/find-duplicates:
+    post:
+      tags:
+        - Duplicate Detection
+      summary: Find duplicate and similar documents
+      description: |
+        Scans a collection for duplicate and similar documents using content hashes and embedding vectors.
+        Exact mode groups documents with identical content hashes. Similar mode compares embedding vectors
+        pairwise and clusters documents above the similarity threshold using transitive clustering.
+      operationId: findDuplicates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FindDuplicatesRequest"
+      responses:
+        "200":
+          description: Duplicate detection results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FindDuplicatesResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
 components:
   schemas:
@@ -3095,6 +3434,12 @@ components:
             - **pq**: Product Quantization (compressed, lowest memory, slightly less accurate)
           default: flat
           example: flat
+        distanceMetric:
+          type: string
+          enum: [cosine, dot_product, euclidean]
+          description: Distance metric for similarity computation
+          default: cosine
+          example: cosine
 
     VectorSearchResponse:
       type: object
@@ -3119,6 +3464,12 @@ components:
           type: string
           description: Algorithm used for this search
           example: flat
+        distanceMetric:
+          type: string
+          description: Distance metric used for this search
+          example: cosine
+        searchStats:
+          $ref: "#/components/schemas/SearchStats"
 
     VectorSearchResultItem:
       type: object
@@ -3320,6 +3671,8 @@ components:
           type: integer
           description: Typo tolerance level used
           example: 0
+        searchStats:
+          $ref: "#/components/schemas/SearchStats"
 
     FTSResultItem:
       type: object
@@ -3708,6 +4061,12 @@ components:
           type: boolean
           description: Disable synonym expansion for FTS
           default: false
+        distanceMetric:
+          type: string
+          enum: [cosine, dot_product, euclidean]
+          description: Distance metric for similarity computation
+          default: cosine
+          example: cosine
 
     HybridSearchResponse:
       type: object
@@ -3740,6 +4099,12 @@ components:
           type: string
           description: Vector algorithm used
           example: flat
+        distanceMetric:
+          type: string
+          description: Distance metric used for this search
+          example: cosine
+        searchStats:
+          $ref: "#/components/schemas/SearchStats"
 
     HybridSearchResultItem:
       type: object
@@ -3921,7 +4286,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.6.9
+          example: 2.7.0
         uptimeSeconds:
           type: integer
           format: int64
@@ -3985,7 +4350,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.6.9
+          example: 2.7.0
         databasePath:
           type: string
           description: Path to the database file
@@ -4048,6 +4413,10 @@ components:
           type: boolean
           description: Whether Prometheus metrics are enabled
           example: true
+        searchStatsEnabled:
+          type: boolean
+          description: Whether search statistics are included in search responses
+          example: false
         replicationRole:
           type: string
           description: Replication role of this node
@@ -4586,6 +4955,286 @@ components:
           type: string
         attempt:
           type: integer
+
+    SearchStats:
+      type: object
+      description: Statistics about a search execution
+      properties:
+        durationMs:
+          type: integer
+          description: Search execution time in milliseconds
+          example: 12
+        queryTerms:
+          type: array
+          items:
+            type: string
+          description: Tokenized query terms
+          example: [cancel, subscription]
+        indexSize:
+          type: integer
+          description: Documents in search scope
+          example: 150
+        totalTokens:
+          type: integer
+          description: Number of tokens in query
+          example: 2
+
+    RevisionEntry:
+      type: object
+      properties:
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix timestamp of the revision
+          example: 1704844800
+        updatedAt:
+          type: integer
+          format: int64
+          description: Unix timestamp when the revision was saved
+          example: 1704844800
+        contentMd:
+          type: string
+          description: Markdown content at this revision
+          example: "# Hello World\n\nOriginal content."
+        meta:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Metadata at this revision
+          example:
+            category: [blog]
+            author: [John Doe]
+
+    CollectionConfig:
+      type: object
+      properties:
+        type:
+          type: string
+          description: Collection type (e.g., default, website, images, audio, documents)
+          example: website
+        description:
+          type: string
+          description: Collection description
+          example: Blog posts and articles
+        icon:
+          type: string
+          description: Collection icon (emoji or icon name)
+          example: "\uD83C\uDF10"
+        color:
+          type: string
+          description: Collection color (hex code)
+          example: "#3B82F6"
+        customMeta:
+          type: object
+          additionalProperties: true
+          description: Custom key-value metadata for the collection
+
+    CrossSearchRequest:
+      type: object
+      properties:
+        sourceCollection:
+          type: string
+          description: Collection containing the source document (for document-as-query)
+          example: content
+        sourceDocID:
+          type: string
+          description: ID of the source document whose embedding to use as query
+          example: post-123
+        query:
+          type: string
+          description: Text query (alternative to sourceCollection/sourceDocID)
+          example: machine learning tutorial
+        queryVector:
+          type: array
+          items:
+            type: number
+          description: Pre-computed query vector (alternative to query or source document)
+        targetCollections:
+          type: array
+          items:
+            type: string
+          description: Collections to search in
+          example: ["images", "audio"]
+        topK:
+          type: integer
+          description: Number of results to return
+          default: 10
+          example: 10
+        threshold:
+          type: number
+          description: Minimum similarity score
+          default: 0.0
+          example: 0.5
+        algorithm:
+          type: string
+          description: Vector search algorithm
+          enum: [flat, hnsw, ivf, pq, sq]
+          default: flat
+          example: flat
+        distanceMetric:
+          type: string
+          description: Distance metric for similarity computation
+          enum: [cosine, dot_product, euclidean]
+          default: cosine
+          example: cosine
+        filterMeta:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Metadata filters applied to target documents
+        includeContent:
+          type: boolean
+          description: Include document content in results
+          default: false
+          example: false
+
+    CrossSearchResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/CrossSearchResultItem"
+        total:
+          type: integer
+          description: Total number of results
+          example: 5
+        sourceCollection:
+          type: string
+          description: Source collection (if document-as-query was used)
+          example: content
+        sourceDocID:
+          type: string
+          description: Source document ID (if document-as-query was used)
+          example: post-123
+        targetCollections:
+          type: array
+          items:
+            type: string
+          description: Collections that were searched
+          example: ["images", "audio"]
+        algorithm:
+          type: string
+          description: Vector search algorithm used
+          example: flat
+        distanceMetric:
+          type: string
+          description: Distance metric used
+          example: cosine
+        searchStats:
+          $ref: "#/components/schemas/SearchStats"
+
+    CrossSearchResultItem:
+      type: object
+      properties:
+        collection:
+          type: string
+          description: Collection the result came from
+          example: images
+        document:
+          $ref: "#/components/schemas/Document"
+        score:
+          type: number
+          format: float
+          description: Similarity score
+          example: 0.89
+        rank:
+          type: integer
+          description: Result rank (1-based)
+          example: 1
+
+    FindDuplicatesRequest:
+      type: object
+      required:
+        - collection
+      properties:
+        collection:
+          type: string
+          description: Collection to scan
+        mode:
+          type: string
+          enum: [exact, similar, both]
+          default: both
+          description: "Detection mode: exact (content hash), similar (embedding similarity), or both"
+        threshold:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 0.9
+          description: Similarity threshold for similar mode
+        maxDocs:
+          type: integer
+          default: 5000
+          description: Maximum documents to process (safety bound)
+        distanceMetric:
+          type: string
+          enum: [cosine, dot_product, euclidean]
+          default: cosine
+        includeContent:
+          type: boolean
+          default: false
+    FindDuplicatesResponse:
+      type: object
+      properties:
+        collection:
+          type: string
+        mode:
+          type: string
+        threshold:
+          type: number
+        distanceMetric:
+          type: string
+        totalDocuments:
+          type: integer
+        totalEmbedded:
+          type: integer
+        exactGroups:
+          type: array
+          items:
+            $ref: "#/components/schemas/DuplicateGroup"
+        similarGroups:
+          type: array
+          items:
+            $ref: "#/components/schemas/DuplicateGroup"
+        exactDuplicates:
+          type: integer
+        similarPairs:
+          type: integer
+        searchStats:
+          $ref: "#/components/schemas/SearchStats"
+    DuplicateGroup:
+      type: object
+      properties:
+        groupId:
+          type: integer
+        type:
+          type: string
+          enum: [exact, similar]
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/DuplicateDocInfo"
+        score:
+          type: number
+          description: Average similarity score for the group
+    DuplicateDocInfo:
+      type: object
+      properties:
+        docId:
+          type: string
+        key:
+          type: string
+        contentHash:
+          type: string
+        contentMd:
+          type: string
+        score:
+          type: number
+          description: Max similarity to another document in the group
 
   securitySchemes:
     BearerAuth:

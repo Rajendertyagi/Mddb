@@ -228,7 +228,7 @@ Complete list of MDDB features organized by category.
 
 ### Docker Support
 - **Multi-arch Images** - amd64, arm64, armv7
-- **Alpine Linux** - Minimal image size (~15MB)
+- **Alpine Linux** - Minimal image size (~29MB)
 - **Health Checks** - Built-in health check endpoint
 - **Volume Persistence** - Mount `/data` for database
 - **Environment Config** - All settings via env vars

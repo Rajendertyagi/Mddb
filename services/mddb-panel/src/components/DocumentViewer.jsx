@@ -1,4 +1,4 @@
-import { X, Calendar, Tag, FileText, Copy, Check, Edit, Trash2, Loader2, AlertTriangle } from 'lucide-react';
+import { X, Calendar, Tag, FileText, Copy, Check, Edit, Trash2, Loader2, AlertTriangle, History } from 'lucide-react';
 import { useState, Component } from 'react';
 import { format } from 'date-fns';
 import ReactMarkdown from 'react-markdown';
@@ -9,6 +9,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useStore } from '../lib/store';
 import DocumentEditor from './DocumentEditor';
+import RevisionHistory from './RevisionHistory';
 
 // Error Boundary component
 class ErrorBoundary extends Component {
@@ -29,10 +30,10 @@ class ErrorBoundary extends Component {
     if (this.state.hasError) {
       if (this.state.showRaw) {
         return (
-          <div style={{ 
-            padding: '16px', 
-            backgroundColor: '#f8fafc', 
-            border: '1px solid #e2e8f0', 
+          <div style={{
+            padding: '16px',
+            backgroundColor: '#f8fafc',
+            border: '1px solid #e2e8f0',
             borderRadius: '8px'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
@@ -55,11 +56,11 @@ class ErrorBoundary extends Component {
                 Back to Markdown
               </button>
             </div>
-            <pre style={{ 
-              fontSize: '14px', 
+            <pre style={{
+              fontSize: '14px',
               margin: 0,
-              padding: '12px', 
-              backgroundColor: '#fff', 
+              padding: '12px',
+              backgroundColor: '#fff',
               border: '1px solid #e2e8f0',
               borderRadius: '4px',
               overflow: 'auto',
@@ -74,10 +75,10 @@ class ErrorBoundary extends Component {
       }
 
       return (
-        <div style={{ 
-          padding: '16px', 
-          backgroundColor: '#fef2f2', 
-          border: '1px solid #fecaca', 
+        <div style={{
+          padding: '16px',
+          backgroundColor: '#fef2f2',
+          border: '1px solid #fecaca',
           borderRadius: '8px',
           color: '#dc2626'
         }}>
@@ -105,11 +106,11 @@ class ErrorBoundary extends Component {
             </button>
             <details style={{ margin: 0 }}>
               <summary style={{ cursor: 'pointer', fontSize: '12px', padding: '6px 0' }}>Error details</summary>
-              <pre style={{ 
-                fontSize: '11px', 
-                marginTop: '8px', 
-                padding: '8px', 
-                backgroundColor: '#fff', 
+              <pre style={{
+                fontSize: '11px',
+                marginTop: '8px',
+                padding: '8px',
+                backgroundColor: '#fff',
                 border: '1px solid #e5e7eb',
                 borderRadius: '4px',
                 overflow: 'auto',
@@ -131,6 +132,7 @@ export default function DocumentViewer() {
   const { currentDocument, clearCurrentDocument, deleteDocument } = useStore();
   const [copied, setCopied] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
+  const [showRevisions, setShowRevisions] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
 
   if (!currentDocument) return null;
@@ -158,7 +160,6 @@ export default function DocumentViewer() {
 
   const handleSaveComplete = () => {
     setShowEditor(false);
-    // Optionally refresh the document list here
   };
 
   const handleDelete = () => {
@@ -172,7 +173,6 @@ export default function DocumentViewer() {
       setDeleteConfirm(false);
     } catch (error) {
       console.error('Failed to delete document:', error);
-      // You could add error handling here (toast, alert, etc.)
     }
   };
 
@@ -199,6 +199,39 @@ export default function DocumentViewer() {
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              onClick={() => setShowEditor(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '8px',
+                padding: '6px 12px', fontSize: '14px',
+                backgroundColor: '#2563eb', color: 'white',
+                borderRadius: '8px', border: 'none', cursor: 'pointer'
+              }}
+            >
+              <Edit style={{ width: '16px', height: '16px' }} />
+              <span>Edit</span>
+            </button>
+            <button
+              onClick={handleCopy}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '8px',
+                padding: '6px 12px', fontSize: '14px',
+                backgroundColor: '#f3f4f6', color: '#374151',
+                borderRadius: '8px', border: 'none', cursor: 'pointer'
+              }}
+            >
+              {copied ? (
+                <>
+                  <Check style={{ width: '16px', height: '16px' }} />
+                  <span>Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Copy style={{ width: '16px', height: '16px' }} />
+                  <span>Copy</span>
+                </>
+              )}
+            </button>
             <button
               onClick={handleDelete}
               style={{ padding: '8px', color: '#9ca3af', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: 'transparent' }}
@@ -244,47 +277,10 @@ export default function DocumentViewer() {
 
       {/* Content */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-          <h4 style={{ fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Content
-          </h4>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button
-              onClick={() => setShowEditor(true)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '8px',
-                padding: '6px 12px', fontSize: '14px',
-                backgroundColor: '#2563eb', color: 'white',
-                borderRadius: '8px', border: 'none', cursor: 'pointer'
-              }}
-            >
-              <Edit style={{ width: '16px', height: '16px' }} />
-              <span>Edit</span>
-            </button>
-            <button
-              onClick={handleCopy}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '8px',
-                padding: '6px 12px', fontSize: '14px',
-                backgroundColor: '#f3f4f6', color: '#374151',
-                borderRadius: '8px', border: 'none', cursor: 'pointer'
-              }}
-            >
-              {copied ? (
-                <>
-                  <Check style={{ width: '16px', height: '16px' }} />
-                  <span>Copied!</span>
-                </>
-              ) : (
-                <>
-                  <Copy style={{ width: '16px', height: '16px' }} />
-                  <span>Copy</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-        
+        <h4 style={{ fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '16px' }}>
+          Content
+        </h4>
+
         <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '16px', border: '1px solid #e5e7eb', margin: '0', maxWidth: '100%', overflow: 'hidden' }}>
           <ErrorBoundary>
             <ReactMarkdown
@@ -294,7 +290,7 @@ export default function DocumentViewer() {
                 code: ({ node, inline, className, children, ...props }) => {
                   const match = /language-(\w+)/.exec(className || '');
                   const language = match ? match[1] : '';
-                  
+
                   return !inline && language ? (
                     <SyntaxHighlighter
                       style={vscDarkPlus}
@@ -335,21 +331,28 @@ export default function DocumentViewer() {
           <div>
             <span style={{ color: '#6b7280' }}>Added:</span>
             <span style={{ marginLeft: '8px', fontWeight: '500', color: '#111827' }}>
-              {currentDocument.addedAt 
+              {currentDocument.addedAt
                 ? format(new Date(currentDocument.addedAt * 1000), 'PP')
                 : 'N/A'}
             </span>
           </div>
           <div>
-            <span style={{ color: '#6b7280' }}>Revision:</span>
-            <span style={{ marginLeft: '8px', fontWeight: '500', color: '#111827' }}>
-              {currentDocument.revision || 0}
-            </span>
+            <button
+              onClick={() => setShowRevisions(true)}
+              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+            >
+              <History style={{ width: '14px', height: '14px', color: '#6b7280' }} />
+              <span style={{ color: '#6b7280' }}>Revision:</span>
+              <span style={{ marginLeft: '4px', fontWeight: '500', color: '#2563eb' }}>
+                {currentDocument.revision || 0}
+              </span>
+              <span style={{ color: '#2563eb', fontSize: '11px', marginLeft: '4px' }}>(History)</span>
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Editor Modal */}
+      {/* Editor Full-Page Overlay */}
       {showEditor && (
         <DocumentEditor
           document={currentDocument}
@@ -358,14 +361,22 @@ export default function DocumentViewer() {
         />
       )}
 
+      {/* Revision History Full-Page Overlay */}
+      {showRevisions && (
+        <RevisionHistory
+          document={currentDocument}
+          onClose={() => setShowRevisions(false)}
+        />
+      )}
+
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
-        <div style={{ 
+        <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
           backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex',
           alignItems: 'center', justifyContent: 'center', zIndex: 50
         }}>
-          <div style={{ 
+          <div style={{
             backgroundColor: 'white', borderRadius: '8px', padding: '24px',
             maxWidth: '400px', width: '90%', margin: '0 16px'
           }}>

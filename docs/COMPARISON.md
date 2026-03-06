@@ -30,7 +30,7 @@ How MDDB compares to other database and content management solutions.
 **Advantages of MDDB:**
 - ✅ **Markdown-First** - Purpose-built, not generic JSON storage
 - ✅ **Triple Protocol** - HTTP, gRPC, GraphQL (MongoDB: wire protocol only)
-- ✅ **Smaller Footprint** - 15MB Docker image vs ~400MB
+- ✅ **Smaller Footprint** - 29MB Docker image vs ~400MB
 - ✅ **Type-Safe APIs** - gRPC/Protobuf + GraphQL schema
 - ✅ **Simpler Operations** - No sharding/replication complexity
 - ✅ **Built-in Full-Text Search** - No Atlas Search needed
@@ -48,7 +48,7 @@ How MDDB compares to other database and content management solutions.
 - ✅ **Lower Latency** - 34µs vs 3.2ms average
 - ✅ **Modern APIs** - gRPC + GraphQL vs HTTP-only
 - ✅ **Vector Search** - Built-in semantic search
-- ✅ **Smaller Size** - 15MB vs ~200MB Docker image
+- ✅ **Smaller Size** - 29MB vs ~200MB Docker image
 
 **When to use CouchDB instead:**
 - Need master-master replication
@@ -100,7 +100,7 @@ How MDDB compares to other database and content management solutions.
 
 **Advantages of MDDB:**
 - ✅ **Simpler** - Embedded DB vs separate database server
-- ✅ **Smaller** - 15MB Docker image vs ~600MB
+- ✅ **Smaller** - 29MB Docker image vs ~600MB
 - ✅ **Faster Startup** - Instant vs 30-60s
 - ✅ **Purpose-Built** - Markdown-specific vs generic headless CMS
 - ✅ **Triple Protocol** - HTTP + gRPC + GraphQL from start

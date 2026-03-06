@@ -12,9 +12,11 @@ export default function VectorSearchPanel() {
     vectorTopK, setVectorTopK,
     vectorThreshold, setVectorThreshold,
     vectorAlgorithm, setVectorAlgorithm,
+    vectorDistanceMetric, setVectorDistanceMetric,
     vectorResults, setVectorResults,
     vectorLoading, setVectorLoading,
     vectorError, setVectorError,
+    vectorSearchStats, setVectorSearchStats,
     searchFilterMeta,
     setCurrentDocument,
   } = useStore();
@@ -38,9 +40,11 @@ export default function VectorSearchPanel() {
         threshold: vectorThreshold,
         includeContent,
         algorithm: vectorAlgorithm,
+        distanceMetric: vectorDistanceMetric,
         filterMeta: searchFilterMeta,
       });
       setVectorResults(data.results || []);
+      setVectorSearchStats(data.searchStats || null);
     } catch (error) {
       const isIndexLoading = error.message && error.message.includes('vector index is loading');
       if (isIndexLoading && retryCount < 3) {
@@ -52,6 +56,7 @@ export default function VectorSearchPanel() {
         ? 'Vector index is still loading. Please wait a moment and try again.'
         : error.message);
       setVectorResults([]);
+      setVectorSearchStats(null);
     } finally {
       if (retryCount === 0 || retryCount >= 3) {
         setVectorLoading(false);
@@ -176,6 +181,18 @@ export default function VectorSearchPanel() {
               <option value="bq">BQ (Binary Quantized)</option>
             </select>
           </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Distance Metric</label>
+            <select
+              value={vectorDistanceMetric}
+              onChange={(e) => setVectorDistanceMetric(e.target.value)}
+              className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="cosine">Cosine Similarity</option>
+              <option value="dot_product">Dot Product</option>
+              <option value="euclidean">Euclidean</option>
+            </select>
+          </div>
           <label className="flex items-center space-x-2 text-sm text-gray-600 mt-4">
             <input
               type="checkbox"
@@ -215,10 +232,15 @@ export default function VectorSearchPanel() {
       {/* Results */}
       <div className="flex-1 overflow-y-auto">
         {vectorResults.length > 0 && (
-          <div className="px-4 pt-3 pb-1">
+          <div className="px-4 pt-3 pb-1 flex items-center justify-between">
             <span className="text-xs font-medium text-gray-500">
               {vectorResults.length} result{vectorResults.length !== 1 ? 's' : ''} found
             </span>
+            {vectorSearchStats && (
+              <span className="text-xs text-gray-400">
+                {vectorSearchStats.durationMs}ms | {vectorSearchStats.indexSize} indexed
+              </span>
+            )}
           </div>
         )}
 
@@ -336,6 +358,7 @@ export default function VectorSearchPanel() {
           topK: vectorTopK,
           threshold: vectorThreshold,
           algorithm: vectorAlgorithm,
+          distanceMetric: vectorDistanceMetric,
           includeContent,
           filterMeta: searchFilterMeta,
         }}

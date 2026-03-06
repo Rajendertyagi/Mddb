@@ -15,11 +15,13 @@ export default function HybridSearchPanel() {
     hybridRrfK, setHybridRrfK,
     hybridFtsAlgorithm, setHybridFtsAlgorithm,
     hybridVectorAlgorithm, setHybridVectorAlgorithm,
+    hybridDistanceMetric, setHybridDistanceMetric,
     hybridFuzzy, setHybridFuzzy,
     hybridThreshold, setHybridThreshold,
     hybridResults, setHybridResults,
     hybridLoading, setHybridLoading,
     hybridError, setHybridError,
+    hybridSearchStats, setHybridSearchStats,
     searchFilterMeta,
     setCurrentDocument,
   } = useStore();
@@ -45,12 +47,15 @@ export default function HybridSearchPanel() {
         fuzzy: hybridFuzzy,
         threshold: hybridThreshold,
         includeContent,
+        distanceMetric: hybridDistanceMetric,
         filterMeta: searchFilterMeta,
       });
       setHybridResults(data.results || []);
+      setHybridSearchStats(data.searchStats || null);
     } catch (error) {
       setHybridError(error.message);
       setHybridResults([]);
+      setHybridSearchStats(null);
     } finally {
       setHybridLoading(false);
     }
@@ -165,7 +170,7 @@ export default function HybridSearchPanel() {
         </div>
 
         {/* Algorithms */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">FTS Algorithm</label>
             <select
@@ -191,6 +196,18 @@ export default function HybridSearchPanel() {
               <option value="pq">PQ (Compressed)</option>
               <option value="sq">SQ (Scalar Quantized)</option>
               <option value="bq">BQ (Binary Quantized)</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Distance Metric</label>
+            <select
+              value={hybridDistanceMetric}
+              onChange={(e) => setHybridDistanceMetric(e.target.value)}
+              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="cosine">Cosine Similarity</option>
+              <option value="dot_product">Dot Product</option>
+              <option value="euclidean">Euclidean</option>
             </select>
           </div>
         </div>
@@ -276,10 +293,15 @@ export default function HybridSearchPanel() {
       {/* Results */}
       <div className="flex-1 overflow-y-auto">
         {hybridResults.length > 0 && (
-          <div className="px-4 pt-3 pb-1">
+          <div className="px-4 pt-3 pb-1 flex items-center justify-between">
             <span className="text-xs font-medium text-gray-500">
               {hybridResults.length} result{hybridResults.length !== 1 ? 's' : ''} found
             </span>
+            {hybridSearchStats && (
+              <span className="text-xs text-gray-400">
+                {hybridSearchStats.durationMs}ms | {hybridSearchStats.totalTokens} token{hybridSearchStats.totalTokens !== 1 ? 's' : ''}{hybridSearchStats.queryTerms?.length > 0 ? ` | ${hybridSearchStats.queryTerms.join(', ')}` : ''}
+              </span>
+            )}
           </div>
         )}
 
@@ -395,6 +417,7 @@ export default function HybridSearchPanel() {
           rrfK: hybridRrfK,
           fuzzy: hybridFuzzy,
           threshold: hybridThreshold,
+          distanceMetric: hybridDistanceMetric,
           includeContent,
           filterMeta: searchFilterMeta,
         }}

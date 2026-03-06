@@ -12,6 +12,26 @@ MDDB provides multiple integration paths:
 | **REST API** | ChatGPT, custom agents, any HTTP client | HTTP/JSON |
 | **gRPC API** | High-performance integrations | gRPC/Protobuf |
 
+## Domain Configuration
+
+Set `MDDB_MCP_DOMAIN` to your server hostname. The Panel's **LLM Connections** page reads this value and pre-fills it in the domain field — all generated configs use it automatically.
+
+| Env Var | Default | Example |
+|---------|---------|---------|
+| `MDDB_MCP_DOMAIN` | _(panel hostname)_ | `myserver.com` |
+
+```bash
+# Docker
+docker run -d -p 11023:11023 -p 9000:9000 \
+  -e MDDB_MCP_DOMAIN=myserver.com \
+  tradik/mddb:latest
+
+# Binary
+MDDB_MCP_DOMAIN=myserver.com ./mddbd
+```
+
+You can also change the domain directly in the Panel — the input field is above the config tabs on the LLM Connections page.
+
 ## Claude Desktop / Claude Code
 
 MCP is built directly into the MDDB server — no separate service needed.
@@ -60,16 +80,45 @@ Use the `mddbd` binary directly:
 }
 ```
 
-### Available MCP Tools
+### Available MCP Tools (51)
 
-Once connected, Claude has access to 25+ tools including:
+Once connected, your LLM agent has access to all 51 built-in tools:
 
-- `add_document` / `search_documents` / `delete_document`
-- `semantic_search` — vector/AI-powered search
-- `full_text_search` — keyword search with TF-IDF/BM25
-- `export_documents` / `create_backup` / `restore_backup`
-- `vector_reindex` / `vector_stats`
-- `classify_document` — zero-shot document classification
+**Document Management**
+`add_document` `update_document` `delete_document` `search_documents` `get_document_meta` `add_documents_batch` `delete_documents_batch`
+
+**Search**
+`semantic_search` `full_text_search` `hybrid_search` `cross_search`
+
+**Vector**
+`vector_reindex` `vector_stats`
+
+**Collections**
+`delete_collection` `get_collection_config` `set_collection_config` `list_collection_configs`
+
+**Analysis**
+`classify_document` `find_duplicates` `get_checksum`
+
+**Revisions**
+`list_revisions` `restore_revision` `truncate_revisions`
+
+**Export & Backup**
+`export_documents` `create_backup` `restore_backup` `import_url`
+
+**Full-Text Search Config**
+`list_synonyms` `add_synonym` `delete_synonym` `list_stopwords` `add_stopwords` `delete_stopwords`
+
+**Schemas**
+`set_schema` `get_schema` `delete_schema` `list_schemas` `validate_document`
+
+**Webhooks**
+`register_webhook` `list_webhooks` `delete_webhook`
+
+**Automation**
+`list_automation` `create_automation` `get_automation` `update_automation` `delete_automation` `test_automation` `get_automation_logs`
+
+**System**
+`get_stats` `set_ttl` `get_meta_keys`
 
 ## ChatGPT (Custom GPT)
 
@@ -78,13 +127,13 @@ Create a Custom GPT that connects to MDDB via its REST API.
 1. Go to [platform.openai.com/gpts](https://platform.openai.com/gpts)
 2. Create or edit a Custom GPT
 3. In **Configure** → **Actions** → **Create new action**
-4. Paste this OpenAPI schema (adjust the server URL):
+4. Paste this OpenAPI schema (replace the server URL with your domain):
 
 ```json
 {
   "openapi": "3.1.0",
-  "info": { "title": "MDDB API", "version": "2.6.9" },
-  "servers": [{ "url": "https://your-mddb-server.com" }],
+  "info": { "title": "MDDB API", "version": "2.7.0" },
+  "servers": [{ "url": "https://your-domain:11023" }],
   "paths": {
     "/v1/search": {
       "post": {
@@ -147,7 +196,7 @@ ollama pull llama3.2
 import requests
 import ollama
 
-MDDB_URL = "http://localhost:11023"
+MDDB_URL = "http://your-domain:11023"  # replace with your MDDB address
 
 def search_mddb(query, collection="docs", top_k=5):
     resp = requests.post(f"{MDDB_URL}/v1/vector-search", json={
@@ -201,7 +250,7 @@ Add MDDB tools to your Manus agent configuration:
 name: mddb_search
 description: "Search the MDDB knowledge base"
 type: api
-endpoint: "http://localhost:11023/v1/vector-search"
+endpoint: "http://your-domain:11023/v1/vector-search"
 method: POST
 headers:
   Content-Type: "application/json"
@@ -223,7 +272,7 @@ pip install requests
 ```python
 import requests
 
-MDDB_URL = "http://localhost:11023"
+MDDB_URL = "http://your-domain:11023"  # replace with your MDDB address
 BIELIK_API_URL = "https://api.bielik.ai/v1"
 BIELIK_API_KEY = "your-api-key"
 
@@ -269,6 +318,7 @@ See the [OpenAPI specification](openapi.yaml) for complete API details.
 ## Panel Configuration
 
 The MDDB Panel includes an **LLM Connections** page (sidebar → LLM Connections) with:
+- **Server Domain** input field — set once, all configs update automatically
 - Ready-to-use configuration templates for each agent
 - Dynamic server address substitution
 - Copy & Download buttons

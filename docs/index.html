@@ -5,26 +5,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description"
-        content="MDDB - High-performance markdown database with vector search, full-text search, webhooks, TTL, and triple protocol support (HTTP/JSON + gRPC/Protobuf + GraphQL). Perfect for CMS, RAG pipelines, and knowledge bases.">
+        content="MDDB - AI-native knowledge base with built-in MCP server, vector search, and RAG support. Plugs directly into Claude, ChatGPT, Cursor, Windsurf, and any MCP-compatible agent. Single binary, zero config.">
     <meta name="keywords"
-        content="markdown database, document database, version control, gRPC, protobuf, graphql, embedded database, content management, CMS, BoltDB, Go">
+        content="MCP server, AI knowledge base, RAG, LLM integration, Claude MCP, embedding database, semantic search, vector search, markdown database, document database, gRPC, protobuf, graphql, embedded database, BoltDB, Go">
     <meta name="author" content="MDDB Team">
     <meta name="robots" content="index, follow">
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://tradik.github.io/mddb/">
-    <meta property="og:title" content="MDDB - Markdown Database">
+    <meta property="og:title" content="MDDB - AI-Native Knowledge Base with MCP">
     <meta property="og:description"
-        content="High-performance markdown database with vector search, full-text search, webhooks, and triple protocol support (REST, gRPC, GraphQL)">
+        content="Knowledge base for AI agents with built-in MCP server, vector search, RAG, and semantic retrieval. Single binary, zero config.">
     <meta property="og:image" content="https://tradik.github.io/mddb/og-image.png">
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:url" content="https://tradik.github.io/mddb/">
-    <meta property="twitter:title" content="MDDB - Markdown Database">
+    <meta property="twitter:title" content="MDDB - AI-Native Knowledge Base with MCP">
     <meta property="twitter:description"
-        content="High-performance markdown database with vector search, full-text search, webhooks, and triple protocol support (REST, gRPC, GraphQL)">
+        content="Knowledge base for AI agents with built-in MCP server, vector search, RAG, and semantic retrieval. Single binary, zero config.">
     <meta property="twitter:image" content="https://tradik.github.io/mddb/og-image.png">
 
     <!-- Google Tag Manager -->
@@ -35,7 +35,7 @@
     })(window,document,'script','dataLayer','GTM-K296KCVM');</script>
     <!-- End Google Tag Manager -->
 
-    <title>MDDB - High-Performance Markdown Database</title>
+    <title>MDDB - AI-Native Knowledge Base with Built-in MCP Server</title>
     <link rel="canonical" href="https://tradik.github.io/mddb/">
     <link rel="stylesheet" href="styles.css">
 
@@ -49,34 +49,31 @@
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
       "name": "MDDB",
-      "applicationCategory": "DatabaseApplication",
+      "applicationCategory": "AIApplication",
       "operatingSystem": "Linux, macOS, Windows, FreeBSD",
       "offers": {
         "@type": "Offer",
         "price": "0",
         "priceCurrency": "USD"
       },
-      "description": "High-performance, version-controlled markdown database with dual protocol support (HTTP/JSON + gRPC/Protobuf + GraphQL)",
-      "softwareVersion": "2.6.9",
+      "description": "AI-native knowledge base with built-in MCP server, vector search, RAG support, and semantic retrieval for AI agents and LLM workflows",
+      "softwareVersion": "2.7.0",
       "featureList": [
-        "Markdown-native database",
-        "Triple protocol support (HTTP/JSON + gRPC/Protobuf + GraphQL)",
-        "GraphQL API with schema introspection and authentication directives",
-        "Full revision history",
-        "Vector/semantic search (OpenAI, Ollama, Voyage AI)",
-        "Full-text search with TF-IDF, BM25, BM25F, PMISparse",
-        "Document TTL with auto-expiry",
-        "Automation system (triggers, crons, webhooks, sentiment analysis)",
-        "Import from URL with frontmatter parsing",
-        "Model Context Protocol (MCP) server",
-        "Multi-language support",
-        "PHP and Python client libraries",
-        "JWT authentication and RBAC authorization",
-        "User and group-based permissions",
-        "Leader-follower replication for horizontal scaling",
+        "Built-in MCP server (stdio + HTTP) for Claude, Cursor, Windsurf",
+        "Vector/semantic search (OpenAI, Ollama, Cohere, Voyage AI)",
         "Hybrid search (sparse BM25 + dense vector) with alpha blending and RRF",
-        "In-graph metadata filtering for full-text search",
-        "Zero-shot document classification using embedding similarity"
+        "Zero-shot document classification using embedding similarity",
+        "Custom YAML-based MCP tools for domain-specific AI workflows",
+        "RAG pipeline support with auto-embeddings",
+        "Full-text search with TF-IDF, BM25, BM25F, PMISparse",
+        "Full revision history",
+        "Triple protocol support (HTTP/JSON + gRPC/Protobuf + GraphQL)",
+        "Automation system (triggers, crons, webhooks, sentiment analysis)",
+        "Document TTL with auto-expiry",
+        "JWT authentication and RBAC authorization",
+        "Leader-follower replication for horizontal scaling",
+        "Multi-language support",
+        "PHP and Python client libraries"
       ],
       "datePublished": "2026-03-05",
       "author": {
@@ -124,17 +121,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <header class="hero">
             <div class="container">
                 <div class="hero-content">
-                    <h1>High-Performance Markdown Database</h1>
-                    <p class="hero-subtitle">Version-controlled, embedded database with vector search, full-text search,
-                        GraphQL, webhooks, TTL, and triple protocol support</p>
+                    <h1>The Knowledge Base<br>Your AI Agent Needs</h1>
+                    <p class="hero-subtitle">Built-in MCP server, vector search, RAG, and hybrid retrieval. Plugs into Claude, ChatGPT, Cursor, Windsurf, and any MCP client — single ~29MB binary, zero config</p>
                     <div class="hero-badges">
-                        <span class="badge">v2.6.9</span>
-                        <span class="badge">Go 1.26+</span>
-                        <span class="badge">BSD-3-Clause</span>
+                        <span class="badge">51 MCP Tools</span>
+                        <span class="badge">v2.7.0</span>
+                        <span class="badge">RAG-Ready</span>
                         <span class="badge">Docker Ready</span>
                     </div>
                     <div class="hero-actions">
-                        <a href="#download" class="btn btn-primary">Download v2.6.9</a>
+                        <a href="#download" class="btn btn-primary">Download v2.7.0</a>
                         <a href="https://github.com/tradik/mddb" class="btn btn-secondary" target="_blank"
                             rel="noopener">View on GitHub</a>
                     </div>
@@ -145,16 +141,65 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             </div>
         </header>
 
+        <!-- AI Integrations Strip -->
+        <div class="ai-strip">
+            <div class="container">
+                <span class="ai-strip-label">Works with</span>
+                <div class="ai-strip-logos">
+                    <span>Claude</span>
+                    <span>ChatGPT</span>
+                    <span>Cursor</span>
+                    <span>Windsurf</span>
+                    <span>Ollama</span>
+                    <span>DeepSeek</span>
+                    <span>Manus</span>
+                    <span>Bielik.ai</span>
+                </div>
+            </div>
+        </div>
+
         <!-- Features Section -->
         <section id="features" class="features">
             <div class="container">
                 <h2>Why MDDB? <a href="#features" class="anchor-link" aria-label="Link to Features section">#</a></h2>
                 <div class="features-grid">
                     <div class="feature-card">
-                        <div class="feature-icon">🚀</div>
-                        <h3>High Performance</h3>
-                        <p>Optimized for speed with embedded BoltDB, binary protocol support, and advanced caching
-                            strategies</p>
+                        <div class="feature-icon">🤖</div>
+                        <h3>Built-in MCP Server</h3>
+                        <p>Connect Claude, Cursor, Windsurf, or any MCP client in seconds — stdio and HTTP modes, 51 built-in tools</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔍</div>
+                        <h3>Vector Search</h3>
+                        <p>Auto-embed documents, semantic similarity with 6 algorithms: Flat, HNSW, IVF, PQ, SQ, BQ (OpenAI, Ollama, Cohere, Voyage)
+                        </p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔀</div>
+                        <h3>Hybrid Search</h3>
+                        <p>Combine BM25 keyword and vector semantic search with alpha blending or Reciprocal Rank Fusion for RAG
+                        </p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🛠️</div>
+                        <h3>Custom MCP Tools</h3>
+                        <p>Define domain-specific AI tools in YAML with preconfigured defaults and parameters</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🧪</div>
+                        <h3>Zero-Shot Classification</h3>
+                        <p>Classify documents against candidate labels using embedding similarity, no training data needed
+                        </p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🧠</div>
+                        <h3>RAG-Ready</h3>
+                        <p>Purpose-built for retrieval-augmented generation — auto-embeddings, hybrid retrieval, MCP integration</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📖</div>
+                        <h3>Full-Text Search</h3>
+                        <p>Built-in inverted index with TF-IDF, BM25, BM25F, and PMISparse scoring, typo tolerance</p>
                     </div>
                     <div class="feature-card">
                         <div class="feature-icon">📚</div>
@@ -168,60 +213,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                             queries</p>
                     </div>
                     <div class="feature-card">
-                        <div class="feature-icon">🤖</div>
-                        <h3>MCP Integration</h3>
-                        <p>Model Context Protocol server for seamless LLM integration (Windsurf, Claude Desktop)</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">🌍</div>
-                        <h3>Multi-Language</h3>
-                        <p>Store documents in multiple languages with the same key</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">🔍</div>
-                        <h3>Vector Search</h3>
-                        <p>Semantic similarity with multiple algorithms: Flat, HNSW, IVF, PQ, SQ, BQ (OpenAI, Ollama, Voyage AI)
-                        </p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">📖</div>
-                        <h3>Full-Text Search</h3>
-                        <p>Built-in inverted index with TF-IDF, BM25, BM25F, and PMISparse scoring, typo tolerance</p>
-                    </div>
-                    <div class="feature-card">
                         <div class="feature-icon">🔔</div>
                         <h3>Automation</h3>
                         <p>Triggers, crons, webhooks with template variables, sentiment analysis, execution logs</p>
                     </div>
                     <div class="feature-card">
-                        <div class="feature-icon">⏱️</div>
-                        <h3>Document TTL</h3>
-                        <p>Auto-expiring documents with background cleanup, like Redis</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">🌐</div>
-                        <h3>Import from URL</h3>
-                        <p>Fetch markdown from any URL with frontmatter parsing</p>
-                    </div>
-                    <div class="feature-card">
                         <div class="feature-icon">⚡</div>
                         <h3>Zero Config</h3>
-                        <p>Single binary, embedded database, no external dependencies</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">🐳</div>
-                        <h3>Docker Ready</h3>
-                        <p>~15MB Alpine-based image with health checks</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">🔒</div>
-                        <h3>ACID Transactions</h3>
-                        <p>Guaranteed data consistency with BoltDB transactions</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">🛠️</div>
-                        <h3>Custom MCP Tools</h3>
-                        <p>Define website-specific AI tools in YAML with preconfigured defaults</p>
+                        <p>Single ~29MB binary, embedded database, no external dependencies</p>
                     </div>
                     <div class="feature-card">
                         <div class="feature-icon">🔐</div>
@@ -234,22 +233,30 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                         <p>Leader-follower replication with binlog streaming for horizontal read scaling</p>
                     </div>
                     <div class="feature-card">
-                        <div class="feature-icon">🔀</div>
-                        <h3>Hybrid Search</h3>
-                        <p>Combine BM25 keyword and vector semantic search with alpha blending or Reciprocal Rank Fusion
-                        </p>
-                    </div>
-                    <div class="feature-card">
                         <div class="feature-icon">🏷️</div>
-                        <h3>In-Graph FTS Filtering</h3>
+                        <h3>FTS Metadata Filtering</h3>
                         <p>Pre-filter full-text search results by metadata before scoring for precise, targeted queries
                         </p>
                     </div>
                     <div class="feature-card">
-                        <div class="feature-icon">🧪</div>
-                        <h3>Zero-Shot Classification</h3>
-                        <p>Classify documents against candidate labels using embedding similarity, no training data needed
-                        </p>
+                        <div class="feature-icon">🌍</div>
+                        <h3>Multi-Language</h3>
+                        <p>Store documents in multiple languages with the same key</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">⏱️</div>
+                        <h3>Document TTL</h3>
+                        <p>Auto-expiring documents with background cleanup, like Redis</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🌐</div>
+                        <h3>Import from URL</h3>
+                        <p>Fetch markdown from any URL with frontmatter parsing</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🐳</div>
+                        <h3>Docker Ready</h3>
+                        <p>~29MB Alpine-based image with health checks</p>
                     </div>
                 </div>
             </div>
@@ -347,7 +354,7 @@ make docker-up
                     </div>
                     <div class="tab-pane" id="binary">
                         <pre><code># Download binary
-wget https://github.com/tradik/mddb/releases/download/v2.6.9/mddbd-linux-amd64
+wget https://github.com/tradik/mddb/releases/download/v2.7.0/mddbd-linux-amd64
 chmod +x mddbd-linux-amd64
 
 # Run server
@@ -377,41 +384,41 @@ make build
                 <div class="download-grid">
                     <div class="download-card">
                         <h3>Latest Release</h3>
-                        <div class="version">v2.6.9</div>
+                        <div class="version">v2.7.0</div>
                         <p class="release-date">Released: March 5, 2026</p>
                         <div class="download-links">
-                            <a href="https://github.com/tradik/mddb/releases/download/v2.6.9/mddbd-linux-amd64"
+                            <a href="https://github.com/tradik/mddb/releases/download/v2.7.0/mddbd-linux-amd64"
                                 class="download-link">
                                 <span class="platform">Linux AMD64</span>
                                 <span class="size">~29MB</span>
                             </a>
-                            <a href="https://github.com/tradik/mddb/releases/download/v2.6.9/mddbd-linux-arm64"
+                            <a href="https://github.com/tradik/mddb/releases/download/v2.7.0/mddbd-linux-arm64"
                                 class="download-link">
                                 <span class="platform">Linux ARM64</span>
                                 <span class="size">~29MB</span>
                             </a>
-                            <a href="https://github.com/tradik/mddb/releases/download/v2.6.9/mddbd-darwin-amd64"
+                            <a href="https://github.com/tradik/mddb/releases/download/v2.7.0/mddbd-darwin-amd64"
                                 class="download-link">
                                 <span class="platform">macOS AMD64</span>
                                 <span class="size">~29MB</span>
                             </a>
-                            <a href="https://github.com/tradik/mddb/releases/download/v2.6.9/mddbd-darwin-arm64"
+                            <a href="https://github.com/tradik/mddb/releases/download/v2.7.0/mddbd-darwin-arm64"
                                 class="download-link">
                                 <span class="platform">macOS ARM64</span>
                                 <span class="size">~29MB</span>
                             </a>
-                            <a href="https://github.com/tradik/mddb/releases/download/v2.6.9/mddbd-freebsd-amd64"
+                            <a href="https://github.com/tradik/mddb/releases/download/v2.7.0/mddbd-freebsd-amd64"
                                 class="download-link">
                                 <span class="platform">FreeBSD AMD64</span>
                                 <span class="size">~29MB</span>
                             </a>
                         </div>
                         <div class="package-links">
-                            <a href="https://github.com/tradik/mddb/releases/download/v2.6.9/mddb_2.6.9_amd64.deb"
+                            <a href="https://github.com/tradik/mddb/releases/download/v2.7.0/mddb_2.7.0_amd64.deb"
                                 class="package-link">
                                 📦 Debian/Ubuntu (.deb)
                             </a>
-                            <a href="https://github.com/tradik/mddb/releases/download/v2.6.9/mddb-2.6.9-1.x86_64.rpm"
+                            <a href="https://github.com/tradik/mddb/releases/download/v2.7.0/mddb-2.7.0-1.x86_64.rpm"
                                 class="package-link">
                                 📦 RedHat/CentOS (.rpm)
                             </a>
@@ -419,16 +426,16 @@ make build
                     </div>
                     <div class="download-card">
                         <h3>Docker Image</h3>
-                        <div class="version">tradik/mddb:2.6.9</div>
-                        <p class="release-date">Alpine-based (~15MB)</p>
+                        <div class="version">tradik/mddb:2.7.0</div>
+                        <p class="release-date">Alpine-based (~29MB)</p>
                         <pre><code>docker pull tradik/mddb:latest
-docker pull tradik/mddb:2.6.9</code></pre>
+docker pull tradik/mddb:2.7.0</code></pre>
                         <a href="https://hub.docker.com/r/tradik/mddb" class="btn btn-secondary" target="_blank"
                             rel="noopener">View on Docker Hub</a>
                     </div>
                 </div>
                 <div class="release-notes">
-                    <h3>What's New in v2.6.9</h3>
+                    <h3>What's New in v2.7.0</h3>
                     <ul>
                         <li>✏️ <strong>Partial Document Update</strong> - <code>PATCH /v1/update</code> to update metadata and/or content independently without re-sending entire document</li>
                         <li>📋 <strong>Document Metadata Read</strong> - <code>GET /v1/doc-meta</code> lightweight endpoint returning only metadata (no content transfer)</li>
@@ -746,12 +753,12 @@ $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
   }
 }
 
-# MCP provides 20+ tools including:
-# - add_document, get_document, search, delete
-# - vector_search, full_text_search
-# - import_url, set_ttl
-# - register_webhook, list_webhooks, delete_webhook
-# - export, backup, restore, stats</code></pre>
+# MCP provides 51 built-in tools including:
+# - add_document, search_documents, semantic_search
+# - full_text_search, hybrid_search, cross_search
+# - classify_document, find_duplicates
+# - automation, webhooks, schemas, backups
+# - collection config, revisions, and more</code></pre>
                     </div>
                 </div>
             </div>
@@ -763,8 +770,16 @@ $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
                 <h2>Use Cases <a href="#use-cases" class="anchor-link" aria-label="Link to Use Cases section">#</a></h2>
                 <div class="use-cases-grid">
                     <div class="use-case">
-                        <h3>🤖 RAG / AI Pipelines</h3>
-                        <p>Semantic vector search + LLM integration via MCP. Build knowledge bases for AI assistants</p>
+                        <h3>🧠 AI Agent Memory</h3>
+                        <p>Persistent knowledge store for autonomous agents. MCP integration lets any AI read and write documents</p>
+                    </div>
+                    <div class="use-case">
+                        <h3>🤖 RAG Pipelines</h3>
+                        <p>Semantic vector search + hybrid retrieval + auto-embeddings. Purpose-built for retrieval-augmented generation</p>
+                    </div>
+                    <div class="use-case">
+                        <h3>💬 Documentation Chatbots</h3>
+                        <p>Import docs, embed them automatically, expose via MCP — instant AI-powered support</p>
                     </div>
                     <div class="use-case">
                         <h3>📝 Content Management</h3>
@@ -777,14 +792,6 @@ $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
                     <div class="use-case">
                         <h3>🌐 Multi-language Sites</h3>
                         <p>Store and manage content in multiple languages with the same document key</p>
-                    </div>
-                    <div class="use-case">
-                        <h3>⏱️ Cache / Temporary Data</h3>
-                        <p>Document TTL with auto-expiry for session data, cache layers, and temporary content</p>
-                    </div>
-                    <div class="use-case">
-                        <h3>📚 Documentation Platforms</h3>
-                        <p>Import from URLs, full-text search, revision history, and rich metadata</p>
                     </div>
                 </div>
             </div>
@@ -864,8 +871,8 @@ graph LR
             <div class="footer-content">
                 <div class="footer-section">
                     <h4>MDDB</h4>
-                    <p>High-performance markdown database</p>
-                    <p class="footer-version">Version 2.6.9</p>
+                    <p>AI-native knowledge base</p>
+                    <p class="footer-version">Version 2.7.0</p>
                 </div>
                 <div class="footer-section">
                     <h4>Documentation</h4>

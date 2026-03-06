@@ -141,7 +141,7 @@ func (idx *IVFIndex) Train(collection string, vectors map[string][]float32) {
 	idx.mu.Unlock()
 }
 
-func (idx *IVFIndex) Search(collection string, query []float32, topK int, threshold float64) []VectorResult {
+func (idx *IVFIndex) Search(collection string, query []float32, topK int, threshold float64, metric SimilarityFunc) []VectorResult {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
 
@@ -151,6 +151,9 @@ func (idx *IVFIndex) Search(collection string, query []float32, topK int, thresh
 	}
 	if topK <= 0 {
 		topK = 5
+	}
+	if metric == nil {
+		metric = cosineSimilarity
 	}
 
 	// Find nProbe nearest centroids
@@ -163,7 +166,7 @@ func (idx *IVFIndex) Search(collection string, query []float32, topK int, thresh
 			continue
 		}
 		for docID, vec := range c.clusters[ci] {
-			score := cosineSimilarity(query, vec)
+			score := metric(query, vec)
 			if float64(score) >= threshold {
 				results = append(results, VectorResult{DocID: docID, Score: score})
 			}
@@ -179,7 +182,7 @@ func (idx *IVFIndex) Search(collection string, query []float32, topK int, thresh
 	return results
 }
 
-func (idx *IVFIndex) SearchWithFilter(collection string, query []float32, topK int, threshold float64, allowed map[string]bool) []VectorResult {
+func (idx *IVFIndex) SearchWithFilter(collection string, query []float32, topK int, threshold float64, allowed map[string]bool, metric SimilarityFunc) []VectorResult {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
 
@@ -189,6 +192,9 @@ func (idx *IVFIndex) SearchWithFilter(collection string, query []float32, topK i
 	}
 	if topK <= 0 {
 		topK = 5
+	}
+	if metric == nil {
+		metric = cosineSimilarity
 	}
 
 	probeIndices := nearestNCentroids(query, c.centroids, idx.nProbe)
@@ -202,7 +208,7 @@ func (idx *IVFIndex) SearchWithFilter(collection string, query []float32, topK i
 			if !allowed[baseDocID(docID)] {
 				continue
 			}
-			score := cosineSimilarity(query, vec)
+			score := metric(query, vec)
 			if float64(score) >= threshold {
 				results = append(results, VectorResult{DocID: docID, Score: score})
 			}

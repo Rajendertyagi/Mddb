@@ -136,6 +136,11 @@ func (ra *ReplicationApplier) updateInMemoryState(entry *BinlogEntry) {
 		if ra.server.CronScheduler != nil {
 			ra.server.CronScheduler.Reload()
 		}
+	case "colmeta":
+		// Reload all collection configs from DB
+		if ra.server.CollectionManager != nil {
+			_ = ra.server.CollectionManager.LoadAll()
+		}
 	}
 }
 

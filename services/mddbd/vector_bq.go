@@ -144,7 +144,7 @@ func hammingDistance(a, b []uint64) int {
 	return dist
 }
 
-func (b *BQIndex) Search(collection string, query []float32, topK int, threshold float64) []VectorResult {
+func (b *BQIndex) Search(collection string, query []float32, topK int, threshold float64, metric SimilarityFunc) []VectorResult {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
@@ -156,10 +156,10 @@ func (b *BQIndex) Search(collection string, query []float32, topK int, threshold
 		topK = 5
 	}
 
-	return b.hammingSearch(c, query, topK, threshold, nil)
+	return b.hammingSearch(c, query, topK, threshold, nil, metric)
 }
 
-func (b *BQIndex) SearchWithFilter(collection string, query []float32, topK int, threshold float64, allowed map[string]bool) []VectorResult {
+func (b *BQIndex) SearchWithFilter(collection string, query []float32, topK int, threshold float64, allowed map[string]bool, metric SimilarityFunc) []VectorResult {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
@@ -171,10 +171,10 @@ func (b *BQIndex) SearchWithFilter(collection string, query []float32, topK int,
 		topK = 5
 	}
 
-	return b.hammingSearch(c, query, topK, threshold, allowed)
+	return b.hammingSearch(c, query, topK, threshold, allowed, metric)
 }
 
-func (b *BQIndex) hammingSearch(c *bqCollection, query []float32, topK int, threshold float64, allowed map[string]bool) []VectorResult {
+func (b *BQIndex) hammingSearch(c *bqCollection, query []float32, topK int, threshold float64, allowed map[string]bool, metric SimilarityFunc) []VectorResult {
 	queryCode := encodeBQ(query)
 
 	// Compute Hamming distances to all documents
@@ -196,7 +196,10 @@ func (b *BQIndex) hammingSearch(c *bqCollection, query []float32, topK int, thre
 		return candidates[i].hamDist < candidates[j].hamDist
 	})
 
-	// Re-rank top candidates with exact cosine similarity
+	// Re-rank top candidates with exact similarity
+	if metric == nil {
+		metric = cosineSimilarity
+	}
 	rerank := topK * b.rerankFactor
 	if rerank > len(candidates) {
 		rerank = len(candidates)
@@ -209,7 +212,7 @@ func (b *BQIndex) hammingSearch(c *bqCollection, query []float32, topK int, thre
 		if !ok {
 			continue
 		}
-		score := cosineSimilarity(query, vec)
+		score := metric(query, vec)
 		if float64(score) >= threshold {
 			results = append(results, VectorResult{DocID: cand.docID, Score: score})
 		}

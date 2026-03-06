@@ -192,7 +192,7 @@ func (am *AutomationManager) evalVector(trigger *AutomationRule, doc *Doc) (floa
 
 	// Vector threshold: 0-100 maps to 0-1 similarity
 	threshold := trigger.Threshold / 100.0
-	results := searcher.Search(trigger.Collection, queryVector, 100, float64(threshold))
+	results := searcher.Search(trigger.Collection, queryVector, 100, float64(threshold), nil)
 
 	for _, r := range results {
 		if r.DocID == doc.ID {
@@ -336,7 +336,7 @@ func (am *AutomationManager) runTriggerVector(trigger *AutomationRule) ([]Trigge
 	}
 
 	threshold := trigger.Threshold / 100.0
-	results := searcher.Search(trigger.Collection, queryVector, 100, float64(threshold))
+	results := searcher.Search(trigger.Collection, queryVector, 100, float64(threshold), nil)
 
 	var matches []TriggerMatch
 	for _, r := range results {

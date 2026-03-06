@@ -81,7 +81,7 @@ func benchmarkSearch(b *testing.B, numDocs, dims int) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		_ = idx.Search("bench", query, 10, 0.0)
+		_ = idx.Search("bench", query, 10, 0.0, nil)
 	}
 }
 
@@ -113,7 +113,7 @@ func benchmarkSearchWithFilter(b *testing.B, numDocs, dims int, filterRatio floa
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		_ = idx.SearchWithFilter("bench", query, 10, 0.0, allowed)
+		_ = idx.SearchWithFilter("bench", query, 10, 0.0, allowed, nil)
 	}
 }
 

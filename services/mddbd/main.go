@@ -23,7 +23,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-const VERSION = "2.6.9"
+const VERSION = "2.7.0"
 
 type AccessMode string
 
@@ -72,6 +72,7 @@ type Server struct {
 	AutomationManager  *AutomationManager  // Automation: triggers, crons, webhook targets
 	AutomationLogStore *AutomationLogStore // Automation execution logs
 	CronScheduler      *CronScheduler      // Cron scheduler for automation
+	CollectionManager  *CollectionManager  // Per-collection attributes (type, description, icon, etc.)
 	// Replication
 	Binlog          *Binlog            // Binary replication log
 	ReplicationRole string             // "leader", "follower", or "" (standalone)
@@ -387,6 +388,16 @@ func main() {
 	}
 	log.Printf("Schema manager initialized (%d schemas loaded)", len(s.SchemaManager.List()))
 
+	// Initialize collection config manager
+	s.CollectionManager = NewCollectionManager(db)
+	if err := s.CollectionManager.EnsureBucket(); err != nil {
+		log.Fatal(err)
+	}
+	if err := s.CollectionManager.LoadAll(); err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("Collection manager initialized (%d collections configured)", len(s.CollectionManager.ListAll()))
+
 	// Initialize metrics (enabled by default, set MDDB_METRICS=false to disable)
 	metricsEnabled := env("MDDB_METRICS", "true") != "false"
 	s.Metrics = NewMetrics(s, metricsEnabled)
@@ -440,6 +451,7 @@ func main() {
 		s.SynonymManager.SetBinlog(s.Binlog)
 		s.StopWordManager.SetBinlog(s.Binlog)
 		s.AutomationManager.SetBinlog(s.Binlog)
+		s.CollectionManager.SetBinlog(s.Binlog)
 	}
 
 	// Follower: disable background writers (data comes from binlog)
@@ -526,7 +538,7 @@ func main() {
 	mux.HandleFunc("/v1/vector-stats", s.handleVectorStats)
 	mux.HandleFunc("/v1/embedding-configs", s.handleEmbeddingConfigs)
 	mux.HandleFunc("/v1/embedding-configs/", s.handleEmbeddingConfigDetail)
-	mux.HandleFunc("/v1/embedding-configs/set-default", s.handleSetDefaultEmbeddingConfig)
+	mux.HandleFunc("/v1/embedding-configs/set-default", s.guardWrite(s.handleSetDefaultEmbeddingConfig))
 	mux.HandleFunc("/v1/import-url", s.guardWrite(s.handleImportURL))
 	mux.HandleFunc("/v1/set-ttl", s.guardWrite(s.handleSetTTL))
 	mux.HandleFunc("/v1/fts", s.handleFTS)
@@ -540,6 +552,8 @@ func main() {
 	mux.HandleFunc("/v1/stopwords", s.handleStopWords)
 	mux.HandleFunc("/v1/webhooks", s.handleWebhooks)
 	mux.HandleFunc("/v1/webhooks/delete", s.guardWrite(s.handleWebhookDelete))
+	mux.HandleFunc("/v1/revisions", s.handleRevisions)
+	mux.HandleFunc("/v1/revisions/restore", s.guardWrite(s.handleRevisionRestore))
 	if s.AutomationManager != nil {
 		mux.HandleFunc("/v1/automation", s.handleAutomation)
 		mux.HandleFunc("/v1/automation/", s.handleAutomationDetail)
@@ -552,6 +566,10 @@ func main() {
 	mux.HandleFunc("/v1/schema/delete", s.guardWrite(s.handleSchemaDelete))
 	mux.HandleFunc("/v1/schema/list", s.handleSchemaList)
 	mux.HandleFunc("/v1/validate", s.handleValidate)
+	mux.HandleFunc("/v1/collection-config", s.handleCollectionConfig)
+	mux.HandleFunc("/v1/collection-configs", s.handleCollectionConfigList)
+	mux.HandleFunc("/v1/cross-search", s.handleCrossSearch)
+	mux.HandleFunc("/v1/find-duplicates", s.handleFindDuplicates)
 	mux.HandleFunc("/metrics", s.Metrics.HandleMetrics)
 
 	// Replication status endpoint
@@ -1887,6 +1905,10 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		RevisionCount  int    `json:"revisionCount"`
 		MetaIndexCount int    `json:"metaIndexCount"`
 		Checksum       string `json:"checksum"`
+		Type           string `json:"type,omitempty"`
+		Description    string `json:"description,omitempty"`
+		Icon           string `json:"icon,omitempty"`
+		Color          string `json:"color,omitempty"`
 	}
 
 	// Check read permission (database-wide stats)
@@ -1988,6 +2010,18 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	// Compute checksums per collection
 	for name, cs := range collectionMap {
 		cs.Checksum, _ = s.collectionChecksum(name)
+	}
+
+	// Enrich with collection config attributes
+	if s.CollectionManager != nil {
+		for name, cs := range collectionMap {
+			if cfg, ok := s.CollectionManager.Get(name); ok {
+				cs.Type = cfg.Type
+				cs.Description = cfg.Description
+				cs.Icon = cfg.Icon
+				cs.Color = cfg.Color
+			}
+		}
 	}
 
 	// Convert map to slice
@@ -2246,6 +2280,11 @@ func (s *Server) handleDeleteCollection(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		bad(w, err)
 		return
+	}
+
+	// Clean up collection config
+	if s.CollectionManager != nil {
+		_ = s.CollectionManager.Delete(req.Collection)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

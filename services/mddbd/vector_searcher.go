@@ -7,9 +7,11 @@ type VectorSearcher interface {
 	// Remove deletes a vector from the index.
 	Remove(collection, docID string)
 	// Search finds the top-K most similar vectors to the query vector.
-	Search(collection string, query []float32, topK int, threshold float64) []VectorResult
+	// metric may be nil, in which case cosine similarity is used.
+	Search(collection string, query []float32, topK int, threshold float64, metric SimilarityFunc) []VectorResult
 	// SearchWithFilter searches only among allowed doc IDs.
-	SearchWithFilter(collection string, query []float32, topK int, threshold float64, allowed map[string]bool) []VectorResult
+	// metric may be nil, in which case cosine similarity is used.
+	SearchWithFilter(collection string, query []float32, topK int, threshold float64, allowed map[string]bool, metric SimilarityFunc) []VectorResult
 	// CollectionSize returns the number of vectors in a collection.
 	CollectionSize(collection string) int
 	// Collections returns all collection names that have vectors.

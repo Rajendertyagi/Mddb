@@ -7,26 +7,26 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/tradik/mddb)](https://hub.docker.com/r/tradik/mddb)
 [![Tests](https://github.com/tradik/mddb/workflows/Tests/badge.svg)](https://github.com/tradik/mddb/actions)
 
-**A high-performance, version-controlled markdown database with vector search, full-text search, webhooks, and triple protocol support (HTTP/JSON + gRPC/Protobuf + GraphQL)**
+**AI-native knowledge base with built-in MCP server, vector search, RAG support, and semantic document retrieval. Plugs directly into Claude, ChatGPT, Cursor, Windsurf, and any MCP-compatible agent.**
 
-MDDB is a lightweight, embedded database specifically designed for storing and managing markdown documents with rich metadata. Built with Go and BoltDB, it provides blazing-fast document operations with full revision history, semantic vector search, and modern APIs.
+MDDB is a knowledge base purpose-built for AI agents and LLM workflows. Store documents, search them semantically, and expose them to any AI agent via the built-in MCP server — all from a single ~29MB binary with zero configuration. Under the hood: BoltDB embedded storage, auto-embeddings, full revision history, and triple-protocol APIs (HTTP + gRPC + GraphQL).
 
 ## 🎯 What is MDDB?
 
-MDDB treats markdown documents as first-class citizens, providing:
+MDDB gives your AI agents a persistent, searchable knowledge base:
 
-- **Native Markdown Support** - Store, version, and query markdown with metadata
+- **Built-in MCP Server** - Connect Claude Desktop, Cursor, Windsurf, or any MCP client in seconds
+- **Vector Search** - Auto-embed documents, semantic similarity with 6 index algorithms (Flat, HNSW, IVF, PQ, SQ, BQ)
+- **RAG-Ready** - Hybrid search (BM25 + vector) for retrieval-augmented generation
+- **Zero-Shot Classification** — Classify documents against candidate labels using embeddings, no training data
+- **Custom AI Tools** - Define YAML-based MCP tools for domain-specific workflows
+- **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, BM25F, PMISparse, typo tolerance, stemming, synonyms
+- **Full Revision History** - Every update creates a new revision with complete snapshots
 - **Triple Protocol APIs** - HTTP/JSON (easy), gRPC (fast), or GraphQL (flexible)
-- **Full Revision History** - Every update creates a new revision
-- **Vector Search** - Semantic similarity with multiple algorithms (Flat, HNSW, IVF, PQ, SQ, BQ)
-- **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, BM25F (field-weighted), and PMISparse (PPMI query expansion), typo tolerance, stemming, synonyms, metadata pre-filtering — no external dependencies
-- **Hybrid Search** - Combine BM25 keyword and vector semantic search with alpha blending or RRF fusion
-- **Zero-Shot Classification** — Classify documents against candidate labels using embedding similarity, no training data needed
-- **Document TTL** - Auto-expiring documents like Redis
 - **Automation** - Triggers, crons, webhooks with template variables and sentiment analysis
-- **Zero Configuration** - Single ~29MB binary, embedded database
+- **Zero Configuration** - Single ~29MB binary, embedded database, no dependencies
 
-**Perfect for:** Documentation platforms, content management, knowledge bases, RAG pipelines, configuration management, multi-language sites
+**Perfect for:** AI agent memory, RAG pipelines, knowledge bases for LLMs, documentation chatbots, semantic search APIs, content management with AI superpowers
 
 ## 🚀 Quick Start
 
@@ -54,6 +54,30 @@ make dev-start-with-ollama
 |---------|------|-------|-------------|
 | **mddbd** | 11023 (HTTP), 11024 (gRPC), 9000 (MCP), 11443 (HTTP/3) | `tradik/mddb:latest` | Database server with MCP built-in |
 | **mddb-panel** | 3000 | `tradik/mddb:panel` | React web admin UI |
+
+### Connect to Claude / Cursor / Windsurf (MCP)
+
+MDDB has a built-in MCP server — no extra service needed. Add to your MCP config:
+
+```json
+{
+  "mcpServers": {
+    "mddb": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm", "--network", "host",
+        "-v", "mddb-data:/app/data",
+        "-e", "MDDB_MCP_STDIO=true",
+        "tradik/mddb:latest"
+      ]
+    }
+  }
+}
+```
+
+That's it — your AI agent now has full access to your knowledge base with 51 built-in tools (add, search, vector search, classify, and more).
+
+**[→ Full MCP setup guide](docs/LLM_CONNECTIONS.md)** | **[→ Custom MCP tools](docs/CUSTOM-TOOLS.md)**
 
 ### Docker - Individual Services
 
@@ -176,9 +200,9 @@ Proto definitions at `proto/mddb.proto` - generate clients for any language supp
 
 | Image | Size | Description |
 |-------|------|-------------|
-| `tradik/mddb:latest` | ~18MB | Database server with MCP built-in (Alpine) |
-| `tradik/mddb:panel` | ~25MB | Web admin panel (Node Alpine) |
-| `tradik/mddb:cli` | ~15MB | CLI client (Alpine) |
+| `tradik/mddb:latest` | ~29MB | Database server with MCP built-in (Alpine) |
+| `tradik/mddb:panel` | ~88MB | Web admin panel (Node Alpine) |
+| `tradik/mddb:cli` | ~8MB | CLI client (Alpine) |
 
 ### System Packages
 
@@ -190,15 +214,20 @@ Proto definitions at `proto/mddb.proto` - generate clients for any language supp
 
 ## 💡 Key Features
 
+### AI & Search
+- ✅ **MCP Server** - Built-in Model Context Protocol (stdio + HTTP) for Claude, Cursor, Windsurf, and any MCP client
+- ✅ **Vector Search** - Semantic similarity with auto-embeddings (OpenAI, Ollama, Cohere, Voyage)
+- ✅ **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, BM25F, and PMISparse scoring, typo tolerance, metadata pre-filtering
+- ✅ **Hybrid Search** - Sparse (BM25) + dense (vector) fusion with alpha blending or RRF
+- ✅ **Zero-Shot Classification** - Classify documents against candidate labels using embedding similarity
+- ✅ **Custom MCP Tools** - Define YAML-based AI tools for domain-specific workflows
+- ✅ **RAG Pipeline** - Built-in support for retrieval-augmented generation workflows
+
 ### Core Functionality
 - ✅ **Document Management** - Full CRUD with metadata and collections
 - ✅ **Revision History** - Complete version control with snapshots
 - ✅ **Metadata Search** - Fast indexed queries with multi-value tags
 - ✅ **Collection Checksum** - Lightweight CRC32 checksum per collection for cache invalidation
-- ✅ **Vector Search** - Semantic similarity with auto-embeddings
-- ✅ **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, BM25F, and PMISparse scoring, typo tolerance, metadata pre-filtering
-- ✅ **Hybrid Search** - Sparse (BM25) + dense (vector) fusion with alpha blending or RRF
-- ✅ **Zero-Shot Classification** - Classify documents against candidate labels using embedding similarity
 - ✅ **Partial Document Update** - Update metadata and/or content independently
 - ✅ **Document TTL** - Time-to-live with automatic cleanup
 - ✅ **Automation** - Triggers, crons, webhooks with template variables, sentiment analysis, execution logs
@@ -209,7 +238,6 @@ Proto definitions at `proto/mddb.proto` - generate clients for any language supp
 - ✅ **HTTP/JSON REST** - Easy debugging, extensive docs
 - ✅ **gRPC/Protobuf** - 16x faster, 70% smaller payload
 - ✅ **GraphQL** - Flexible queries, schema introspection, Playground
-- ✅ **MCP Server** - Model Context Protocol for LLM integration
 - ✅ **CLI Client** - Full-featured command-line with GraphQL support
 - ✅ **Web Panel** - React UI with REST/GraphQL toggle
 
@@ -414,24 +442,25 @@ mddb-cli stats
 ## 🏗️ Architecture
 
 ```
-┌────────────────────────────────────────────────┐
-│         Client Applications                    │
-├──────────┬──────────┬──────────┬────────┬──────┤
-│HTTP/JSON │gRPC/Proto│ GraphQL  │ HTTP/3 │  MCP  │
-│  :11023  │  :11024  │ /graphql │ :11443 │ :9000 │
-├──────────┴──────────┴──────────┴────────┴──────┤
-│           MDDB Server (Go)                     │
-│  • Vector Search (embeddings)                  │
-│  • Full-Text Search (inverted index)           │
-│  • Automation (triggers, crons, webhooks)       │
-│  • JWT Auth + RBAC                             │
-│  • Document TTL (auto-cleanup)                 │
-├────────────────────────────────────────────────┤
-│      BoltDB (Embedded ACID Storage)            │
-│  • B+Tree index                                │
-│  • Single-file database                        │
-│  • MVCC transactions                           │
-└────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│     AI Agents (Claude, ChatGPT, Cursor, Windsurf)   │
+│     ↕ MCP (stdio / HTTP :9000)                      │
+├─────────────────────────────────────────────────────┤
+│         Other Clients                               │
+├──────────┬──────────┬──────────┬────────────────────┤
+│HTTP/JSON │gRPC/Proto│ GraphQL  │ HTTP/3             │
+│  :11023  │  :11024  │ /graphql │ :11443             │
+├──────────┴──────────┴──────────┴────────────────────┤
+│           MDDB Server (Go)                          │
+│  • Auto-Embeddings (OpenAI, Ollama, Cohere, Voyage) │
+│  • Vector + Full-Text + Hybrid Search               │
+│  • Zero-Shot Classification                         │
+│  • Automation (triggers, crons, webhooks)            │
+│  • JWT Auth + RBAC                                  │
+├─────────────────────────────────────────────────────┤
+│      BoltDB (Embedded ACID Storage)                 │
+│  • B+Tree index • Single-file • MVCC transactions   │
+└─────────────────────────────────────────────────────┘
 ```
 
 **[→ Detailed architecture](docs/ARCHITECTURE.md)**

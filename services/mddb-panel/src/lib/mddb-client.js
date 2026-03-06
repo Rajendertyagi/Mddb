@@ -177,7 +177,7 @@ class MDDBClient {
   /**
    * Vector/semantic search
    */
-  async vectorSearch({ collection, query, topK = 5, threshold = 0.0, filterMeta = {}, includeContent = false, algorithm = 'flat' }) {
+  async vectorSearch({ collection, query, topK = 5, threshold = 0.0, filterMeta = {}, includeContent = false, algorithm = 'flat', distanceMetric = 'cosine' }) {
     return this.request('/vector-search', {
       method: 'POST',
       body: JSON.stringify({
@@ -188,6 +188,7 @@ class MDDBClient {
         filterMeta,
         includeContent,
         algorithm,
+        distanceMetric,
       }),
     });
   }
@@ -273,7 +274,7 @@ class MDDBClient {
   /**
    * Hybrid search (sparse + dense)
    */
-  async hybridSearch({ collection, query, topK = 10, algorithm = 'bm25', vectorAlgorithm = 'flat', alpha = 0.5, strategy = 'alpha', rrfK = 60, fuzzy = 0, threshold = 0.0, filterMeta = {}, includeContent = false }) {
+  async hybridSearch({ collection, query, topK = 10, algorithm = 'bm25', vectorAlgorithm = 'flat', alpha = 0.5, strategy = 'alpha', rrfK = 60, fuzzy = 0, threshold = 0.0, filterMeta = {}, includeContent = false, distanceMetric = 'cosine' }) {
     return this.request('/hybrid-search', {
       method: 'POST',
       body: JSON.stringify({
@@ -289,6 +290,7 @@ class MDDBClient {
         threshold,
         filterMeta,
         includeContent,
+        distanceMetric,
       }),
     });
   }
@@ -674,6 +676,67 @@ class MDDBClient {
     if (ruleId) params.set('ruleId', ruleId);
     if (status) params.set('status', status);
     return this.request(`/automation-logs?${params.toString()}`, { method: 'GET' });
+  }
+
+  // ---- Collection Config Methods ----
+
+  /**
+   * Get collection configuration
+   */
+  async getCollectionConfig(collection) {
+    return this.request(`/collection-config?collection=${encodeURIComponent(collection)}`);
+  }
+
+  /**
+   * Set collection configuration
+   */
+  async setCollectionConfig(data) {
+    return this.request('/collection-config', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Delete collection configuration
+   */
+  async deleteCollectionConfig(collection) {
+    return this.request(`/collection-config?collection=${encodeURIComponent(collection)}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * List all collection configurations
+   */
+  async listCollectionConfigs() {
+    return this.request('/collection-configs');
+  }
+
+  // ---- Cross-Search Methods ----
+
+  /**
+   * Cross-collection semantic search
+   */
+  async crossSearch(params) {
+    return this.request('/cross-search', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  async getRevisions({ collection, key, lang }) {
+    return this.request('/revisions', {
+      method: 'POST',
+      body: JSON.stringify({ collection, key, lang }),
+    });
+  }
+
+  async restoreRevision({ collection, key, lang, timestamp }) {
+    return this.request('/revisions/restore', {
+      method: 'POST',
+      body: JSON.stringify({ collection, key, lang, timestamp }),
+    });
   }
 }
 

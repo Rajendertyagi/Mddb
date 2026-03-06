@@ -45,6 +45,7 @@ export const useStore = create((set, get) => ({
   ftsResults: [],
   ftsLoading: false,
   ftsError: null,
+  ftsSearchStats: null,
 
   // Vector search
   vectorQuery: '',
@@ -55,6 +56,10 @@ export const useStore = create((set, get) => ({
   vectorLoading: false,
   vectorError: null,
   vectorStats: null,
+  vectorSearchStats: null,
+
+  // Vector distance metric
+  vectorDistanceMetric: 'cosine',
 
   // Hybrid search
   hybridQuery: '',
@@ -66,9 +71,11 @@ export const useStore = create((set, get) => ({
   hybridVectorAlgorithm: 'flat',
   hybridFuzzy: 0,
   hybridThreshold: 0.0,
+  hybridDistanceMetric: 'cosine',
   hybridResults: [],
   hybridLoading: false,
   hybridError: null,
+  hybridSearchStats: null,
 
   // Search metadata filter (shared across FTS, vector, hybrid)
   searchFilterMeta: {},
@@ -109,6 +116,18 @@ export const useStore = create((set, get) => ({
   groups: [],
   groupsLoading: false,
   groupsError: null,
+
+  // Collection configs
+  collectionConfigs: {},
+  setCollectionConfigs: (configs) => set({ collectionConfigs: configs }),
+
+  // Cross-search
+  crossSearchResults: [],
+  crossSearchLoading: false,
+  crossSearchError: null,
+  setCrossSearchResults: (results) => set({ crossSearchResults: results }),
+  setCrossSearchLoading: (loading) => set({ crossSearchLoading: loading }),
+  setCrossSearchError: (error) => set({ crossSearchError: error }),
 
   // Actions
   setStats: (stats) => set({ stats }),
@@ -151,6 +170,7 @@ export const useStore = create((set, get) => ({
   setFtsResults: (r) => set({ ftsResults: r }),
   setFtsLoading: (l) => set({ ftsLoading: l }),
   setFtsError: (e) => set({ ftsError: e }),
+  setFtsSearchStats: (s) => set({ ftsSearchStats: s }),
 
   setVectorQuery: (q) => set({ vectorQuery: q }),
   setVectorTopK: (k) => set({ vectorTopK: k }),
@@ -160,6 +180,8 @@ export const useStore = create((set, get) => ({
   setVectorLoading: (l) => set({ vectorLoading: l }),
   setVectorError: (e) => set({ vectorError: e }),
   setVectorStats: (s) => set({ vectorStats: s }),
+  setVectorDistanceMetric: (v) => set({ vectorDistanceMetric: v }),
+  setVectorSearchStats: (s) => set({ vectorSearchStats: s }),
 
   setHybridQuery: (v) => set({ hybridQuery: v }),
   setHybridTopK: (v) => set({ hybridTopK: v }),
@@ -170,9 +192,11 @@ export const useStore = create((set, get) => ({
   setHybridVectorAlgorithm: (v) => set({ hybridVectorAlgorithm: v }),
   setHybridFuzzy: (v) => set({ hybridFuzzy: v }),
   setHybridThreshold: (v) => set({ hybridThreshold: v }),
+  setHybridDistanceMetric: (v) => set({ hybridDistanceMetric: v }),
   setHybridResults: (v) => set({ hybridResults: v }),
   setHybridLoading: (v) => set({ hybridLoading: v }),
   setHybridError: (v) => set({ hybridError: v }),
+  setHybridSearchStats: (s) => set({ hybridSearchStats: s }),
 
   setSearchFilterMeta: (meta) => set({ searchFilterMeta: meta }),
   clearSearchFilterMeta: () => set({ searchFilterMeta: {} }),

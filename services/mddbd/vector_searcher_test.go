@@ -78,7 +78,7 @@ func TestFlatIndexBasicOps(t *testing.T) {
 
 	// Search
 	query := []float32{1, 0, 0, 0}
-	results := idx.Search("docs", query, 3, 0.0)
+	results := idx.Search("docs", query, 3, 0.0, nil)
 
 	if len(results) != 3 {
 		t.Fatalf("expected 3 results, got %d", len(results))
@@ -111,7 +111,7 @@ func TestFlatIndexSearchWithFilter(t *testing.T) {
 	// Filter to only doc2 and doc3
 	allowed := map[string]bool{"doc2": true, "doc3": true}
 	query := []float32{1, 0, 0}
-	results := idx.SearchWithFilter("docs", query, 10, 0.0, allowed)
+	results := idx.SearchWithFilter("docs", query, 10, 0.0, allowed, nil)
 
 	if len(results) != 2 {
 		t.Fatalf("expected 2 results, got %d", len(results))
@@ -151,7 +151,7 @@ func TestHNSWIndexBasicOps(t *testing.T) {
 
 	// Search
 	query := []float32{1, 0, 0, 0}
-	results := idx.Search("docs", query, 3, 0.0)
+	results := idx.Search("docs", query, 3, 0.0, nil)
 
 	if len(results) == 0 {
 		t.Fatal("expected at least one result")
@@ -185,7 +185,7 @@ func TestHNSWIndexSearchWithFilter(t *testing.T) {
 	// Search with filter allowing only doc2 and doc3
 	allowed := map[string]bool{"doc2": true, "doc3": true}
 	query := []float32{1, 0, 0, 0}
-	results := idx.SearchWithFilter("docs", query, 10, 0.0, allowed)
+	results := idx.SearchWithFilter("docs", query, 10, 0.0, allowed, nil)
 
 	if len(results) == 0 {
 		t.Fatal("expected at least one result")
@@ -240,7 +240,7 @@ func TestIVFIndexBasicOps(t *testing.T) {
 
 	// Search
 	query := []float32{1, 0, 0, 0}
-	results := idx.Search("docs", query, 3, 0.0)
+	results := idx.Search("docs", query, 3, 0.0, nil)
 
 	if len(results) == 0 {
 		t.Fatal("expected at least one result after training")
@@ -265,7 +265,7 @@ func TestIVFIndexUntrained(t *testing.T) {
 
 	// Search without training should return nil
 	query := []float32{1, 0, 0}
-	results := idx.Search("docs", query, 10, 0.0)
+	results := idx.Search("docs", query, 10, 0.0, nil)
 
 	if results != nil {
 		t.Error("expected nil results from untrained IVF index")
@@ -310,7 +310,7 @@ func TestPQIndexBasicOps(t *testing.T) {
 
 	// Search
 	query := []float32{1, 0, 0, 0, 0, 0, 0, 0}
-	results := idx.Search("docs", query, 3, 0.0)
+	results := idx.Search("docs", query, 3, 0.0, nil)
 
 	if len(results) == 0 {
 		t.Fatal("expected at least one result after training")
@@ -335,7 +335,7 @@ func TestPQIndexUntrained(t *testing.T) {
 
 	// Search without training should return nil
 	query := []float32{1, 0, 0, 0}
-	results := idx.Search("docs", query, 10, 0.0)
+	results := idx.Search("docs", query, 10, 0.0, nil)
 
 	if results != nil {
 		t.Error("expected nil results from untrained PQ index")
@@ -365,7 +365,7 @@ func TestVectorSearchersWithThreshold(t *testing.T) {
 			query := []float32{1, 0, 0}
 
 			// High threshold should filter out dissimilar results
-			results := idx.Search("docs", query, 10, 0.9)
+			results := idx.Search("docs", query, 10, 0.9, nil)
 
 			if len(results) == 0 {
 				t.Fatal("expected at least one result with threshold 0.9")
@@ -399,7 +399,7 @@ func TestVectorSearchersEmptyCollection(t *testing.T) {
 			idx.SetReady()
 
 			query := []float32{1, 0, 0}
-			results := idx.Search("nonexistent", query, 10, 0.0)
+			results := idx.Search("nonexistent", query, 10, 0.0, nil)
 
 			if len(results) != 0 {
 				t.Errorf("expected 0 results for empty collection, got %d", len(results))
@@ -422,14 +422,14 @@ func TestVectorSearchersTopK(t *testing.T) {
 	query := []float32{1, 0, 0}
 
 	// Request only top 3
-	results := idx.Search("docs", query, 3, 0.0)
+	results := idx.Search("docs", query, 3, 0.0, nil)
 
 	if len(results) != 3 {
 		t.Errorf("expected 3 results with topK=3, got %d", len(results))
 	}
 
 	// Request more than available
-	results = idx.Search("docs", query, 100, 0.0)
+	results = idx.Search("docs", query, 100, 0.0, nil)
 
 	if len(results) != 10 {
 		t.Errorf("expected 10 results when requesting 100, got %d", len(results))
@@ -532,7 +532,7 @@ func TestTrainableInterface(t *testing.T) {
 			// After training, the searcher should work
 			searcher := tr.searcher.(VectorSearcher)
 			query := []float32{1, 0, 0, 0}
-			results := searcher.Search("test", query, 3, 0.0)
+			results := searcher.Search("test", query, 3, 0.0, nil)
 
 			if len(results) == 0 {
 				t.Error("expected results after training")
@@ -551,7 +551,7 @@ func TestVectorResultScoreRange(t *testing.T) {
 	idx.Add("docs", "doc3", []float32{-1, 0, 0})
 
 	query := []float32{1, 0, 0}
-	results := idx.Search("docs", query, 10, -2.0)
+	results := idx.Search("docs", query, 10, -2.0, nil)
 
 	for _, r := range results {
 		// Cosine similarity should be in range [-1, 1]
@@ -576,7 +576,7 @@ func TestVectorSearchersConcurrentOps(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		go func() {
 			query := []float32{1, 0, 0}
-			_ = idx.Search("docs", query, 5, 0.0)
+			_ = idx.Search("docs", query, 5, 0.0, nil)
 			done <- true
 		}()
 	}
@@ -595,7 +595,7 @@ func TestVectorSearchersZeroTopK(t *testing.T) {
 	idx.Add("docs", "doc2", []float32{0, 1})
 
 	query := []float32{1, 0}
-	results := idx.Search("docs", query, 0, 0.0)
+	results := idx.Search("docs", query, 0, 0.0, nil)
 
 	// topK=0 should default to some reasonable number (typically 5)
 	if len(results) == 0 {

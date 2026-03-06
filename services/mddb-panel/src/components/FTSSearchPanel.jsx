@@ -18,6 +18,7 @@ export default function FTSSearchPanel() {
     ftsResults, setFtsResults,
     ftsLoading, setFtsLoading,
     ftsError, setFtsError,
+    ftsSearchStats, setFtsSearchStats,
     searchFilterMeta,
     setCurrentDocument,
   } = useStore();
@@ -44,9 +45,11 @@ export default function FTSSearchPanel() {
         filterMeta: searchFilterMeta,
       });
       setFtsResults(data.results || []);
+      setFtsSearchStats(data.searchStats || null);
     } catch (error) {
       setFtsError(error.message);
       setFtsResults([]);
+      setFtsSearchStats(null);
     } finally {
       setFtsLoading(false);
     }
@@ -265,10 +268,15 @@ export default function FTSSearchPanel() {
       {/* Results */}
       <div className="flex-1 overflow-y-auto">
         {ftsResults.length > 0 && (
-          <div className="px-4 pt-3 pb-1">
+          <div className="px-4 pt-3 pb-1 flex items-center justify-between">
             <span className="text-xs font-medium text-gray-500">
               {ftsResults.length} result{ftsResults.length !== 1 ? 's' : ''} found
             </span>
+            {ftsSearchStats && (
+              <span className="text-xs text-gray-400">
+                {ftsSearchStats.durationMs}ms | {ftsSearchStats.totalTokens} token{ftsSearchStats.totalTokens !== 1 ? 's' : ''}{ftsSearchStats.queryTerms?.length > 0 ? ` | ${ftsSearchStats.queryTerms.join(', ')}` : ''}
+              </span>
+            )}
           </div>
         )}
 

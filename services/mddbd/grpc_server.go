@@ -1,11 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"os"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -743,9 +747,9 @@ func (g *GRPCServer) VectorSearch(ctx context.Context, req *proto.VectorSearchRe
 	var results []VectorResult
 	if len(filterMeta) > 0 {
 		allowedIDs := g.server.getDocIDsByMeta(req.Collection, filterMeta)
-		results = searcher.SearchWithFilter(req.Collection, queryVector, searchTopK, req.Threshold, allowedIDs)
+		results = searcher.SearchWithFilter(req.Collection, queryVector, searchTopK, req.Threshold, allowedIDs, nil)
 	} else {
-		results = searcher.Search(req.Collection, queryVector, searchTopK, req.Threshold)
+		results = searcher.Search(req.Collection, queryVector, searchTopK, req.Threshold, nil)
 	}
 
 	// Deduplicate chunk results
@@ -1812,4 +1816,1023 @@ func (g *GRPCServer) Classify(ctx context.Context, req *proto.ClassifyRequest) (
 		Model:      resp.Model,
 		Dimensions: int32(resp.Dimensions),
 	}, nil
+}
+
+// DeleteDocument implements the DeleteDocument RPC — deletes a single document.
+func (g *GRPCServer) DeleteDocument(ctx context.Context, req *proto.DeleteDocumentRequest) (*proto.DeleteDocumentResponse, error) {
+	if g.server.Mode == ModeRead {
+		return nil, status.Error(codes.PermissionDenied, "read-only mode")
+	}
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermWrite); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+	if req.Collection == "" || req.Key == "" || req.Lang == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing required fields: collection, key, lang")
+	}
+	if err := g.server.deleteDocumentInternal(req.Collection, req.Key, req.Lang); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &proto.DeleteDocumentResponse{
+		Status:     "deleted",
+		Collection: req.Collection,
+		Key:        req.Key,
+		Lang:       req.Lang,
+	}, nil
+}
+
+// DeleteCollection implements the DeleteCollection RPC — deletes all documents in a collection.
+func (g *GRPCServer) DeleteCollection(ctx context.Context, req *proto.DeleteCollectionRequest) (*proto.DeleteCollectionResponse, error) {
+	if g.server.Mode == ModeRead {
+		return nil, status.Error(codes.PermissionDenied, "read-only mode")
+	}
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermWrite); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+	if req.Collection == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing collection")
+	}
+
+	var deletedCount int
+	var bo BinlogOps
+
+	err := g.server.DB.Update(func(tx *bolt.Tx) error {
+		bDocs := tx.Bucket([]byte("docs"))
+		bIdx := tx.Bucket([]byte("idxmeta"))
+		bRev := tx.Bucket([]byte("rev"))
+		bByK := tx.Bucket([]byte("bykey"))
+
+		c := bDocs.Cursor()
+		prefix := []byte("doc|" + req.Collection + "|")
+		for k, v := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = c.Next() {
+			docPtr, err := loadDoc(v)
+			if err != nil {
+				continue
+			}
+			doc := *docPtr
+
+			if err := bDocs.Delete(k); err != nil {
+				return err
+			}
+			bo.Delete("docs", k)
+
+			bykKey := kByKey(req.Collection, doc.Key, doc.Lang)
+			if err := bByK.Delete(bykKey); err != nil {
+				return err
+			}
+			bo.Delete("bykey", bykKey)
+
+			rc := bRev.Cursor()
+			rp := kRevPrefix(req.Collection, doc.ID)
+			for rk, _ := rc.Seek(rp); rk != nil && bytes.HasPrefix(rk, rp); rk, _ = rc.Next() {
+				if err := bRev.Delete(rk); err != nil {
+					return err
+				}
+				bo.Delete("rev", rk)
+			}
+
+			for mk, vals := range doc.Meta {
+				for _, mv := range vals {
+					mkey := append(kMetaKeyPrefix(req.Collection, mk, mv), []byte(doc.ID)...)
+					if err := bIdx.Delete(mkey); err != nil {
+						return err
+					}
+					bo.Delete("idxmeta", mkey)
+				}
+			}
+			deletedCount++
+		}
+		return nil
+	})
+	if err == nil {
+		bo.FlushTo(g.server.Binlog)
+	}
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	if g.server.CollectionManager != nil {
+		_ = g.server.CollectionManager.Delete(req.Collection)
+	}
+
+	return &proto.DeleteCollectionResponse{
+		Status:       "deleted",
+		Collection:   req.Collection,
+		DeletedCount: int32(deletedCount),
+	}, nil
+}
+
+// ListSynonyms implements the ListSynonyms RPC.
+func (g *GRPCServer) ListSynonyms(ctx context.Context, req *proto.ListSynonymsRequest) (*proto.ListSynonymsResponse, error) {
+	if req.Collection == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing collection")
+	}
+	if g.server.SynonymManager == nil {
+		return nil, status.Error(codes.FailedPrecondition, "synonym manager not initialized")
+	}
+
+	synonyms := g.server.SynonymManager.List(req.Collection)
+	entries := make([]*proto.SynonymEntry, 0, len(synonyms))
+	for term, syns := range synonyms {
+		entries = append(entries, &proto.SynonymEntry{
+			Term:     term,
+			Synonyms: syns,
+		})
+	}
+
+	return &proto.ListSynonymsResponse{
+		Collection: req.Collection,
+		Entries:    entries,
+		Total:      int32(len(entries)),
+	}, nil
+}
+
+// AddSynonym implements the AddSynonym RPC.
+func (g *GRPCServer) AddSynonym(ctx context.Context, req *proto.AddSynonymRequest) (*proto.AddSynonymResponse, error) {
+	if g.server.Mode == ModeRead {
+		return nil, status.Error(codes.PermissionDenied, "read-only mode")
+	}
+	if req.Collection == "" || req.Term == "" || len(req.Synonyms) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "missing required fields: collection, term, synonyms")
+	}
+	if g.server.SynonymManager == nil {
+		return nil, status.Error(codes.FailedPrecondition, "synonym manager not initialized")
+	}
+	if err := g.server.SynonymManager.Set(req.Collection, req.Term, req.Synonyms); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &proto.AddSynonymResponse{Status: "ok"}, nil
+}
+
+// DeleteSynonym implements the DeleteSynonym RPC.
+func (g *GRPCServer) DeleteSynonym(ctx context.Context, req *proto.DeleteSynonymRequest) (*proto.DeleteSynonymResponse, error) {
+	if g.server.Mode == ModeRead {
+		return nil, status.Error(codes.PermissionDenied, "read-only mode")
+	}
+	if req.Collection == "" || req.Term == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing required fields: collection, term")
+	}
+	if g.server.SynonymManager == nil {
+		return nil, status.Error(codes.FailedPrecondition, "synonym manager not initialized")
+	}
+	if err := g.server.SynonymManager.Delete(req.Collection, req.Term); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &proto.DeleteSynonymResponse{Status: "ok"}, nil
+}
+
+// ListStopwords implements the ListStopwords RPC.
+func (g *GRPCServer) ListStopwords(ctx context.Context, req *proto.ListStopwordsRequest) (*proto.ListStopwordsResponse, error) {
+	if req.Collection == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing collection")
+	}
+	if g.server.StopWordManager == nil {
+		return nil, status.Error(codes.FailedPrecondition, "stopword manager not initialized")
+	}
+
+	defaults, custom := g.server.StopWordManager.List(req.Collection)
+	entries := make([]*proto.StopwordEntry, 0, len(defaults)+len(custom))
+	for _, w := range defaults {
+		entries = append(entries, &proto.StopwordEntry{Word: w, IsDefault: true})
+	}
+	for _, w := range custom {
+		entries = append(entries, &proto.StopwordEntry{Word: w, IsDefault: false})
+	}
+
+	return &proto.ListStopwordsResponse{
+		Collection: req.Collection,
+		Entries:    entries,
+		Total:      int32(len(entries)),
+		Defaults:   int32(len(defaults)),
+		Custom:     int32(len(custom)),
+	}, nil
+}
+
+// AddStopwords implements the AddStopwords RPC.
+func (g *GRPCServer) AddStopwords(ctx context.Context, req *proto.AddStopwordsRequest) (*proto.AddStopwordsResponse, error) {
+	if g.server.Mode == ModeRead {
+		return nil, status.Error(codes.PermissionDenied, "read-only mode")
+	}
+	if req.Collection == "" || len(req.Words) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "missing required fields: collection, words")
+	}
+	if g.server.StopWordManager == nil {
+		return nil, status.Error(codes.FailedPrecondition, "stopword manager not initialized")
+	}
+	if err := g.server.StopWordManager.Add(req.Collection, req.Words); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &proto.AddStopwordsResponse{Status: "ok", Added: int32(len(req.Words))}, nil
+}
+
+// DeleteStopwords implements the DeleteStopwords RPC.
+func (g *GRPCServer) DeleteStopwords(ctx context.Context, req *proto.DeleteStopwordsRequest) (*proto.DeleteStopwordsResponse, error) {
+	if g.server.Mode == ModeRead {
+		return nil, status.Error(codes.PermissionDenied, "read-only mode")
+	}
+	if req.Collection == "" || len(req.Words) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "missing required fields: collection, words")
+	}
+	if g.server.StopWordManager == nil {
+		return nil, status.Error(codes.FailedPrecondition, "stopword manager not initialized")
+	}
+	var deleted int32
+	var errs []string
+	for _, w := range req.Words {
+		if err := g.server.StopWordManager.Delete(req.Collection, w); err != nil {
+			errs = append(errs, err.Error())
+		} else {
+			deleted++
+		}
+	}
+	return &proto.DeleteStopwordsResponse{Status: "ok", Deleted: deleted, Errors: errs}, nil
+}
+
+// GetMetaKeys implements the GetMetaKeys RPC.
+func (g *GRPCServer) GetMetaKeys(ctx context.Context, req *proto.GetMetaKeysRequest) (*proto.GetMetaKeysResponse, error) {
+	if req.Collection == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing collection")
+	}
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermRead); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
+	meta := make(map[string][]string)
+
+	_ = g.server.DB.View(func(tx *bolt.Tx) error {
+		bIdx := tx.Bucket([]byte("idxmeta"))
+		if bIdx == nil {
+			return nil
+		}
+		prefix := []byte("meta|" + req.Collection + "|")
+		c := bIdx.Cursor()
+		seen := make(map[string]map[string]bool)
+		for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
+			rest := string(k[len(prefix):])
+			parts := strings.SplitN(rest, "|", 3)
+			if len(parts) < 2 {
+				continue
+			}
+			mk, mv := parts[0], parts[1]
+			if seen[mk] == nil {
+				seen[mk] = make(map[string]bool)
+			}
+			if !seen[mk][mv] {
+				seen[mk][mv] = true
+				meta[mk] = append(meta[mk], mv)
+			}
+		}
+		return nil
+	})
+
+	protoMeta := make(map[string]*proto.MetaValues)
+	for k, v := range meta {
+		protoMeta[k] = &proto.MetaValues{Values: v}
+	}
+	return &proto.GetMetaKeysResponse{Meta: protoMeta}, nil
+}
+
+// GetChecksum implements the GetChecksum RPC.
+func (g *GRPCServer) GetChecksum(ctx context.Context, req *proto.GetChecksumRequest) (*proto.GetChecksumResponse, error) {
+	if req.Collection == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing collection")
+	}
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermRead); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+	checksum, count := g.server.collectionChecksum(req.Collection)
+	return &proto.GetChecksumResponse{
+		Collection:    req.Collection,
+		Checksum:      checksum,
+		DocumentCount: int32(count),
+	}, nil
+}
+
+// automationRuleToProto converts internal AutomationRule to proto.
+func automationRuleToProto(r *AutomationRule) *proto.AutomationRuleProto {
+	p := &proto.AutomationRuleProto{
+		Id:               r.ID,
+		Type:             r.Type,
+		Name:             r.Name,
+		Enabled:          r.Enabled,
+		CreatedAt:        r.CreatedAt,
+		UpdatedAt:        r.UpdatedAt,
+		Url:              r.URL,
+		Method:           r.Method,
+		Headers:          r.Headers,
+		Collection:       r.Collection,
+		SearchType:       r.SearchType,
+		Query:            r.Query,
+		Threshold:        r.Threshold,
+		WebhookId:        r.WebhookID,
+		Events:           r.Events,
+		SentimentEnabled: r.SentimentEnabled,
+		SentimentMin:     r.SentimentMin,
+		SentimentMax:     r.SentimentMax,
+		ConditionLogic:   r.ConditionLogic,
+		Schedule:         r.Schedule,
+		TriggerId:        r.TriggerID,
+		LastRun:          r.LastRun,
+		NextRun:          r.NextRun,
+	}
+	if r.SearchParams != nil {
+		if b, err := json.Marshal(r.SearchParams); err == nil {
+			p.SearchParamsJson = string(b)
+		}
+	}
+	return p
+}
+
+// protoToAutomationRule converts proto to internal AutomationRule.
+func protoToAutomationRule(p *proto.AutomationRuleProto) AutomationRule {
+	r := AutomationRule{
+		ID:               p.Id,
+		Type:             p.Type,
+		Name:             p.Name,
+		Enabled:          p.Enabled,
+		CreatedAt:        p.CreatedAt,
+		UpdatedAt:        p.UpdatedAt,
+		URL:              p.Url,
+		Method:           p.Method,
+		Headers:          p.Headers,
+		Collection:       p.Collection,
+		SearchType:       p.SearchType,
+		Query:            p.Query,
+		Threshold:        p.Threshold,
+		WebhookID:        p.WebhookId,
+		Events:           p.Events,
+		SentimentEnabled: p.SentimentEnabled,
+		SentimentMin:     p.SentimentMin,
+		SentimentMax:     p.SentimentMax,
+		ConditionLogic:   p.ConditionLogic,
+		Schedule:         p.Schedule,
+		TriggerID:        p.TriggerId,
+		LastRun:          p.LastRun,
+		NextRun:          p.NextRun,
+	}
+	if p.SearchParamsJson != "" {
+		var sp map[string]interface{}
+		if err := json.Unmarshal([]byte(p.SearchParamsJson), &sp); err == nil {
+			r.SearchParams = sp
+		}
+	}
+	return r
+}
+
+// ListAutomation implements the ListAutomation RPC.
+func (g *GRPCServer) ListAutomation(ctx context.Context, req *proto.ListAutomationRequest) (*proto.ListAutomationResponse, error) {
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, "*", PermAdmin); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+	if g.server.AutomationManager == nil {
+		return nil, status.Error(codes.FailedPrecondition, "automation not initialized")
+	}
+	rules := g.server.AutomationManager.List(req.Type)
+	protoRules := make([]*proto.AutomationRuleProto, len(rules))
+	for i := range rules {
+		protoRules[i] = automationRuleToProto(&rules[i])
+	}
+	return &proto.ListAutomationResponse{Rules: protoRules, Total: int32(len(protoRules))}, nil
+}
+
+// CreateAutomation implements the CreateAutomation RPC.
+func (g *GRPCServer) CreateAutomation(ctx context.Context, req *proto.CreateAutomationRequest) (*proto.AutomationRuleProto, error) {
+	if g.server.Mode == ModeRead {
+		return nil, status.Error(codes.PermissionDenied, "read-only mode")
+	}
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, "*", PermAdmin); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+	if g.server.AutomationManager == nil {
+		return nil, status.Error(codes.FailedPrecondition, "automation not initialized")
+	}
+	if req.Rule == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing rule")
+	}
+	rule := protoToAutomationRule(req.Rule)
+	created, err := g.server.AutomationManager.Create(rule)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	if created.Type == "cron" && g.server.CronScheduler != nil {
+		g.server.CronScheduler.Reload()
+	}
+	return automationRuleToProto(created), nil
+}
+
+// GetAutomation implements the GetAutomation RPC.
+func (g *GRPCServer) GetAutomation(ctx context.Context, req *proto.GetAutomationRequest) (*proto.AutomationRuleProto, error) {
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, "*", PermAdmin); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+	if g.server.AutomationManager == nil {
+		return nil, status.Error(codes.FailedPrecondition, "automation not initialized")
+	}
+	if req.Id == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing id")
+	}
+	rule := g.server.AutomationManager.Get(req.Id)
+	if rule == nil {
+		return nil, status.Error(codes.NotFound, "automation rule not found")
+	}
+	return automationRuleToProto(rule), nil
+}
+
+// UpdateAutomation implements the UpdateAutomation RPC.
+func (g *GRPCServer) UpdateAutomation(ctx context.Context, req *proto.UpdateAutomationRequest) (*proto.AutomationRuleProto, error) {
+	if g.server.Mode == ModeRead {
+		return nil, status.Error(codes.PermissionDenied, "read-only mode")
+	}
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, "*", PermAdmin); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+	if g.server.AutomationManager == nil {
+		return nil, status.Error(codes.FailedPrecondition, "automation not initialized")
+	}
+	if req.Id == "" || req.Rule == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing id or rule")
+	}
+	update := protoToAutomationRule(req.Rule)
+	updated, err := g.server.AutomationManager.Update(req.Id, update)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	if updated.Type == "cron" && g.server.CronScheduler != nil {
+		g.server.CronScheduler.Reload()
+	}
+	return automationRuleToProto(updated), nil
+}
+
+// DeleteAutomation implements the DeleteAutomation RPC.
+func (g *GRPCServer) DeleteAutomation(ctx context.Context, req *proto.DeleteAutomationRequest) (*proto.DeleteAutomationResponse, error) {
+	if g.server.Mode == ModeRead {
+		return nil, status.Error(codes.PermissionDenied, "read-only mode")
+	}
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, "*", PermAdmin); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+	if g.server.AutomationManager == nil {
+		return nil, status.Error(codes.FailedPrecondition, "automation not initialized")
+	}
+	if req.Id == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing id")
+	}
+	// Check if cron type for scheduler reload
+	existing := g.server.AutomationManager.Get(req.Id)
+	if err := g.server.AutomationManager.Delete(req.Id); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	if existing != nil && existing.Type == "cron" && g.server.CronScheduler != nil {
+		g.server.CronScheduler.Reload()
+	}
+	return &proto.DeleteAutomationResponse{Status: "deleted", Id: req.Id}, nil
+}
+
+// TestAutomation implements the TestAutomation RPC — dry run of a trigger.
+func (g *GRPCServer) TestAutomation(ctx context.Context, req *proto.TestAutomationRequest) (*proto.TestAutomationResponse, error) {
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, "*", PermAdmin); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+	if g.server.AutomationManager == nil {
+		return nil, status.Error(codes.FailedPrecondition, "automation not initialized")
+	}
+	if req.Id == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing id")
+	}
+	rule := g.server.AutomationManager.Get(req.Id)
+	if rule == nil {
+		return nil, status.Error(codes.NotFound, "automation rule not found")
+	}
+	if rule.Type != "trigger" {
+		return nil, status.Error(codes.InvalidArgument, "only trigger rules can be tested")
+	}
+
+	matches, err := g.server.AutomationManager.RunTrigger(rule)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	// Load matched documents
+	var protoDocs []*proto.Document
+	_ = g.server.DB.View(func(tx *bolt.Tx) error {
+		bDocs := tx.Bucket([]byte("docs"))
+		if bDocs == nil {
+			return nil
+		}
+		for _, m := range matches {
+			v := bDocs.Get(kDoc(m.Collection, m.DocID))
+			if v == nil {
+				continue
+			}
+			d, err := unmarshalDoc(v)
+			if err != nil {
+				continue
+			}
+			protoDocs = append(protoDocs, docToProto(d))
+		}
+		return nil
+	})
+
+	return &proto.TestAutomationResponse{
+		Trigger: automationRuleToProto(rule),
+		Matches: protoDocs,
+		Total:   int32(len(protoDocs)),
+	}, nil
+}
+
+// GetAutomationLogs implements the GetAutomationLogs RPC.
+func (g *GRPCServer) GetAutomationLogs(ctx context.Context, req *proto.GetAutomationLogsRequest) (*proto.GetAutomationLogsResponse, error) {
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, "*", PermAdmin); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+	if g.server.AutomationLogStore == nil {
+		return nil, status.Error(codes.FailedPrecondition, "automation logs not initialized")
+	}
+
+	limit := int(req.Limit)
+	if limit <= 0 {
+		limit = 50
+	}
+
+	logs, nextCursor, err := g.server.AutomationLogStore.List(limit, req.Cursor, req.RuleId, req.Status)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	total, _ := g.server.AutomationLogStore.Count(req.RuleId, req.Status)
+
+	protoLogs := make([]*proto.AutomationLogEntryProto, len(logs))
+	for i, l := range logs {
+		protoLogs[i] = &proto.AutomationLogEntryProto{
+			Id:         l.ID,
+			Timestamp:  l.Timestamp,
+			RuleId:     l.RuleID,
+			RuleName:   l.RuleName,
+			RuleType:   l.RuleType,
+			WebhookId:  l.WebhookID,
+			WebhookUrl: l.WebhookURL,
+			Status:     l.Status,
+			HttpStatus: int32(l.HTTPStatus),
+			DurationMs: l.DurationMs,
+			Error:      l.Error,
+			Attempt:    int32(l.Attempt),
+		}
+	}
+
+	return &proto.GetAutomationLogsResponse{
+		Logs:       protoLogs,
+		Total:      int32(total),
+		NextCursor: nextCursor,
+		HasMore:    nextCursor != "",
+	}, nil
+}
+
+// GetCollectionConfig implements the GetCollectionConfig RPC.
+func (g *GRPCServer) GetCollectionConfig(ctx context.Context, req *proto.GetCollectionConfigRequest) (*proto.GetCollectionConfigResponse, error) {
+	if req.Collection == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing collection")
+	}
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermRead); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+	if g.server.CollectionManager == nil {
+		return nil, status.Error(codes.FailedPrecondition, "collection manager not initialized")
+	}
+	cfg, found := g.server.CollectionManager.Get(req.Collection)
+	resp := &proto.GetCollectionConfigResponse{
+		Collection: req.Collection,
+		Configured: found,
+	}
+	if found && cfg != nil {
+		resp.Config = &proto.CollectionConfigProto{
+			Type:        cfg.Type,
+			Description: cfg.Description,
+			Icon:        cfg.Icon,
+			Color:       cfg.Color,
+			CustomMeta:  cfg.CustomMeta,
+		}
+	}
+	return resp, nil
+}
+
+// SetCollectionConfig implements the SetCollectionConfig RPC.
+func (g *GRPCServer) SetCollectionConfig(ctx context.Context, req *proto.SetCollectionConfigRequest) (*proto.SetCollectionConfigResponse, error) {
+	if g.server.Mode == ModeRead {
+		return nil, status.Error(codes.PermissionDenied, "read-only mode")
+	}
+	if req.Collection == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing collection")
+	}
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermWrite); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+	if g.server.CollectionManager == nil {
+		return nil, status.Error(codes.FailedPrecondition, "collection manager not initialized")
+	}
+	cfg := &CollectionConfig{
+		Type:        req.Type,
+		Description: req.Description,
+		Icon:        req.Icon,
+		Color:       req.Color,
+		CustomMeta:  req.CustomMeta,
+	}
+	if err := g.server.CollectionManager.Set(req.Collection, cfg); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &proto.SetCollectionConfigResponse{Status: "ok", Collection: req.Collection}, nil
+}
+
+// ListCollectionConfigs implements the ListCollectionConfigs RPC.
+func (g *GRPCServer) ListCollectionConfigs(ctx context.Context, req *proto.ListCollectionConfigsRequest) (*proto.ListCollectionConfigsResponse, error) {
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, "*", PermRead); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+	if g.server.CollectionManager == nil {
+		return nil, status.Error(codes.FailedPrecondition, "collection manager not initialized")
+	}
+	all := g.server.CollectionManager.ListAll()
+	entries := make([]*proto.CollectionConfigEntry, 0, len(all))
+	for coll, cfg := range all {
+		entries = append(entries, &proto.CollectionConfigEntry{
+			Collection: coll,
+			Config: &proto.CollectionConfigProto{
+				Type:        cfg.Type,
+				Description: cfg.Description,
+				Icon:        cfg.Icon,
+				Color:       cfg.Color,
+				CustomMeta:  cfg.CustomMeta,
+			},
+		})
+	}
+	return &proto.ListCollectionConfigsResponse{Configs: entries, Total: int32(len(entries))}, nil
+}
+
+// CrossSearch implements the CrossSearch RPC — cross-collection vector search.
+func (g *GRPCServer) CrossSearch(ctx context.Context, req *proto.CrossSearchRequest) (*proto.CrossSearchResponse, error) {
+	if len(req.TargetCollections) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "missing target_collections")
+	}
+	if req.Query == "" && len(req.QueryVector) == 0 && req.SourceDocId == "" {
+		return nil, status.Error(codes.InvalidArgument, "one of query, query_vector, or source_doc_id is required")
+	}
+
+	// Check read permission on all collections
+	if g.server.AuthManager != nil {
+		for _, coll := range req.TargetCollections {
+			if err := g.server.AuthManager.CheckPermission(ctx, coll, PermRead); err != nil {
+				return nil, status.Error(codes.PermissionDenied, err.Error())
+			}
+		}
+		if req.SourceCollection != "" {
+			if err := g.server.AuthManager.CheckPermission(ctx, req.SourceCollection, PermRead); err != nil {
+				return nil, status.Error(codes.PermissionDenied, err.Error())
+			}
+		}
+	}
+
+	// Select algorithm
+	algo := req.Algorithm
+	if algo == "" {
+		algo = "flat"
+	}
+	searcher, algoOk := g.server.VectorSearchers[algo]
+	if !algoOk {
+		return nil, status.Error(codes.InvalidArgument, "unknown algorithm: "+algo)
+	}
+	if !searcher.IsReady() {
+		searcher = g.server.VectorSearchers["flat"]
+		algo = "flat"
+	}
+	if !searcher.IsReady() {
+		return nil, status.Error(codes.Unavailable, "vector index is loading")
+	}
+
+	// Resolve query vector
+	var queryVector []float32
+	if len(req.QueryVector) > 0 {
+		queryVector = req.QueryVector
+	} else if req.SourceDocId != "" {
+		if req.SourceCollection == "" {
+			return nil, status.Error(codes.InvalidArgument, "source_collection required when using source_doc_id")
+		}
+		rec, err := g.server.VectorStore.Get(req.SourceCollection, req.SourceDocId)
+		if err != nil || rec == nil {
+			return nil, status.Error(codes.NotFound, "source document has no embedding")
+		}
+		queryVector = rec.Vector
+	} else if g.server.Embedding != nil {
+		var err error
+		queryVector, err = g.server.Embedding.Embed(ctx, req.Query)
+		if err != nil {
+			return nil, status.Error(codes.Internal, "failed to embed query: "+err.Error())
+		}
+	} else {
+		return nil, status.Error(codes.FailedPrecondition, "no embedding provider configured")
+	}
+
+	topK := int(req.TopK)
+	if topK <= 0 {
+		topK = 10
+	}
+
+	metric := ResolveSimilarity(req.DistanceMetric)
+	metricName := req.DistanceMetric
+	if metricName == "" {
+		metricName = "cosine"
+	}
+
+	// Convert proto filter_meta
+	filterMeta := make(map[string][]string)
+	for k, v := range req.FilterMeta {
+		filterMeta[k] = v.Values
+	}
+
+	searchTopK := topK * 3
+	if searchTopK < 20 {
+		searchTopK = 20
+	}
+
+	type taggedResult struct {
+		collection string
+		result     VectorResult
+	}
+	var allTagged []taggedResult
+
+	for _, coll := range req.TargetCollections {
+		var results []VectorResult
+		if len(filterMeta) > 0 {
+			allowedIDs := g.server.getDocIDsByMeta(coll, filterMeta)
+			if len(allowedIDs) == 0 {
+				continue
+			}
+			results = searcher.SearchWithFilter(coll, queryVector, searchTopK, req.Threshold, allowedIDs, metric)
+		} else {
+			results = searcher.Search(coll, queryVector, searchTopK, req.Threshold, metric)
+		}
+		results = DeduplicateChunkResults(results)
+		for _, vr := range results {
+			allTagged = append(allTagged, taggedResult{collection: coll, result: vr})
+		}
+	}
+
+	sort.Slice(allTagged, func(i, j int) bool {
+		return allTagged[i].result.Score > allTagged[j].result.Score
+	})
+	if len(allTagged) > topK {
+		allTagged = allTagged[:topK]
+	}
+
+	// Load full documents
+	protoResults := make([]*proto.CrossSearchResultItem, 0, len(allTagged))
+	_ = g.server.DB.View(func(tx *bolt.Tx) error {
+		bDocs := tx.Bucket([]byte("docs"))
+		if bDocs == nil {
+			return nil
+		}
+		for rank, tr := range allTagged {
+			v := bDocs.Get(kDoc(tr.collection, tr.result.DocID))
+			if v == nil {
+				continue
+			}
+			d, err := unmarshalDoc(v)
+			if err != nil {
+				continue
+			}
+			if !req.IncludeContent {
+				d.ContentMD = ""
+			}
+			protoResults = append(protoResults, &proto.CrossSearchResultItem{
+				Collection: tr.collection,
+				Document:   docToProto(d),
+				Score:      tr.result.Score,
+				Rank:       int32(rank + 1),
+			})
+		}
+		return nil
+	})
+
+	return &proto.CrossSearchResponse{
+		Results:           protoResults,
+		Total:             int32(len(protoResults)),
+		SourceCollection:  req.SourceCollection,
+		SourceDocId:       req.SourceDocId,
+		TargetCollections: req.TargetCollections,
+		Algorithm:         algo,
+		DistanceMetric:    metricName,
+	}, nil
+}
+
+// FindDuplicates implements the FindDuplicates RPC.
+func (g *GRPCServer) FindDuplicates(ctx context.Context, req *proto.FindDuplicatesRequest) (*proto.FindDuplicatesResponse, error) {
+	if req.Collection == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing collection")
+	}
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermRead); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
+	mode := req.Mode
+	if mode == "" {
+		mode = "both"
+	}
+	if mode != "exact" && mode != "similar" && mode != "both" {
+		return nil, status.Error(codes.InvalidArgument, "mode must be 'exact', 'similar', or 'both'")
+	}
+	threshold := req.Threshold
+	if threshold <= 0 {
+		threshold = 0.9
+	}
+	maxDocs := int(req.MaxDocs)
+	if maxDocs <= 0 {
+		maxDocs = 5000
+	}
+
+	internalReq := FindDuplicatesRequest{
+		Collection:     req.Collection,
+		Mode:           mode,
+		Threshold:      threshold,
+		MaxDocs:        maxDocs,
+		DistanceMetric: req.DistanceMetric,
+		IncludeContent: req.IncludeContent,
+	}
+
+	resp, err := g.server.findDuplicates(internalReq)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	convertGroup := func(groups []DuplicateGroup) []*proto.DuplicateGroupProto {
+		result := make([]*proto.DuplicateGroupProto, len(groups))
+		for i, g := range groups {
+			docs := make([]*proto.DuplicateDocInfoProto, len(g.Documents))
+			for j, d := range g.Documents {
+				docs[j] = &proto.DuplicateDocInfoProto{
+					DocId:       d.DocID,
+					Key:         d.Key,
+					ContentHash: d.ContentHash,
+					ContentMd:   d.ContentMD,
+					Score:       d.Score,
+				}
+			}
+			result[i] = &proto.DuplicateGroupProto{
+				GroupId:   int32(g.GroupID),
+				Type:      g.Type,
+				Documents: docs,
+				Score:     g.Score,
+			}
+		}
+		return result
+	}
+
+	return &proto.FindDuplicatesResponse{
+		Collection:      resp.Collection,
+		Mode:            resp.Mode,
+		Threshold:       resp.Threshold,
+		DistanceMetric:  resp.DistanceMetric,
+		TotalDocuments:  int32(resp.TotalDocuments),
+		TotalEmbedded:   int32(resp.TotalEmbedded),
+		ExactGroups:     convertGroup(resp.ExactGroups),
+		SimilarGroups:   convertGroup(resp.SimilarGroups),
+		ExactDuplicates: int32(resp.ExactDuplicates),
+		SimilarPairs:    int32(resp.SimilarPairs),
+	}, nil
+}
+
+// ListRevisions implements the ListRevisions RPC — list revision history for a document.
+func (g *GRPCServer) ListRevisions(ctx context.Context, req *proto.ListRevisionsRequest) (*proto.ListRevisionsResponse, error) {
+	if req.Collection == "" || req.Key == "" || req.Lang == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing required fields: collection, key, lang")
+	}
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermRead); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
+	docID := genID(req.Collection, req.Key, req.Lang)
+
+	var revisions []*proto.RevisionEntryProto
+	err := g.server.DB.View(func(tx *bolt.Tx) error {
+		bRev := tx.Bucket([]byte("rev"))
+		if bRev == nil {
+			return nil
+		}
+		prefix := kRevPrefix(req.Collection, docID)
+		c := bRev.Cursor()
+		for k, v := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = c.Next() {
+			keyStr := string(k)
+			lastPipe := strings.LastIndexByte(keyStr, '|')
+			if lastPipe < 0 || lastPipe >= len(keyStr)-1 {
+				continue
+			}
+			ts, err := strconv.ParseInt(keyStr[lastPipe+1:], 10, 64)
+			if err != nil {
+				continue
+			}
+			docPtr, err := loadDoc(v)
+			if err != nil {
+				continue
+			}
+			protoMeta := make(map[string]*proto.MetaValues)
+			for mk, mv := range docPtr.Meta {
+				protoMeta[mk] = &proto.MetaValues{Values: mv}
+			}
+			revisions = append(revisions, &proto.RevisionEntryProto{
+				Timestamp: ts,
+				UpdatedAt: docPtr.UpdatedAt,
+				ContentMd: docPtr.ContentMD,
+				Meta:      protoMeta,
+			})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	// Sort newest first
+	sort.Slice(revisions, func(i, j int) bool {
+		return revisions[i].Timestamp > revisions[j].Timestamp
+	})
+
+	return &proto.ListRevisionsResponse{
+		Collection: req.Collection,
+		Key:        req.Key,
+		Lang:       req.Lang,
+		Revisions:  revisions,
+		Total:      int32(len(revisions)),
+	}, nil
+}
+
+// RestoreRevision implements the RestoreRevision RPC — restore a document from a specific revision.
+func (g *GRPCServer) RestoreRevision(ctx context.Context, req *proto.RestoreRevisionRequest) (*proto.Document, error) {
+	if g.server.Mode == ModeRead {
+		return nil, status.Error(codes.PermissionDenied, "read-only mode")
+	}
+	if req.Collection == "" || req.Key == "" || req.Lang == "" || req.Timestamp == 0 {
+		return nil, status.Error(codes.InvalidArgument, "missing required fields: collection, key, lang, timestamp")
+	}
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermWrite); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
+	docID := genID(req.Collection, req.Key, req.Lang)
+	tsKey := fmt.Sprintf("%020d", req.Timestamp)
+	revKey := append(kRevPrefix(req.Collection, docID), []byte(tsKey)...)
+
+	var revDoc *Doc
+	err := g.server.DB.View(func(tx *bolt.Tx) error {
+		bRev := tx.Bucket([]byte("rev"))
+		if bRev == nil {
+			return errors.New("revision not found")
+		}
+		v := bRev.Get(revKey)
+		if v == nil {
+			return fmt.Errorf("revision not found for timestamp %d", req.Timestamp)
+		}
+		var err error
+		revDoc, err = loadDoc(v)
+		return err
+	})
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+
+	doc, _, err := g.server.addDocument(req.Collection, req.Key, req.Lang, revDoc.Meta, revDoc.ContentMD, 0)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return docToProto(&doc), nil
 }

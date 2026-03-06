@@ -581,6 +581,67 @@ For best results, combine search methods:
 4. **FTS for keywords, Vector for meaning**: Use FTS when users search for specific terms, vector when queries are natural language questions
 5. **BM25F for structured docs**: Use BM25F when documents have meaningful titles and tags — matches in titles will rank higher than body-only matches
 
+## Search Stats (v2.7.0+)
+
+All search endpoints (`/v1/fts`, `/v1/vector-search`, `/v1/hybrid-search`) return an optional `searchStats` object with performance metrics:
+
+```json
+{
+  "searchStats": {
+    "durationMs": 12,
+    "queryTerms": ["cancel", "subscription"],
+    "indexSize": 150,
+    "totalTokens": 2
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `durationMs` | int | Wall-clock search time in milliseconds |
+| `queryTerms` | string[] | Tokenized/stemmed query terms used |
+| `indexSize` | int | Number of documents in search scope |
+| `totalTokens` | int | Number of tokens in the query |
+
+### Configuration
+
+Search stats are **enabled by default**. To disable:
+
+```bash
+MDDB_SEARCH_STATS=false ./mddbd
+```
+
+The config endpoint (`GET /v1/config`) includes `searchStatsEnabled` field.
+
+## Distance Metrics (v2.7.0+)
+
+MDDB supports three distance metrics for vector and hybrid search. The metric controls how similarity between embedding vectors is computed.
+
+| Metric | Value | Description | Score Range | Best For |
+|--------|-------|-------------|-------------|----------|
+| Cosine (default) | `cosine` | Measures the angle between two vectors, ignoring magnitude | -1 to 1 | Normalized text embeddings (OpenAI, Cohere, etc.) |
+| Dot Product | `dot_product` | Raw dot product of two vectors. For normalized vectors, equals cosine similarity | Unbounded | Pre-normalized embeddings where speed matters |
+| Euclidean | `euclidean` | Converts L2 (Euclidean) distance to similarity via `1/(1+dist)` | 0 to 1 | Non-normalized vectors where magnitude matters |
+
+### API Example
+
+```bash
+# Vector search with dot_product metric
+curl -X POST http://localhost:11023/v1/vector-search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "kb",
+    "query": "how to cancel my subscription?",
+    "topK": 5,
+    "distanceMetric": "dot_product"
+  }'
+```
+
+### Notes
+
+- **Normalized embeddings:** For normalized embeddings (OpenAI, most providers), all three metrics produce equivalent ranking order. The default `cosine` is recommended unless you have a specific reason to change it.
+- **Per-request configuration:** The distance metric is specified per-request via the `distanceMetric` parameter. No server-side configuration is needed.
+
 ## Automation Triggers (v2.6.9+)
 
 MDDB supports **automation triggers** that fire webhooks when documents matching search criteria are added to a collection.
@@ -685,6 +746,158 @@ When a trigger fires, it sends a POST to the webhook URL:
   "timestamp": 1709510400
 }
 ```
+
+## Cross-Collection Search (v2.7.0+)
+
+Search across multiple collections using a document's embedding or a text query.
+
+### Use Cases
+- Find images matching blog post content
+- Discover related audio files for a document
+- Cross-reference content between different collection types
+
+### Document-as-Query
+Use a source document's embedding vector to search target collections:
+
+```bash
+curl -X POST http://localhost:8080/v1/cross-search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sourceCollection": "content",
+    "sourceDocID": "post-123",
+    "targetCollections": ["images", "audio"],
+    "topK": 10,
+    "threshold": 0.5,
+    "distanceMetric": "cosine"
+  }'
+```
+
+### Text Query Across Collections
+```bash
+curl -X POST http://localhost:8080/v1/cross-search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "machine learning tutorial",
+    "targetCollections": ["content", "images", "documents"],
+    "topK": 20
+  }'
+```
+
+### Response
+Each result includes the collection it came from:
+```json
+{
+  "results": [
+    {
+      "collection": "images",
+      "document": {"id": "img-456", "meta": {"alt": ["ML diagram"]}},
+      "score": 0.89,
+      "rank": 1
+    }
+  ],
+  "total": 1,
+  "targetCollections": ["images", "audio"],
+  "algorithm": "flat",
+  "distanceMetric": "cosine"
+}
+```
+
+## Collection Attributes (v2.7.0+)
+
+Configure collection metadata: type, description, icon, color, and custom key-value pairs.
+
+### Collection Types
+- `default` — General-purpose collection
+- `website` — Web content / scraped pages
+- `images` — Image metadata and descriptions
+- `audio` — Audio file metadata
+- `documents` — Document repository
+
+### Set Collection Config
+```bash
+curl -X PUT http://localhost:8080/v1/collection-config \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "blog",
+    "type": "website",
+    "description": "Blog posts and articles",
+    "icon": "🌐",
+    "color": "#3B82F6"
+  }'
+```
+
+### Get Collection Config
+```bash
+curl http://localhost:8080/v1/collection-config?collection=blog
+```
+
+Collection attributes are returned in stats responses and visible in the panel sidebar.
+
+## Duplicate Detection (v2.7.0+)
+
+MDDB can detect exact and semantically similar documents within a collection. Useful for deduplication, quality control, and understanding content overlap.
+
+### Modes
+
+| Mode | Method | Complexity | Description |
+|------|--------|-----------|-------------|
+| `exact` | Content Hash (SHA256) | O(N) | Groups documents with identical content |
+| `similar` | Embedding Cosine Similarity | O(N²/2) | Groups documents above a similarity threshold |
+| `both` | Hash + Embeddings | O(N²/2) | Runs both detection methods (default) |
+
+### Examples
+
+```bash
+# Find all duplicates (both exact and similar)
+curl -X POST http://localhost:11023/v1/find-duplicates \
+  -H "Content-Type: application/json" \
+  -d '{"collection":"blog","threshold":0.9}'
+
+# Exact duplicates only (fast, O(N))
+curl -X POST http://localhost:11023/v1/find-duplicates \
+  -H "Content-Type: application/json" \
+  -d '{"collection":"blog","mode":"exact"}'
+
+# Similar documents with custom threshold
+curl -X POST http://localhost:11023/v1/find-duplicates \
+  -H "Content-Type: application/json" \
+  -d '{"collection":"images","mode":"similar","threshold":0.85,"includeContent":true}'
+```
+
+### MCP Tool
+
+```json
+{
+  "name": "find_duplicates",
+  "arguments": {
+    "collection": "blog",
+    "mode": "both",
+    "threshold": 0.9
+  }
+}
+```
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `collection` | string | required | Collection to scan |
+| `mode` | string | `both` | `exact`, `similar`, or `both` |
+| `threshold` | float | `0.9` | Minimum similarity score (0-1) for similar mode |
+| `maxDocs` | int | `5000` | Max documents to process (safety bound for large collections) |
+| `distanceMetric` | string | `cosine` | `cosine`, `dot_product`, or `euclidean` |
+| `includeContent` | bool | `false` | Include document content in results |
+
+### Response
+
+Results are returned as **groups** of duplicate documents. Each group contains 2+ documents.
+
+- **Exact groups**: Documents with identical SHA256 content hashes (score = 1.0)
+- **Similar groups**: Documents clustered by transitive similarity — if A is similar to B and B to C, all three are grouped together even if A and C are below threshold directly
+
+The response includes summary counts:
+- `exactDuplicates` — total documents that are exact duplicates
+- `similarPairs` — total pairs of similar documents found
 
 ## Zero-Shot Classification
 

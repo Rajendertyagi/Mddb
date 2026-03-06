@@ -77,7 +77,7 @@ func TestVectorIndex_AddAndSearch(t *testing.T) {
 	idx.Add("docs", "doc4", []float32{0, 0, 1})
 
 	// Search for something close to doc1
-	results := idx.Search("docs", []float32{1, 0, 0}, 3, 0.0)
+	results := idx.Search("docs", []float32{1, 0, 0}, 3, 0.0, nil)
 
 	if len(results) != 3 {
 		t.Fatalf("expected 3 results, got %d", len(results))
@@ -106,7 +106,7 @@ func TestVectorIndex_SearchWithThreshold(t *testing.T) {
 	idx.Add("docs", "doc3", []float32{0.9, 0.1, 0})
 
 	// With high threshold, should only get very similar results
-	results := idx.Search("docs", []float32{1, 0, 0}, 10, 0.9)
+	results := idx.Search("docs", []float32{1, 0, 0}, 10, 0.9, nil)
 
 	if len(results) != 2 {
 		t.Fatalf("expected 2 results with threshold 0.9, got %d", len(results))
@@ -123,7 +123,7 @@ func TestVectorIndex_SearchWithFilter(t *testing.T) {
 
 	// Only allow doc2 and doc3
 	allowed := map[string]bool{"doc2": true, "doc3": true}
-	results := idx.SearchWithFilter("docs", []float32{1, 0, 0}, 10, 0.0, allowed)
+	results := idx.SearchWithFilter("docs", []float32{1, 0, 0}, 10, 0.0, allowed, nil)
 
 	if len(results) != 2 {
 		t.Fatalf("expected 2 results, got %d", len(results))
@@ -157,7 +157,7 @@ func TestVectorIndex_EmptyCollection(t *testing.T) {
 	idx := NewVectorIndex()
 	idx.SetReady()
 
-	results := idx.Search("nonexistent", []float32{1, 0, 0}, 5, 0.0)
+	results := idx.Search("nonexistent", []float32{1, 0, 0}, 5, 0.0, nil)
 	if len(results) != 0 {
 		t.Fatalf("expected 0 results for empty collection, got %d", len(results))
 	}

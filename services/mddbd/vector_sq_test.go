@@ -45,7 +45,7 @@ func TestSQIndexBasicOps(t *testing.T) {
 	}
 
 	query := []float32{1, 0, 0, 0, 0, 0, 0, 0}
-	results := idx.Search("docs", query, 3, 0.0)
+	results := idx.Search("docs", query, 3, 0.0, nil)
 	if len(results) == 0 {
 		t.Fatal("expected results, got none")
 	}
@@ -67,7 +67,7 @@ func TestSQIndexUntrained(t *testing.T) {
 	idx.Add("docs", "doc1", []float32{1, 0, 0, 0})
 
 	query := []float32{1, 0, 0, 0}
-	results := idx.Search("docs", query, 5, 0.0)
+	results := idx.Search("docs", query, 5, 0.0, nil)
 	if len(results) != 0 {
 		t.Errorf("expected no results from untrained index, got %d", len(results))
 	}
@@ -89,7 +89,7 @@ func TestSQIndexSearchWithFilter(t *testing.T) {
 
 	allowed := map[string]bool{"doc2": true, "doc3": true}
 	query := []float32{1, 0, 0, 0}
-	results := idx.SearchWithFilter("docs", query, 5, 0.0, allowed)
+	results := idx.SearchWithFilter("docs", query, 5, 0.0, allowed, nil)
 
 	for _, r := range results {
 		if r.DocID == "doc1" {
@@ -141,7 +141,7 @@ func TestSQIndexEmptyCollection(t *testing.T) {
 	idx := NewSQIndex()
 	idx.SetReady()
 
-	results := idx.Search("nonexistent", []float32{1, 0}, 5, 0.0)
+	results := idx.Search("nonexistent", []float32{1, 0}, 5, 0.0, nil)
 	if results != nil {
 		t.Errorf("expected nil results for nonexistent collection")
 	}
@@ -181,7 +181,7 @@ func TestSQIndexConcurrent(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			query := []float32{1, 0, 0, 0}
-			results := idx.Search("docs", query, 2, 0.0)
+			results := idx.Search("docs", query, 2, 0.0, nil)
 			if len(results) == 0 {
 				t.Error("expected results from concurrent search")
 			}
@@ -203,7 +203,7 @@ func TestSQIndexScoreRange(t *testing.T) {
 	}
 	idx.Train("docs", vectors)
 
-	results := idx.Search("docs", []float32{1, 0, 0, 0}, 5, 0.0)
+	results := idx.Search("docs", []float32{1, 0, 0, 0}, 5, 0.0, nil)
 	for _, r := range results {
 		if r.Score < -1 || r.Score > 1 {
 			t.Errorf("score %f out of cosine similarity range [-1, 1]", r.Score)

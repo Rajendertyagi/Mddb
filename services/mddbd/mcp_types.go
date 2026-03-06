@@ -208,6 +208,7 @@ type MCPVectorSearchRequest struct {
 	FilterMeta     map[string][]string `json:"filterMeta,omitempty"`
 	IncludeContent bool                `json:"includeContent,omitempty"`
 	Algorithm      string              `json:"algorithm,omitempty"`
+	DistanceMetric string              `json:"distanceMetric,omitempty"`
 }
 
 // MCPVectorSearchResult represents a single semantic search result.
@@ -219,11 +220,12 @@ type MCPVectorSearchResult struct {
 
 // MCPVectorSearchResponse represents vector search results.
 type MCPVectorSearchResponse struct {
-	Results    []MCPVectorSearchResult `json:"results"`
-	Total      int                     `json:"total"`
-	Model      string                  `json:"model"`
-	Dimensions int                     `json:"dimensions"`
-	Algorithm  string                  `json:"algorithm"`
+	Results        []MCPVectorSearchResult `json:"results"`
+	Total          int                     `json:"total"`
+	Model          string                  `json:"model"`
+	Dimensions     int                     `json:"dimensions"`
+	Algorithm      string                  `json:"algorithm"`
+	DistanceMetric string                  `json:"distanceMetric"`
 }
 
 // MCPVectorReindexRequest represents a reindex request.
@@ -309,6 +311,7 @@ type MCPHybridSearchRequest struct {
 	RRFK            int                 `json:"rrfK,omitempty"`            // RRF k parameter
 	Fuzzy           int                 `json:"fuzzy,omitempty"`
 	Threshold       float64             `json:"threshold,omitempty"`
+	DistanceMetric  string              `json:"distanceMetric,omitempty"`
 	FilterMeta      map[string][]string `json:"filterMeta,omitempty"`
 }
 
@@ -329,6 +332,7 @@ type MCPHybridSearchResponse struct {
 	Strategy        string                  `json:"strategy"`
 	FTSAlgorithm    string                  `json:"ftsAlgorithm"`
 	VectorAlgorithm string                  `json:"vectorAlgorithm"`
+	DistanceMetric  string                  `json:"distanceMetric"`
 }
 
 // MCPWebhook represents a webhook subscription.
@@ -494,6 +498,73 @@ type MCPAutomationLogListResponse struct {
 	HasMore    bool                 `json:"hasMore"`
 }
 
+// --- Collection Config MCP Types ---
+
+// MCPCollectionConfigResponse is the response for get_collection_config.
+type MCPCollectionConfigResponse struct {
+	Collection string            `json:"collection"`
+	Config     *CollectionConfig `json:"config"`
+	Configured bool              `json:"configured"`
+}
+
+// MCPSetCollectionConfigRequest is the request for set_collection_config.
+type MCPSetCollectionConfigRequest struct {
+	Collection  string            `json:"collection"`
+	Type        string            `json:"type,omitempty"`
+	Description string            `json:"description,omitempty"`
+	Icon        string            `json:"icon,omitempty"`
+	Color       string            `json:"color,omitempty"`
+	CustomMeta  map[string]string `json:"customMeta,omitempty"`
+}
+
+// MCPCollectionConfigListResponse is the response for list_collection_configs.
+type MCPCollectionConfigListResponse struct {
+	Configs map[string]*CollectionConfig `json:"configs"`
+	Total   int                          `json:"total"`
+}
+
+// --- Cross-Search MCP Types ---
+
+// MCPCrossSearchRequest is the request for cross_search.
+type MCPCrossSearchRequest struct {
+	SourceCollection  string              `json:"sourceCollection"`
+	SourceDocID       string              `json:"sourceDocID"`
+	Query             string              `json:"query"`
+	TargetCollections []string            `json:"targetCollections"`
+	TopK              int                 `json:"topK"`
+	Threshold         float64             `json:"threshold"`
+	Algorithm         string              `json:"algorithm"`
+	DistanceMetric    string              `json:"distanceMetric"`
+	FilterMeta        map[string][]string `json:"filterMeta"`
+	IncludeContent    bool                `json:"includeContent"`
+}
+
+// MCPCrossSearchResponse is the response for cross_search.
+type MCPCrossSearchResponse struct {
+	Results           []CrossSearchResultItem `json:"results"`
+	Total             int                     `json:"total"`
+	SourceCollection  string                  `json:"sourceCollection,omitempty"`
+	SourceDocID       string                  `json:"sourceDocID,omitempty"`
+	TargetCollections []string                `json:"targetCollections"`
+	Algorithm         string                  `json:"algorithm"`
+	DistanceMetric    string                  `json:"distanceMetric"`
+}
+
+// --- Find Duplicates MCP Types ---
+
+// MCPFindDuplicatesRequest is the request for find_duplicates.
+type MCPFindDuplicatesRequest struct {
+	Collection     string  `json:"collection"`
+	Mode           string  `json:"mode"`
+	Threshold      float64 `json:"threshold"`
+	MaxDocs        int     `json:"maxDocs"`
+	DistanceMetric string  `json:"distanceMetric"`
+	IncludeContent bool    `json:"includeContent"`
+}
+
+// MCPFindDuplicatesResponse is the response for find_duplicates.
+type MCPFindDuplicatesResponse = FindDuplicatesResponse
+
 // --- MCP Protocol Types ---
 
 // MCPResource represents an MCP resource.
@@ -570,6 +641,17 @@ type MCPClient interface {
 	DeleteAutomation(ctx context.Context, id string) error
 	TestAutomation(ctx context.Context, id string) (string, error)
 	ListAutomationLogs(ctx context.Context, limit int, cursor, ruleID, status string) (*MCPAutomationLogListResponse, error)
+	// Revisions
+	ListRevisions(ctx context.Context, collection, key, lang string) (*RevisionListResponse, error)
+	RestoreRevision(ctx context.Context, collection, key, lang string, timestamp int64) (*MCPDocument, error)
+	// Collection config
+	GetCollectionConfig(ctx context.Context, collection string) (*MCPCollectionConfigResponse, error)
+	SetCollectionConfig(ctx context.Context, req *MCPSetCollectionConfigRequest) error
+	ListCollectionConfigs(ctx context.Context) (*MCPCollectionConfigListResponse, error)
+	// Cross-collection search
+	CrossSearch(ctx context.Context, req *MCPCrossSearchRequest) (*MCPCrossSearchResponse, error)
+	// Duplicate detection
+	FindDuplicates(ctx context.Context, req *MCPFindDuplicatesRequest) (*MCPFindDuplicatesResponse, error)
 	Close() error
 }
 

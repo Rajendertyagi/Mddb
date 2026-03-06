@@ -173,7 +173,7 @@ func (s *SQIndex) encode(c *sqCollection, vector []float32) []uint8 {
 }
 
 // Search finds the top-K most similar vectors using ADC with scalar quantization.
-func (s *SQIndex) Search(collection string, query []float32, topK int, threshold float64) []VectorResult {
+func (s *SQIndex) Search(collection string, query []float32, topK int, threshold float64, metric SimilarityFunc) []VectorResult {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -185,10 +185,10 @@ func (s *SQIndex) Search(collection string, query []float32, topK int, threshold
 		topK = 5
 	}
 
-	return s.adcSearch(c, query, topK, threshold, nil)
+	return s.adcSearch(c, query, topK, threshold, nil, metric)
 }
 
-func (s *SQIndex) SearchWithFilter(collection string, query []float32, topK int, threshold float64, allowed map[string]bool) []VectorResult {
+func (s *SQIndex) SearchWithFilter(collection string, query []float32, topK int, threshold float64, allowed map[string]bool, metric SimilarityFunc) []VectorResult {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -200,10 +200,10 @@ func (s *SQIndex) SearchWithFilter(collection string, query []float32, topK int,
 		topK = 5
 	}
 
-	return s.adcSearch(c, query, topK, threshold, allowed)
+	return s.adcSearch(c, query, topK, threshold, allowed, metric)
 }
 
-func (s *SQIndex) adcSearch(c *sqCollection, query []float32, topK int, threshold float64, allowed map[string]bool) []VectorResult {
+func (s *SQIndex) adcSearch(c *sqCollection, query []float32, topK int, threshold float64, allowed map[string]bool, metric SimilarityFunc) []VectorResult {
 	dim := c.dim
 
 	// Build distance table: distTable[dim][level] = squared distance from query[dim] to dequantized level
@@ -251,7 +251,10 @@ func (s *SQIndex) adcSearch(c *sqCollection, query []float32, topK int, threshol
 		return candidates[i].approxDist < candidates[j].approxDist
 	})
 
-	// Re-rank top candidates with exact cosine similarity
+	// Re-rank top candidates with exact similarity
+	if metric == nil {
+		metric = cosineSimilarity
+	}
 	rerank := topK * 3
 	if rerank > len(candidates) {
 		rerank = len(candidates)
@@ -264,7 +267,7 @@ func (s *SQIndex) adcSearch(c *sqCollection, query []float32, topK int, threshol
 		if !ok {
 			continue
 		}
-		score := cosineSimilarity(query, vec)
+		score := metric(query, vec)
 		if float64(score) >= threshold {
 			results = append(results, VectorResult{DocID: cand.docID, Score: score})
 		}
