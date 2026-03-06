@@ -95,12 +95,13 @@ func mcpBuiltinTools() []MCPTool {
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
-					"collection":  map[string]interface{}{"type": "string", "description": "Collection to search in"},
-					"query":       map[string]interface{}{"type": "string", "description": "Natural language search query"},
-					"top_k":       map[string]interface{}{"type": "integer", "description": "Number of results to return (default: 5)"},
-					"threshold":   map[string]interface{}{"type": "number", "description": "Minimum similarity score 0-1 (default: 0.0)"},
-					"filter_meta": map[string]interface{}{"type": "object", "description": "Optional metadata filter to combine with semantic search"},
-					"algorithm":   map[string]interface{}{"type": "string", "description": "Vector search algorithm: flat (exact, default), hnsw (approximate), ivf (clustered), pq (compressed)"},
+					"collection":      map[string]interface{}{"type": "string", "description": "Collection to search in"},
+					"query":           map[string]interface{}{"type": "string", "description": "Natural language search query"},
+					"top_k":           map[string]interface{}{"type": "integer", "description": "Number of results to return (default: 5)"},
+					"threshold":       map[string]interface{}{"type": "number", "description": "Minimum similarity score 0-1 (default: 0.0)"},
+					"filter_meta":     map[string]interface{}{"type": "object", "description": "Optional metadata filter to combine with semantic search"},
+					"algorithm":       map[string]interface{}{"type": "string", "description": "Vector search algorithm: flat (exact, default), hnsw (approximate), ivf (clustered), pq (compressed)"},
+					"distance_metric": map[string]interface{}{"type": "string", "description": "Distance metric: cosine (default), dot_product, euclidean"},
 				},
 				"required": []string{"collection", "query"},
 			},
@@ -370,6 +371,7 @@ func mcpBuiltinTools() []MCPTool {
 					"rrf_k":            map[string]interface{}{"type": "integer", "description": "RRF k parameter (default: 60)"},
 					"fuzzy":            map[string]interface{}{"type": "integer", "description": "Typo tolerance: 0, 1, 2 (default: 0)"},
 					"threshold":        map[string]interface{}{"type": "number", "description": "Min vector similarity 0-1"},
+					"distance_metric":  map[string]interface{}{"type": "string", "description": "Distance metric: cosine (default), dot_product, euclidean"},
 					"filter_meta":      map[string]interface{}{"type": "object", "description": "Metadata filter"},
 				},
 				"required": []string{"collection", "query"},
@@ -589,6 +591,80 @@ func mcpBuiltinTools() []MCPTool {
 				},
 			},
 		},
+		// --- Collection Config ---
+		{
+			Name:        "get_collection_config",
+			Description: "Get configuration attributes for a collection (type, description, icon, color, custom metadata).",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection name"},
+				},
+				"required": []string{"collection"},
+			},
+		},
+		{
+			Name:        "set_collection_config",
+			Description: "Set or update configuration attributes for a collection.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection":  map[string]interface{}{"type": "string", "description": "Collection name"},
+					"type":        map[string]interface{}{"type": "string", "description": "Collection type: default, website, images, audio, documents"},
+					"description": map[string]interface{}{"type": "string", "description": "Human-readable description"},
+					"icon":        map[string]interface{}{"type": "string", "description": "Emoji or icon identifier"},
+					"color":       map[string]interface{}{"type": "string", "description": "Hex color code (e.g. #3B82F6)"},
+					"custom_meta": map[string]interface{}{"type": "object", "description": "Custom key-value metadata"},
+				},
+				"required": []string{"collection"},
+			},
+		},
+		{
+			Name:        "list_collection_configs",
+			Description: "List all collections that have custom configuration set.",
+			InputSchema: map[string]interface{}{
+				"type":       "object",
+				"properties": map[string]interface{}{},
+			},
+		},
+		// --- Cross-Collection Search ---
+		{
+			Name:        "cross_search",
+			Description: "Search across multiple collections using a source document's embedding or a text query. Useful for finding related content across different collection types (e.g. matching images to blog posts).",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"source_collection":  map[string]interface{}{"type": "string", "description": "Collection containing the source document"},
+					"source_doc_id":      map[string]interface{}{"type": "string", "description": "Source document ID whose embedding to use as query"},
+					"query":              map[string]interface{}{"type": "string", "description": "Text query (alternative to source_doc_id)"},
+					"target_collections": map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}, "description": "Collections to search in"},
+					"top_k":              map[string]interface{}{"type": "integer", "description": "Number of results (default: 10)"},
+					"threshold":          map[string]interface{}{"type": "number", "description": "Minimum similarity threshold 0-1"},
+					"algorithm":          map[string]interface{}{"type": "string", "description": "Vector algorithm: flat (default), hnsw, ivf, pq, sq, bq"},
+					"distance_metric":    map[string]interface{}{"type": "string", "description": "Distance metric: cosine (default), dot_product, euclidean"},
+					"include_content":    map[string]interface{}{"type": "boolean", "description": "Include document content in results"},
+				},
+				"required": []string{"target_collections"},
+			},
+		},
+
+		// --- Duplicate Detection ---
+		{
+			Name:        "find_duplicates",
+			Description: "Find duplicate and similar documents within a collection. Detects exact duplicates (same content hash) and semantically similar documents (above similarity threshold). Requires documents to have embeddings for similar mode.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection":      map[string]interface{}{"type": "string", "description": "Collection to scan for duplicates"},
+					"mode":            map[string]interface{}{"type": "string", "description": "Detection mode: exact, similar, or both (default: both)"},
+					"threshold":       map[string]interface{}{"type": "number", "description": "Similarity threshold 0-1 for similar mode (default: 0.9)"},
+					"max_docs":        map[string]interface{}{"type": "integer", "description": "Max documents to process (default: 5000)"},
+					"distance_metric": map[string]interface{}{"type": "string", "description": "Distance metric: cosine (default), dot_product, euclidean"},
+					"include_content": map[string]interface{}{"type": "boolean", "description": "Include document content in results"},
+				},
+				"required": []string{"collection"},
+			},
+		},
 	}
 }
 
@@ -720,7 +796,10 @@ func validateMCPCustomTools(tools []MCPCustomToolConfig) error {
 		"get_meta_keys": true, "get_checksum": true,
 		"list_automation": true, "create_automation": true, "get_automation": true,
 		"update_automation": true, "delete_automation": true, "test_automation": true,
-		"get_automation_logs": true,
+		"get_automation_logs":   true,
+		"get_collection_config": true, "set_collection_config": true, "list_collection_configs": true,
+		"cross_search":    true,
+		"find_duplicates": true,
 	}
 	validActions := map[string]bool{
 		"semantic_search": true, "search_documents": true, "full_text_search": true,

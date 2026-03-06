@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	json "github.com/goccy/go-json"
@@ -22,7 +23,8 @@ type VectorSearchRequest struct {
 	Threshold      float64             `json:"threshold"`
 	FilterMeta     map[string][]string `json:"filterMeta"`
 	IncludeContent bool                `json:"includeContent"`
-	Algorithm      string              `json:"algorithm"` // "flat" (default), "hnsw", "ivf", "pq", "sq", "bq"
+	Algorithm      string              `json:"algorithm"`      // "flat" (default), "hnsw", "ivf", "pq", "sq", "bq"
+	DistanceMetric string              `json:"distanceMetric"` // "cosine" (default), "dot_product", "euclidean"
 }
 
 // VectorSearchResultItem represents a single search result.
@@ -34,11 +36,13 @@ type VectorSearchResultItem struct {
 
 // VectorSearchResponse represents the response from vector search.
 type VectorSearchResponseHTTP struct {
-	Results    []VectorSearchResultItem `json:"results"`
-	Total      int                      `json:"total"`
-	Model      string                   `json:"model"`
-	Dimensions int                      `json:"dimensions"`
-	Algorithm  string                   `json:"algorithm"`
+	Results        []VectorSearchResultItem `json:"results"`
+	Total          int                      `json:"total"`
+	Model          string                   `json:"model"`
+	Dimensions     int                      `json:"dimensions"`
+	Algorithm      string                   `json:"algorithm"`
+	DistanceMetric string                   `json:"distanceMetric"`
+	Stats          *SearchStats             `json:"searchStats,omitempty"`
 }
 
 // VectorReindexRequest represents a reindex request.
@@ -101,6 +105,7 @@ func (s *Server) loadVectorIndex() {
 
 // handleVectorSearch handles POST /v1/vector-search
 func (s *Server) handleVectorSearch(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	var req VectorSearchRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		bad(w, err)
@@ -159,6 +164,13 @@ func (s *Server) handleVectorSearch(w http.ResponseWriter, r *http.Request) {
 		topK = 5
 	}
 
+	// Resolve distance metric
+	metric := ResolveSimilarity(req.DistanceMetric)
+	metricName := req.DistanceMetric
+	if metricName == "" {
+		metricName = "cosine"
+	}
+
 	// Oversample for chunk deduplication: search for more results, then deduplicate
 	searchTopK := topK * 3
 	if searchTopK < 20 {
@@ -171,15 +183,16 @@ func (s *Server) handleVectorSearch(w http.ResponseWriter, r *http.Request) {
 		allowedIDs := s.getDocIDsByMeta(req.Collection, req.FilterMeta)
 		if len(allowedIDs) == 0 {
 			ok(w, VectorSearchResponseHTTP{
-				Results:   []VectorSearchResultItem{},
-				Total:     0,
-				Algorithm: algo,
+				Results:        []VectorSearchResultItem{},
+				Total:          0,
+				Algorithm:      algo,
+				DistanceMetric: metricName,
 			})
 			return
 		}
-		results = searcher.SearchWithFilter(req.Collection, queryVector, searchTopK, req.Threshold, allowedIDs)
+		results = searcher.SearchWithFilter(req.Collection, queryVector, searchTopK, req.Threshold, allowedIDs, metric)
 	} else {
-		results = searcher.Search(req.Collection, queryVector, searchTopK, req.Threshold)
+		results = searcher.Search(req.Collection, queryVector, searchTopK, req.Threshold, metric)
 	}
 
 	// Deduplicate chunk results: group by base docID, take max score
@@ -223,13 +236,28 @@ func (s *Server) handleVectorSearch(w http.ResponseWriter, r *http.Request) {
 	})
 
 	resp := VectorSearchResponseHTTP{
-		Results:   items,
-		Total:     len(items),
-		Algorithm: algo,
+		Results:        items,
+		Total:          len(items),
+		Algorithm:      algo,
+		DistanceMetric: metricName,
 	}
 	if s.Embedding != nil {
 		resp.Model = s.Embedding.Model()
 		resp.Dimensions = s.Embedding.Dimensions()
+	}
+
+	if searchStatsEnabled() {
+		indexSize := 0
+		if searcher != nil {
+			indexSize = searcher.CollectionSize(req.Collection)
+		}
+		queryTerms := strings.Fields(req.Query)
+		resp.Stats = &SearchStats{
+			DurationMs:  float64(time.Since(start).Microseconds()) / 1000.0,
+			QueryTerms:  queryTerms,
+			IndexSize:   indexSize,
+			TotalTokens: len(queryTerms),
+		}
 	}
 
 	ok(w, resp)

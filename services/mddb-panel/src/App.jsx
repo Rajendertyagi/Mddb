@@ -23,6 +23,7 @@ import ClusterPanel from './components/ClusterPanel';
 import SynonymsPanel from './components/SynonymsPanel';
 import StopWordsPanel from './components/StopWordsPanel';
 import AutomationPanel from './components/AutomationPanel';
+import CrossSearchPanel from './components/CrossSearchPanel';
 
 function App() {
   const {
@@ -227,6 +228,18 @@ function App() {
             <div className="flex-1 border-l border-gray-200">
               <AutomationPanel />
             </div>
+          )}
+          {viewMode === 'crossSearch' && (
+            <>
+              <div className="flex-1 border-l border-gray-200">
+                <CrossSearchPanel />
+              </div>
+              {currentDocument && (
+                <div className="flex-1 border-l border-gray-200">
+                  <DocumentViewer />
+                </div>
+              )}
+            </>
           )}
           {viewMode === 'settings' && (
             <div className="flex-1 border-l border-gray-200">

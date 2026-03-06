@@ -19,6 +19,18 @@ func (s *Server) handleAutomationLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check admin permission
+	if s.AuthManager != nil {
+		if err := s.AuthManager.CheckPermission(r.Context(), "*", PermAdmin); err != nil {
+			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+			return
+		}
+	}
+
+	if s.Metrics != nil {
+		s.Metrics.IncOp("automation_logs_list", "")
+	}
+
 	q := r.URL.Query()
 
 	limit := 50

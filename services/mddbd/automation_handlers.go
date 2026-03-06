@@ -15,8 +15,19 @@ func (s *Server) handleAutomation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check admin permission
+	if s.AuthManager != nil {
+		if err := s.AuthManager.CheckPermission(r.Context(), "*", PermAdmin); err != nil {
+			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+			return
+		}
+	}
+
 	switch r.Method {
 	case http.MethodGet:
+		if s.Metrics != nil {
+			s.Metrics.IncOp("automation_list", "")
+		}
 		filterType := r.URL.Query().Get("type")
 		rules := s.AutomationManager.List(filterType)
 		ok(w, map[string]interface{}{
@@ -28,6 +39,9 @@ func (s *Server) handleAutomation(w http.ResponseWriter, r *http.Request) {
 		if s.Mode == ModeRead {
 			http.Error(w, `{"error":"read-only mode"}`, http.StatusForbidden)
 			return
+		}
+		if s.Metrics != nil {
+			s.Metrics.IncOp("automation_create", "")
 		}
 		var rule AutomationRule
 		if err := json.NewDecoder(r.Body).Decode(&rule); err != nil {
@@ -60,6 +74,14 @@ func (s *Server) handleAutomationDetail(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Check admin permission
+	if s.AuthManager != nil {
+		if err := s.AuthManager.CheckPermission(r.Context(), "*", PermAdmin); err != nil {
+			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+			return
+		}
+	}
+
 	// Parse path: /v1/automation/{id} or /v1/automation/{id}/test
 	path := strings.TrimPrefix(r.URL.Path, "/v1/automation/")
 	parts := strings.SplitN(path, "/", 2)
@@ -77,6 +99,9 @@ func (s *Server) handleAutomationDetail(w http.ResponseWriter, r *http.Request) 
 
 	switch r.Method {
 	case http.MethodGet:
+		if s.Metrics != nil {
+			s.Metrics.IncOp("automation_get", id)
+		}
 		rule := s.AutomationManager.Get(id)
 		if rule == nil {
 			http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
@@ -94,6 +119,9 @@ func (s *Server) handleAutomationDetail(w http.ResponseWriter, r *http.Request) 
 			bad(w, err)
 			return
 		}
+		if s.Metrics != nil {
+			s.Metrics.IncOp("automation_update", id)
+		}
 		updated, err := s.AutomationManager.Update(id, update)
 		if err != nil {
 			bad(w, err)
@@ -109,6 +137,9 @@ func (s *Server) handleAutomationDetail(w http.ResponseWriter, r *http.Request) 
 		if s.Mode == ModeRead {
 			http.Error(w, `{"error":"read-only mode"}`, http.StatusForbidden)
 			return
+		}
+		if s.Metrics != nil {
+			s.Metrics.IncOp("automation_delete", id)
 		}
 		existing := s.AutomationManager.Get(id)
 		if existing == nil {
@@ -145,6 +176,10 @@ func (s *Server) handleAutomationTest(w http.ResponseWriter, r *http.Request, id
 	if rule.Type != "trigger" {
 		bad(w, fmt.Errorf("can only test trigger rules, got: %s", rule.Type))
 		return
+	}
+
+	if s.Metrics != nil {
+		s.Metrics.IncOp("automation_test", id)
 	}
 
 	matches, err := s.AutomationManager.RunTrigger(rule)

@@ -142,6 +142,14 @@ func (s *Server) DeleteEmbeddingConfig(id string) error {
 // HTTP Handlers
 
 func (s *Server) handleEmbeddingConfigs(w http.ResponseWriter, r *http.Request) {
+	// Check admin permission
+	if s.AuthManager != nil {
+		if err := s.AuthManager.CheckPermission(r.Context(), "*", PermAdmin); err != nil {
+			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+			return
+		}
+	}
+
 	switch r.Method {
 	case http.MethodGet:
 		s.handleListEmbeddingConfigs(w, r)
@@ -153,6 +161,14 @@ func (s *Server) handleEmbeddingConfigs(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) handleEmbeddingConfigDetail(w http.ResponseWriter, r *http.Request) {
+	// Check admin permission
+	if s.AuthManager != nil {
+		if err := s.AuthManager.CheckPermission(r.Context(), "*", PermAdmin); err != nil {
+			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+			return
+		}
+	}
+
 	// Extract ID from path: /v1/embedding-configs/{id}
 	parts := strings.Split(r.URL.Path, "/")
 	if len(parts) < 4 {
@@ -174,6 +190,10 @@ func (s *Server) handleEmbeddingConfigDetail(w http.ResponseWriter, r *http.Requ
 }
 
 func (s *Server) handleListEmbeddingConfigs(w http.ResponseWriter, r *http.Request) {
+	if s.Metrics != nil {
+		s.Metrics.IncOp("embedding_config_list", "")
+	}
+
 	configs, err := s.ListEmbeddingConfigs()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -187,6 +207,15 @@ func (s *Server) handleListEmbeddingConfigs(w http.ResponseWriter, r *http.Reque
 }
 
 func (s *Server) handleCreateEmbeddingConfig(w http.ResponseWriter, r *http.Request) {
+	if s.Mode == ModeRead {
+		http.Error(w, `{"error":"read-only mode"}`, http.StatusForbidden)
+		return
+	}
+
+	if s.Metrics != nil {
+		s.Metrics.IncOp("embedding_config_create", "")
+	}
+
 	var config EmbeddingConfig
 	if err := json.NewDecoder(r.Body).Decode(&config); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
@@ -228,6 +257,10 @@ func (s *Server) handleCreateEmbeddingConfig(w http.ResponseWriter, r *http.Requ
 }
 
 func (s *Server) handleGetEmbeddingConfig(w http.ResponseWriter, r *http.Request, id string) {
+	if s.Metrics != nil {
+		s.Metrics.IncOp("embedding_config_get", id)
+	}
+
 	config, err := s.GetEmbeddingConfig(id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -239,6 +272,15 @@ func (s *Server) handleGetEmbeddingConfig(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Server) handleUpdateEmbeddingConfig(w http.ResponseWriter, r *http.Request, id string) {
+	if s.Mode == ModeRead {
+		http.Error(w, `{"error":"read-only mode"}`, http.StatusForbidden)
+		return
+	}
+
+	if s.Metrics != nil {
+		s.Metrics.IncOp("embedding_config_update", id)
+	}
+
 	var config EmbeddingConfig
 	if err := json.NewDecoder(r.Body).Decode(&config); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
@@ -274,6 +316,15 @@ func (s *Server) handleUpdateEmbeddingConfig(w http.ResponseWriter, r *http.Requ
 }
 
 func (s *Server) handleDeleteEmbeddingConfig(w http.ResponseWriter, r *http.Request, id string) {
+	if s.Mode == ModeRead {
+		http.Error(w, `{"error":"read-only mode"}`, http.StatusForbidden)
+		return
+	}
+
+	if s.Metrics != nil {
+		s.Metrics.IncOp("embedding_config_delete", id)
+	}
+
 	// Check if it's the default config
 	config, err := s.GetEmbeddingConfig(id)
 	if err != nil {
@@ -298,6 +349,23 @@ func (s *Server) handleSetDefaultEmbeddingConfig(w http.ResponseWriter, r *http.
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
+	}
+
+	if s.Mode == ModeRead {
+		http.Error(w, `{"error":"read-only mode"}`, http.StatusForbidden)
+		return
+	}
+
+	// Check admin permission
+	if s.AuthManager != nil {
+		if err := s.AuthManager.CheckPermission(r.Context(), "*", PermAdmin); err != nil {
+			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+			return
+		}
+	}
+
+	if s.Metrics != nil {
+		s.Metrics.IncOp("embedding_config_set_default", "")
 	}
 
 	var req struct {

@@ -22,6 +22,7 @@ type ConfigResponse struct {
 	ChunkConfig           *ChunkConfig    `json:"chunkConfig,omitempty"`
 	AutomationsEnabled    bool            `json:"automationsEnabled"`
 	AutomationLogsEnabled bool            `json:"automationLogsEnabled"`
+	SearchStatsEnabled    bool            `json:"searchStatsEnabled"`
 }
 
 type ChunkConfig struct {
@@ -104,6 +105,7 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		ReplicationRole:       s.ReplicationRole,
 		AutomationsEnabled:    env("MDDB_AUTOMATIONS", "enable") != "disable",
 		AutomationLogsEnabled: env("MDDB_AUTOMATION_LOGS", "enable") != "disable",
+		SearchStatsEnabled:    searchStatsEnabled(),
 	}
 
 	// Add vector configuration if embedding provider is set

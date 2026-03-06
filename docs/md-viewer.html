@@ -53,7 +53,26 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <script>
+        mermaid.initialize({ startOnLoad: false, theme: 'default' });
+
+        // Custom renderer to handle mermaid code blocks
+        const renderer = new marked.Renderer();
+        const originalCodeRenderer = renderer.code.bind(renderer);
+        renderer.code = function(code, lang) {
+            // marked@11 passes (code, lang) or ({text, lang}) depending on version
+            let text = code, language = lang;
+            if (typeof code === 'object') {
+                text = code.text;
+                language = code.lang;
+            }
+            if (language === 'mermaid') {
+                return '<pre class="mermaid">' + text + '</pre>';
+            }
+            return originalCodeRenderer(code, lang);
+        };
+
         // Get the markdown file from URL parameter
         const urlParams = new URLSearchParams(window.location.search);
         const mdFile = urlParams.get('doc') || 'QUICKSTART.md';
@@ -64,7 +83,8 @@
             breaks: true,
             gfm: true,
             headerIds: true,
-            mangle: false
+            mangle: false,
+            renderer: renderer
         });
 
         // Fetch and render markdown
@@ -78,7 +98,7 @@
             .then(markdown => {
                 contentDiv.className = 'markdown-body';
                 contentDiv.innerHTML = marked.parse(markdown);
-                
+
                 // Update page title
                 const firstH1 = contentDiv.querySelector('h1');
                 if (firstH1) {
@@ -92,6 +112,9 @@
                         link.href = `md-viewer.html?doc=${href}`;
                     }
                 });
+
+                // Render mermaid diagrams
+                mermaid.run({ nodes: contentDiv.querySelectorAll('.mermaid') });
             })
             .catch(error => {
                 contentDiv.className = 'error';

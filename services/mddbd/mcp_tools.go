@@ -73,6 +73,10 @@ func (s *MCPToolServer) mcpCallTool(ctx context.Context, name string, args map[s
 		return s.toolDeleteCollection(ctx, args)
 	case "truncate_revisions":
 		return s.toolTruncateRevisions(ctx, args)
+	case "list_revisions":
+		return s.toolListRevisions(ctx, args)
+	case "restore_revision":
+		return s.toolRestoreRevision(ctx, args)
 	case "list_synonyms":
 		return s.toolListSynonyms(ctx, args)
 	case "add_synonym":
@@ -103,6 +107,16 @@ func (s *MCPToolServer) mcpCallTool(ctx context.Context, name string, args map[s
 		return s.toolTestAutomation(ctx, args)
 	case "get_automation_logs":
 		return s.toolGetAutomationLogs(ctx, args)
+	case "get_collection_config":
+		return s.toolGetCollectionConfig(ctx, args)
+	case "set_collection_config":
+		return s.toolSetCollectionConfig(ctx, args)
+	case "list_collection_configs":
+		return s.toolListCollectionConfigs(ctx, args)
+	case "cross_search":
+		return s.toolCrossSearch(ctx, args)
+	case "find_duplicates":
+		return s.toolFindDuplicates(ctx, args)
 	default:
 		for _, ct := range s.customTools {
 			if ct.Name == name {
@@ -290,6 +304,7 @@ func (s *MCPToolServer) toolSemanticSearch(ctx context.Context, args map[string]
 		IncludeContent: true,
 		FilterMeta:     mcpGetMetaMap(args, "filter_meta"),
 		Algorithm:      mcpGetString(args, "algorithm"),
+		DistanceMetric: mcpGetString(args, "distance_metric"),
 	}
 
 	if threshold, ok := args["threshold"].(float64); ok {
@@ -396,6 +411,7 @@ func (s *MCPToolServer) toolHybridSearch(ctx context.Context, args map[string]in
 		Strategy:        mcpGetString(args, "strategy"),
 		RRFK:            mcpGetInt(args, "rrf_k"),
 		Fuzzy:           mcpGetInt(args, "fuzzy"),
+		DistanceMetric:  mcpGetString(args, "distance_metric"),
 		FilterMeta:      mcpGetMetaMap(args, "filter_meta"),
 	}
 	if alpha, ok := args["alpha"].(float64); ok {
@@ -628,6 +644,39 @@ func (s *MCPToolServer) toolTruncateRevisions(ctx context.Context, args map[stri
 		return "", err
 	}
 	return fmt.Sprintf("Revision history truncated: %s", resp.Status), nil
+}
+
+// --- revisions ---
+
+func (s *MCPToolServer) toolListRevisions(ctx context.Context, args map[string]interface{}) (string, error) {
+	collection := mcpGetString(args, "collection")
+	key := mcpGetString(args, "key")
+	lang := mcpGetString(args, "lang")
+	if collection == "" || key == "" || lang == "" {
+		return "", fmt.Errorf("collection, key, and lang are required")
+	}
+	resp, err := s.client.ListRevisions(ctx, collection, key, lang)
+	if err != nil {
+		return "", err
+	}
+	data, _ := json.MarshalIndent(resp, "", "  ")
+	return string(data), nil
+}
+
+func (s *MCPToolServer) toolRestoreRevision(ctx context.Context, args map[string]interface{}) (string, error) {
+	collection := mcpGetString(args, "collection")
+	key := mcpGetString(args, "key")
+	lang := mcpGetString(args, "lang")
+	timestamp := int64(mcpGetInt(args, "timestamp"))
+	if collection == "" || key == "" || lang == "" || timestamp == 0 {
+		return "", fmt.Errorf("collection, key, lang, and timestamp are required")
+	}
+	doc, err := s.client.RestoreRevision(ctx, collection, key, lang, timestamp)
+	if err != nil {
+		return "", err
+	}
+	data, _ := json.MarshalIndent(doc, "", "  ")
+	return fmt.Sprintf("Revision restored successfully:\n%s", string(data)), nil
 }
 
 // --- synonyms ---
@@ -891,6 +940,110 @@ func mcpArgsToAutomationRule(args map[string]interface{}) AutomationRule {
 	return rule
 }
 
+// --- Collection Config Tools ---
+
+func (s *MCPToolServer) toolGetCollectionConfig(ctx context.Context, args map[string]interface{}) (string, error) {
+	collection := mcpGetString(args, "collection")
+	if collection == "" {
+		return "", fmt.Errorf("collection is required")
+	}
+	resp, err := s.client.GetCollectionConfig(ctx, collection)
+	if err != nil {
+		return "", err
+	}
+	data, _ := json.MarshalIndent(resp, "", "  ")
+	return string(data), nil
+}
+
+func (s *MCPToolServer) toolSetCollectionConfig(ctx context.Context, args map[string]interface{}) (string, error) {
+	collection := mcpGetString(args, "collection")
+	if collection == "" {
+		return "", fmt.Errorf("collection is required")
+	}
+	req := &MCPSetCollectionConfigRequest{
+		Collection:  collection,
+		Type:        mcpGetString(args, "type"),
+		Description: mcpGetString(args, "description"),
+		Icon:        mcpGetString(args, "icon"),
+		Color:       mcpGetString(args, "color"),
+	}
+	if cm, ok := args["custom_meta"].(map[string]interface{}); ok {
+		req.CustomMeta = make(map[string]string, len(cm))
+		for k, v := range cm {
+			if str, ok := v.(string); ok {
+				req.CustomMeta[k] = str
+			}
+		}
+	}
+	if err := s.client.SetCollectionConfig(ctx, req); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("Collection %q config updated (type=%s)", collection, req.Type), nil
+}
+
+func (s *MCPToolServer) toolListCollectionConfigs(ctx context.Context, args map[string]interface{}) (string, error) {
+	resp, err := s.client.ListCollectionConfigs(ctx)
+	if err != nil {
+		return "", err
+	}
+	data, _ := json.MarshalIndent(resp, "", "  ")
+	return string(data), nil
+}
+
+// --- Cross-Search Tool ---
+
+func (s *MCPToolServer) toolCrossSearch(ctx context.Context, args map[string]interface{}) (string, error) {
+	req := &MCPCrossSearchRequest{
+		SourceCollection: mcpGetString(args, "source_collection"),
+		SourceDocID:      mcpGetString(args, "source_doc_id"),
+		Query:            mcpGetString(args, "query"),
+		TopK:             mcpGetInt(args, "top_k"),
+		Threshold:        mcpGetFloat(args, "threshold"),
+		Algorithm:        mcpGetString(args, "algorithm"),
+		DistanceMetric:   mcpGetString(args, "distance_metric"),
+		FilterMeta:       mcpGetMetaMap(args, "filter_meta"),
+	}
+	if ic, ok := args["include_content"].(bool); ok {
+		req.IncludeContent = ic
+	}
+	// Parse target_collections array
+	if tc, ok := args["target_collections"].([]interface{}); ok {
+		for _, v := range tc {
+			if str, ok := v.(string); ok {
+				req.TargetCollections = append(req.TargetCollections, str)
+			}
+		}
+	}
+	if len(req.TargetCollections) == 0 {
+		return "", fmt.Errorf("target_collections is required")
+	}
+	resp, err := s.client.CrossSearch(ctx, req)
+	if err != nil {
+		return "", err
+	}
+	data, _ := json.MarshalIndent(resp, "", "  ")
+	return string(data), nil
+}
+
+func (s *MCPToolServer) toolFindDuplicates(ctx context.Context, args map[string]interface{}) (string, error) {
+	req := &MCPFindDuplicatesRequest{
+		Collection:     mcpGetString(args, "collection"),
+		Mode:           mcpGetString(args, "mode"),
+		MaxDocs:        mcpGetInt(args, "max_docs"),
+		DistanceMetric: mcpGetString(args, "distance_metric"),
+		Threshold:      mcpGetFloat(args, "threshold"),
+	}
+	if ic, ok := args["include_content"].(bool); ok {
+		req.IncludeContent = ic
+	}
+	resp, err := s.client.FindDuplicates(ctx, req)
+	if err != nil {
+		return "", err
+	}
+	data, _ := json.MarshalIndent(resp, "", "  ")
+	return string(data), nil
+}
+
 // --- arg helpers ---
 
 func mcpGetString(m map[string]interface{}, key string) string {
@@ -903,6 +1056,13 @@ func mcpGetString(m map[string]interface{}, key string) string {
 func mcpGetInt(m map[string]interface{}, key string) int {
 	if v, ok := m[key].(float64); ok {
 		return int(v)
+	}
+	return 0
+}
+
+func mcpGetFloat(m map[string]interface{}, key string) float64 {
+	if v, ok := m[key].(float64); ok {
+		return v
 	}
 	return 0
 }

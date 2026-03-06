@@ -345,7 +345,7 @@ func TestUpdateInMemoryState_VectorsPut(t *testing.T) {
 	}
 
 	// The vector index should have the entry
-	results := s.VectorIndex.Search("blog", []float32{1.0, 2.0, 3.0}, 5, 0)
+	results := s.VectorIndex.Search("blog", []float32{1.0, 2.0, 3.0}, 5, 0, nil)
 	if len(results) != 1 {
 		t.Errorf("expected 1 vector result, got %d", len(results))
 	}
@@ -371,7 +371,7 @@ func TestUpdateInMemoryState_VectorsDelete(t *testing.T) {
 	}
 
 	// The vector should be removed
-	results := s.VectorIndex.Search("blog", []float32{1.0, 2.0, 3.0}, 5, 0)
+	results := s.VectorIndex.Search("blog", []float32{1.0, 2.0, 3.0}, 5, 0, nil)
 	if len(results) != 0 {
 		t.Errorf("expected 0 vector results after delete, got %d", len(results))
 	}

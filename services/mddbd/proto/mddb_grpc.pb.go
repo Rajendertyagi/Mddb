@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v7.34.0
-// source: proto/mddb.proto
+// source: mddb.proto
 
 package proto
 
@@ -19,35 +19,59 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	MDDB_Add_FullMethodName              = "/mddb.MDDB/Add"
-	MDDB_AddBatch_FullMethodName         = "/mddb.MDDB/AddBatch"
-	MDDB_DeleteBatch_FullMethodName      = "/mddb.MDDB/DeleteBatch"
-	MDDB_UpdateBatch_FullMethodName      = "/mddb.MDDB/UpdateBatch"
-	MDDB_Get_FullMethodName              = "/mddb.MDDB/Get"
-	MDDB_Search_FullMethodName           = "/mddb.MDDB/Search"
-	MDDB_Export_FullMethodName           = "/mddb.MDDB/Export"
-	MDDB_Backup_FullMethodName           = "/mddb.MDDB/Backup"
-	MDDB_Restore_FullMethodName          = "/mddb.MDDB/Restore"
-	MDDB_Truncate_FullMethodName         = "/mddb.MDDB/Truncate"
-	MDDB_Stats_FullMethodName            = "/mddb.MDDB/Stats"
-	MDDB_VectorSearch_FullMethodName     = "/mddb.MDDB/VectorSearch"
-	MDDB_VectorReindex_FullMethodName    = "/mddb.MDDB/VectorReindex"
-	MDDB_VectorStats_FullMethodName      = "/mddb.MDDB/VectorStats"
-	MDDB_ImportURL_FullMethodName        = "/mddb.MDDB/ImportURL"
-	MDDB_SetTTL_FullMethodName           = "/mddb.MDDB/SetTTL"
-	MDDB_FTS_FullMethodName              = "/mddb.MDDB/FTS"
-	MDDB_HybridSearch_FullMethodName     = "/mddb.MDDB/HybridSearch"
-	MDDB_RegisterWebhook_FullMethodName  = "/mddb.MDDB/RegisterWebhook"
-	MDDB_ListWebhooks_FullMethodName     = "/mddb.MDDB/ListWebhooks"
-	MDDB_DeleteWebhook_FullMethodName    = "/mddb.MDDB/DeleteWebhook"
-	MDDB_SetSchema_FullMethodName        = "/mddb.MDDB/SetSchema"
-	MDDB_GetSchema_FullMethodName        = "/mddb.MDDB/GetSchema"
-	MDDB_DeleteSchema_FullMethodName     = "/mddb.MDDB/DeleteSchema"
-	MDDB_ListSchemas_FullMethodName      = "/mddb.MDDB/ListSchemas"
-	MDDB_ValidateDocument_FullMethodName = "/mddb.MDDB/ValidateDocument"
-	MDDB_UpdateDocument_FullMethodName   = "/mddb.MDDB/UpdateDocument"
-	MDDB_GetDocumentMeta_FullMethodName  = "/mddb.MDDB/GetDocumentMeta"
-	MDDB_Classify_FullMethodName         = "/mddb.MDDB/Classify"
+	MDDB_Add_FullMethodName                   = "/mddb.MDDB/Add"
+	MDDB_AddBatch_FullMethodName              = "/mddb.MDDB/AddBatch"
+	MDDB_DeleteBatch_FullMethodName           = "/mddb.MDDB/DeleteBatch"
+	MDDB_UpdateBatch_FullMethodName           = "/mddb.MDDB/UpdateBatch"
+	MDDB_Get_FullMethodName                   = "/mddb.MDDB/Get"
+	MDDB_Search_FullMethodName                = "/mddb.MDDB/Search"
+	MDDB_Export_FullMethodName                = "/mddb.MDDB/Export"
+	MDDB_Backup_FullMethodName                = "/mddb.MDDB/Backup"
+	MDDB_Restore_FullMethodName               = "/mddb.MDDB/Restore"
+	MDDB_Truncate_FullMethodName              = "/mddb.MDDB/Truncate"
+	MDDB_Stats_FullMethodName                 = "/mddb.MDDB/Stats"
+	MDDB_VectorSearch_FullMethodName          = "/mddb.MDDB/VectorSearch"
+	MDDB_VectorReindex_FullMethodName         = "/mddb.MDDB/VectorReindex"
+	MDDB_VectorStats_FullMethodName           = "/mddb.MDDB/VectorStats"
+	MDDB_ImportURL_FullMethodName             = "/mddb.MDDB/ImportURL"
+	MDDB_SetTTL_FullMethodName                = "/mddb.MDDB/SetTTL"
+	MDDB_FTS_FullMethodName                   = "/mddb.MDDB/FTS"
+	MDDB_HybridSearch_FullMethodName          = "/mddb.MDDB/HybridSearch"
+	MDDB_RegisterWebhook_FullMethodName       = "/mddb.MDDB/RegisterWebhook"
+	MDDB_ListWebhooks_FullMethodName          = "/mddb.MDDB/ListWebhooks"
+	MDDB_DeleteWebhook_FullMethodName         = "/mddb.MDDB/DeleteWebhook"
+	MDDB_SetSchema_FullMethodName             = "/mddb.MDDB/SetSchema"
+	MDDB_GetSchema_FullMethodName             = "/mddb.MDDB/GetSchema"
+	MDDB_DeleteSchema_FullMethodName          = "/mddb.MDDB/DeleteSchema"
+	MDDB_ListSchemas_FullMethodName           = "/mddb.MDDB/ListSchemas"
+	MDDB_ValidateDocument_FullMethodName      = "/mddb.MDDB/ValidateDocument"
+	MDDB_UpdateDocument_FullMethodName        = "/mddb.MDDB/UpdateDocument"
+	MDDB_GetDocumentMeta_FullMethodName       = "/mddb.MDDB/GetDocumentMeta"
+	MDDB_Classify_FullMethodName              = "/mddb.MDDB/Classify"
+	MDDB_DeleteDocument_FullMethodName        = "/mddb.MDDB/DeleteDocument"
+	MDDB_DeleteCollection_FullMethodName      = "/mddb.MDDB/DeleteCollection"
+	MDDB_ListSynonyms_FullMethodName          = "/mddb.MDDB/ListSynonyms"
+	MDDB_AddSynonym_FullMethodName            = "/mddb.MDDB/AddSynonym"
+	MDDB_DeleteSynonym_FullMethodName         = "/mddb.MDDB/DeleteSynonym"
+	MDDB_ListStopwords_FullMethodName         = "/mddb.MDDB/ListStopwords"
+	MDDB_AddStopwords_FullMethodName          = "/mddb.MDDB/AddStopwords"
+	MDDB_DeleteStopwords_FullMethodName       = "/mddb.MDDB/DeleteStopwords"
+	MDDB_GetMetaKeys_FullMethodName           = "/mddb.MDDB/GetMetaKeys"
+	MDDB_GetChecksum_FullMethodName           = "/mddb.MDDB/GetChecksum"
+	MDDB_ListAutomation_FullMethodName        = "/mddb.MDDB/ListAutomation"
+	MDDB_CreateAutomation_FullMethodName      = "/mddb.MDDB/CreateAutomation"
+	MDDB_GetAutomation_FullMethodName         = "/mddb.MDDB/GetAutomation"
+	MDDB_UpdateAutomation_FullMethodName      = "/mddb.MDDB/UpdateAutomation"
+	MDDB_DeleteAutomation_FullMethodName      = "/mddb.MDDB/DeleteAutomation"
+	MDDB_TestAutomation_FullMethodName        = "/mddb.MDDB/TestAutomation"
+	MDDB_GetAutomationLogs_FullMethodName     = "/mddb.MDDB/GetAutomationLogs"
+	MDDB_GetCollectionConfig_FullMethodName   = "/mddb.MDDB/GetCollectionConfig"
+	MDDB_SetCollectionConfig_FullMethodName   = "/mddb.MDDB/SetCollectionConfig"
+	MDDB_ListCollectionConfigs_FullMethodName = "/mddb.MDDB/ListCollectionConfigs"
+	MDDB_CrossSearch_FullMethodName           = "/mddb.MDDB/CrossSearch"
+	MDDB_FindDuplicates_FullMethodName        = "/mddb.MDDB/FindDuplicates"
+	MDDB_ListRevisions_FullMethodName         = "/mddb.MDDB/ListRevisions"
+	MDDB_RestoreRevision_FullMethodName       = "/mddb.MDDB/RestoreRevision"
 )
 
 // MDDBClient is the client API for MDDB service.
@@ -114,6 +138,54 @@ type MDDBClient interface {
 	GetDocumentMeta(ctx context.Context, in *GetDocumentMetaRequest, opts ...grpc.CallOption) (*GetDocumentMetaResponse, error)
 	// Zero-shot document classification using embedding similarity
 	Classify(ctx context.Context, in *ClassifyRequest, opts ...grpc.CallOption) (*ClassifyResponse, error)
+	// Delete a single document
+	DeleteDocument(ctx context.Context, in *DeleteDocumentRequest, opts ...grpc.CallOption) (*DeleteDocumentResponse, error)
+	// Delete an entire collection
+	DeleteCollection(ctx context.Context, in *DeleteCollectionRequest, opts ...grpc.CallOption) (*DeleteCollectionResponse, error)
+	// List synonyms for a collection
+	ListSynonyms(ctx context.Context, in *ListSynonymsRequest, opts ...grpc.CallOption) (*ListSynonymsResponse, error)
+	// Add a synonym mapping
+	AddSynonym(ctx context.Context, in *AddSynonymRequest, opts ...grpc.CallOption) (*AddSynonymResponse, error)
+	// Delete a synonym mapping
+	DeleteSynonym(ctx context.Context, in *DeleteSynonymRequest, opts ...grpc.CallOption) (*DeleteSynonymResponse, error)
+	// List stop words for a collection
+	ListStopwords(ctx context.Context, in *ListStopwordsRequest, opts ...grpc.CallOption) (*ListStopwordsResponse, error)
+	// Add custom stop words
+	AddStopwords(ctx context.Context, in *AddStopwordsRequest, opts ...grpc.CallOption) (*AddStopwordsResponse, error)
+	// Delete custom stop words
+	DeleteStopwords(ctx context.Context, in *DeleteStopwordsRequest, opts ...grpc.CallOption) (*DeleteStopwordsResponse, error)
+	// Get all unique metadata keys and values for a collection
+	GetMetaKeys(ctx context.Context, in *GetMetaKeysRequest, opts ...grpc.CallOption) (*GetMetaKeysResponse, error)
+	// Get collection checksum (integrity hash)
+	GetChecksum(ctx context.Context, in *GetChecksumRequest, opts ...grpc.CallOption) (*GetChecksumResponse, error)
+	// List automation rules
+	ListAutomation(ctx context.Context, in *ListAutomationRequest, opts ...grpc.CallOption) (*ListAutomationResponse, error)
+	// Create an automation rule
+	CreateAutomation(ctx context.Context, in *CreateAutomationRequest, opts ...grpc.CallOption) (*AutomationRuleProto, error)
+	// Get an automation rule by ID
+	GetAutomation(ctx context.Context, in *GetAutomationRequest, opts ...grpc.CallOption) (*AutomationRuleProto, error)
+	// Update an automation rule
+	UpdateAutomation(ctx context.Context, in *UpdateAutomationRequest, opts ...grpc.CallOption) (*AutomationRuleProto, error)
+	// Delete an automation rule
+	DeleteAutomation(ctx context.Context, in *DeleteAutomationRequest, opts ...grpc.CallOption) (*DeleteAutomationResponse, error)
+	// Test an automation trigger (dry run)
+	TestAutomation(ctx context.Context, in *TestAutomationRequest, opts ...grpc.CallOption) (*TestAutomationResponse, error)
+	// Get automation execution logs
+	GetAutomationLogs(ctx context.Context, in *GetAutomationLogsRequest, opts ...grpc.CallOption) (*GetAutomationLogsResponse, error)
+	// Get collection configuration
+	GetCollectionConfig(ctx context.Context, in *GetCollectionConfigRequest, opts ...grpc.CallOption) (*GetCollectionConfigResponse, error)
+	// Set collection configuration
+	SetCollectionConfig(ctx context.Context, in *SetCollectionConfigRequest, opts ...grpc.CallOption) (*SetCollectionConfigResponse, error)
+	// List all collection configurations
+	ListCollectionConfigs(ctx context.Context, in *ListCollectionConfigsRequest, opts ...grpc.CallOption) (*ListCollectionConfigsResponse, error)
+	// Cross-collection vector search
+	CrossSearch(ctx context.Context, in *CrossSearchRequest, opts ...grpc.CallOption) (*CrossSearchResponse, error)
+	// Find duplicate documents in a collection
+	FindDuplicates(ctx context.Context, in *FindDuplicatesRequest, opts ...grpc.CallOption) (*FindDuplicatesResponse, error)
+	// List revision history for a document
+	ListRevisions(ctx context.Context, in *ListRevisionsRequest, opts ...grpc.CallOption) (*ListRevisionsResponse, error)
+	// Restore a document from a specific revision
+	RestoreRevision(ctx context.Context, in *RestoreRevisionRequest, opts ...grpc.CallOption) (*Document, error)
 }
 
 type mDDBClient struct {
@@ -423,6 +495,246 @@ func (c *mDDBClient) Classify(ctx context.Context, in *ClassifyRequest, opts ...
 	return out, nil
 }
 
+func (c *mDDBClient) DeleteDocument(ctx context.Context, in *DeleteDocumentRequest, opts ...grpc.CallOption) (*DeleteDocumentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteDocumentResponse)
+	err := c.cc.Invoke(ctx, MDDB_DeleteDocument_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) DeleteCollection(ctx context.Context, in *DeleteCollectionRequest, opts ...grpc.CallOption) (*DeleteCollectionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteCollectionResponse)
+	err := c.cc.Invoke(ctx, MDDB_DeleteCollection_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) ListSynonyms(ctx context.Context, in *ListSynonymsRequest, opts ...grpc.CallOption) (*ListSynonymsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListSynonymsResponse)
+	err := c.cc.Invoke(ctx, MDDB_ListSynonyms_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) AddSynonym(ctx context.Context, in *AddSynonymRequest, opts ...grpc.CallOption) (*AddSynonymResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AddSynonymResponse)
+	err := c.cc.Invoke(ctx, MDDB_AddSynonym_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) DeleteSynonym(ctx context.Context, in *DeleteSynonymRequest, opts ...grpc.CallOption) (*DeleteSynonymResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteSynonymResponse)
+	err := c.cc.Invoke(ctx, MDDB_DeleteSynonym_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) ListStopwords(ctx context.Context, in *ListStopwordsRequest, opts ...grpc.CallOption) (*ListStopwordsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListStopwordsResponse)
+	err := c.cc.Invoke(ctx, MDDB_ListStopwords_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) AddStopwords(ctx context.Context, in *AddStopwordsRequest, opts ...grpc.CallOption) (*AddStopwordsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AddStopwordsResponse)
+	err := c.cc.Invoke(ctx, MDDB_AddStopwords_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) DeleteStopwords(ctx context.Context, in *DeleteStopwordsRequest, opts ...grpc.CallOption) (*DeleteStopwordsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteStopwordsResponse)
+	err := c.cc.Invoke(ctx, MDDB_DeleteStopwords_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) GetMetaKeys(ctx context.Context, in *GetMetaKeysRequest, opts ...grpc.CallOption) (*GetMetaKeysResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetMetaKeysResponse)
+	err := c.cc.Invoke(ctx, MDDB_GetMetaKeys_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) GetChecksum(ctx context.Context, in *GetChecksumRequest, opts ...grpc.CallOption) (*GetChecksumResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetChecksumResponse)
+	err := c.cc.Invoke(ctx, MDDB_GetChecksum_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) ListAutomation(ctx context.Context, in *ListAutomationRequest, opts ...grpc.CallOption) (*ListAutomationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAutomationResponse)
+	err := c.cc.Invoke(ctx, MDDB_ListAutomation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) CreateAutomation(ctx context.Context, in *CreateAutomationRequest, opts ...grpc.CallOption) (*AutomationRuleProto, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AutomationRuleProto)
+	err := c.cc.Invoke(ctx, MDDB_CreateAutomation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) GetAutomation(ctx context.Context, in *GetAutomationRequest, opts ...grpc.CallOption) (*AutomationRuleProto, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AutomationRuleProto)
+	err := c.cc.Invoke(ctx, MDDB_GetAutomation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) UpdateAutomation(ctx context.Context, in *UpdateAutomationRequest, opts ...grpc.CallOption) (*AutomationRuleProto, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AutomationRuleProto)
+	err := c.cc.Invoke(ctx, MDDB_UpdateAutomation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) DeleteAutomation(ctx context.Context, in *DeleteAutomationRequest, opts ...grpc.CallOption) (*DeleteAutomationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteAutomationResponse)
+	err := c.cc.Invoke(ctx, MDDB_DeleteAutomation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) TestAutomation(ctx context.Context, in *TestAutomationRequest, opts ...grpc.CallOption) (*TestAutomationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TestAutomationResponse)
+	err := c.cc.Invoke(ctx, MDDB_TestAutomation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) GetAutomationLogs(ctx context.Context, in *GetAutomationLogsRequest, opts ...grpc.CallOption) (*GetAutomationLogsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAutomationLogsResponse)
+	err := c.cc.Invoke(ctx, MDDB_GetAutomationLogs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) GetCollectionConfig(ctx context.Context, in *GetCollectionConfigRequest, opts ...grpc.CallOption) (*GetCollectionConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCollectionConfigResponse)
+	err := c.cc.Invoke(ctx, MDDB_GetCollectionConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) SetCollectionConfig(ctx context.Context, in *SetCollectionConfigRequest, opts ...grpc.CallOption) (*SetCollectionConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetCollectionConfigResponse)
+	err := c.cc.Invoke(ctx, MDDB_SetCollectionConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) ListCollectionConfigs(ctx context.Context, in *ListCollectionConfigsRequest, opts ...grpc.CallOption) (*ListCollectionConfigsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListCollectionConfigsResponse)
+	err := c.cc.Invoke(ctx, MDDB_ListCollectionConfigs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) CrossSearch(ctx context.Context, in *CrossSearchRequest, opts ...grpc.CallOption) (*CrossSearchResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CrossSearchResponse)
+	err := c.cc.Invoke(ctx, MDDB_CrossSearch_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) FindDuplicates(ctx context.Context, in *FindDuplicatesRequest, opts ...grpc.CallOption) (*FindDuplicatesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FindDuplicatesResponse)
+	err := c.cc.Invoke(ctx, MDDB_FindDuplicates_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) ListRevisions(ctx context.Context, in *ListRevisionsRequest, opts ...grpc.CallOption) (*ListRevisionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListRevisionsResponse)
+	err := c.cc.Invoke(ctx, MDDB_ListRevisions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) RestoreRevision(ctx context.Context, in *RestoreRevisionRequest, opts ...grpc.CallOption) (*Document, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Document)
+	err := c.cc.Invoke(ctx, MDDB_RestoreRevision_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MDDBServer is the server API for MDDB service.
 // All implementations must embed UnimplementedMDDBServer
 // for forward compatibility.
@@ -487,6 +799,54 @@ type MDDBServer interface {
 	GetDocumentMeta(context.Context, *GetDocumentMetaRequest) (*GetDocumentMetaResponse, error)
 	// Zero-shot document classification using embedding similarity
 	Classify(context.Context, *ClassifyRequest) (*ClassifyResponse, error)
+	// Delete a single document
+	DeleteDocument(context.Context, *DeleteDocumentRequest) (*DeleteDocumentResponse, error)
+	// Delete an entire collection
+	DeleteCollection(context.Context, *DeleteCollectionRequest) (*DeleteCollectionResponse, error)
+	// List synonyms for a collection
+	ListSynonyms(context.Context, *ListSynonymsRequest) (*ListSynonymsResponse, error)
+	// Add a synonym mapping
+	AddSynonym(context.Context, *AddSynonymRequest) (*AddSynonymResponse, error)
+	// Delete a synonym mapping
+	DeleteSynonym(context.Context, *DeleteSynonymRequest) (*DeleteSynonymResponse, error)
+	// List stop words for a collection
+	ListStopwords(context.Context, *ListStopwordsRequest) (*ListStopwordsResponse, error)
+	// Add custom stop words
+	AddStopwords(context.Context, *AddStopwordsRequest) (*AddStopwordsResponse, error)
+	// Delete custom stop words
+	DeleteStopwords(context.Context, *DeleteStopwordsRequest) (*DeleteStopwordsResponse, error)
+	// Get all unique metadata keys and values for a collection
+	GetMetaKeys(context.Context, *GetMetaKeysRequest) (*GetMetaKeysResponse, error)
+	// Get collection checksum (integrity hash)
+	GetChecksum(context.Context, *GetChecksumRequest) (*GetChecksumResponse, error)
+	// List automation rules
+	ListAutomation(context.Context, *ListAutomationRequest) (*ListAutomationResponse, error)
+	// Create an automation rule
+	CreateAutomation(context.Context, *CreateAutomationRequest) (*AutomationRuleProto, error)
+	// Get an automation rule by ID
+	GetAutomation(context.Context, *GetAutomationRequest) (*AutomationRuleProto, error)
+	// Update an automation rule
+	UpdateAutomation(context.Context, *UpdateAutomationRequest) (*AutomationRuleProto, error)
+	// Delete an automation rule
+	DeleteAutomation(context.Context, *DeleteAutomationRequest) (*DeleteAutomationResponse, error)
+	// Test an automation trigger (dry run)
+	TestAutomation(context.Context, *TestAutomationRequest) (*TestAutomationResponse, error)
+	// Get automation execution logs
+	GetAutomationLogs(context.Context, *GetAutomationLogsRequest) (*GetAutomationLogsResponse, error)
+	// Get collection configuration
+	GetCollectionConfig(context.Context, *GetCollectionConfigRequest) (*GetCollectionConfigResponse, error)
+	// Set collection configuration
+	SetCollectionConfig(context.Context, *SetCollectionConfigRequest) (*SetCollectionConfigResponse, error)
+	// List all collection configurations
+	ListCollectionConfigs(context.Context, *ListCollectionConfigsRequest) (*ListCollectionConfigsResponse, error)
+	// Cross-collection vector search
+	CrossSearch(context.Context, *CrossSearchRequest) (*CrossSearchResponse, error)
+	// Find duplicate documents in a collection
+	FindDuplicates(context.Context, *FindDuplicatesRequest) (*FindDuplicatesResponse, error)
+	// List revision history for a document
+	ListRevisions(context.Context, *ListRevisionsRequest) (*ListRevisionsResponse, error)
+	// Restore a document from a specific revision
+	RestoreRevision(context.Context, *RestoreRevisionRequest) (*Document, error)
 	mustEmbedUnimplementedMDDBServer()
 }
 
@@ -583,6 +943,78 @@ func (UnimplementedMDDBServer) GetDocumentMeta(context.Context, *GetDocumentMeta
 }
 func (UnimplementedMDDBServer) Classify(context.Context, *ClassifyRequest) (*ClassifyResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Classify not implemented")
+}
+func (UnimplementedMDDBServer) DeleteDocument(context.Context, *DeleteDocumentRequest) (*DeleteDocumentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteDocument not implemented")
+}
+func (UnimplementedMDDBServer) DeleteCollection(context.Context, *DeleteCollectionRequest) (*DeleteCollectionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteCollection not implemented")
+}
+func (UnimplementedMDDBServer) ListSynonyms(context.Context, *ListSynonymsRequest) (*ListSynonymsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListSynonyms not implemented")
+}
+func (UnimplementedMDDBServer) AddSynonym(context.Context, *AddSynonymRequest) (*AddSynonymResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddSynonym not implemented")
+}
+func (UnimplementedMDDBServer) DeleteSynonym(context.Context, *DeleteSynonymRequest) (*DeleteSynonymResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteSynonym not implemented")
+}
+func (UnimplementedMDDBServer) ListStopwords(context.Context, *ListStopwordsRequest) (*ListStopwordsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListStopwords not implemented")
+}
+func (UnimplementedMDDBServer) AddStopwords(context.Context, *AddStopwordsRequest) (*AddStopwordsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddStopwords not implemented")
+}
+func (UnimplementedMDDBServer) DeleteStopwords(context.Context, *DeleteStopwordsRequest) (*DeleteStopwordsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteStopwords not implemented")
+}
+func (UnimplementedMDDBServer) GetMetaKeys(context.Context, *GetMetaKeysRequest) (*GetMetaKeysResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMetaKeys not implemented")
+}
+func (UnimplementedMDDBServer) GetChecksum(context.Context, *GetChecksumRequest) (*GetChecksumResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetChecksum not implemented")
+}
+func (UnimplementedMDDBServer) ListAutomation(context.Context, *ListAutomationRequest) (*ListAutomationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListAutomation not implemented")
+}
+func (UnimplementedMDDBServer) CreateAutomation(context.Context, *CreateAutomationRequest) (*AutomationRuleProto, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateAutomation not implemented")
+}
+func (UnimplementedMDDBServer) GetAutomation(context.Context, *GetAutomationRequest) (*AutomationRuleProto, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAutomation not implemented")
+}
+func (UnimplementedMDDBServer) UpdateAutomation(context.Context, *UpdateAutomationRequest) (*AutomationRuleProto, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateAutomation not implemented")
+}
+func (UnimplementedMDDBServer) DeleteAutomation(context.Context, *DeleteAutomationRequest) (*DeleteAutomationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteAutomation not implemented")
+}
+func (UnimplementedMDDBServer) TestAutomation(context.Context, *TestAutomationRequest) (*TestAutomationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TestAutomation not implemented")
+}
+func (UnimplementedMDDBServer) GetAutomationLogs(context.Context, *GetAutomationLogsRequest) (*GetAutomationLogsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAutomationLogs not implemented")
+}
+func (UnimplementedMDDBServer) GetCollectionConfig(context.Context, *GetCollectionConfigRequest) (*GetCollectionConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCollectionConfig not implemented")
+}
+func (UnimplementedMDDBServer) SetCollectionConfig(context.Context, *SetCollectionConfigRequest) (*SetCollectionConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetCollectionConfig not implemented")
+}
+func (UnimplementedMDDBServer) ListCollectionConfigs(context.Context, *ListCollectionConfigsRequest) (*ListCollectionConfigsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListCollectionConfigs not implemented")
+}
+func (UnimplementedMDDBServer) CrossSearch(context.Context, *CrossSearchRequest) (*CrossSearchResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CrossSearch not implemented")
+}
+func (UnimplementedMDDBServer) FindDuplicates(context.Context, *FindDuplicatesRequest) (*FindDuplicatesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FindDuplicates not implemented")
+}
+func (UnimplementedMDDBServer) ListRevisions(context.Context, *ListRevisionsRequest) (*ListRevisionsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListRevisions not implemented")
+}
+func (UnimplementedMDDBServer) RestoreRevision(context.Context, *RestoreRevisionRequest) (*Document, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RestoreRevision not implemented")
 }
 func (UnimplementedMDDBServer) mustEmbedUnimplementedMDDBServer() {}
 func (UnimplementedMDDBServer) testEmbeddedByValue()              {}
@@ -1120,6 +1552,438 @@ func _MDDB_Classify_Handler(srv interface{}, ctx context.Context, dec func(inter
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MDDB_DeleteDocument_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteDocumentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).DeleteDocument(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_DeleteDocument_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).DeleteDocument(ctx, req.(*DeleteDocumentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_DeleteCollection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteCollectionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).DeleteCollection(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_DeleteCollection_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).DeleteCollection(ctx, req.(*DeleteCollectionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_ListSynonyms_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListSynonymsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).ListSynonyms(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_ListSynonyms_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).ListSynonyms(ctx, req.(*ListSynonymsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_AddSynonym_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddSynonymRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).AddSynonym(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_AddSynonym_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).AddSynonym(ctx, req.(*AddSynonymRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_DeleteSynonym_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteSynonymRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).DeleteSynonym(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_DeleteSynonym_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).DeleteSynonym(ctx, req.(*DeleteSynonymRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_ListStopwords_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListStopwordsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).ListStopwords(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_ListStopwords_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).ListStopwords(ctx, req.(*ListStopwordsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_AddStopwords_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddStopwordsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).AddStopwords(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_AddStopwords_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).AddStopwords(ctx, req.(*AddStopwordsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_DeleteStopwords_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteStopwordsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).DeleteStopwords(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_DeleteStopwords_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).DeleteStopwords(ctx, req.(*DeleteStopwordsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_GetMetaKeys_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMetaKeysRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).GetMetaKeys(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_GetMetaKeys_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).GetMetaKeys(ctx, req.(*GetMetaKeysRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_GetChecksum_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetChecksumRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).GetChecksum(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_GetChecksum_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).GetChecksum(ctx, req.(*GetChecksumRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_ListAutomation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAutomationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).ListAutomation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_ListAutomation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).ListAutomation(ctx, req.(*ListAutomationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_CreateAutomation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateAutomationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).CreateAutomation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_CreateAutomation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).CreateAutomation(ctx, req.(*CreateAutomationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_GetAutomation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAutomationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).GetAutomation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_GetAutomation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).GetAutomation(ctx, req.(*GetAutomationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_UpdateAutomation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateAutomationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).UpdateAutomation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_UpdateAutomation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).UpdateAutomation(ctx, req.(*UpdateAutomationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_DeleteAutomation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteAutomationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).DeleteAutomation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_DeleteAutomation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).DeleteAutomation(ctx, req.(*DeleteAutomationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_TestAutomation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TestAutomationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).TestAutomation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_TestAutomation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).TestAutomation(ctx, req.(*TestAutomationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_GetAutomationLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAutomationLogsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).GetAutomationLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_GetAutomationLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).GetAutomationLogs(ctx, req.(*GetAutomationLogsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_GetCollectionConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCollectionConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).GetCollectionConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_GetCollectionConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).GetCollectionConfig(ctx, req.(*GetCollectionConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_SetCollectionConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetCollectionConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).SetCollectionConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_SetCollectionConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).SetCollectionConfig(ctx, req.(*SetCollectionConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_ListCollectionConfigs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListCollectionConfigsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).ListCollectionConfigs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_ListCollectionConfigs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).ListCollectionConfigs(ctx, req.(*ListCollectionConfigsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_CrossSearch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CrossSearchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).CrossSearch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_CrossSearch_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).CrossSearch(ctx, req.(*CrossSearchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_FindDuplicates_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FindDuplicatesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).FindDuplicates(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_FindDuplicates_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).FindDuplicates(ctx, req.(*FindDuplicatesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_ListRevisions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListRevisionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).ListRevisions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_ListRevisions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).ListRevisions(ctx, req.(*ListRevisionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_RestoreRevision_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RestoreRevisionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).RestoreRevision(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_RestoreRevision_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).RestoreRevision(ctx, req.(*RestoreRevisionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MDDB_ServiceDesc is the grpc.ServiceDesc for MDDB service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1239,6 +2103,102 @@ var MDDB_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "Classify",
 			Handler:    _MDDB_Classify_Handler,
 		},
+		{
+			MethodName: "DeleteDocument",
+			Handler:    _MDDB_DeleteDocument_Handler,
+		},
+		{
+			MethodName: "DeleteCollection",
+			Handler:    _MDDB_DeleteCollection_Handler,
+		},
+		{
+			MethodName: "ListSynonyms",
+			Handler:    _MDDB_ListSynonyms_Handler,
+		},
+		{
+			MethodName: "AddSynonym",
+			Handler:    _MDDB_AddSynonym_Handler,
+		},
+		{
+			MethodName: "DeleteSynonym",
+			Handler:    _MDDB_DeleteSynonym_Handler,
+		},
+		{
+			MethodName: "ListStopwords",
+			Handler:    _MDDB_ListStopwords_Handler,
+		},
+		{
+			MethodName: "AddStopwords",
+			Handler:    _MDDB_AddStopwords_Handler,
+		},
+		{
+			MethodName: "DeleteStopwords",
+			Handler:    _MDDB_DeleteStopwords_Handler,
+		},
+		{
+			MethodName: "GetMetaKeys",
+			Handler:    _MDDB_GetMetaKeys_Handler,
+		},
+		{
+			MethodName: "GetChecksum",
+			Handler:    _MDDB_GetChecksum_Handler,
+		},
+		{
+			MethodName: "ListAutomation",
+			Handler:    _MDDB_ListAutomation_Handler,
+		},
+		{
+			MethodName: "CreateAutomation",
+			Handler:    _MDDB_CreateAutomation_Handler,
+		},
+		{
+			MethodName: "GetAutomation",
+			Handler:    _MDDB_GetAutomation_Handler,
+		},
+		{
+			MethodName: "UpdateAutomation",
+			Handler:    _MDDB_UpdateAutomation_Handler,
+		},
+		{
+			MethodName: "DeleteAutomation",
+			Handler:    _MDDB_DeleteAutomation_Handler,
+		},
+		{
+			MethodName: "TestAutomation",
+			Handler:    _MDDB_TestAutomation_Handler,
+		},
+		{
+			MethodName: "GetAutomationLogs",
+			Handler:    _MDDB_GetAutomationLogs_Handler,
+		},
+		{
+			MethodName: "GetCollectionConfig",
+			Handler:    _MDDB_GetCollectionConfig_Handler,
+		},
+		{
+			MethodName: "SetCollectionConfig",
+			Handler:    _MDDB_SetCollectionConfig_Handler,
+		},
+		{
+			MethodName: "ListCollectionConfigs",
+			Handler:    _MDDB_ListCollectionConfigs_Handler,
+		},
+		{
+			MethodName: "CrossSearch",
+			Handler:    _MDDB_CrossSearch_Handler,
+		},
+		{
+			MethodName: "FindDuplicates",
+			Handler:    _MDDB_FindDuplicates_Handler,
+		},
+		{
+			MethodName: "ListRevisions",
+			Handler:    _MDDB_ListRevisions_Handler,
+		},
+		{
+			MethodName: "RestoreRevision",
+			Handler:    _MDDB_RestoreRevision_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -1247,7 +2207,7 @@ var MDDB_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "proto/mddb.proto",
+	Metadata: "mddb.proto",
 }
 
 const (
@@ -1478,5 +2438,5 @@ var MDDBReplication_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "proto/mddb.proto",
+	Metadata: "mddb.proto",
 }

@@ -86,6 +86,10 @@ func (s *Server) handleEndpoints(w http.ResponseWriter, r *http.Request) {
 		// Zero-shot classification
 		{Method: "POST", Path: "/v1/classify", Description: "Zero-shot document classification using embeddings", RequiresAuth: authEnabled},
 
+		// Revisions
+		{Method: "POST", Path: "/v1/revisions", Description: "List document revision history", RequiresAuth: authEnabled},
+		{Method: "POST", Path: "/v1/revisions/restore", Description: "Restore document to a previous revision", RequiresAuth: authEnabled},
+
 		// Webhooks
 		{Method: "POST", Path: "/v1/webhooks", Description: "List/register webhooks", RequiresAuth: authEnabled},
 		{Method: "POST", Path: "/v1/webhooks/delete", Description: "Delete webhook", RequiresAuth: authEnabled},
@@ -102,6 +106,18 @@ func (s *Server) handleEndpoints(w http.ResponseWriter, r *http.Request) {
 		{Method: "POST", Path: "/v1/schema/delete", Description: "Delete schema", RequiresAuth: authEnabled},
 		{Method: "POST", Path: "/v1/schema/list", Description: "List all schemas", RequiresAuth: authEnabled},
 		{Method: "POST", Path: "/v1/validate", Description: "Validate document metadata", RequiresAuth: authEnabled},
+
+		// Collection config
+		{Method: "GET", Path: "/v1/collection-config", Description: "Get collection configuration", RequiresAuth: authEnabled},
+		{Method: "PUT", Path: "/v1/collection-config", Description: "Set collection configuration", RequiresAuth: authEnabled},
+		{Method: "DELETE", Path: "/v1/collection-config", Description: "Delete collection configuration", RequiresAuth: authEnabled},
+		{Method: "GET", Path: "/v1/collection-configs", Description: "List all collection configurations", RequiresAuth: authEnabled},
+
+		// Cross-collection search
+		{Method: "POST", Path: "/v1/cross-search", Description: "Cross-collection vector search", RequiresAuth: authEnabled},
+
+		// Duplicate detection
+		{Method: "POST", Path: "/v1/find-duplicates", Description: "Find duplicate and similar documents in a collection", RequiresAuth: authEnabled},
 
 		// Embedding configuration
 		{Method: "GET", Path: "/v1/embedding-configs", Description: "List embedding configurations", RequiresAuth: authEnabled},
@@ -155,35 +171,72 @@ func (s *Server) handleEndpoints(w http.ResponseWriter, r *http.Request) {
 
 	// gRPC Methods
 	grpcMethods := []GRPCMethod{
+		// Document Management
 		{Name: "Add", Description: "Add/update document"},
-		{Name: "Get", Description: "Get document by key"},
-		{Name: "Search", Description: "Search documents with filters"},
 		{Name: "AddBatch", Description: "Batch add documents"},
+		{Name: "UpdateDocument", Description: "Partial document update (meta/content/ttl)"},
 		{Name: "UpdateBatch", Description: "Batch update documents"},
+		{Name: "DeleteDocument", Description: "Delete a single document"},
 		{Name: "DeleteBatch", Description: "Batch delete documents"},
-		{Name: "Export", Description: "Export collection (streaming)"},
-		{Name: "Backup", Description: "Create database backup"},
-		{Name: "Restore", Description: "Restore from backup"},
-		{Name: "Truncate", Description: "Truncate revision history"},
-		{Name: "Stats", Description: "Database statistics"},
+		{Name: "DeleteCollection", Description: "Delete entire collection"},
+		{Name: "Get", Description: "Get document by key"},
+		{Name: "GetDocumentMeta", Description: "Get document metadata without content"},
+		{Name: "Search", Description: "Search documents with filters"},
+		{Name: "ImportURL", Description: "Import markdown from URL"},
+		{Name: "SetTTL", Description: "Set document time-to-live"},
+		// Full-Text Search
+		{Name: "FTS", Description: "Full-text search (tfidf, bm25, bm25f, pmisparse)"},
+		// Vector / Semantic
 		{Name: "VectorSearch", Description: "Semantic search using embeddings"},
 		{Name: "VectorReindex", Description: "Re-embed collection documents"},
 		{Name: "VectorStats", Description: "Vector/embedding statistics"},
-		{Name: "ImportURL", Description: "Import markdown from URL"},
-		{Name: "SetTTL", Description: "Set document time-to-live"},
-		{Name: "FTS", Description: "Full-text search (with in-graph filtering)"},
+		// Hybrid & Cross
 		{Name: "HybridSearch", Description: "Hybrid sparse+dense search (FTS + vector)"},
-		{Name: "RegisterWebhook", Description: "Register webhook"},
-		{Name: "ListWebhooks", Description: "List webhooks"},
-		{Name: "DeleteWebhook", Description: "Delete webhook"},
+		{Name: "CrossSearch", Description: "Cross-collection vector search"},
+		// Analysis
+		{Name: "Classify", Description: "Zero-shot document classification"},
+		{Name: "FindDuplicates", Description: "Find duplicate and similar documents"},
+		{Name: "GetChecksum", Description: "Collection CRC32 checksum"},
+		{Name: "GetMetaKeys", Description: "List metadata keys and values"},
+		// Revisions
+		{Name: "ListRevisions", Description: "List document revision history"},
+		{Name: "RestoreRevision", Description: "Restore document to a previous revision"},
+		{Name: "Truncate", Description: "Truncate revision history"},
+		// Export & Backup
+		{Name: "Export", Description: "Export collection (streaming)"},
+		{Name: "Backup", Description: "Create database backup"},
+		{Name: "Restore", Description: "Restore from backup"},
+		// FTS Config
+		{Name: "ListSynonyms", Description: "List FTS synonyms"},
+		{Name: "AddSynonym", Description: "Add/update synonym group"},
+		{Name: "DeleteSynonym", Description: "Delete synonym group"},
+		{Name: "ListStopwords", Description: "List FTS stop words"},
+		{Name: "AddStopwords", Description: "Add custom stop words"},
+		{Name: "DeleteStopwords", Description: "Remove custom stop words"},
+		// Schemas
 		{Name: "SetSchema", Description: "Set JSON schema"},
 		{Name: "GetSchema", Description: "Get collection schema"},
 		{Name: "DeleteSchema", Description: "Delete schema"},
 		{Name: "ListSchemas", Description: "List all schemas"},
 		{Name: "ValidateDocument", Description: "Validate document metadata"},
-		{Name: "UpdateDocument", Description: "Partial document update (meta/content/ttl)"},
-		{Name: "GetDocumentMeta", Description: "Get document metadata without content"},
-		{Name: "Classify", Description: "Zero-shot document classification"},
+		// Webhooks
+		{Name: "RegisterWebhook", Description: "Register webhook"},
+		{Name: "ListWebhooks", Description: "List webhooks"},
+		{Name: "DeleteWebhook", Description: "Delete webhook"},
+		// Automation
+		{Name: "ListAutomation", Description: "List automation rules"},
+		{Name: "CreateAutomation", Description: "Create automation rule"},
+		{Name: "GetAutomation", Description: "Get automation rule by ID"},
+		{Name: "UpdateAutomation", Description: "Update automation rule"},
+		{Name: "DeleteAutomation", Description: "Delete automation rule"},
+		{Name: "TestAutomation", Description: "Test trigger (dry run)"},
+		{Name: "GetAutomationLogs", Description: "List automation execution logs"},
+		// Collection Config
+		{Name: "GetCollectionConfig", Description: "Get collection configuration"},
+		{Name: "SetCollectionConfig", Description: "Set collection configuration"},
+		{Name: "ListCollectionConfigs", Description: "List all collection configurations"},
+		// System
+		{Name: "Stats", Description: "Database statistics"},
 	}
 
 	// MCP Tools
@@ -232,6 +285,13 @@ func (s *Server) handleEndpoints(w http.ResponseWriter, r *http.Request) {
 		{Name: "delete_automation", Description: "Delete automation rule"},
 		{Name: "test_automation", Description: "Test trigger (dry run)"},
 		{Name: "get_automation_logs", Description: "List automation execution logs"},
+		{Name: "list_revisions", Description: "List document revision history"},
+		{Name: "restore_revision", Description: "Restore document to a previous revision"},
+		{Name: "get_collection_config", Description: "Get collection configuration"},
+		{Name: "set_collection_config", Description: "Set collection configuration"},
+		{Name: "list_collection_configs", Description: "List all collection configurations"},
+		{Name: "cross_search", Description: "Cross-collection vector search"},
+		{Name: "find_duplicates", Description: "Find duplicate and similar documents"},
 	}
 
 	response := EndpointsResponse{

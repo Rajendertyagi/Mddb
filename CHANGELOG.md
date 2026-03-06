@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-03-06
+
+### Added
+- **Search Stats** — All search endpoints (`/v1/fts`, `/v1/vector-search`, `/v1/hybrid-search`) now return `searchStats` object with `durationMs`, `queryTerms`, `totalTokens`, and `indexSize`. Controlled by `MDDB_SEARCH_STATS` env var (default: enabled)
+- **Distance Metrics**: Configurable distance metric for vector and hybrid search (cosine, dot_product, euclidean) via `distanceMetric` parameter
+- **Document Revision History** — New `POST /v1/revisions` endpoint lists all revisions of a document. New `POST /v1/revisions/restore` restores a document to a previous revision
+- **Collection attributes**: Per-collection type, description, icon, color, and custom metadata (`/v1/collection-config`, `/v1/collection-configs`)
+- **Cross-collection search**: Search across multiple collections using a source document's embedding or text query (`/v1/cross-search`)
+- **Duplicate detection**: Find exact and similar documents within a collection using content hashes and embedding similarity (`/v1/find-duplicates`, `find_duplicates` MCP tool)
+- **4 new MCP tools**: `get_collection_config`, `set_collection_config`, `list_collection_configs`, `cross_search`
+- **MCP tools**: `list_revisions`, `restore_revision`
+- Panel: Full-page document editor (replaces constrained modal)
+- Panel: Edit button moved to document header for easier access
+- Panel: Document revision history viewer with restore capability
+- Panel: Search stats display (duration, tokens, query terms) in all search panels
+
+### Fixed
+- Panel: Document content now refreshes after save, so re-opening editor shows updated content
+
+### Changed
+- Version bumped to 2.7.0 across all services and documentation
+
 ## [2.6.9] - 2026-03-05
 
 ### Added

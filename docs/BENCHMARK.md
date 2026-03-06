@@ -83,3 +83,135 @@ Shows how many documents each algorithm returns (limit=10) to verify they all fi
 - **pmisparse**: First search triggers lazy PMI matrix training (not included in benchmark). Subsequent searches include PMI expansion overhead.
 - **fuzzy**: Adds Levenshtein distance computation. Expected ~2-3x slower than exact matching.
 - All benchmarks run on a warm server with FTS indices already built during document insertion.
+
+---
+
+# Insert Throughput Benchmark
+
+Benchmark tool for measuring MDDB document insertion throughput. Inserts documents in configurable batches, records timing per batch, and generates an HTML report with an SVG chart.
+
+## Prerequisites
+
+- MDDB server running (default `http://localhost:7890`)
+- Go 1.26+
+
+## Build
+
+```bash
+cd tools/bench
+go build -o mddb-bench .
+```
+
+## Usage
+
+```bash
+# Start MDDB
+cd services/mddbd
+go run . -db /tmp/bench.db
+
+# Run benchmark (default: 10K docs, batches of 100)
+cd tools/bench
+./mddb-bench
+
+# Custom parameters
+./mddb-bench -total 5000 -batch 50 -collection mybench -output results.html
+
+# Cleanup collection after benchmark
+./mddb-bench -total 1000 -cleanup
+```
+
+## Flags
+
+| Flag           | Default                    | Description                        |
+|----------------|----------------------------|------------------------------------|
+| `-url`         | `http://localhost:7890`    | MDDB server URL                    |
+| `-collection`  | `bench`                    | Collection to insert into          |
+| `-total`       | `10000`                    | Total documents to insert          |
+| `-batch`       | `100`                      | Batch size for timing measurements |
+| `-output`      | `bench_report.html`        | HTML report output path            |
+| `-cleanup`     | `false`                    | Delete collection after benchmark  |
+
+## What It Measures
+
+Each document is a simulated blog post with:
+- Random title (3-6 words)
+- Random tags (1-3 from a pool of 20)
+- Random author
+- 2-5 paragraphs of lorem ipsum (~500-2000 characters)
+
+Documents are inserted one-by-one via `POST /v1/add`. Every batch of N documents is timed and throughput is calculated.
+
+## Results (2026-03-06)
+
+> Environment: Darwin 25.3.0 arm64, Go 1.26.0, sequential `POST /v1/add` (one doc at a time)
+
+### Summary
+
+| Metric            | Value        |
+|-------------------|--------------|
+| Total documents   | 10,000       |
+| Total time        | 5m 34s       |
+| Avg throughput    | 30 docs/sec  |
+| Min batch         | 11 docs/sec  |
+| Max batch         | 49 docs/sec  |
+| Batch size        | 100          |
+
+### Throughput per Batch
+
+| Docs    | docs/sec | Cum. avg | Notes                              |
+|---------|----------|----------|------------------------------------|
+| 100     | 49       | 49       | Cold start, fastest batch          |
+| 500     | 38       | 41       |                                    |
+| 1,000   | 37       | 39       | Stable ~37-39 range                |
+| 2,000   | 36       | 38       |                                    |
+| 2,500   | 22       | 35       | Degradation begins (FTS index growth) |
+| 3,000   | 25       | 33       |                                    |
+| 4,000   | 11       | 29       | Worst batch — likely BoltDB compaction |
+| 5,000   | 24       | 27       |                                    |
+| 6,000   | 37       | 27       | Recovery after compaction           |
+| 7,000   | 37       | 28       | Stabilized ~35-38                   |
+| 8,000   | 33       | 29       |                                    |
+| 9,000   | 35       | 29       |                                    |
+| 10,000  | 37       | 30       | Final average: 30 docs/sec         |
+
+### Throughput Chart
+
+```mermaid
+xychart-beta
+    title "Insert Throughput (docs/sec per 100-doc batch)"
+    x-axis ["1K", "2K", "3K", "4K", "5K", "6K", "7K", "8K", "9K", "10K"]
+    y-axis "docs/sec" 0 --> 55
+    bar [37, 36, 25, 11, 24, 37, 37, 33, 35, 37]
+    line [39, 38, 33, 29, 27, 27, 28, 29, 29, 30]
+```
+
+### Observations
+
+- **0-2K docs**: Stable ~37-49 docs/sec. BoltDB is small, FTS index fits comfortably.
+- **2K-5K docs**: Throughput drops to 11-25 docs/sec. FTS token index grows, BoltDB page splits and fsync become expensive.
+- **5K-10K docs**: Recovery to ~33-38 docs/sec. BoltDB has compacted and stabilized at a larger page count.
+- **Batch 40 dip (4000 docs)**: 9.3s for 100 docs (11 docs/sec) — classic BoltDB B+ tree rebalancing spike.
+- Each insert includes: JSON decode, BoltDB write, FTS tokenization + index update, revision tracking, checksum computation.
+
+## How to Run
+
+```bash
+cd tools/bench
+go build -o mddb-bench .
+./mddb-bench -url http://localhost:7890 -total 10000 -batch 100 -output bench_report.html -cleanup
+```
+
+## Flags
+
+| Flag           | Default                    | Description                        |
+|----------------|----------------------------|------------------------------------|
+| `-url`         | `http://localhost:7890`    | MDDB server URL                    |
+| `-collection`  | `bench`                    | Collection to insert into          |
+| `-total`       | `10000`                    | Total documents to insert          |
+| `-batch`       | `100`                      | Batch size for timing measurements |
+| `-output`      | `bench_report.html`        | HTML report output path            |
+| `-cleanup`     | `false`                    | Delete collection after benchmark  |
+
+## HTML Report
+
+The tool also generates a self-contained HTML report with an interactive SVG bar chart, cumulative average trend line, and detailed per-batch table. Open in any browser — no external dependencies.

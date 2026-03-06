@@ -84,6 +84,7 @@ type FTSSearchResponse struct {
 	StemmingActive bool               `json:"stemmingActive"`
 	SynonymsActive bool               `json:"synonymsActive"`
 	FieldWeights   map[string]float64 `json:"fieldWeights,omitempty"`
+	Stats          *SearchStats       `json:"searchStats,omitempty"`
 }
 
 // FTSResultWithDoc includes the full document in the result.
@@ -511,6 +512,7 @@ func (f *FTSIndex) IndexFields(collection, docID string, fields map[string]strin
 // --- HTTP handler ---
 
 func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	var req FTSSearchRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		bad(w, err)
@@ -658,6 +660,19 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 		return nil
 	})
 	resp.Total = len(resp.Results)
+
+	if searchStatsEnabled() {
+		terms := make([]string, 0, len(tokens))
+		for t := range tokens {
+			terms = append(terms, t)
+		}
+		resp.Stats = &SearchStats{
+			DurationMs:  float64(time.Since(start).Microseconds()) / 1000.0,
+			QueryTerms:  terms,
+			IndexSize:   resp.Total,
+			TotalTokens: len(terms),
+		}
+	}
 
 	ok(w, resp)
 }

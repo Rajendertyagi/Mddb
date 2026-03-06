@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -586,13 +587,20 @@ func (c *DirectClient) VectorSearch(ctx context.Context, req *MCPVectorSearchReq
 		searchTopK = 20
 	}
 
+	metric := ResolveSimilarity(req.DistanceMetric)
+	metricName := req.DistanceMetric
+	if metricName == "" {
+		metricName = "cosine"
+	}
+
 	var results []VectorResult
 	if len(req.FilterMeta) > 0 {
 		allowedIDs := s.getDocIDsByMeta(req.Collection, req.FilterMeta)
 		if len(allowedIDs) == 0 {
 			resp := &MCPVectorSearchResponse{
-				Results:   []MCPVectorSearchResult{},
-				Algorithm: algo,
+				Results:        []MCPVectorSearchResult{},
+				Algorithm:      algo,
+				DistanceMetric: metricName,
 			}
 			if s.Embedding != nil {
 				resp.Model = s.Embedding.Model()
@@ -600,9 +608,9 @@ func (c *DirectClient) VectorSearch(ctx context.Context, req *MCPVectorSearchReq
 			}
 			return resp, nil
 		}
-		results = searcher.SearchWithFilter(req.Collection, queryVector, searchTopK, req.Threshold, allowedIDs)
+		results = searcher.SearchWithFilter(req.Collection, queryVector, searchTopK, req.Threshold, allowedIDs, metric)
 	} else {
-		results = searcher.Search(req.Collection, queryVector, searchTopK, req.Threshold)
+		results = searcher.Search(req.Collection, queryVector, searchTopK, req.Threshold, metric)
 	}
 
 	// Deduplicate chunk results: group by base docID, take max score
@@ -1014,6 +1022,7 @@ func (c *DirectClient) HybridSearch(ctx context.Context, req *MCPHybridSearchReq
 		RRFK:            req.RRFK,
 		Fuzzy:           req.Fuzzy,
 		Threshold:       req.Threshold,
+		DistanceMetric:  req.DistanceMetric,
 		FilterMeta:      req.FilterMeta,
 		IncludeContent:  true,
 	}
@@ -1054,10 +1063,15 @@ func (c *DirectClient) HybridSearch(ctx context.Context, req *MCPHybridSearchReq
 
 	items := c.server.loadHybridDocs(req.Collection, merged, true)
 
+	distMetric := httpReq.DistanceMetric
+	if distMetric == "" {
+		distMetric = "cosine"
+	}
 	resp := &MCPHybridSearchResponse{
 		Strategy:        httpReq.Strategy,
 		FTSAlgorithm:    httpReq.Algorithm,
 		VectorAlgorithm: httpReq.VectorAlgorithm,
+		DistanceMetric:  distMetric,
 		Results:         make([]MCPHybridSearchResult, 0, len(items)),
 	}
 	for _, item := range items {
@@ -1500,6 +1514,263 @@ func (c *DirectClient) ListAutomationLogs(ctx context.Context, limit int, cursor
 		NextCursor: nextCursor,
 		HasMore:    nextCursor != "",
 	}, nil
+}
+
+func (c *DirectClient) ListRevisions(ctx context.Context, collection, key, lang string) (*RevisionListResponse, error) {
+	docID := genID(collection, key, lang)
+	var revisions []RevisionEntry
+	err := c.server.DB.View(func(tx *bolt.Tx) error {
+		bRev := tx.Bucket([]byte("rev"))
+		if bRev == nil {
+			return nil
+		}
+		prefix := kRevPrefix(collection, docID)
+		cur := bRev.Cursor()
+		for k, v := cur.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = cur.Next() {
+			lastPipe := bytes.LastIndexByte(k, '|')
+			if lastPipe < 0 || lastPipe >= len(k)-1 {
+				continue
+			}
+			ts, err := strconv.ParseInt(string(k[lastPipe+1:]), 10, 64)
+			if err != nil {
+				continue
+			}
+			docPtr, err := loadDoc(v)
+			if err != nil {
+				continue
+			}
+			revisions = append(revisions, RevisionEntry{
+				Timestamp: ts,
+				UpdatedAt: docPtr.UpdatedAt,
+				ContentMD: docPtr.ContentMD,
+				Meta:      docPtr.Meta,
+			})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(revisions, func(i, j int) bool {
+		return revisions[i].Timestamp > revisions[j].Timestamp
+	})
+	return &RevisionListResponse{
+		Collection: collection,
+		Key:        key,
+		Lang:       lang,
+		Revisions:  revisions,
+		Total:      len(revisions),
+	}, nil
+}
+
+func (c *DirectClient) RestoreRevision(ctx context.Context, collection, key, lang string, timestamp int64) (*MCPDocument, error) {
+	docID := genID(collection, key, lang)
+	tsKey := fmt.Sprintf("%020d", timestamp)
+	revKey := append(kRevPrefix(collection, docID), []byte(tsKey)...)
+
+	var revDoc *Doc
+	err := c.server.DB.View(func(tx *bolt.Tx) error {
+		bRev := tx.Bucket([]byte("rev"))
+		if bRev == nil {
+			return fmt.Errorf("revision not found")
+		}
+		v := bRev.Get(revKey)
+		if v == nil {
+			return fmt.Errorf("revision not found for timestamp %d", timestamp)
+		}
+		var err error
+		revDoc, err = loadDoc(v)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	doc, _, err := c.server.addDocument(collection, key, lang, revDoc.Meta, revDoc.ContentMD, 0)
+	if err != nil {
+		return nil, err
+	}
+	mcpDoc := docToMCPDocument(doc)
+	return &mcpDoc, nil
+}
+
+// --- Collection Config ---
+
+func (c *DirectClient) GetCollectionConfig(ctx context.Context, collection string) (*MCPCollectionConfigResponse, error) {
+	cfg, found := c.server.CollectionManager.Get(collection)
+	if !found {
+		cfg = &CollectionConfig{Type: "default"}
+	}
+	return &MCPCollectionConfigResponse{
+		Collection: collection,
+		Config:     cfg,
+		Configured: found,
+	}, nil
+}
+
+func (c *DirectClient) SetCollectionConfig(ctx context.Context, req *MCPSetCollectionConfigRequest) error {
+	cfg := &CollectionConfig{
+		Type:        req.Type,
+		Description: req.Description,
+		Icon:        req.Icon,
+		Color:       req.Color,
+		CustomMeta:  req.CustomMeta,
+	}
+	return c.server.CollectionManager.Set(req.Collection, cfg)
+}
+
+func (c *DirectClient) ListCollectionConfigs(ctx context.Context) (*MCPCollectionConfigListResponse, error) {
+	all := c.server.CollectionManager.ListAll()
+	return &MCPCollectionConfigListResponse{
+		Configs: all,
+		Total:   len(all),
+	}, nil
+}
+
+// --- Cross-Collection Search ---
+
+func (c *DirectClient) CrossSearch(ctx context.Context, req *MCPCrossSearchRequest) (*MCPCrossSearchResponse, error) {
+	s := c.server
+
+	// Select algorithm
+	algo := req.Algorithm
+	if algo == "" {
+		algo = "flat"
+	}
+	searcher, ok2 := s.VectorSearchers[algo]
+	if !ok2 {
+		return nil, fmt.Errorf("unknown algorithm: %s", algo)
+	}
+	if !searcher.IsReady() {
+		searcher = s.VectorSearchers["flat"]
+		algo = "flat"
+	}
+	if !searcher.IsReady() {
+		return nil, fmt.Errorf("vector index not ready")
+	}
+
+	// Resolve query vector
+	var queryVector []float32
+	if req.SourceDocID != "" {
+		if req.SourceCollection == "" {
+			return nil, fmt.Errorf("sourceCollection required when using sourceDocID")
+		}
+		rec, err := s.VectorStore.Get(req.SourceCollection, req.SourceDocID)
+		if err != nil || rec == nil {
+			return nil, fmt.Errorf("source document has no embedding: %s/%s", req.SourceCollection, req.SourceDocID)
+		}
+		queryVector = rec.Vector
+	} else if req.Query != "" && s.Embedding != nil {
+		embedCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+		defer cancel()
+		var err error
+		queryVector, err = s.Embedding.Embed(embedCtx, req.Query)
+		if err != nil {
+			return nil, fmt.Errorf("embedding failed: %w", err)
+		}
+	} else {
+		return nil, fmt.Errorf("one of query or sourceDocID is required")
+	}
+
+	topK := req.TopK
+	if topK <= 0 {
+		topK = 10
+	}
+	metric := ResolveSimilarity(req.DistanceMetric)
+	metricName := req.DistanceMetric
+	if metricName == "" {
+		metricName = "cosine"
+	}
+
+	searchTopK := topK * 3
+	if searchTopK < 20 {
+		searchTopK = 20
+	}
+
+	// Search each target collection
+	type taggedResult struct {
+		collection string
+		result     VectorResult
+	}
+	var allTagged []taggedResult
+
+	for _, coll := range req.TargetCollections {
+		var results []VectorResult
+		if len(req.FilterMeta) > 0 {
+			allowedIDs := s.getDocIDsByMeta(coll, req.FilterMeta)
+			if len(allowedIDs) == 0 {
+				continue
+			}
+			results = searcher.SearchWithFilter(coll, queryVector, searchTopK, req.Threshold, allowedIDs, metric)
+		} else {
+			results = searcher.Search(coll, queryVector, searchTopK, req.Threshold, metric)
+		}
+		results = DeduplicateChunkResults(results)
+		for _, vr := range results {
+			allTagged = append(allTagged, taggedResult{collection: coll, result: vr})
+		}
+	}
+
+	sort.Slice(allTagged, func(i, j int) bool {
+		return allTagged[i].result.Score > allTagged[j].result.Score
+	})
+	if len(allTagged) > topK {
+		allTagged = allTagged[:topK]
+	}
+
+	// Load full documents
+	items := make([]CrossSearchResultItem, 0, len(allTagged))
+	_ = s.DB.View(func(tx *bolt.Tx) error {
+		bDocs := tx.Bucket([]byte("docs"))
+		if bDocs == nil {
+			return nil
+		}
+		for rank, tr := range allTagged {
+			v := bDocs.Get(kDoc(tr.collection, tr.result.DocID))
+			if v == nil {
+				continue
+			}
+			docPtr, err := loadDoc(v)
+			if err != nil {
+				continue
+			}
+			doc := *docPtr
+			if !req.IncludeContent {
+				doc.ContentMD = ""
+			}
+			items = append(items, CrossSearchResultItem{
+				Collection: tr.collection,
+				Document:   doc,
+				Score:      tr.result.Score,
+				Rank:       rank + 1,
+			})
+		}
+		return nil
+	})
+
+	return &MCPCrossSearchResponse{
+		Results:           items,
+		Total:             len(items),
+		SourceCollection:  req.SourceCollection,
+		SourceDocID:       req.SourceDocID,
+		TargetCollections: req.TargetCollections,
+		Algorithm:         algo,
+		DistanceMetric:    metricName,
+	}, nil
+}
+
+// --- Find Duplicates ---
+
+func (c *DirectClient) FindDuplicates(ctx context.Context, req *MCPFindDuplicatesRequest) (*MCPFindDuplicatesResponse, error) {
+	httpReq := FindDuplicatesRequest{
+		Collection:     req.Collection,
+		Mode:           req.Mode,
+		Threshold:      req.Threshold,
+		MaxDocs:        req.MaxDocs,
+		DistanceMetric: req.DistanceMetric,
+		IncludeContent: req.IncludeContent,
+	}
+	return c.server.findDuplicates(httpReq)
 }
 
 func (c *DirectClient) Close() error {

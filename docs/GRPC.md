@@ -82,27 +82,65 @@ grpcurl -plaintext -d '{"collection":"blog","key":"test","lang":"en_US"}' \
 
 The complete service definition is in [`proto/mddb.proto`](../services/mddbd/proto/mddb.proto).
 
-### Available RPCs
+### Available RPCs (57 total)
 
-```protobuf
-service MDDB {
-  rpc Add(AddRequest) returns (Document);
-  rpc Get(GetRequest) returns (Document);
-  rpc Search(SearchRequest) returns (SearchResponse);
-  rpc Export(ExportRequest) returns (stream ExportChunk);
-  rpc Backup(BackupRequest) returns (BackupResponse);
-  rpc Restore(RestoreRequest) returns (RestoreResponse);
-  rpc Truncate(TruncateRequest) returns (TruncateResponse);
-  rpc Stats(StatsRequest) returns (StatsResponse);
+| Category | RPC | Request → Response |
+|---|---|---|
+| **Document Management** | `Add` | `AddRequest` → `Document` |
+| | `AddBatch` | `AddBatchRequest` → `AddBatchResponse` |
+| | `UpdateDocument` | `UpdateDocumentRequest` → `Document` |
+| | `UpdateBatch` | `UpdateBatchRequest` → `UpdateBatchResponse` |
+| | `DeleteDocument` | `DeleteDocumentRequest` → `DeleteDocumentResponse` |
+| | `DeleteBatch` | `DeleteBatchRequest` → `DeleteBatchResponse` |
+| | `DeleteCollection` | `DeleteCollectionRequest` → `DeleteCollectionResponse` |
+| | `Get` | `GetRequest` → `Document` |
+| | `GetDocumentMeta` | `GetDocumentMetaRequest` → `GetDocumentMetaResponse` |
+| | `Search` | `SearchRequest` → `SearchResponse` |
+| | `ImportURL` | `ImportURLRequest` → `Document` |
+| | `SetTTL` | `SetTTLRequest` → `Document` |
+| **Full-Text Search** | `FTS` | `FTSRequest` → `FTSResponse` |
+| **Vector / Semantic** | `VectorSearch` | `VectorSearchRequest` → `VectorSearchResponse` |
+| | `VectorReindex` | `VectorReindexRequest` → `VectorReindexResponse` |
+| | `VectorStats` | `VectorStatsRequest` → `VectorStatsResponse` |
+| **Hybrid & Cross** | `HybridSearch` | `HybridSearchRequest` → `HybridSearchResponse` |
+| | `CrossSearch` | `CrossSearchRequest` → `CrossSearchResponse` |
+| **Analysis** | `Classify` | `ClassifyRequest` → `ClassifyResponse` |
+| | `FindDuplicates` | `FindDuplicatesRequest` → `FindDuplicatesResponse` |
+| | `GetChecksum` | `GetChecksumRequest` → `GetChecksumResponse` |
+| | `GetMetaKeys` | `GetMetaKeysRequest` → `GetMetaKeysResponse` |
+| **Revisions** | `ListRevisions` | `ListRevisionsRequest` → `ListRevisionsResponse` |
+| | `RestoreRevision` | `RestoreRevisionRequest` → `Document` |
+| | `Truncate` | `TruncateRequest` → `TruncateResponse` |
+| **Export & Backup** | `Export` | `ExportRequest` → `stream ExportChunk` |
+| | `Backup` | `BackupRequest` → `BackupResponse` |
+| | `Restore` | `RestoreRequest` → `RestoreResponse` |
+| **FTS Config** | `ListSynonyms` | `ListSynonymsRequest` → `ListSynonymsResponse` |
+| | `AddSynonym` | `AddSynonymRequest` → `AddSynonymResponse` |
+| | `DeleteSynonym` | `DeleteSynonymRequest` → `DeleteSynonymResponse` |
+| | `ListStopwords` | `ListStopwordsRequest` → `ListStopwordsResponse` |
+| | `AddStopwords` | `AddStopwordsRequest` → `AddStopwordsResponse` |
+| | `DeleteStopwords` | `DeleteStopwordsRequest` → `DeleteStopwordsResponse` |
+| **Schemas** | `SetSchema` | `SetSchemaRequest` → `SetSchemaResponse` |
+| | `GetSchema` | `GetSchemaRequest` → `GetSchemaResponse` |
+| | `DeleteSchema` | `DeleteSchemaRequest` → `DeleteSchemaResponse` |
+| | `ListSchemas` | `ListSchemasRequest` → `ListSchemasResponse` |
+| | `ValidateDocument` | `ValidateDocumentRequest` → `ValidateDocumentResponse` |
+| **Webhooks** | `RegisterWebhook` | `RegisterWebhookRequest` → `WebhookProto` |
+| | `ListWebhooks` | `ListWebhooksRequest` → `ListWebhooksResponse` |
+| | `DeleteWebhook` | `DeleteWebhookRequest` → `DeleteWebhookResponse` |
+| **Automation** | `ListAutomation` | `ListAutomationRequest` → `ListAutomationResponse` |
+| | `CreateAutomation` | `CreateAutomationRequest` → `AutomationRuleProto` |
+| | `GetAutomation` | `GetAutomationRequest` → `AutomationRuleProto` |
+| | `UpdateAutomation` | `UpdateAutomationRequest` → `AutomationRuleProto` |
+| | `DeleteAutomation` | `DeleteAutomationRequest` → `DeleteAutomationResponse` |
+| | `TestAutomation` | `TestAutomationRequest` → `TestAutomationResponse` |
+| | `GetAutomationLogs` | `GetAutomationLogsRequest` → `GetAutomationLogsResponse` |
+| **Collection Config** | `GetCollectionConfig` | `GetCollectionConfigRequest` → `GetCollectionConfigResponse` |
+| | `SetCollectionConfig` | `SetCollectionConfigRequest` → `SetCollectionConfigResponse` |
+| | `ListCollectionConfigs` | `ListCollectionConfigsRequest` → `ListCollectionConfigsResponse` |
+| **System** | `Stats` | `StatsRequest` → `StatsResponse` |
 
-  // Schema Validation
-  rpc SetSchema(SetSchemaRequest) returns (SetSchemaResponse);
-  rpc GetSchema(GetSchemaRequest) returns (GetSchemaResponse);
-  rpc DeleteSchema(DeleteSchemaRequest) returns (DeleteSchemaResponse);
-  rpc ListSchemas(ListSchemasRequest) returns (ListSchemasResponse);
-  rpc ValidateDocument(ValidateDocumentRequest) returns (ValidateDocumentResponse);
-}
-```
+Full service definition: [`proto/mddb.proto`](../proto/mddb.proto)
 
 ### Message Types
 

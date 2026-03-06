@@ -24,6 +24,7 @@ type HybridSearchRequest struct {
 	RRFK            int                 `json:"rrfK"`            // RRF parameter k (default 60)
 	Fuzzy           int                 `json:"fuzzy"`           // typo tolerance: 0, 1, 2
 	Threshold       float64             `json:"threshold"`       // min vector similarity 0-1
+	DistanceMetric  string              `json:"distanceMetric"`  // "cosine" (default), "dot_product", "euclidean"
 	FilterMeta      map[string][]string `json:"filterMeta"`
 	IncludeContent  bool                `json:"includeContent"`
 	FieldWeights    map[string]float64  `json:"fieldWeights,omitempty"`
@@ -50,10 +51,13 @@ type HybridSearchResponse struct {
 	RRFK            int                      `json:"rrfK,omitempty"`
 	FTSAlgorithm    string                   `json:"ftsAlgorithm"`
 	VectorAlgorithm string                   `json:"vectorAlgorithm"`
+	DistanceMetric  string                   `json:"distanceMetric"`
+	Stats           *SearchStats             `json:"searchStats,omitempty"`
 }
 
 // handleHybridSearch handles POST /v1/hybrid-search
 func (s *Server) handleHybridSearch(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	var req HybridSearchRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		bad(w, err)
@@ -122,12 +126,17 @@ func (s *Server) handleHybridSearch(w http.ResponseWriter, r *http.Request) {
 	// ---- Step 4: Load full documents ----
 	items := s.loadHybridDocs(req.Collection, merged, req.IncludeContent)
 
+	distMetric := req.DistanceMetric
+	if distMetric == "" {
+		distMetric = "cosine"
+	}
 	resp := HybridSearchResponse{
 		Results:         items,
 		Total:           len(items),
 		Strategy:        req.Strategy,
 		FTSAlgorithm:    req.Algorithm,
 		VectorAlgorithm: req.VectorAlgorithm,
+		DistanceMetric:  distMetric,
 	}
 	if req.Strategy == "alpha" {
 		resp.Alpha = req.Alpha
@@ -139,6 +148,20 @@ func (s *Server) handleHybridSearch(w http.ResponseWriter, r *http.Request) {
 	// Track hybrid search operation
 	if s.Metrics != nil {
 		s.Metrics.IncOp("hybrid_search", req.Strategy)
+	}
+
+	if searchStatsEnabled() && s.FTSIndex != nil {
+		tokens := s.FTSIndex.TokenizeQuery(req.Collection, req.Query)
+		terms := make([]string, 0, len(tokens))
+		for t := range tokens {
+			terms = append(terms, t)
+		}
+		resp.Stats = &SearchStats{
+			DurationMs:  float64(time.Since(start).Microseconds()) / 1000.0,
+			QueryTerms:  terms,
+			IndexSize:   resp.Total,
+			TotalTokens: len(terms),
+		}
 	}
 
 	ok(w, resp)
@@ -258,15 +281,17 @@ func (s *Server) runVectorSearch(ctx context.Context, req HybridSearchRequest) (
 		searchTopK = 20
 	}
 
+	metric := ResolveSimilarity(req.DistanceMetric)
+
 	var results []VectorResult
 	if len(req.FilterMeta) > 0 {
 		allowedIDs := s.getDocIDsByMeta(req.Collection, req.FilterMeta)
 		if len(allowedIDs) == 0 {
 			return nil, nil
 		}
-		results = searcher.SearchWithFilter(req.Collection, queryVector, searchTopK, req.Threshold, allowedIDs)
+		results = searcher.SearchWithFilter(req.Collection, queryVector, searchTopK, req.Threshold, allowedIDs, metric)
 	} else {
-		results = searcher.Search(req.Collection, queryVector, searchTopK, req.Threshold)
+		results = searcher.Search(req.Collection, queryVector, searchTopK, req.Threshold, metric)
 	}
 
 	results = DeduplicateChunkResults(results)

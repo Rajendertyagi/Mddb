@@ -59,6 +59,7 @@ type MCPConfig struct {
 	Enabled bool   `yaml:"enabled" json:"enabled"`
 	Addr    string `yaml:"addr" json:"addr"`
 	Stdio   bool   `yaml:"stdio" json:"stdio"`
+	Domain  string `yaml:"domain" json:"domain"`
 }
 
 // HTTP3Config controls the HTTP/3 (QUIC) server (extreme mode).
@@ -298,6 +299,9 @@ func applyEnvConfig(cfg *ServerConfig) {
 	}
 	if v := os.Getenv("MDDB_MCP_STDIO"); v != "" {
 		cfg.MCP.Stdio = parseBool(v, cfg.MCP.Stdio)
+	}
+	if v := os.Getenv("MDDB_MCP_DOMAIN"); v != "" {
+		cfg.MCP.Domain = v
 	}
 
 	// HTTP/3

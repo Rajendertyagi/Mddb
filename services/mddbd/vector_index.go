@@ -62,7 +62,7 @@ func (vi *VectorIndex) Remove(collection, docID string) {
 }
 
 // Search finds the top-K most similar vectors to the query vector.
-func (vi *VectorIndex) Search(collection string, query []float32, topK int, threshold float64) []VectorResult {
+func (vi *VectorIndex) Search(collection string, query []float32, topK int, threshold float64, metric SimilarityFunc) []VectorResult {
 	vi.mu.RLock()
 	defer vi.mu.RUnlock()
 
@@ -74,11 +74,14 @@ func (vi *VectorIndex) Search(collection string, query []float32, topK int, thre
 	if topK <= 0 {
 		topK = 5
 	}
+	if metric == nil {
+		metric = cosineSimilarity
+	}
 
-	// Compute cosine similarity for all vectors
+	// Compute similarity for all vectors
 	results := make([]VectorResult, 0, len(coll))
 	for docID, vec := range coll {
-		score := cosineSimilarity(query, vec)
+		score := metric(query, vec)
 		if float64(score) >= threshold {
 			results = append(results, VectorResult{DocID: docID, Score: score})
 		}
@@ -99,7 +102,7 @@ func (vi *VectorIndex) Search(collection string, query []float32, topK int, thre
 
 // SearchWithFilter performs vector search only on documents matching the given docID set.
 // Handles chunk keys: if the index has "docID#0" and allowed has "docID", it matches.
-func (vi *VectorIndex) SearchWithFilter(collection string, query []float32, topK int, threshold float64, allowedDocIDs map[string]bool) []VectorResult {
+func (vi *VectorIndex) SearchWithFilter(collection string, query []float32, topK int, threshold float64, allowedDocIDs map[string]bool, metric SimilarityFunc) []VectorResult {
 	vi.mu.RLock()
 	defer vi.mu.RUnlock()
 
@@ -111,6 +114,9 @@ func (vi *VectorIndex) SearchWithFilter(collection string, query []float32, topK
 	if topK <= 0 {
 		topK = 5
 	}
+	if metric == nil {
+		metric = cosineSimilarity
+	}
 
 	results := make([]VectorResult, 0, min(len(allowedDocIDs), len(coll)))
 	for docID, vec := range coll {
@@ -118,7 +124,7 @@ func (vi *VectorIndex) SearchWithFilter(collection string, query []float32, topK
 		if !allowedDocIDs[baseID] {
 			continue
 		}
-		score := cosineSimilarity(query, vec)
+		score := metric(query, vec)
 		if float64(score) >= threshold {
 			results = append(results, VectorResult{DocID: docID, Score: score})
 		}
@@ -160,6 +166,10 @@ func (vi *VectorIndex) Name() string {
 	return "flat"
 }
 
+// SimilarityFunc computes similarity between two vectors.
+// Higher values = more similar. Used as a configurable distance metric.
+type SimilarityFunc func(a, b []float32) float32
+
 // cosineSimilarity computes cosine similarity between two vectors.
 // Returns value between -1 and 1, where 1 = identical direction.
 func cosineSimilarity(a, b []float32) float32 {
@@ -179,6 +189,46 @@ func cosineSimilarity(a, b []float32) float32 {
 	}
 
 	return dotProduct / float32(math.Sqrt(float64(normA)*float64(normB)))
+}
+
+// dotProductSimilarity computes the dot product between two vectors.
+// For normalized vectors (e.g. OpenAI embeddings) this equals cosine similarity.
+func dotProductSimilarity(a, b []float32) float32 {
+	if len(a) != len(b) || len(a) == 0 {
+		return 0
+	}
+	var sum float32
+	for i := range a {
+		sum += a[i] * b[i]
+	}
+	return sum
+}
+
+// euclideanSimilarity converts Euclidean distance to a similarity score.
+// Returns 1/(1+dist), so closer vectors → higher score (range 0 to 1).
+func euclideanSimilarity(a, b []float32) float32 {
+	if len(a) != len(b) || len(a) == 0 {
+		return 0
+	}
+	var sum float64
+	for i := range a {
+		d := float64(a[i]) - float64(b[i])
+		sum += d * d
+	}
+	return float32(1.0 / (1.0 + math.Sqrt(sum)))
+}
+
+// ResolveSimilarity returns the SimilarityFunc for a given metric name.
+// Defaults to cosineSimilarity if the name is unknown or empty.
+func ResolveSimilarity(name string) SimilarityFunc {
+	switch name {
+	case "dot_product":
+		return dotProductSimilarity
+	case "euclidean":
+		return euclideanSimilarity
+	default:
+		return cosineSimilarity
+	}
 }
 
 // baseDocID extracts the base document ID from a possibly chunked key.

@@ -91,7 +91,7 @@ func (h *HNSWIndex) Remove(collection, docID string) {
 }
 
 // Search finds the top-K most similar vectors using HNSW.
-func (h *HNSWIndex) Search(collection string, query []float32, topK int, threshold float64) []VectorResult {
+func (h *HNSWIndex) Search(collection string, query []float32, topK int, threshold float64, metric SimilarityFunc) []VectorResult {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
@@ -103,12 +103,15 @@ func (h *HNSWIndex) Search(collection string, query []float32, topK int, thresho
 	if topK <= 0 {
 		topK = 5
 	}
+	if metric == nil {
+		metric = cosineSimilarity
+	}
 
 	neighbors := g.Search(query, topK)
 
 	results := make([]VectorResult, 0, len(neighbors))
 	for _, n := range neighbors {
-		score := cosineSimilarity(query, n.Value)
+		score := metric(query, n.Value)
 		if float64(score) >= threshold {
 			results = append(results, VectorResult{DocID: n.Key, Score: score})
 		}
@@ -124,12 +127,15 @@ func (h *HNSWIndex) Search(collection string, query []float32, topK int, thresho
 // SearchWithFilter performs HNSW search filtered by allowed doc IDs.
 // Strategy: oversample 3x from HNSW, then filter. If insufficient results,
 // fall back to brute-force on the allowed set.
-func (h *HNSWIndex) SearchWithFilter(collection string, query []float32, topK int, threshold float64, allowed map[string]bool) []VectorResult {
+func (h *HNSWIndex) SearchWithFilter(collection string, query []float32, topK int, threshold float64, allowed map[string]bool, metric SimilarityFunc) []VectorResult {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
 	if topK <= 0 {
 		topK = 5
+	}
+	if metric == nil {
+		metric = cosineSimilarity
 	}
 
 	g, ok := h.graphs[collection]
@@ -149,7 +155,7 @@ func (h *HNSWIndex) SearchWithFilter(collection string, query []float32, topK in
 		if !allowed[baseDocID(n.Key)] {
 			continue
 		}
-		score := cosineSimilarity(query, n.Value)
+		score := metric(query, n.Value)
 		if float64(score) >= threshold {
 			results = append(results, VectorResult{DocID: n.Key, Score: score})
 		}
@@ -167,7 +173,7 @@ func (h *HNSWIndex) SearchWithFilter(collection string, query []float32, topK in
 				if seen[docID] || !allowed[docID] {
 					continue
 				}
-				score := cosineSimilarity(query, vec)
+				score := metric(query, vec)
 				if float64(score) >= threshold {
 					results = append(results, VectorResult{DocID: docID, Score: score})
 				}

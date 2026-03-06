@@ -205,7 +205,7 @@ func (p *PQIndex) encode(c *pqCollection, vector []float32) []uint8 {
 // Search uses Asymmetric Distance Computation (ADC).
 // Pre-computes distance tables between query sub-vectors and codebook entries,
 // then sums distances for each document using quantized codes.
-func (p *PQIndex) Search(collection string, query []float32, topK int, threshold float64) []VectorResult {
+func (p *PQIndex) Search(collection string, query []float32, topK int, threshold float64, metric SimilarityFunc) []VectorResult {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
@@ -217,10 +217,10 @@ func (p *PQIndex) Search(collection string, query []float32, topK int, threshold
 		topK = 5
 	}
 
-	return p.adcSearch(c, query, topK, threshold, nil)
+	return p.adcSearch(c, query, topK, threshold, nil, metric)
 }
 
-func (p *PQIndex) SearchWithFilter(collection string, query []float32, topK int, threshold float64, allowed map[string]bool) []VectorResult {
+func (p *PQIndex) SearchWithFilter(collection string, query []float32, topK int, threshold float64, allowed map[string]bool, metric SimilarityFunc) []VectorResult {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
@@ -232,10 +232,10 @@ func (p *PQIndex) SearchWithFilter(collection string, query []float32, topK int,
 		topK = 5
 	}
 
-	return p.adcSearch(c, query, topK, threshold, allowed)
+	return p.adcSearch(c, query, topK, threshold, allowed, metric)
 }
 
-func (p *PQIndex) adcSearch(c *pqCollection, query []float32, topK int, threshold float64, allowed map[string]bool) []VectorResult {
+func (p *PQIndex) adcSearch(c *pqCollection, query []float32, topK int, threshold float64, allowed map[string]bool, metric SimilarityFunc) []VectorResult {
 	nSub := len(c.codebooks)
 	subDim := c.dim / nSub
 
@@ -285,7 +285,10 @@ func (p *PQIndex) adcSearch(c *pqCollection, query []float32, topK int, threshol
 		return candidates[i].approxDist < candidates[j].approxDist
 	})
 
-	// Re-rank top candidates with exact cosine similarity
+	// Re-rank top candidates with exact similarity
+	if metric == nil {
+		metric = cosineSimilarity
+	}
 	rerank := topK * 3
 	if rerank > len(candidates) {
 		rerank = len(candidates)
@@ -298,7 +301,7 @@ func (p *PQIndex) adcSearch(c *pqCollection, query []float32, topK int, threshol
 		if !ok {
 			continue
 		}
-		score := cosineSimilarity(query, vec)
+		score := metric(query, vec)
 		if float64(score) >= threshold {
 			results = append(results, VectorResult{DocID: cand.docID, Score: score})
 		}

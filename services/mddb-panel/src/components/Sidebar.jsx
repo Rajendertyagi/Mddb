@@ -1,23 +1,54 @@
 import { useState, useEffect } from 'react';
-import { Folder, Database, Trash2, Brain, Server, Settings, Network, Users, UsersIcon, Upload, FolderPlus, Sliders, GitBranch, PanelLeftClose, BookOpen, Ban, Zap } from 'lucide-react';
+import { Folder, Database, Trash2, Brain, Server, Settings, Network, Users, UsersIcon, Upload, FolderPlus, Sliders, GitBranch, PanelLeftClose, BookOpen, Ban, Zap, Globe, Image, Music, FileText, Settings2, Shuffle } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
 import UploadModal from './UploadModal';
 import CreateCollectionModal from './CreateCollectionModal';
+import CollectionConfigModal from './CollectionConfigModal';
 
 export default function Sidebar({ stats, statsError, onStatsRefresh, onCollapse }) {
-  const { currentCollection, setCurrentCollection, vectorStats, setVectorStats, config, viewMode, setViewMode, setStats } = useStore();
+  const { currentCollection, setCurrentCollection, vectorStats, setVectorStats, config, viewMode, setViewMode, setStats, collectionConfigs, setCollectionConfigs } = useStore();
   const [deletingCollection, setDeletingCollection] = useState(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [configCollection, setConfigCollection] = useState(null);
 
   useEffect(() => {
     loadVectorStats();
+    loadCollectionConfigs();
     const interval = setInterval(() => {
       loadVectorStats();
     }, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  const loadCollectionConfigs = async () => {
+    try {
+      const data = await mddbClient.listCollectionConfigs();
+      const configMap = {};
+      (data.configs || []).forEach((item) => {
+        configMap[item.collection] = item.config;
+      });
+      setCollectionConfigs(configMap);
+    } catch {
+      // Collection configs unavailable - not critical
+    }
+  };
+
+  const getCollectionIcon = (collectionName) => {
+    const cfg = collectionConfigs[collectionName];
+    if (cfg?.icon) {
+      return <span className="text-sm flex-shrink-0">{cfg.icon}</span>;
+    }
+    const type = cfg?.type || 'default';
+    switch (type) {
+      case 'website': return <Globe className="w-4 h-4 flex-shrink-0" />;
+      case 'images': return <Image className="w-4 h-4 flex-shrink-0" />;
+      case 'audio': return <Music className="w-4 h-4 flex-shrink-0" />;
+      case 'documents': return <FileText className="w-4 h-4 flex-shrink-0" />;
+      default: return <Folder className="w-4 h-4 flex-shrink-0" />;
+    }
+  };
 
   const loadVectorStats = async () => {
     try {
@@ -67,11 +98,10 @@ export default function Sidebar({ stats, statsError, onStatsRefresh, onCollapse 
   const NavButton = ({ mode, icon: Icon, label }) => (
     <button
       onClick={() => setViewMode(mode)}
-      className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-        viewMode === mode
+      className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${viewMode === mode
           ? 'bg-blue-100 text-blue-700'
           : 'text-gray-700 hover:bg-gray-100'
-      }`}
+        }`}
     >
       <Icon className="w-4 h-4" />
       <span className="text-sm font-medium">{label}</span>
@@ -201,11 +231,10 @@ export default function Sidebar({ stats, statsError, onStatsRefresh, onCollapse 
             collections.map((collection) => (
               <div
                 key={collection.name}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors group ${
-                  currentCollection === collection.name
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors group ${currentCollection === collection.name
                     ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-700 hover:bg-gray-100'
-                }`}
+                  }`}
               >
                 <button
                   onClick={() => {
@@ -214,7 +243,7 @@ export default function Sidebar({ stats, statsError, onStatsRefresh, onCollapse 
                   }}
                   className="flex-1 flex items-center space-x-2 text-left"
                 >
-                  <Folder className="w-4 h-4 flex-shrink-0" />
+                  {getCollectionIcon(collection.name)}
                   <span className="text-sm font-medium truncate">
                     {collection.name}
                   </span>
@@ -223,6 +252,16 @@ export default function Sidebar({ stats, statsError, onStatsRefresh, onCollapse 
                   <span className="text-xs text-gray-500">
                     {collection.documentCount}
                   </span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfigCollection(collection.name);
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-opacity"
+                    title="Collection settings"
+                  >
+                    <Settings2 className="w-3 h-3" />
+                  </button>
                   <button
                     onClick={(e) => handleDeleteCollection(collection.name, e)}
                     disabled={deletingCollection === collection.name}
@@ -261,6 +300,7 @@ export default function Sidebar({ stats, statsError, onStatsRefresh, onCollapse 
               <NavButton mode="groups" icon={UsersIcon} label="Groups" />
             </>
           )}
+          <NavButton mode="crossSearch" icon={Shuffle} label="Cross Search" />
           <NavButton mode="vectors" icon={Database} label="Vector Search" />
           <NavButton mode="embeddings" icon={Brain} label="Embedding Models" />
           <NavButton mode="synonyms" icon={BookOpen} label="Synonyms" />
@@ -275,7 +315,7 @@ export default function Sidebar({ stats, statsError, onStatsRefresh, onCollapse 
       {/* Version Footer */}
       <div className="px-4 py-2 border-t border-gray-200 text-center">
         <span className="text-[10px] text-gray-400">
-          Server v{config?.version || '...'} · Panel v2.6.9
+          Server v{config?.version || '...'} · Panel v2.7.0
         </span>
       </div>
 
@@ -311,6 +351,15 @@ export default function Sidebar({ stats, statsError, onStatsRefresh, onCollapse 
               console.error('Failed to refresh stats:', error);
             }
           }}
+        />
+      )}
+
+      {/* Collection Config Modal */}
+      {configCollection && (
+        <CollectionConfigModal
+          collection={configCollection}
+          onClose={() => setConfigCollection(null)}
+          onSave={() => loadCollectionConfigs()}
         />
       )}
     </div>

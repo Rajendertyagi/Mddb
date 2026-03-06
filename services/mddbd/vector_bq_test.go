@@ -44,7 +44,7 @@ func TestBQIndexBasicOps(t *testing.T) {
 	}
 
 	query := []float32{1, 0.5, 0.2, -0.1, 0, 0, 0, 0}
-	results := idx.Search("docs", query, 3, 0.0)
+	results := idx.Search("docs", query, 3, 0.0, nil)
 	if len(results) == 0 {
 		t.Fatal("expected results, got none")
 	}
@@ -92,7 +92,7 @@ func TestBQIndexNoTrainingRequired(t *testing.T) {
 	idx.Add("docs", "doc2", []float32{0, 1, 0, 0})
 
 	query := []float32{1, 0, 0, 0}
-	results := idx.Search("docs", query, 5, 0.0)
+	results := idx.Search("docs", query, 5, 0.0, nil)
 	if len(results) == 0 {
 		t.Fatal("BQ should work without training")
 	}
@@ -112,7 +112,7 @@ func TestBQIndexTrain(t *testing.T) {
 		t.Errorf("expected 2 docs after train, got %d", idx.CollectionSize("docs"))
 	}
 
-	results := idx.Search("docs", []float32{1, 0, 0, 0}, 5, 0.0)
+	results := idx.Search("docs", []float32{1, 0, 0, 0}, 5, 0.0, nil)
 	if len(results) == 0 {
 		t.Fatal("expected results after training")
 	}
@@ -127,7 +127,7 @@ func TestBQIndexSearchWithFilter(t *testing.T) {
 	idx.Add("docs", "doc3", []float32{0, 1, 0, 0})
 
 	allowed := map[string]bool{"doc2": true, "doc3": true}
-	results := idx.SearchWithFilter("docs", []float32{1, 0, 0, 0}, 5, 0.0, allowed)
+	results := idx.SearchWithFilter("docs", []float32{1, 0, 0, 0}, 5, 0.0, allowed, nil)
 
 	for _, r := range results {
 		if r.DocID == "doc1" {
@@ -153,7 +153,7 @@ func TestBQIndexEmptyCollection(t *testing.T) {
 	idx := NewBQIndex(10)
 	idx.SetReady()
 
-	results := idx.Search("nonexistent", []float32{1, 0}, 5, 0.0)
+	results := idx.Search("nonexistent", []float32{1, 0}, 5, 0.0, nil)
 	if results != nil {
 		t.Errorf("expected nil results for nonexistent collection")
 	}
@@ -182,7 +182,7 @@ func TestBQIndexConcurrent(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			results := idx.Search("docs", []float32{1, 0, 0, 0}, 2, 0.0)
+			results := idx.Search("docs", []float32{1, 0, 0, 0}, 2, 0.0, nil)
 			if len(results) == 0 {
 				t.Error("expected results from concurrent search")
 			}
@@ -198,7 +198,7 @@ func TestBQIndexScoreRange(t *testing.T) {
 	idx.Add("docs", "doc1", []float32{1, 0, 0, 0})
 	idx.Add("docs", "doc2", []float32{0.5, 0.5, 0, 0})
 
-	results := idx.Search("docs", []float32{1, 0, 0, 0}, 5, 0.0)
+	results := idx.Search("docs", []float32{1, 0, 0, 0}, 5, 0.0, nil)
 	for _, r := range results {
 		if r.Score < -1 || r.Score > 1 {
 			t.Errorf("score %f out of cosine similarity range [-1, 1]", r.Score)
@@ -232,7 +232,7 @@ func TestBQIndexLargeVector(t *testing.T) {
 	idx.Add("docs", "pos", v1)
 	idx.Add("docs", "neg", v2)
 
-	results := idx.Search("docs", v1, 2, 0.0)
+	results := idx.Search("docs", v1, 2, 0.0, nil)
 	if len(results) == 0 {
 		t.Fatal("expected results")
 	}
