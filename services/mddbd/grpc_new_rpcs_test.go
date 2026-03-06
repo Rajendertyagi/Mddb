@@ -418,12 +418,16 @@ func TestGRPCAutomation_ListByType(t *testing.T) {
 	gs, _, cleanup := newTestGRPCServerFull(t)
 	defer cleanup()
 
-	gs.CreateAutomation(context.Background(), &pb.CreateAutomationRequest{
+	if _, err := gs.CreateAutomation(context.Background(), &pb.CreateAutomationRequest{
 		Rule: &pb.AutomationRuleProto{Type: "webhook", Name: "hook1", Url: "http://a.com"},
-	})
-	gs.CreateAutomation(context.Background(), &pb.CreateAutomationRequest{
+	}); err != nil {
+		t.Fatalf("CreateAutomation(webhook): %v", err)
+	}
+	if _, err := gs.CreateAutomation(context.Background(), &pb.CreateAutomationRequest{
 		Rule: &pb.AutomationRuleProto{Type: "trigger", Name: "trig1", Collection: "blog", SearchType: "fts", Query: "test"},
-	})
+	}); err != nil {
+		t.Fatalf("CreateAutomation(trigger): %v", err)
+	}
 
 	// List only webhooks
 	list, err := gs.ListAutomation(context.Background(), &pb.ListAutomationRequest{Type: "webhook"})
