@@ -5,9 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description"
-        content="MDDB - AI-native knowledge base with built-in MCP server, vector search, and RAG support. Plugs directly into Claude, ChatGPT, Cursor, Windsurf, and any MCP-compatible agent. Single binary, zero config.">
+        content="MDDB — AI-native embedded document database with built-in MCP server (53 tools), vector search (Flat, HNSW, IVF, PQ, SQ, BQ), hybrid BM25+vector RAG, full-text search (TF-IDF, BM25, BM25F, PMISparse), triple protocol (REST, gRPC, GraphQL). Accepts .md, .txt, .html, .pdf, .docx. Connects to Claude, ChatGPT, Cursor, Windsurf, Ollama, DeepSeek. Single ~29MB binary, zero config.">
     <meta name="keywords"
-        content="MCP server, AI knowledge base, RAG, LLM integration, Claude MCP, embedding database, semantic search, vector search, markdown database, document database, gRPC, protobuf, graphql, embedded database, BoltDB, Go">
+        content="MCP server, AI knowledge base, RAG, LLM integration, Claude MCP, embedding database, semantic search, vector search, markdown database, document database, gRPC, protobuf, graphql, embedded database, BoltDB, Go, HNSW, BM25, PMISparse, hybrid search, zero-shot classification, document TTL, replication, automation, webhooks, Cursor MCP, Windsurf MCP, Ollama, DeepSeek, Docling, Langflow">
     <meta name="author" content="MDDB Team">
     <meta name="robots" content="index, follow">
 
@@ -37,6 +37,9 @@
 
     <title>MDDB - AI-Native Knowledge Base with Built-in MCP Server</title>
     <link rel="canonical" href="https://tradik.github.io/mddb/">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 
     <!-- Favicon -->
@@ -59,21 +62,28 @@
       "description": "AI-native knowledge base with built-in MCP server, vector search, RAG support, and semantic retrieval for AI agents and LLM workflows",
       "softwareVersion": "2.7.1",
       "featureList": [
-        "Built-in MCP server (stdio + HTTP) for Claude, Cursor, Windsurf",
-        "Vector/semantic search (OpenAI, Ollama, Cohere, Voyage AI)",
-        "Hybrid search (sparse BM25 + dense vector) with alpha blending and RRF",
-        "Zero-shot document classification using embedding similarity",
+        "Built-in MCP server with 53 tools (stdio + HTTP) for Claude, Cursor, Windsurf, ChatGPT, Ollama, DeepSeek",
+        "Vector/semantic search with 6 index algorithms: Flat, HNSW, IVF, PQ, SQ, BQ (OpenAI, Ollama, Cohere, Voyage AI)",
+        "Hybrid search combining sparse BM25 + dense vector with alpha blending and Reciprocal Rank Fusion",
+        "Full-text search with TF-IDF, BM25, BM25F, PMISparse scoring and typo tolerance",
+        "Zero-shot document classification using embedding cosine similarity",
         "Custom YAML-based MCP tools for domain-specific AI workflows",
-        "RAG pipeline support with auto-embeddings",
-        "Full-text search with TF-IDF, BM25, BM25F, PMISparse",
-        "Full revision history",
-        "Triple protocol support (HTTP/JSON + gRPC/Protobuf + GraphQL)",
-        "Automation system (triggers, crons, webhooks, sentiment analysis)",
-        "Document TTL with auto-expiry",
-        "JWT authentication and RBAC authorization",
-        "Leader-follower replication for horizontal scaling",
-        "Multi-language support",
-        "PHP and Python client libraries"
+        "RAG pipeline: auto-embed on ingest, semantic retrieval, MCP exposure",
+        "Multi-format upload: .md, .txt, .html, .pdf, .docx with auto-conversion to Markdown",
+        "URL import: fetch and store documents from any URL",
+        "Full revision history for every document",
+        "Triple protocol: HTTP/JSON REST + gRPC/Protobuf + GraphQL",
+        "Automation: triggers, crons, webhooks, sentiment analysis, template variables",
+        "Document TTL with auto-expiry and background cleanup",
+        "JWT authentication and RBAC authorization (opt-in)",
+        "Leader-follower replication with binlog streaming",
+        "Multi-language support: same key, multiple locales",
+        "Prometheus metrics and Grafana dashboards",
+        "Web admin panel (React-based)",
+        "~29MB single binary, embedded BoltDB, zero external dependencies",
+        "~29MB Alpine-based Docker image with health checks",
+        "PHP and Python client libraries",
+        "Integrations with Docling, Langflow, OpenSearch"
       ],
       "datePublished": "2026-03-05",
       "author": {
@@ -95,10 +105,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!-- Navigation -->
     <nav class="navbar">
         <div class="container">
-            <div class="nav-brand">
+            <a href="#" class="nav-brand" onclick="window.scrollTo({top:0,behavior:'smooth'});return false;">
                 <span class="logo">📝</span>
                 <span class="brand-name">MDDB</span>
-            </div>
+            </a>
             <div class="nav-links">
                 <a href="#features">Features</a>
                 <a href="#download">Download</a>
@@ -134,9 +144,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                         <a href="https://github.com/tradik/mddb" class="btn btn-secondary" target="_blank"
                             rel="noopener">View on GitHub</a>
                     </div>
-                    <div class="hero-quick-start">
-                        <code>docker run -p 11023:11023 tradik/mddb:latest</code>
-                    </div>
                 </div>
             </div>
         </header>
@@ -159,110 +166,135 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
 
         <!-- Features Section -->
-        <section id="features" class="features">
+        <section id="features" class="features" aria-label="MDDB features and capabilities">
             <div class="container">
                 <h2>Why MDDB? <a href="#features" class="anchor-link" aria-label="Link to Features section">#</a></h2>
-                <div class="features-grid">
-                    <div class="feature-card">
-                        <div class="feature-icon">🤖</div>
-                        <h3>Built-in MCP Server</h3>
-                        <p>Connect Claude, Cursor, Windsurf, or any MCP client in seconds — stdio and HTTP modes, 53 built-in tools</p>
+                <p class="section-lead">One binary. Every protocol. AI-native from day one.</p>
+
+                <!-- Machine-readable feature summary (visually hidden, for crawlers and screen readers) -->
+                <div class="sr-only">
+                    <p>MDDB is an AI-native embedded document database written in Go, using BoltDB for storage. It accepts Markdown, plain text, HTML, PDF, and DOCX documents, auto-converting everything to Markdown. All documents are stored with full revision history.</p>
+                    <h3>Core capabilities</h3>
+                    <ul>
+                        <li>Built-in MCP server with 53 tools — connects to Claude, Cursor, Windsurf, ChatGPT, Ollama, DeepSeek, Manus via stdio and HTTP transport</li>
+                        <li>Vector/semantic search with 6 index algorithms: Flat (exact), HNSW, IVF, PQ, SQ, BQ — supports OpenAI, Ollama, Cohere, Voyage AI embeddings</li>
+                        <li>Full-text search with TF-IDF, BM25, BM25F, and PMISparse scoring, typo tolerance, metadata pre-filtering</li>
+                        <li>Hybrid search combining sparse (BM25) and dense (vector) with alpha blending or Reciprocal Rank Fusion</li>
+                        <li>Zero-shot document classification using embedding cosine similarity</li>
+                        <li>Custom MCP tools defined in YAML for domain-specific AI workflows</li>
+                        <li>RAG pipeline: auto-embed on ingest, semantic retrieval, MCP exposure to LLMs</li>
+                        <li>Triple protocol: HTTP/JSON REST API, gRPC/Protobuf, GraphQL</li>
+                        <li>Multi-format upload: .md, .txt, .html, .pdf, .docx with auto-conversion to Markdown</li>
+                        <li>URL import: fetch and store documents from any URL</li>
+                        <li>Document TTL with auto-expiry and background cleanup</li>
+                        <li>Full revision history for every document</li>
+                        <li>JWT authentication and RBAC authorization (opt-in)</li>
+                        <li>Leader-follower replication with binlog streaming</li>
+                        <li>Automation: triggers, crons, webhooks, sentiment analysis, template variables</li>
+                        <li>Multi-language support: same document key, multiple locales</li>
+                        <li>Prometheus metrics and Grafana dashboard support</li>
+                        <li>~29MB single binary, embedded BoltDB, zero external dependencies</li>
+                        <li>Docker image: ~29MB Alpine-based with health checks</li>
+                        <li>Web admin panel (React-based) with REST/GraphQL API toggle</li>
+                        <li>PHP and Python client libraries</li>
+                    </ul>
+                </div>
+
+                <!-- Hero features — alternating layout -->
+                <div class="feat-hero">
+                    <div class="feat-row">
+                        <div class="feat-visual">
+                            <div class="feat-diagram">
+                                <div class="feat-node feat-node-center">MDDB</div>
+                                <div class="feat-node feat-node-orbit n1">Claude</div>
+                                <div class="feat-node feat-node-orbit n2">Cursor</div>
+                                <div class="feat-node feat-node-orbit n3">ChatGPT</div>
+                                <div class="feat-node feat-node-orbit n4">Windsurf</div>
+                                <div class="feat-node feat-node-orbit n5">Ollama</div>
+                            </div>
+                        </div>
+                        <div class="feat-text">
+                            <span class="feat-label">AI Integration</span>
+                            <h3>53 Built-in MCP Tools</h3>
+                            <p>Connect Claude, Cursor, Windsurf, or any MCP client in seconds. Stdio and HTTP modes. Define custom tools in YAML with preconfigured defaults.</p>
+                            <ul class="feat-tags">
+                                <li>MCP Server</li><li>Custom Tools</li><li>stdio + HTTP</li>
+                            </ul>
+                        </div>
                     </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">🔍</div>
-                        <h3>Vector Search</h3>
-                        <p>Auto-embed documents, semantic similarity with 6 algorithms: Flat, HNSW, IVF, PQ, SQ, BQ (OpenAI, Ollama, Cohere, Voyage)
-                        </p>
+
+                    <div class="feat-row feat-row-reverse">
+                        <div class="feat-visual">
+                            <div class="feat-stack">
+                                <div class="feat-stack-layer l1"><span>BM25</span><span>TF-IDF</span><span>PMISparse</span></div>
+                                <div class="feat-stack-plus">+</div>
+                                <div class="feat-stack-layer l2"><span>Flat</span><span>HNSW</span><span>IVF</span><span>PQ</span></div>
+                                <div class="feat-stack-eq">=</div>
+                                <div class="feat-stack-layer l3"><span>Hybrid RAG</span></div>
+                            </div>
+                        </div>
+                        <div class="feat-text">
+                            <span class="feat-label">Search</span>
+                            <h3>Hybrid Search Engine</h3>
+                            <p>Full-text with BM25/BM25F/PMISparse + vector search with 6 index types. Combine with alpha blending or Reciprocal Rank Fusion. Metadata pre-filtering, typo tolerance.</p>
+                            <ul class="feat-tags">
+                                <li>Vector Search</li><li>Full-Text</li><li>Hybrid RAG</li><li>Zero-Shot Classification</li>
+                            </ul>
+                        </div>
                     </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">🔀</div>
-                        <h3>Hybrid Search</h3>
-                        <p>Combine BM25 keyword and vector semantic search with alpha blending or Reciprocal Rank Fusion for RAG
-                        </p>
+
+                    <div class="feat-row">
+                        <div class="feat-visual">
+                            <div class="feat-protocol">
+                                <div class="feat-proto-box rest">REST<small>HTTP/JSON</small></div>
+                                <div class="feat-proto-box grpc">gRPC<small>Protobuf</small></div>
+                                <div class="feat-proto-box gql">GraphQL<small>Flexible queries</small></div>
+                            </div>
+                        </div>
+                        <div class="feat-text">
+                            <span class="feat-label">Protocols</span>
+                            <h3>Triple Protocol Access</h3>
+                            <p>REST for easy debugging, gRPC for high-throughput pipelines, GraphQL for flexible frontend queries. All endpoints, one server.</p>
+                            <ul class="feat-tags">
+                                <li>REST API</li><li>gRPC</li><li>GraphQL</li>
+                            </ul>
+                        </div>
                     </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">🛠️</div>
-                        <h3>Custom MCP Tools</h3>
-                        <p>Define domain-specific AI tools in YAML with preconfigured defaults and parameters</p>
+
+                    <div class="feat-row feat-row-reverse">
+                        <div class="feat-visual">
+                            <div class="feat-formats">
+                                <div class="feat-file f-md">.md</div>
+                                <div class="feat-file f-txt">.txt</div>
+                                <div class="feat-file f-html">.html</div>
+                                <div class="feat-file f-pdf">.pdf</div>
+                                <div class="feat-file f-docx">.docx</div>
+                                <div class="feat-file f-url">URL</div>
+                                <div class="feat-arrow-down"></div>
+                                <div class="feat-file f-out">Markdown</div>
+                            </div>
+                        </div>
+                        <div class="feat-text">
+                            <span class="feat-label">Ingestion</span>
+                            <h3>Multi-Format Pipeline</h3>
+                            <p>Upload .md, .txt, .html, .pdf, .docx or import from any URL. Everything auto-converts to Markdown. Background embedding worker indexes documents as they arrive.</p>
+                            <ul class="feat-tags">
+                                <li>5 Formats</li><li>URL Import</li><li>Auto-Embed</li><li>TTL Expiry</li>
+                            </ul>
+                        </div>
                     </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">🧪</div>
-                        <h3>Zero-Shot Classification</h3>
-                        <p>Classify documents against candidate labels using embedding similarity, no training data needed
-                        </p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">🧠</div>
-                        <h3>RAG-Ready</h3>
-                        <p>Purpose-built for retrieval-augmented generation — auto-embeddings, hybrid retrieval, MCP integration</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">📖</div>
-                        <h3>Full-Text Search</h3>
-                        <p>Built-in inverted index with TF-IDF, BM25, BM25F, and PMISparse scoring, typo tolerance</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">📚</div>
-                        <h3>Version Control</h3>
-                        <p>Full revision history for every document with complete content snapshots</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">🔌</div>
-                        <h3>Triple Protocol</h3>
-                        <p>HTTP/JSON REST for easy debugging, gRPC/Protobuf for high performance, GraphQL for flexible
-                            queries</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">🔔</div>
-                        <h3>Automation</h3>
-                        <p>Triggers, crons, webhooks with template variables, sentiment analysis, execution logs</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">⚡</div>
-                        <h3>Zero Config</h3>
-                        <p>Single ~29MB binary, embedded database, no external dependencies</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">🔐</div>
-                        <h3>Authentication & RBAC</h3>
-                        <p>JWT tokens, API keys, per-collection permissions (opt-in)</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">🔄</div>
-                        <h3>Replication</h3>
-                        <p>Leader-follower replication with binlog streaming for horizontal read scaling</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">🏷️</div>
-                        <h3>FTS Metadata Filtering</h3>
-                        <p>Pre-filter full-text search results by metadata before scoring for precise, targeted queries
-                        </p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">🌍</div>
-                        <h3>Multi-Language</h3>
-                        <p>Store documents in multiple languages with the same key</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">⏱️</div>
-                        <h3>Document TTL</h3>
-                        <p>Auto-expiring documents with background cleanup, like Redis</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">🌐</div>
-                        <h3>Import from URL</h3>
-                        <p>Fetch markdown from any URL with frontmatter parsing</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">📄</div>
-                        <h3>Multi-Format Input</h3>
-                        <p>Primary Markdown storage with native PDF and HTML ingestion — auto-converted to Markdown on import</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">🐳</div>
-                        <h3>Docker Ready</h3>
-                        <p>~29MB Alpine-based image with health checks</p>
-                    </div>
+                </div>
+
+                <!-- Compact feature strip -->
+                <div class="feat-strip">
+                    <div class="feat-chip"><strong>Revisions</strong> Full document history</div>
+                    <div class="feat-chip"><strong>Replication</strong> Leader-follower binlog</div>
+                    <div class="feat-chip"><strong>Auth & RBAC</strong> JWT, API keys, per-collection</div>
+                    <div class="feat-chip"><strong>Automations</strong> Triggers, crons, webhooks</div>
+                    <div class="feat-chip"><strong>Multi-Language</strong> Same key, many locales</div>
+                    <div class="feat-chip"><strong>Docker</strong> ~29MB Alpine image</div>
+                    <div class="feat-chip"><strong>Zero Config</strong> Single binary, no deps</div>
+                    <div class="feat-chip"><strong>Telemetry</strong> Prometheus + Grafana</div>
                 </div>
             </div>
         </section>
@@ -333,7 +365,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 </div>
                 <div class="tab-content">
                     <div class="tab-pane active" id="docker">
-                        <pre><code># Run MDDB server
+                        <div class="terminal">
+                            <div class="terminal-header">
+                                <div class="terminal-dots">
+                                    <span class="terminal-dot red"></span>
+                                    <span class="terminal-dot yellow"></span>
+                                    <span class="terminal-dot green"></span>
+                                </div>
+                                <span class="terminal-title">bash — docker</span>
+                            </div>
+                            <pre><code data-terminal="bash"># Run MDDB server
 docker run -d \
   -p 11023:11023 \
   -p 11024:11024 \
@@ -342,9 +383,19 @@ docker run -d \
 
 # Test the API
 curl http://localhost:11023/health</code></pre>
+                        </div>
                     </div>
                     <div class="tab-pane" id="docker-compose">
-                        <pre><code># Clone repository
+                        <div class="terminal">
+                            <div class="terminal-header">
+                                <div class="terminal-dots">
+                                    <span class="terminal-dot red"></span>
+                                    <span class="terminal-dot yellow"></span>
+                                    <span class="terminal-dot green"></span>
+                                </div>
+                                <span class="terminal-title">bash — docker compose</span>
+                            </div>
+                            <pre><code data-terminal="bash"># Clone repository
 git clone https://github.com/tradik/mddb.git
 cd mddb
 
@@ -356,9 +407,19 @@ make docker-up
 # - MDDB gRPC: localhost:11024
 # - Web Panel: http://localhost:3000
 # - MCP Server: http://localhost:9000</code></pre>
+                        </div>
                     </div>
                     <div class="tab-pane" id="binary">
-                        <pre><code id="binary-download-code"># Download binary
+                        <div class="terminal">
+                            <div class="terminal-header">
+                                <div class="terminal-dots">
+                                    <span class="terminal-dot red"></span>
+                                    <span class="terminal-dot yellow"></span>
+                                    <span class="terminal-dot green"></span>
+                                </div>
+                                <span class="terminal-title">bash — binary</span>
+                            </div>
+                            <pre><code id="binary-download-code" data-terminal="bash"># Download binary
 wget https://github.com/tradik/mddb/releases/download/v2.7.1/mddbd-linux-amd64
 chmod +x mddbd-linux-amd64
 
@@ -366,9 +427,19 @@ chmod +x mddbd-linux-amd64
 ./mddbd-linux-amd64
 
 # Server starts on http://localhost:11023</code></pre>
+                        </div>
                     </div>
                     <div class="tab-pane" id="source">
-                        <pre><code># Clone repository
+                        <div class="terminal">
+                            <div class="terminal-header">
+                                <div class="terminal-dots">
+                                    <span class="terminal-dot red"></span>
+                                    <span class="terminal-dot yellow"></span>
+                                    <span class="terminal-dot green"></span>
+                                </div>
+                                <span class="terminal-title">bash — build from source</span>
+                            </div>
+                            <pre><code data-terminal="bash"># Clone repository
 git clone https://github.com/tradik/mddb.git
 cd mddb
 
@@ -377,6 +448,7 @@ make build
 
 # Run
 ./bin/mddbd</code></pre>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -456,120 +528,48 @@ docker pull tradik/mddb:2.7.1</code></pre>
         <!-- Documentation Section -->
         <section id="docs" class="documentation">
             <div class="container">
-                <h2>Documentation <a href="#docs" class="anchor-link" aria-label="Link to Documentation section">#</a>
-                </h2>
-                <div class="docs-grid">
-                    <a href="md-viewer.html?doc=QUICKSTART.md" class="doc-card">
-                        <div class="doc-icon">🚀</div>
-                        <h3>Quick Start</h3>
-                        <p>Get up and running in 5 minutes</p>
-                    </a>
-                    <a href="swagger.html" class="doc-card featured">
-                        <div class="doc-icon">📋</div>
-                        <h3>API Documentation</h3>
-                        <p>Interactive Swagger UI</p>
-                        <span class="badge-new">Interactive</span>
-                    </a>
-                    <a href="openapi.yaml" class="doc-card">
-                        <div class="doc-icon">📄</div>
-                        <h3>OpenAPI Spec</h3>
-                        <p>Machine-readable API specification</p>
-                    </a>
-                    <a href="md-viewer.html?doc=HEALTHCHECK.md" class="doc-card">
-                        <div class="doc-icon">💚</div>
-                        <h3>Health Checks</h3>
-                        <p>Docker & Kubernetes monitoring</p>
-                    </a>
-                    <a href="md-viewer.html?doc=GRPC.md" class="doc-card">
-                        <div class="doc-icon">⚡</div>
-                        <h3>gRPC Guide</h3>
-                        <p>High-performance protocol</p>
-                    </a>
-                    <a href="md-viewer.html?doc=EXAMPLES.md" class="doc-card">
-                        <div class="doc-icon">💡</div>
-                        <h3>Examples</h3>
-                        <p>Code examples and patterns</p>
-                    </a>
-                    <a href="md-viewer.html?doc=DOCKER.md" class="doc-card">
-                        <div class="doc-icon">🐳</div>
-                        <h3>Docker Guide</h3>
-                        <p>Container deployment</p>
-                    </a>
-                    <a href="md-viewer.html?doc=ARCHITECTURE.md" class="doc-card">
-                        <div class="doc-icon">🏗️</div>
-                        <h3>Architecture</h3>
-                        <p>System design and internals</p>
-                    </a>
-                    <a href="md-viewer.html?doc=RAG-PIPELINE.md" class="doc-card featured">
-                        <div class="doc-icon">🤖</div>
-                        <h3>RAG Pipeline</h3>
-                        <p>WordPress → MDDB → LLM guide</p>
-                        <span class="badge-new">New</span>
-                    </a>
-                    <a href="md-viewer.html?doc=SCHEMA-VALIDATION.md" class="doc-card">
-                        <div class="doc-icon">✅</div>
-                        <h3>Schema Validation</h3>
-                        <p>Enforce metadata structure per collection</p>
-                    </a>
-                    <a href="md-viewer.html?doc=TELEMETRY.md" class="doc-card featured">
-                        <div class="doc-icon">📊</div>
-                        <h3>Telemetry & Monitoring</h3>
-                        <p>Prometheus metrics, Grafana dashboards</p>
-                        <span class="badge-new">New</span>
-                    </a>
-                    <a href="md-viewer.html?doc=WORDPRESS-AGENT.md" class="doc-card featured">
-                        <div class="doc-icon">🌐</div>
-                        <h3>WordPress AI Agent</h3>
-                        <p>Build a chatbot for your WP site</p>
-                        <span class="badge-new">New</span>
-                    </a>
-                    <a href="md-viewer.html?doc=LLM_CONNECTIONS.md" class="doc-card featured">
-                        <div class="doc-icon">🔗</div>
-                        <h3>LLM Connections</h3>
-                        <p>Claude, ChatGPT, Ollama, DeepSeek, Manus, Bielik.ai</p>
-                        <span class="badge-new">New</span>
-                    </a>
-                    <a href="md-viewer.html?doc=CUSTOM-TOOLS.md" class="doc-card featured">
-                        <div class="doc-icon">🛠️</div>
-                        <h3>Custom MCP Tools</h3>
-                        <p>YAML-defined website-specific AI tools</p>
-                        <span class="badge-new">New</span>
-                    </a>
-                    <a href="md-viewer.html?doc=AUTHENTICATION.md" class="doc-card featured">
-                        <div class="doc-icon">🔐</div>
-                        <h3>Authentication & RBAC</h3>
-                        <p>JWT tokens, API keys, role-based access control</p>
-                        <span class="badge-new">New</span>
-                    </a>
-                    <a href="md-viewer.html?doc=AUTH_QUICKSTART.md" class="doc-card">
-                        <div class="doc-icon">⚡</div>
-                        <h3>Auth Quick Start</h3>
-                        <p>5-minute authentication setup guide</p>
-                    </a>
-                    <a href="md-viewer.html?doc=REPLICATION.md" class="doc-card featured">
-                        <div class="doc-icon">🔄</div>
-                        <h3>Replication Guide</h3>
-                        <p>Leader-follower setup, Docker Compose, monitoring</p>
-                        <span class="badge-new">New</span>
-                    </a>
-                    <a href="md-viewer.html?doc=SEARCH.md" class="doc-card featured">
-                        <div class="doc-icon">🔍</div>
-                        <h3>Search Algorithms</h3>
-                        <p>TF-IDF, BM25, BM25F, PMISparse, Flat, HNSW, IVF, PQ, SQ, BQ</p>
-                        <span class="badge-new">New</span>
-                    </a>
-                    <a href="md-viewer.html?doc=PMISPARSE.md" class="doc-card featured">
-                        <div class="doc-icon">🧠</div>
-                        <h3>PMISparse</h3>
-                        <p>Two-phase BM25 + PPMI query expansion (Tradik Limited)</p>
-                        <span class="badge-new">New</span>
-                    </a>
-                    <a href="md-viewer.html?doc=AUTOMATIONS.md" class="doc-card featured">
-                        <div class="doc-icon">⚡</div>
-                        <h3>Automations</h3>
-                        <p>Triggers, crons, webhooks, sentiment, template variables</p>
-                        <span class="badge-new">New</span>
-                    </a>
+                <h2>Documentation <a href="#docs" class="anchor-link" aria-label="Link to Documentation section">#</a></h2>
+                <div class="docs-columns">
+                    <div class="docs-col">
+                        <h3 class="docs-group-title">Getting Started</h3>
+                        <ul class="docs-list">
+                            <li><a href="md-viewer.html?doc=QUICKSTART.md">Quick Start</a><span class="docs-desc">Get up and running in 5 minutes</span></li>
+                            <li><a href="swagger.html">API Documentation</a><span class="docs-badge">Interactive</span><span class="docs-desc">Swagger UI for all endpoints</span></li>
+                            <li><a href="openapi.yaml">OpenAPI Spec</a><span class="docs-desc">Machine-readable API specification</span></li>
+                            <li><a href="md-viewer.html?doc=EXAMPLES.md">Examples</a><span class="docs-desc">Code examples and patterns</span></li>
+                            <li><a href="md-viewer.html?doc=DOCKER.md">Docker Guide</a><span class="docs-desc">Container deployment</span></li>
+                            <li><a href="md-viewer.html?doc=ARCHITECTURE.md">Architecture</a><span class="docs-desc">System design and internals</span></li>
+                        </ul>
+
+                        <h3 class="docs-group-title">Search & AI</h3>
+                        <ul class="docs-list">
+                            <li><a href="md-viewer.html?doc=SEARCH.md">Search Algorithms</a><span class="docs-badge">New</span><span class="docs-desc">TF-IDF, BM25, BM25F, Flat, HNSW, IVF, PQ, SQ, BQ</span></li>
+                            <li><a href="md-viewer.html?doc=PMISPARSE.md">PMISparse</a><span class="docs-badge">New</span><span class="docs-desc">BM25 + PPMI query expansion (Tradik Limited)</span></li>
+                            <li><a href="md-viewer.html?doc=RAG-PIPELINE.md">RAG Pipeline</a><span class="docs-badge">New</span><span class="docs-desc">WordPress → MDDB → LLM guide</span></li>
+                            <li><a href="md-viewer.html?doc=LLM_CONNECTIONS.md">LLM Connections</a><span class="docs-badge">New</span><span class="docs-desc">Claude, ChatGPT, Ollama, DeepSeek, Manus, Bielik.ai</span></li>
+                            <li><a href="md-viewer.html?doc=CUSTOM-TOOLS.md">Custom MCP Tools</a><span class="docs-badge">New</span><span class="docs-desc">YAML-defined website-specific AI tools</span></li>
+                            <li><a href="md-viewer.html?doc=INTEGRATIONS.md">Integrations</a><span class="docs-badge">New</span><span class="docs-desc">Docling, Langflow, OpenSearch pipelines</span></li>
+                        </ul>
+                    </div>
+                    <div class="docs-col">
+                        <h3 class="docs-group-title">Security & Operations</h3>
+                        <ul class="docs-list">
+                            <li><a href="md-viewer.html?doc=AUTHENTICATION.md">Authentication & RBAC</a><span class="docs-badge">New</span><span class="docs-desc">JWT tokens, API keys, role-based access</span></li>
+                            <li><a href="md-viewer.html?doc=AUTH_QUICKSTART.md">Auth Quick Start</a><span class="docs-desc">5-minute authentication setup</span></li>
+                            <li><a href="md-viewer.html?doc=REPLICATION.md">Replication</a><span class="docs-badge">New</span><span class="docs-desc">Leader-follower, Docker Compose, monitoring</span></li>
+                            <li><a href="md-viewer.html?doc=TELEMETRY.md">Telemetry & Monitoring</a><span class="docs-badge">New</span><span class="docs-desc">Prometheus metrics, Grafana dashboards</span></li>
+                            <li><a href="md-viewer.html?doc=HEALTHCHECK.md">Health Checks</a><span class="docs-desc">Docker & Kubernetes monitoring</span></li>
+                            <li><a href="md-viewer.html?doc=LICENSE_AUDIT.md">License Audit</a><span class="docs-desc">Dependency license compliance (Trivy)</span></li>
+                        </ul>
+
+                        <h3 class="docs-group-title">Protocols & Advanced</h3>
+                        <ul class="docs-list">
+                            <li><a href="md-viewer.html?doc=GRPC.md">gRPC Guide</a><span class="docs-desc">High-performance protocol</span></li>
+                            <li><a href="md-viewer.html?doc=SCHEMA-VALIDATION.md">Schema Validation</a><span class="docs-desc">Enforce metadata structure per collection</span></li>
+                            <li><a href="md-viewer.html?doc=AUTOMATIONS.md">Automations</a><span class="docs-badge">New</span><span class="docs-desc">Triggers, crons, webhooks, sentiment</span></li>
+                            <li><a href="md-viewer.html?doc=WORDPRESS-AGENT.md">WordPress AI Agent</a><span class="docs-badge">New</span><span class="docs-desc">Build a chatbot for your WP site</span></li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </section>
@@ -604,9 +604,11 @@ docker pull tradik/mddb:2.7.1</code></pre>
                     <div class="example-pane active" id="add">
                         <div class="terminal">
                             <div class="terminal-header">
-                                <span class="terminal-dot red"></span>
-                                <span class="terminal-dot yellow"></span>
-                                <span class="terminal-dot green"></span>
+                                <div class="terminal-dots">
+                                    <span class="terminal-dot red"></span>
+                                    <span class="terminal-dot yellow"></span>
+                                    <span class="terminal-dot green"></span>
+                                </div>
                                 <span class="terminal-title">bash — mddb</span>
                             </div>
                             <pre><code data-terminal="bash"># Add document with TTL (expires in 1 hour)
@@ -632,9 +634,11 @@ curl -X POST http://localhost:11023/v1/import-url \
                     <div class="example-pane" id="vector">
                         <div class="terminal">
                             <div class="terminal-header">
-                                <span class="terminal-dot red"></span>
-                                <span class="terminal-dot yellow"></span>
-                                <span class="terminal-dot green"></span>
+                                <div class="terminal-dots">
+                                    <span class="terminal-dot red"></span>
+                                    <span class="terminal-dot yellow"></span>
+                                    <span class="terminal-dot green"></span>
+                                </div>
                                 <span class="terminal-title">bash — vector search</span>
                             </div>
                             <pre><code data-terminal="bash"># Semantic search - flat (exact, default)
@@ -664,9 +668,11 @@ curl -X POST http://localhost:11023/v1/vector-search \
                     <div class="example-pane" id="fts">
                         <div class="terminal">
                             <div class="terminal-header">
-                                <span class="terminal-dot red"></span>
-                                <span class="terminal-dot yellow"></span>
-                                <span class="terminal-dot green"></span>
+                                <div class="terminal-dots">
+                                    <span class="terminal-dot red"></span>
+                                    <span class="terminal-dot yellow"></span>
+                                    <span class="terminal-dot green"></span>
+                                </div>
                                 <span class="terminal-title">bash — full-text search</span>
                             </div>
                             <pre><code data-terminal="bash"># Full-text search with TF-IDF (default)
@@ -700,9 +706,11 @@ curl -X POST http://localhost:11023/v1/set-ttl \
                     <div class="example-pane" id="search">
                         <div class="terminal">
                             <div class="terminal-header">
-                                <span class="terminal-dot red"></span>
-                                <span class="terminal-dot yellow"></span>
-                                <span class="terminal-dot green"></span>
+                                <div class="terminal-dots">
+                                    <span class="terminal-dot red"></span>
+                                    <span class="terminal-dot yellow"></span>
+                                    <span class="terminal-dot green"></span>
+                                </div>
                                 <span class="terminal-title">bash — metadata search</span>
                             </div>
                             <pre><code data-terminal="bash">curl -X POST http://localhost:11023/v1/search \
@@ -721,9 +729,11 @@ curl -X POST http://localhost:11023/v1/set-ttl \
                     <div class="example-pane" id="python">
                         <div class="terminal">
                             <div class="terminal-header">
-                                <span class="terminal-dot red"></span>
-                                <span class="terminal-dot yellow"></span>
-                                <span class="terminal-dot green"></span>
+                                <div class="terminal-dots">
+                                    <span class="terminal-dot red"></span>
+                                    <span class="terminal-dot yellow"></span>
+                                    <span class="terminal-dot green"></span>
+                                </div>
                                 <span class="terminal-title">python3 — mddb client</span>
                             </div>
                             <pre><code data-terminal="python">from mddb import MDDB
@@ -752,9 +762,11 @@ db.set_ttl('temp-key', 'en', 3600)  # expires in 1h</code></pre>
                     <div class="example-pane" id="php">
                         <div class="terminal">
                             <div class="terminal-header">
-                                <span class="terminal-dot red"></span>
-                                <span class="terminal-dot yellow"></span>
-                                <span class="terminal-dot green"></span>
+                                <div class="terminal-dots">
+                                    <span class="terminal-dot red"></span>
+                                    <span class="terminal-dot yellow"></span>
+                                    <span class="terminal-dot green"></span>
+                                </div>
                                 <span class="terminal-title">php — mddb client</span>
                             </div>
                             <pre><code data-terminal="php">&lt;?php
@@ -784,9 +796,11 @@ $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
                     <div class="example-pane" id="mcp">
                         <div class="terminal">
                             <div class="terminal-header">
-                                <span class="terminal-dot red"></span>
-                                <span class="terminal-dot yellow"></span>
-                                <span class="terminal-dot green"></span>
+                                <div class="terminal-dots">
+                                    <span class="terminal-dot red"></span>
+                                    <span class="terminal-dot yellow"></span>
+                                    <span class="terminal-dot green"></span>
+                                </div>
                                 <span class="terminal-title">json — mcp.json</span>
                             </div>
                             <pre><code data-terminal="json"># Docker (Easiest) - for Windsurf / Claude Desktop
@@ -1007,9 +1021,18 @@ graph LR
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                 document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
                 this.classList.add('active');
-                document.getElementById(tab).classList.add('active');
+                const pane = document.getElementById(tab);
+                pane.classList.add('active');
+                const code = pane.querySelector('code[data-terminal]');
+                if (code) animateTerminal(code);
             });
         });
+
+        // Animate Quick Start first active tab
+        (function () {
+            var qs = document.querySelector('#quick-start .tab-pane.active code[data-terminal]');
+            if (qs) animateTerminal(qs);
+        })();
 
         // Terminal animation
         function animateTerminal(codeEl) {
@@ -1066,7 +1089,6 @@ graph LR
 
                 span.textContent = text;
                 codeEl.appendChild(span);
-                codeEl.appendChild(document.createTextNode('\n'));
             });
 
             // Add blinking cursor at end
