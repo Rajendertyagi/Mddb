@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **OpenAPI spec**: Added `/v1/delete-batch` endpoint definition with full request/response schema
 
 ### Fixed
+- **Panel proxy 404 fix** — `server.js` mounted proxy at `/v1` which caused Express to strip the prefix; switched to root mount with `pathFilter: '/v1/**'` ([#17](https://github.com/tradik/mddb/issues/17))
 - Panel endpoint counts now correct: HTTP(78), gRPC(54), MCP(53) — previously showed HTTP(76), MCP(51)
 - MCP tool count updated from 52 to 53 across README, LLM_CONNECTIONS.md, and all documentation
 - API.md expanded with ~35 missing endpoint docs (delete-batch, delete-collection, hybrid-search, cross-search, find-duplicates, collection-config, webhooks, revisions, automation, auth endpoints, system endpoints)
