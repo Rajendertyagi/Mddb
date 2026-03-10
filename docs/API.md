@@ -7,6 +7,9 @@
 - [Configuration](#configuration)
 - [Endpoints](#endpoints)
   - [POST /v1/add](#post-v1add)
+  - [POST /v1/add-batch](#post-v1add-batch)
+  - [POST /v1/ingest](#post-v1ingest)
+  - [POST /v1/upload](#post-v1upload)
   - [POST /v1/get](#post-v1get)
   - [POST /v1/search](#post-v1search)
   - [POST /v1/vector-search](#post-v1vector-search)
@@ -33,6 +36,41 @@
   - [POST /v1/auth/api-key](#post-v1authapi-key)
   - [GET /v1/auth/api-keys](#get-v1authapi-keys)
   - [DELETE /v1/auth/api-keys/:keyHash](#delete-v1authapi-keyskeyhash)
+  - [POST /v1/delete](#post-v1delete)
+  - [POST /v1/delete-batch](#post-v1delete-batch)
+  - [POST /v1/delete-collection](#post-v1delete-collection)
+  - [POST /v1/hybrid-search](#post-v1hybrid-search)
+  - [POST /v1/cross-search](#post-v1cross-search)
+  - [POST /v1/find-duplicates](#post-v1find-duplicates)
+  - [GET /v1/collection-config](#get-v1collection-config)
+  - [GET /v1/collection-configs](#get-v1collection-configs)
+  - [GET /v1/embedding-configs](#get-v1embedding-configs)
+  - [GET/PUT/DELETE /v1/embedding-configs/:id](#getputdelete-v1embedding-configsid)
+  - [POST /v1/embedding-configs/set-default](#post-v1embedding-configsset-default)
+  - [GET/POST/DELETE /v1/stopwords](#getpostdelete-v1stopwords)
+  - [GET/POST /v1/webhooks](#getpost-v1webhooks)
+  - [POST /v1/webhooks/delete](#post-v1webhooksdelete)
+  - [POST /v1/revisions](#post-v1revisions)
+  - [POST /v1/revisions/restore](#post-v1revisionsrestore)
+  - [GET/POST /v1/automation](#getpost-v1automation)
+  - [GET/PUT/DELETE /v1/automation/:id](#getputdelete-v1automationid)
+  - [GET /v1/automation-logs](#get-v1automation-logs)
+  - [POST /v1/import-url](#post-v1import-url)
+  - [POST /v1/set-ttl](#post-v1set-ttl)
+  - [GET /v1/meta-keys](#get-v1meta-keys)
+  - [GET /v1/checksum](#get-v1checksum)
+  - [GET /v1/system/info](#get-v1systeminfo)
+  - [GET /v1/config](#get-v1config)
+  - [GET /v1/endpoints](#get-v1endpoints)
+  - [GET /health](#get-health)
+  - [POST /v1/auth/register](#post-v1authregister)
+  - [GET /v1/auth/me](#get-v1authme)
+  - [GET/POST /v1/auth/permissions](#getpost-v1authpermissions)
+  - [GET /v1/auth/users](#get-v1authusers)
+  - [DELETE /v1/auth/users/:username](#delete-v1authusersusername)
+  - [GET/POST /v1/auth/groups](#getpost-v1authgroups)
+  - [GET/PUT/DELETE /v1/auth/groups/:name](#getputdelete-v1authgroupsname)
+  - [GET/POST /v1/auth/group-permissions](#getpost-v1authgroup-permissions)
 - [Data Models](#data-models)
 - [Error Handling](#error-handling)
 
@@ -129,6 +167,261 @@ curl -X POST http://localhost:11023/v1/add \
     "contentMd": "# Welcome to my blog"
   }'
 ```
+
+---
+
+### POST /v1/add-batch
+
+Add multiple documents to a collection in a single request. Uses the optimized batch processor for high throughput. Fires all post-commit hooks (embedding, FTS indexing, webhooks, TTL, automation triggers).
+
+**Request Body**:
+```json
+{
+  "collection": "blog",
+  "documents": [
+    {
+      "key": "post1",
+      "lang": "en",
+      "contentMd": "# Post 1\n\nFirst post content.",
+      "meta": {
+        "category": ["blog"],
+        "author": ["John Doe"]
+      },
+      "saveRevision": true
+    },
+    {
+      "key": "post2",
+      "lang": "en",
+      "contentMd": "# Post 2\n\nSecond post content.",
+      "meta": {
+        "category": ["tutorial"]
+      }
+    }
+  ]
+}
+```
+
+**Parameters**:
+- `collection` (required): Collection name
+- `documents` (required): Array of documents to add
+  - `key` (required): Document key
+  - `lang` (required): Language code
+  - `contentMd` (required): Markdown content
+  - `meta` (optional): Metadata key-value pairs
+  - `saveRevision` (optional): Whether to save a revision for this document
+
+**Response**:
+```json
+{
+  "added": 1,
+  "updated": 1,
+  "failed": 0,
+  "errors": []
+}
+```
+
+**cURL Example**:
+```bash
+curl -X POST http://localhost:11023/v1/add-batch \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "blog",
+    "documents": [
+      {"key": "p1", "lang": "en", "contentMd": "# Hello"},
+      {"key": "p2", "lang": "en", "contentMd": "# World"}
+    ]
+  }'
+```
+
+---
+
+### POST /v1/ingest
+
+Bulk ingest endpoint with advanced features for scraping pipelines and data import workflows. Supports URL key derivation, YAML frontmatter extraction, content deduplication, auto-metadata injection, and collection auto-configuration.
+
+**Request Body**:
+```json
+{
+  "collection": "imported",
+  "documents": [
+    {
+      "url": "https://example.com/page1",
+      "lang": "en",
+      "contentMd": "# Page 1\n\nContent here.",
+      "scraper": "my-crawler",
+      "scrapedAt": 1709500000,
+      "ttl": 86400
+    },
+    {
+      "url": "https://example.com/page2",
+      "lang": "en",
+      "contentMd": "---\ntitle: Page 2\ncategory: tutorial\n---\n# Page 2\n\nMore content.",
+      "extractFrontmatter": true
+    }
+  ],
+  "options": {
+    "skipDuplicates": true,
+    "autoConfigureCollection": true
+  }
+}
+```
+
+**Parameters**:
+- `collection` (required): Collection name
+- `documents` (required): Array of documents to ingest
+  - `url` (optional): Source URL — used for key derivation and auto-injected as `source_url` metadata
+  - `key` (optional): Document key — if empty, derived from URL
+  - `lang` (required): Language code
+  - `contentMd` (required): Markdown content
+  - `meta` (optional): Metadata key-value pairs
+  - `extractFrontmatter` (optional): Parse YAML frontmatter from content and merge into metadata
+  - `scrapedAt` (optional): Unix timestamp of when the content was scraped — auto-injected as `scraped_at` metadata
+  - `scraper` (optional): Scraper identifier — auto-injected as `scraper` metadata
+  - `ttl` (optional): Time-to-live in seconds
+- `options` (optional): Ingest options
+  - `skipDuplicates` (optional): Skip documents whose content hasn't changed (CRC32 hash comparison)
+  - `skipEmbeddings` (optional): Skip embedding generation for this batch
+  - `skipFts` (optional): Skip FTS indexing for this batch
+  - `skipWebhooks` (optional): Skip webhook firing for this batch
+  - `autoConfigureCollection` (optional): Auto-configure collection as "scraping" type if it doesn't exist
+  - `saveRevision` (optional): Save revision history for all documents in this batch
+
+**Response**:
+```json
+{
+  "added": 2,
+  "updated": 0,
+  "skipped": 0,
+  "failed": 0,
+  "errors": [],
+  "collection": "imported",
+  "durationMs": 45
+}
+```
+
+**Features**:
+- **URL key derivation**: If `key` is empty, a deterministic key is derived from the URL path
+- **Frontmatter extraction**: When `extractFrontmatter` is true, YAML frontmatter is parsed from content and merged into metadata (request metadata takes priority over frontmatter)
+- **Auto-metadata injection**: `source_url`, `scraped_at`, and `scraper` fields are auto-injected into document metadata
+- **Content deduplication**: With `skipDuplicates`, existing documents with identical content (CRC32 hash) are skipped
+- **Collection auto-configuration**: With `autoConfigureCollection`, the collection is created with type "scraping" if it doesn't exist
+- **Selective hook control**: Skip embeddings, FTS, or webhooks per batch via options
+
+**cURL Example**:
+```bash
+curl -X POST http://localhost:11023/v1/ingest \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "imported",
+    "documents": [
+      {"url": "https://example.com/page1", "lang": "en", "contentMd": "# Hello", "scraper": "my-crawler"},
+      {"url": "https://example.com/page2", "lang": "en", "contentMd": "# World", "extractFrontmatter": true}
+    ],
+    "options": {"autoConfigureCollection": true, "skipDuplicates": true}
+  }'
+```
+
+---
+
+### POST /v1/upload
+
+Upload files (PDF, DOCX, HTML, TXT, Markdown) via multipart/form-data. Files are auto-converted to Markdown and stored as documents. Supports single and batch upload.
+
+**Content-Type**: `multipart/form-data`
+
+**Form Fields**:
+- `file` or `files[]` (required): One or more files to upload. Supported formats: `.md`, `.txt`, `.html`, `.htm`, `.pdf`, `.docx`
+- `collection` (required): Target collection name
+- `lang` (required): Document language code (e.g. `en_US`, `pl_PL`)
+- `key` (optional): Document key — if empty, derived from filename (lowercase, spaces→hyphens, extension stripped)
+- `meta` (optional): JSON-encoded metadata map, e.g. `{"category":["docs"]}`
+- `ttl` (optional): Time-to-live in seconds (0 = no expiry)
+- `maxSize` (optional): Per-file size limit in bytes (default: 10MB, max: 100MB)
+
+**Format Conversion**:
+| Format | Extension | Conversion |
+|--------|-----------|------------|
+| Markdown | `.md` | Stored as-is, frontmatter extracted |
+| Plain text | `.txt` | Stored as-is, frontmatter extracted |
+| HTML | `.html`, `.htm` | Converted to Markdown (headings, links, lists, bold/italic preserved) |
+| PDF | `.pdf` | Text extracted (text-based PDFs only; scanned/image PDFs not supported — use Docling) |
+| DOCX | `.docx` | Text extracted with headings and list structure preserved |
+
+**Auto-injected Metadata**:
+- `upload_format`: Original file format (e.g. `pdf`, `html`, `docx`)
+- `upload_filename`: Original filename
+- `upload_converted`: `"true"` if file was converted from non-markdown format
+
+**Single File Response**:
+```json
+{
+  "key": "report-2026-q1",
+  "format": "pdf",
+  "converted": true,
+  "document": {
+    "id": "doc|docs|report-2026-q1",
+    "key": "report-2026-q1",
+    "lang": "en_US",
+    "meta": {
+      "upload_format": ["pdf"],
+      "upload_filename": ["report-2026-q1.pdf"],
+      "upload_converted": ["true"]
+    },
+    "contentMd": "# Q1 2026 Report\n\nExtracted text content...",
+    "addedAt": 1710000000,
+    "updatedAt": 1710000000
+  }
+}
+```
+
+**Batch Response** (multiple files):
+```json
+{
+  "added": 3,
+  "updated": 0,
+  "failed": 0,
+  "errors": [],
+  "results": [
+    {"key": "doc1", "format": "pdf", "converted": true, "document": {...}},
+    {"key": "doc2", "format": "html", "converted": true, "document": {...}},
+    {"key": "doc3", "format": "txt", "converted": false, "document": {...}}
+  ]
+}
+```
+
+**cURL Examples**:
+```bash
+# Single file upload
+curl -X POST http://localhost:11023/v1/upload \
+  -F "file=@report.pdf" \
+  -F "collection=docs" \
+  -F "lang=en_US"
+
+# With custom key and metadata
+curl -X POST http://localhost:11023/v1/upload \
+  -F "file=@manual.docx" \
+  -F "collection=docs" \
+  -F "key=user-manual" \
+  -F "lang=en_US" \
+  -F 'meta={"category":["documentation"],"type":["manual"]}'
+
+# Batch upload
+curl -X POST http://localhost:11023/v1/upload \
+  -F "files[]=@doc1.pdf" \
+  -F "files[]=@doc2.html" \
+  -F "files[]=@doc3.txt" \
+  -F "collection=docs" \
+  -F "lang=en_US"
+
+# With custom size limit (50MB)
+curl -X POST http://localhost:11023/v1/upload \
+  -F "file=@large-manual.pdf" \
+  -F "collection=docs" \
+  -F "lang=en_US" \
+  -F "maxSize=52428800"
+```
+
+**MCP Tool**: `upload_file` — accepts base64-encoded file content with filename for format detection.
 
 ---
 
@@ -1352,6 +1645,968 @@ Get document metadata without content. Lightweight read.
 ```bash
 curl "http://localhost:11023/v1/doc-meta?collection=blog&key=p1&lang=en"
 ```
+
+---
+
+### POST /v1/delete
+
+Delete a document from a collection.
+
+**Request Body**:
+```json
+{
+  "collection": "blog",
+  "key": "homepage",
+  "lang": "en"
+}
+```
+
+**Response**:
+```json
+{
+  "status": "deleted",
+  "collection": "blog",
+  "key": "homepage",
+  "lang": "en"
+}
+```
+
+---
+
+### POST /v1/delete-batch
+
+Delete multiple documents in a single request.
+
+**Request Body**:
+```json
+{
+  "collection": "blog",
+  "documents": [
+    { "key": "post-1", "lang": "en" },
+    { "key": "post-2", "lang": "en" }
+  ]
+}
+```
+
+**Response**:
+```json
+{
+  "deleted": 2,
+  "not_found": 0,
+  "failed": 0,
+  "errors": null
+}
+```
+
+---
+
+### POST /v1/delete-collection
+
+Delete all documents in a collection.
+
+**Request Body**:
+```json
+{
+  "collection": "blog"
+}
+```
+
+**Response**:
+```json
+{
+  "status": "ok",
+  "collection": "blog"
+}
+```
+
+---
+
+### POST /v1/hybrid-search
+
+Hybrid search combining full-text (sparse) and vector (dense) results using alpha blending or reciprocal rank fusion (RRF).
+
+**Request Body**:
+```json
+{
+  "collection": "blog",
+  "query": "how to deploy",
+  "topK": 10,
+  "algorithm": "bm25",
+  "vectorAlgorithm": "flat",
+  "alpha": 0.5,
+  "strategy": "alpha",
+  "rrfK": 60,
+  "fuzzy": 0,
+  "threshold": 0.0,
+  "distanceMetric": "cosine",
+  "filterMeta": { "category": ["tutorial"] },
+  "includeContent": false,
+  "disableStem": false,
+  "disableSynonyms": false
+}
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `collection` | string | | **Required.** Collection name |
+| `query` | string | | **Required.** Search query |
+| `topK` | integer | `10` | Max results |
+| `algorithm` | string | `"bm25"` | FTS algorithm: `bm25`, `bm25f` |
+| `vectorAlgorithm` | string | `"flat"` | Vector algorithm: `flat`, `hnsw`, `ivf`, `pq`, `sq` |
+| `alpha` | number | `0.5` | Weight blending (0=FTS only, 1=vector only) |
+| `strategy` | string | `"alpha"` | Fusion strategy: `alpha` or `rrf` |
+| `rrfK` | integer | `60` | RRF parameter k |
+| `fuzzy` | integer | `0` | Typo tolerance: 0, 1, or 2 |
+| `threshold` | number | `0.0` | Min vector similarity 0–1 |
+| `distanceMetric` | string | `"cosine"` | `cosine`, `dot_product`, `euclidean` |
+| `filterMeta` | object | | Metadata key-value filter |
+| `includeContent` | boolean | `false` | Include full content |
+| `disableStem` | boolean | `false` | Disable stemming |
+| `disableSynonyms` | boolean | `false` | Disable synonym expansion |
+
+**Response**:
+```json
+{
+  "results": [
+    {
+      "document": { "id": "...", "key": "...", "lang": "...", "meta": {} },
+      "combinedScore": 0.85,
+      "ftsScore": 0.7,
+      "vectorScore": 0.95,
+      "matchedTerms": ["deploy"],
+      "rank": 1
+    }
+  ],
+  "total": 1,
+  "strategy": "alpha",
+  "alpha": 0.5,
+  "ftsAlgorithm": "bm25",
+  "vectorAlgorithm": "flat",
+  "distanceMetric": "cosine",
+  "searchStats": { "durationMs": 12 }
+}
+```
+
+---
+
+### POST /v1/cross-search
+
+Vector search across multiple collections using a text query, pre-computed vector, or another document's embedding.
+
+**Request Body**:
+```json
+{
+  "query": "machine learning basics",
+  "targetCollections": ["articles", "tutorials"],
+  "topK": 10,
+  "threshold": 0.5,
+  "algorithm": "flat",
+  "distanceMetric": "cosine",
+  "includeContent": false
+}
+```
+
+Alternative source modes (use one):
+- `query` (string) — text to embed
+- `sourceCollection` + `sourceDocID` — use an existing document's embedding
+- `queryVector` (array of numbers) — pre-computed vector
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `targetCollections` | string[] | all | Collections to search |
+| `topK` | integer | `10` | Max results |
+| `threshold` | number | `0.0` | Min similarity |
+| `algorithm` | string | `"flat"` | Vector algorithm |
+| `distanceMetric` | string | `"cosine"` | Distance metric |
+| `filterMeta` | object | | Metadata filter |
+| `includeContent` | boolean | `false` | Include content |
+
+**Response**:
+```json
+{
+  "results": [
+    {
+      "collection": "tutorials",
+      "document": { "key": "ml-intro", "lang": "en", "meta": {} },
+      "score": 0.92,
+      "rank": 1
+    }
+  ],
+  "total": 1,
+  "targetCollections": ["articles", "tutorials"],
+  "algorithm": "flat",
+  "distanceMetric": "cosine",
+  "searchStats": { "durationMs": 8, "collectionsSearched": 2 }
+}
+```
+
+---
+
+### POST /v1/find-duplicates
+
+Detect exact and similar documents in a collection using content hashing and vector embeddings.
+
+**Request Body**:
+```json
+{
+  "collection": "blog",
+  "mode": "both",
+  "threshold": 0.9,
+  "maxDocs": 5000,
+  "distanceMetric": "cosine",
+  "includeContent": false
+}
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `collection` | string | | **Required.** Collection name |
+| `mode` | string | `"both"` | `exact`, `similar`, or `both` |
+| `threshold` | number | `0.9` | Similarity threshold 0–1 |
+| `maxDocs` | integer | `5000` | Max documents to process |
+| `distanceMetric` | string | `"cosine"` | Distance metric |
+| `includeContent` | boolean | `false` | Include document content |
+
+**Response**:
+```json
+{
+  "collection": "blog",
+  "mode": "both",
+  "threshold": 0.9,
+  "distanceMetric": "cosine",
+  "totalDocuments": 150,
+  "totalEmbedded": 148,
+  "exactGroups": [
+    {
+      "groupId": 1,
+      "type": "exact",
+      "documents": [
+        { "docId": "blog|p1|en", "key": "p1", "contentHash": "abc123" },
+        { "docId": "blog|p2|en", "key": "p2", "contentHash": "abc123" }
+      ]
+    }
+  ],
+  "similarGroups": [],
+  "exactDuplicates": 2,
+  "similarPairs": 0
+}
+```
+
+---
+
+### GET /v1/collection-config
+
+Get configuration for a specific collection.
+
+**Query Parameters:**
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `collection` | Yes | Collection name |
+
+**Example:**
+```bash
+curl "http://localhost:11023/v1/collection-config?collection=blog"
+```
+
+**Response**:
+```json
+{
+  "collection": "blog",
+  "config": {
+    "type": "default",
+    "description": "Blog posts",
+    "icon": "",
+    "color": "",
+    "customMeta": {}
+  },
+  "configured": true
+}
+```
+
+Also supports **PUT** to set config and **DELETE** to remove config for a collection.
+
+---
+
+### GET /v1/collection-configs
+
+List all collection configurations.
+
+**Example:**
+```bash
+curl http://localhost:11023/v1/collection-configs
+```
+
+**Response**:
+```json
+{
+  "configs": [
+    {
+      "collection": "blog",
+      "config": { "type": "default", "description": "Blog posts" }
+    }
+  ],
+  "total": 1
+}
+```
+
+---
+
+### GET /v1/embedding-configs
+
+List all configured embedding models.
+
+**Example:**
+```bash
+curl http://localhost:11023/v1/embedding-configs
+```
+
+**Response**:
+```json
+{
+  "configs": [
+    {
+      "id": "cfg_abc123",
+      "name": "OpenAI Ada",
+      "provider": "openai",
+      "model": "text-embedding-3-small",
+      "dimensions": 1536,
+      "apiKey": "sk-...",
+      "apiUrl": "",
+      "isDefault": true,
+      "createdAt": 1709100000
+    }
+  ]
+}
+```
+
+Also supports **POST** to create a new embedding config.
+
+---
+
+### GET/PUT/DELETE /v1/embedding-configs/:id
+
+Manage a specific embedding configuration.
+
+- **GET** returns the config object
+- **PUT** updates the config (fields: `name`, `provider`, `model`, `dimensions`, `apiKey`, `apiUrl`, `isDefault`)
+- **DELETE** removes the config (returns 204 No Content)
+
+**Example:**
+```bash
+curl http://localhost:11023/v1/embedding-configs/cfg_abc123
+```
+
+---
+
+### POST /v1/embedding-configs/set-default
+
+Set a specific embedding configuration as default.
+
+**Request Body**:
+```json
+{
+  "id": "cfg_abc123"
+}
+```
+
+**Response**:
+```json
+{
+  "message": "default config updated"
+}
+```
+
+---
+
+### GET/POST/DELETE /v1/stopwords
+
+Manage FTS stop words for a collection.
+
+**GET** — List stop words:
+```bash
+curl "http://localhost:11023/v1/stopwords?collection=blog"
+```
+
+**Response**:
+```json
+{
+  "collection": "blog",
+  "entries": [
+    { "word": "the", "isDefault": true },
+    { "word": "myword", "isDefault": false }
+  ],
+  "total": 2,
+  "defaults": 1,
+  "custom": 1
+}
+```
+
+**POST** — Add stop words:
+```json
+{
+  "collection": "blog",
+  "words": ["myword", "another"]
+}
+```
+
+**DELETE** — Remove stop words:
+```json
+{
+  "collection": "blog",
+  "words": ["myword"]
+}
+```
+
+---
+
+### GET/POST /v1/webhooks
+
+List or register webhooks.
+
+**GET** — List all webhooks:
+```bash
+curl http://localhost:11023/v1/webhooks
+```
+
+**POST** — Register a webhook:
+```json
+{
+  "url": "https://example.com/hook",
+  "events": ["doc.added", "doc.updated", "doc.deleted"],
+  "collection": "blog"
+}
+```
+
+**Response** (webhook object):
+```json
+{
+  "id": "wh_abc123",
+  "url": "https://example.com/hook",
+  "events": ["doc.added", "doc.updated", "doc.deleted"],
+  "collection": "blog",
+  "createdAt": 1709100000
+}
+```
+
+---
+
+### POST /v1/webhooks/delete
+
+Delete a webhook by ID.
+
+**Request Body**:
+```json
+{
+  "id": "wh_abc123"
+}
+```
+
+**Response**:
+```json
+{
+  "status": "deleted",
+  "id": "wh_abc123"
+}
+```
+
+---
+
+### POST /v1/revisions
+
+List document revision history.
+
+**Request Body**:
+```json
+{
+  "collection": "blog",
+  "key": "homepage",
+  "lang": "en"
+}
+```
+
+**Response**:
+```json
+{
+  "collection": "blog",
+  "key": "homepage",
+  "lang": "en",
+  "revisions": [
+    {
+      "timestamp": 1709200000,
+      "updatedAt": 1709200000,
+      "contentMd": "# Old content",
+      "meta": { "author": ["Jane"] }
+    }
+  ],
+  "total": 1
+}
+```
+
+---
+
+### POST /v1/revisions/restore
+
+Restore a document to a previous revision.
+
+**Request Body**:
+```json
+{
+  "collection": "blog",
+  "key": "homepage",
+  "lang": "en",
+  "timestamp": 1709200000
+}
+```
+
+**Response**: Restored document object.
+
+---
+
+### GET/POST /v1/automation
+
+List or create automation rules (triggers, crons, webhooks).
+
+**GET** — List rules:
+```bash
+curl http://localhost:11023/v1/automation
+```
+
+**Response**:
+```json
+{
+  "rules": [
+    {
+      "id": "auto_abc",
+      "name": "Alert on new docs",
+      "type": "trigger",
+      "searchType": "fts",
+      "query": "urgent",
+      "threshold": 0.8,
+      "webhookUrl": "https://example.com/alert"
+    }
+  ],
+  "total": 1
+}
+```
+
+**POST** — Create a rule:
+```json
+{
+  "name": "Daily report",
+  "type": "cron",
+  "schedule": "0 9 * * *",
+  "searchType": "vector",
+  "query": "status report",
+  "webhookUrl": "https://example.com/report"
+}
+```
+
+**Response**: Created rule object (201 Created).
+
+---
+
+### GET/PUT/DELETE /v1/automation/:id
+
+Manage a specific automation rule.
+
+- **GET** returns the rule object
+- **PUT** updates the rule
+- **DELETE** removes the rule
+
+**POST /v1/automation/:id/test** — Test a trigger rule:
+```json
+{
+  "trigger": { "id": "auto_abc", "name": "...", "searchType": "fts", "query": "urgent" },
+  "matches": [...],
+  "total": 3
+}
+```
+
+---
+
+### GET /v1/automation-logs
+
+Get automation execution logs with pagination.
+
+**Query Parameters:**
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `limit` | No | `50` | Max results per page |
+| `cursor` | No | | Pagination cursor |
+| `ruleId` | No | | Filter by rule ID |
+| `status` | No | | Filter by status |
+
+**Example:**
+```bash
+curl "http://localhost:11023/v1/automation-logs?limit=10&ruleId=auto_abc"
+```
+
+**Response**:
+```json
+{
+  "logs": [...],
+  "total": 25,
+  "nextCursor": "...",
+  "hasMore": true
+}
+```
+
+---
+
+### POST /v1/import-url
+
+Import a markdown document from a URL. Automatically extracts YAML frontmatter.
+
+**Request Body**:
+```json
+{
+  "collection": "articles",
+  "url": "https://example.com/post.md",
+  "key": "imported-post",
+  "lang": "en",
+  "meta": { "source": ["web"] },
+  "ttl": 86400
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `collection` | string | **Required.** Target collection |
+| `url` | string | **Required.** URL to fetch |
+| `key` | string | Document key (derived from URL path if empty) |
+| `lang` | string | **Required.** Language code |
+| `meta` | object | Metadata (merged with frontmatter) |
+| `ttl` | integer | Time-to-live in seconds |
+
+**Response**: Saved document object.
+
+---
+
+### POST /v1/set-ttl
+
+Set or remove document time-to-live.
+
+**Request Body**:
+```json
+{
+  "collection": "blog",
+  "key": "temp-post",
+  "lang": "en",
+  "ttl": 3600
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `collection` | string | **Required.** Collection name |
+| `key` | string | **Required.** Document key |
+| `lang` | string | **Required.** Language code |
+| `ttl` | integer | **Required.** Seconds until expiry; `0` to remove TTL |
+
+**Response**: Updated document object with `expiresAt` field.
+
+---
+
+### GET /v1/meta-keys
+
+List all unique metadata keys and their distinct values for a collection.
+
+**Query Parameters:**
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `collection` | Yes | Collection name |
+
+**Example:**
+```bash
+curl "http://localhost:11023/v1/meta-keys?collection=blog"
+```
+
+**Response**:
+```json
+{
+  "meta": {
+    "author": ["John", "Jane"],
+    "category": ["blog", "tutorial"],
+    "tags": ["golang", "database"]
+  }
+}
+```
+
+---
+
+### GET /v1/checksum
+
+Get CRC32 checksum of a collection for integrity verification.
+
+**Query Parameters:**
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `collection` | Yes | Collection name |
+
+**Example:**
+```bash
+curl "http://localhost:11023/v1/checksum?collection=blog"
+```
+
+**Response**:
+```json
+{
+  "collection": "blog",
+  "checksum": "a1b2c3d4",
+  "documentCount": 42
+}
+```
+
+---
+
+### GET /v1/system/info
+
+Returns system information including OS, memory, CPU, and network details.
+
+**Example:**
+```bash
+curl http://localhost:11023/v1/system/info
+```
+
+**Response**:
+```json
+{
+  "hostname": "server-1",
+  "os": "linux",
+  "arch": "amd64",
+  "numCPU": 4,
+  "goVersion": "go1.23.0",
+  "version": "2.7.1",
+  "uptimeSeconds": 3600,
+  "memoryTotal": 134217728,
+  "memoryUsed": 67108864,
+  "numGoroutines": 12,
+  "cpuUsagePercent": 15.3
+}
+```
+
+---
+
+### GET /v1/config
+
+Returns server configuration overview.
+
+**Example:**
+```bash
+curl http://localhost:11023/v1/config
+```
+
+**Response**:
+```json
+{
+  "version": "2.7.1",
+  "databasePath": "mddb.db",
+  "mode": "wr",
+  "protocols": {
+    "http": { "enabled": true, "addr": ":11023" },
+    "grpc": { "enabled": true, "addr": ":11024" },
+    "mcp": { "enabled": true, "addr": ":11025" }
+  },
+  "authEnabled": false,
+  "metricsEnabled": true,
+  "vectorConfig": {
+    "enabled": true,
+    "provider": "openai",
+    "model": "text-embedding-3-small",
+    "dimensions": 1536
+  },
+  "automationsEnabled": true,
+  "searchStatsEnabled": true
+}
+```
+
+---
+
+### GET /v1/endpoints
+
+Returns list of all available endpoints across HTTP, gRPC, and MCP protocols.
+
+**Example:**
+```bash
+curl http://localhost:11023/v1/endpoints
+```
+
+**Response**:
+```json
+{
+  "http": [
+    { "method": "POST", "path": "/v1/add", "description": "Add document", "requiresAuth": true }
+  ],
+  "grpc": [
+    { "name": "AddDocument", "description": "Add a document" }
+  ],
+  "mcp": [
+    { "name": "add_document", "description": "Add a document" }
+  ]
+}
+```
+
+---
+
+### GET /health
+
+Health check endpoint. Also available at `/v1/health`.
+
+**Response**:
+```json
+{
+  "status": "healthy",
+  "mode": "wr"
+}
+```
+
+Returns `503` with `"status": "unhealthy"` if the database is not accessible.
+
+---
+
+### POST /v1/auth/register
+
+Register a new user. Requires admin privileges.
+
+**Request Body**:
+```json
+{
+  "username": "newuser",
+  "password": "secret123"
+}
+```
+
+**Response**:
+```json
+{
+  "username": "newuser",
+  "createdAt": 1709100000
+}
+```
+
+---
+
+### GET /v1/auth/me
+
+Get current authenticated user information.
+
+**Response**:
+```json
+{
+  "username": "admin",
+  "admin": true,
+  "createdAt": 1709000000
+}
+```
+
+---
+
+### GET/POST /v1/auth/permissions
+
+Get or set user permissions on collections.
+
+**GET** — Query parameter `username`:
+```bash
+curl "http://localhost:11023/v1/auth/permissions?username=john"
+```
+
+**POST** — Set permission:
+```json
+{
+  "username": "john",
+  "collection": "blog",
+  "read": true,
+  "write": true,
+  "admin": false
+}
+```
+
+**Response** (POST): `{ "status": "ok" }`
+
+---
+
+### GET /v1/auth/users
+
+List all users. Requires admin privileges.
+
+**Response**:
+```json
+{
+  "users": [
+    {
+      "username": "admin",
+      "createdAt": 1709000000,
+      "disabled": false,
+      "admin": true,
+      "groups": ["admins"]
+    }
+  ]
+}
+```
+
+---
+
+### DELETE /v1/auth/users/:username
+
+Delete a user account. Requires admin privileges.
+
+**Example:**
+```bash
+curl -X DELETE http://localhost:11023/v1/auth/users/john
+```
+
+**Response**: `{ "status": "deleted" }`
+
+---
+
+### GET/POST /v1/auth/groups
+
+List all groups (GET) or create a new group (POST). Requires admin privileges.
+
+**POST** — Create group:
+```json
+{
+  "name": "editors",
+  "description": "Content editors",
+  "members": ["john", "jane"]
+}
+```
+
+**Response** (POST): Created group object (201 Created).
+
+---
+
+### GET/PUT/DELETE /v1/auth/groups/:name
+
+Manage a specific group. Requires admin privileges.
+
+- **GET** returns the group object
+- **PUT** updates description and members
+- **DELETE** removes the group
+
+---
+
+### GET/POST /v1/auth/group-permissions
+
+Get or set permissions for a group on collections.
+
+**GET** — Query parameter `group`:
+```bash
+curl "http://localhost:11023/v1/auth/group-permissions?group=editors"
+```
+
+**POST** — Set group permission:
+```json
+{
+  "group": "editors",
+  "collection": "blog",
+  "read": true,
+  "write": true,
+  "admin": false
+}
+```
+
+**Response** (POST): `{ "status": "permission set" }`
 
 ---
 

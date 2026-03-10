@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Search, AlertCircle, Tag, ChevronDown, ChevronUp, Plus, X, Terminal } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Search, AlertCircle, Tag, ChevronDown, ChevronUp, Plus, X, Terminal, Ban } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
 import CommandModal from './CommandModal';
@@ -26,9 +26,21 @@ export default function FTSSearchPanel() {
   const [weightsOpen, setWeightsOpen] = useState(true);
   const [newFieldName, setNewFieldName] = useState('');
   const [showCommand, setShowCommand] = useState(false);
+  const abortRef = useRef(null);
+
+  const handleCancel = () => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+  };
 
   const handleSearch = async () => {
     if (!currentCollection || !ftsQuery.trim()) return;
+
+    handleCancel();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     setFtsLoading(true);
     setFtsError(null);
@@ -43,15 +55,21 @@ export default function FTSSearchPanel() {
         disableSynonyms: !ftsSynonyms,
         fieldWeights: ftsAlgorithm === 'bm25f' ? ftsFieldWeights : null,
         filterMeta: searchFilterMeta,
+        signal: controller.signal,
       });
       setFtsResults(data.results || []);
       setFtsSearchStats(data.searchStats || null);
     } catch (error) {
-      setFtsError(error.message);
-      setFtsResults([]);
-      setFtsSearchStats(null);
+      if (error.name === 'AbortError') {
+        setFtsError(null);
+      } else {
+        setFtsError(error.message);
+        setFtsResults([]);
+        setFtsSearchStats(null);
+      }
     } finally {
       setFtsLoading(false);
+      abortRef.current = null;
     }
   };
 
@@ -249,18 +267,24 @@ export default function FTSSearchPanel() {
               <Terminal className="w-4 h-4" />
               <span className="text-sm font-medium">Command</span>
             </button>
-            <button
-              onClick={handleSearch}
-              disabled={ftsLoading || !ftsQuery.trim()}
-              className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {ftsLoading ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-              ) : (
+            {ftsLoading ? (
+              <button
+                onClick={handleCancel}
+                className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                <Ban className="w-4 h-4" />
+                <span className="text-sm font-medium">Cancel</span>
+              </button>
+            ) : (
+              <button
+                onClick={handleSearch}
+                disabled={!ftsQuery.trim()}
+                className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 <Search className="w-4 h-4" />
-              )}
-              <span className="text-sm font-medium">Search</span>
-            </button>
+                <span className="text-sm font-medium">Search</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

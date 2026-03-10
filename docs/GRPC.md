@@ -82,7 +82,7 @@ grpcurl -plaintext -d '{"collection":"blog","key":"test","lang":"en_US"}' \
 
 The complete service definition is in [`proto/mddb.proto`](../services/mddbd/proto/mddb.proto).
 
-### Available RPCs (57 total)
+### Available RPCs (58 total)
 
 | Category | RPC | Request → Response |
 |---|---|---|
@@ -96,6 +96,7 @@ The complete service definition is in [`proto/mddb.proto`](../services/mddbd/pro
 | | `Get` | `GetRequest` → `Document` |
 | | `GetDocumentMeta` | `GetDocumentMetaRequest` → `GetDocumentMetaResponse` |
 | | `Search` | `SearchRequest` → `SearchResponse` |
+| | `Ingest` | `IngestRequest` → `IngestResponse` |
 | | `ImportURL` | `ImportURLRequest` → `Document` |
 | | `SetTTL` | `SetTTLRequest` → `Document` |
 | **Full-Text Search** | `FTS` | `FTSRequest` → `FTSResponse` |

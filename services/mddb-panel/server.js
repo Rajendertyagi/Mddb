@@ -11,10 +11,10 @@ const MDDB_SERVER = process.env.MDDB_SERVER || 'http://localhost:11023';
 const app = express();
 
 // Proxy /v1/* requests to mddbd
-app.use('/v1', createProxyMiddleware({
+app.use(createProxyMiddleware({
   target: MDDB_SERVER,
   changeOrigin: true,
-  pathRewrite: undefined, // keep /v1 prefix
+  pathFilter: '/v1/**',
   on: {
     error: (err, _req, res) => {
       console.error(`Proxy error: ${err.message}`);

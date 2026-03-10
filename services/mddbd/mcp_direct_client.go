@@ -1773,6 +1773,37 @@ func (c *DirectClient) FindDuplicates(ctx context.Context, req *MCPFindDuplicate
 	return c.server.findDuplicates(httpReq)
 }
 
+func (c *DirectClient) Ingest(ctx context.Context, req *MCPIngestRequest) (*MCPIngestResponse, error) {
+	docs := make([]IngestDocumentHTTP, len(req.Documents))
+	for i, d := range req.Documents {
+		docs[i] = IngestDocumentHTTP(d)
+	}
+
+	opts := IngestOptionsHTTP{
+		SkipDuplicates:          req.Options.SkipDuplicates,
+		SkipEmbeddings:          req.Options.SkipEmbeddings,
+		SkipFTS:                 req.Options.SkipFTS,
+		SkipWebhooks:            req.Options.SkipWebhooks,
+		AutoConfigureCollection: req.Options.AutoConfigureCollection,
+		SaveRevision:            req.Options.SaveRevision,
+	}
+
+	resp, err := c.server.ingestDocuments(ctx, req.Collection, docs, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	return &MCPIngestResponse{
+		Added:      resp.Added,
+		Updated:    resp.Updated,
+		Skipped:    resp.Skipped,
+		Failed:     resp.Failed,
+		Errors:     resp.Errors,
+		Collection: resp.Collection,
+		DurationMs: resp.DurationMs,
+	}, nil
+}
+
 func (c *DirectClient) Close() error {
 	// No-op — Server owns all resources.
 	return nil

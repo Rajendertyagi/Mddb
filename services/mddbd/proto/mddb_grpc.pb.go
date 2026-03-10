@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v7.34.0
-// source: mddb.proto
+// source: proto/mddb.proto
 
 package proto
 
@@ -70,6 +70,7 @@ const (
 	MDDB_ListCollectionConfigs_FullMethodName = "/mddb.MDDB/ListCollectionConfigs"
 	MDDB_CrossSearch_FullMethodName           = "/mddb.MDDB/CrossSearch"
 	MDDB_FindDuplicates_FullMethodName        = "/mddb.MDDB/FindDuplicates"
+	MDDB_Ingest_FullMethodName                = "/mddb.MDDB/Ingest"
 	MDDB_ListRevisions_FullMethodName         = "/mddb.MDDB/ListRevisions"
 	MDDB_RestoreRevision_FullMethodName       = "/mddb.MDDB/RestoreRevision"
 )
@@ -182,6 +183,8 @@ type MDDBClient interface {
 	CrossSearch(ctx context.Context, in *CrossSearchRequest, opts ...grpc.CallOption) (*CrossSearchResponse, error)
 	// Find duplicate documents in a collection
 	FindDuplicates(ctx context.Context, in *FindDuplicatesRequest, opts ...grpc.CallOption) (*FindDuplicatesResponse, error)
+	// Bulk ingest documents with URL key derivation, frontmatter extraction, and deduplication
+	Ingest(ctx context.Context, in *IngestRequest, opts ...grpc.CallOption) (*IngestResponse, error)
 	// List revision history for a document
 	ListRevisions(ctx context.Context, in *ListRevisionsRequest, opts ...grpc.CallOption) (*ListRevisionsResponse, error)
 	// Restore a document from a specific revision
@@ -715,6 +718,16 @@ func (c *mDDBClient) FindDuplicates(ctx context.Context, in *FindDuplicatesReque
 	return out, nil
 }
 
+func (c *mDDBClient) Ingest(ctx context.Context, in *IngestRequest, opts ...grpc.CallOption) (*IngestResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(IngestResponse)
+	err := c.cc.Invoke(ctx, MDDB_Ingest_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *mDDBClient) ListRevisions(ctx context.Context, in *ListRevisionsRequest, opts ...grpc.CallOption) (*ListRevisionsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListRevisionsResponse)
@@ -843,6 +856,8 @@ type MDDBServer interface {
 	CrossSearch(context.Context, *CrossSearchRequest) (*CrossSearchResponse, error)
 	// Find duplicate documents in a collection
 	FindDuplicates(context.Context, *FindDuplicatesRequest) (*FindDuplicatesResponse, error)
+	// Bulk ingest documents with URL key derivation, frontmatter extraction, and deduplication
+	Ingest(context.Context, *IngestRequest) (*IngestResponse, error)
 	// List revision history for a document
 	ListRevisions(context.Context, *ListRevisionsRequest) (*ListRevisionsResponse, error)
 	// Restore a document from a specific revision
@@ -1009,6 +1024,9 @@ func (UnimplementedMDDBServer) CrossSearch(context.Context, *CrossSearchRequest)
 }
 func (UnimplementedMDDBServer) FindDuplicates(context.Context, *FindDuplicatesRequest) (*FindDuplicatesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FindDuplicates not implemented")
+}
+func (UnimplementedMDDBServer) Ingest(context.Context, *IngestRequest) (*IngestResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Ingest not implemented")
 }
 func (UnimplementedMDDBServer) ListRevisions(context.Context, *ListRevisionsRequest) (*ListRevisionsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListRevisions not implemented")
@@ -1948,6 +1966,24 @@ func _MDDB_FindDuplicates_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MDDB_Ingest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IngestRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).Ingest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_Ingest_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).Ingest(ctx, req.(*IngestRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _MDDB_ListRevisions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListRevisionsRequest)
 	if err := dec(in); err != nil {
@@ -2192,6 +2228,10 @@ var MDDB_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _MDDB_FindDuplicates_Handler,
 		},
 		{
+			MethodName: "Ingest",
+			Handler:    _MDDB_Ingest_Handler,
+		},
+		{
 			MethodName: "ListRevisions",
 			Handler:    _MDDB_ListRevisions_Handler,
 		},
@@ -2207,7 +2247,7 @@ var MDDB_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "mddb.proto",
+	Metadata: "proto/mddb.proto",
 }
 
 const (
@@ -2438,5 +2478,5 @@ var MDDBReplication_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "mddb.proto",
+	Metadata: "proto/mddb.proto",
 }

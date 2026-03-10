@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Search, Shuffle, AlertCircle, FileText, Tag } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Search, Shuffle, AlertCircle, FileText, Tag, Ban } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
 
@@ -23,8 +23,16 @@ export default function CrossSearchPanel() {
   const [distanceMetric, setDistanceMetric] = useState('cosine');
   const [includeContent, setIncludeContent] = useState(false);
   const [searchStats, setSearchStats] = useState(null);
+  const abortRef = useRef(null);
 
   const collections = (stats?.collections || []).map((c) => c.name);
+
+  const handleCancel = () => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+  };
 
   const handleSearch = async () => {
     const params = {
@@ -45,11 +53,15 @@ export default function CrossSearchPanel() {
       params.query = query.trim();
     }
 
+    handleCancel();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setCrossSearchLoading(true);
     setCrossSearchError(null);
     setSearchStats(null);
     try {
-      const data = await mddbClient.crossSearch(params);
+      const data = await mddbClient.crossSearch(params, { signal: controller.signal });
       setCrossSearchResults(data.results || []);
       setSearchStats({
         total: data.total,
@@ -57,11 +69,16 @@ export default function CrossSearchPanel() {
         collectionsSearched: data.collectionsSearched,
       });
     } catch (error) {
-      setCrossSearchError(error.message);
-      setCrossSearchResults([]);
-      setSearchStats(null);
+      if (error.name === 'AbortError') {
+        setCrossSearchError(null);
+      } else {
+        setCrossSearchError(error.message);
+        setCrossSearchResults([]);
+        setSearchStats(null);
+      }
     } finally {
       setCrossSearchLoading(false);
+      abortRef.current = null;
     }
   };
 
@@ -274,18 +291,24 @@ export default function CrossSearchPanel() {
             <span>Include content</span>
           </label>
 
-          <button
-            onClick={handleSearch}
-            disabled={crossSearchLoading || (sourceMode === 'text' ? !query.trim() : (!sourceCollection || !sourceDocID.trim()))}
-            className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {crossSearchLoading ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-            ) : (
+          {crossSearchLoading ? (
+            <button
+              onClick={handleCancel}
+              className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+              <Ban className="w-4 h-4" />
+              <span className="text-sm font-medium">Cancel</span>
+            </button>
+          ) : (
+            <button
+              onClick={handleSearch}
+              disabled={sourceMode === 'text' ? !query.trim() : (!sourceCollection || !sourceDocID.trim())}
+              className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <Search className="w-4 h-4" />
-            )}
-            <span className="text-sm font-medium">Search</span>
-          </button>
+              <span className="text-sm font-medium">Search</span>
+            </button>
+          )}
         </div>
       </div>
 

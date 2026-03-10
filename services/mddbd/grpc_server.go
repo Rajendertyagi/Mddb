@@ -270,6 +270,34 @@ func (g *GRPCServer) AddBatch(ctx context.Context, req *proto.AddBatchRequest) (
 	return resp, nil
 }
 
+// Ingest implements the Ingest RPC — bulk ingest with URL key derivation, dedup, and auto-metadata.
+func (g *GRPCServer) Ingest(ctx context.Context, req *proto.IngestRequest) (*proto.IngestResponse, error) {
+	if g.server.Mode == ModeRead {
+		return nil, status.Error(codes.PermissionDenied, "read-only mode")
+	}
+
+	if req.Collection == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing collection")
+	}
+
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermWrite); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+
+	if len(req.Documents) == 0 {
+		return &proto.IngestResponse{Collection: req.Collection}, nil
+	}
+
+	resp, err := g.server.ingestDocumentsFromProto(ctx, req)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return protoFromIngestResponse(resp), nil
+}
+
 // Get implements the Get RPC
 func (g *GRPCServer) Get(ctx context.Context, req *proto.GetRequest) (*proto.Document, error) {
 	if req.Collection == "" || req.Key == "" || req.Lang == "" {

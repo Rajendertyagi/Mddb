@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Search, RotateCcw, FileText, Tag, AlertCircle, Terminal } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Search, RotateCcw, FileText, Tag, AlertCircle, Terminal, Ban } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
 import CommandModal from './CommandModal';
@@ -25,9 +25,21 @@ export default function VectorSearchPanel() {
   const [reindexing, setReindexing] = useState(false);
   const [reindexResult, setReindexResult] = useState(null);
   const [showCommand, setShowCommand] = useState(false);
+  const abortRef = useRef(null);
+
+  const handleCancel = () => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+  };
 
   const handleSearch = async (retryCount = 0) => {
     if (!currentCollection || !vectorQuery.trim()) return;
+
+    handleCancel();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     setVectorLoading(true);
     setVectorError(null);
@@ -42,10 +54,17 @@ export default function VectorSearchPanel() {
         algorithm: vectorAlgorithm,
         distanceMetric: vectorDistanceMetric,
         filterMeta: searchFilterMeta,
+        signal: controller.signal,
       });
       setVectorResults(data.results || []);
       setVectorSearchStats(data.searchStats || null);
     } catch (error) {
+      if (error.name === 'AbortError') {
+        setVectorError(null);
+        setVectorLoading(false);
+        abortRef.current = null;
+        return;
+      }
       const isIndexLoading = error.message && error.message.includes('vector index is loading');
       if (isIndexLoading && retryCount < 3) {
         setVectorError(`Vector index is loading... retrying (${retryCount + 1}/3)`);
@@ -61,6 +80,7 @@ export default function VectorSearchPanel() {
       if (retryCount === 0 || retryCount >= 3) {
         setVectorLoading(false);
       }
+      abortRef.current = null;
     }
   };
 
@@ -214,18 +234,24 @@ export default function VectorSearchPanel() {
             <Terminal className="w-4 h-4" />
             <span className="text-sm font-medium">Command</span>
           </button>
-          <button
-            onClick={handleSearch}
-            disabled={vectorLoading || !vectorQuery.trim()}
-            className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {vectorLoading ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-            ) : (
+          {vectorLoading ? (
+            <button
+              onClick={handleCancel}
+              className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+              <Ban className="w-4 h-4" />
+              <span className="text-sm font-medium">Cancel</span>
+            </button>
+          ) : (
+            <button
+              onClick={handleSearch}
+              disabled={!vectorQuery.trim()}
+              className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <Search className="w-4 h-4" />
-            )}
-            <span className="text-sm font-medium">Search</span>
-          </button>
+              <span className="text-sm font-medium">Search</span>
+            </button>
+          )}
         </div>
       </div>
 

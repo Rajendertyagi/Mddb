@@ -648,6 +648,98 @@ func mcpBuiltinTools() []MCPTool {
 			},
 		},
 
+		// --- Bulk Ingest ---
+		{
+			Name:        "ingest_documents",
+			Description: "Bulk ingest documents with URL-based key derivation, YAML frontmatter extraction, content deduplication, and automatic metadata injection. Optimized for scraping and ETL pipelines.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Target collection"},
+					"documents": map[string]interface{}{
+						"type":        "array",
+						"description": "Array of documents to ingest",
+						"items": map[string]interface{}{
+							"type": "object",
+							"properties": map[string]interface{}{
+								"url":                 map[string]interface{}{"type": "string", "description": "Source URL (key derived from URL if key is empty)"},
+								"key":                 map[string]interface{}{"type": "string", "description": "Document key (optional if url is provided)"},
+								"lang":                map[string]interface{}{"type": "string", "description": "Language code (e.g. en, pl)"},
+								"content_md":          map[string]interface{}{"type": "string", "description": "Markdown content"},
+								"meta":                map[string]interface{}{"type": "object", "description": "Metadata key-value pairs"},
+								"extract_frontmatter": map[string]interface{}{"type": "boolean", "description": "Parse YAML frontmatter from content"},
+								"scraped_at":          map[string]interface{}{"type": "integer", "description": "Unix timestamp of when content was collected"},
+								"scraper":             map[string]interface{}{"type": "string", "description": "Source identifier"},
+								"ttl":                 map[string]interface{}{"type": "integer", "description": "Time-to-live in seconds"},
+							},
+							"required": []string{"lang", "content_md"},
+						},
+					},
+					"options": map[string]interface{}{
+						"type":        "object",
+						"description": "Ingest options",
+						"properties": map[string]interface{}{
+							"skip_duplicates":           map[string]interface{}{"type": "boolean", "description": "Skip documents whose content matches existing (CRC32 hash)"},
+							"skip_embeddings":           map[string]interface{}{"type": "boolean", "description": "Skip embedding generation"},
+							"skip_fts":                  map[string]interface{}{"type": "boolean", "description": "Skip full-text indexing"},
+							"skip_webhooks":             map[string]interface{}{"type": "boolean", "description": "Skip webhook firing"},
+							"auto_configure_collection": map[string]interface{}{"type": "boolean", "description": "Auto-set collection type to 'scraping'"},
+							"save_revision":             map[string]interface{}{"type": "boolean", "description": "Save revision history for each document"},
+						},
+					},
+				},
+				"required": []string{"collection", "documents"},
+			},
+		},
+
+		// --- File Upload ---
+		{
+			Name:        "upload_file",
+			Description: "Upload a file and convert it to markdown. Supports md, txt, html, pdf, and docx formats. Plain text and markdown files are stored as-is; other formats are auto-converted to markdown. File content is passed as base64-encoded string.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Target collection"},
+					"filename":   map[string]interface{}{"type": "string", "description": "Original filename with extension (e.g. report.pdf). Extension determines conversion format."},
+					"content":    map[string]interface{}{"type": "string", "description": "Base64-encoded file content"},
+					"key":        map[string]interface{}{"type": "string", "description": "Document key (optional, derived from filename if empty)"},
+					"lang":       map[string]interface{}{"type": "string", "description": "Language code (e.g. en_US, pl_PL)"},
+					"meta":       map[string]interface{}{"type": "object", "description": "Metadata key-value pairs"},
+					"ttl":        map[string]interface{}{"type": "integer", "description": "Time-to-live in seconds (0 = no expiry)"},
+				},
+				"required": []string{"collection", "filename", "content", "lang"},
+			},
+		},
+
+		// --- Revisions ---
+		{
+			Name:        "list_revisions",
+			Description: "List revision history for a document. Shows all saved versions with timestamps.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection name"},
+					"key":        map[string]interface{}{"type": "string", "description": "Document key"},
+					"lang":       map[string]interface{}{"type": "string", "description": "Language code"},
+				},
+				"required": []string{"collection", "key", "lang"},
+			},
+		},
+		{
+			Name:        "restore_revision",
+			Description: "Restore a document to a previous revision by timestamp.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection name"},
+					"key":        map[string]interface{}{"type": "string", "description": "Document key"},
+					"lang":       map[string]interface{}{"type": "string", "description": "Language code"},
+					"timestamp":  map[string]interface{}{"type": "integer", "description": "Unix timestamp of the revision to restore"},
+				},
+				"required": []string{"collection", "key", "lang", "timestamp"},
+			},
+		},
+
 		// --- Duplicate Detection ---
 		{
 			Name:        "find_duplicates",
@@ -791,6 +883,7 @@ func validateMCPCustomTools(tools []MCPCustomToolConfig) error {
 		"update_document": true, "get_document_meta": true,
 		"classify_document": true,
 		"delete_collection": true, "truncate_revisions": true,
+		"list_revisions": true, "restore_revision": true,
 		"list_synonyms": true, "add_synonym": true, "delete_synonym": true,
 		"list_stopwords": true, "add_stopwords": true, "delete_stopwords": true,
 		"get_meta_keys": true, "get_checksum": true,
@@ -798,8 +891,10 @@ func validateMCPCustomTools(tools []MCPCustomToolConfig) error {
 		"update_automation": true, "delete_automation": true, "test_automation": true,
 		"get_automation_logs":   true,
 		"get_collection_config": true, "set_collection_config": true, "list_collection_configs": true,
-		"cross_search":    true,
-		"find_duplicates": true,
+		"cross_search":     true,
+		"find_duplicates":  true,
+		"ingest_documents": true,
+		"upload_file":      true,
 	}
 	validActions := map[string]bool{
 		"semantic_search": true, "search_documents": true, "full_text_search": true,

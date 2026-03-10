@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Search, AlertCircle, Tag, Terminal } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Search, AlertCircle, Tag, Terminal, Ban } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
 import CommandModal from './CommandModal';
@@ -28,9 +28,21 @@ export default function HybridSearchPanel() {
 
   const [includeContent, setIncludeContent] = useState(false);
   const [showCommand, setShowCommand] = useState(false);
+  const abortRef = useRef(null);
+
+  const handleCancel = () => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+  };
 
   const handleSearch = async () => {
     if (!currentCollection || !hybridQuery.trim()) return;
+
+    handleCancel();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     setHybridLoading(true);
     setHybridError(null);
@@ -49,15 +61,21 @@ export default function HybridSearchPanel() {
         includeContent,
         distanceMetric: hybridDistanceMetric,
         filterMeta: searchFilterMeta,
+        signal: controller.signal,
       });
       setHybridResults(data.results || []);
       setHybridSearchStats(data.searchStats || null);
     } catch (error) {
-      setHybridError(error.message);
-      setHybridResults([]);
-      setHybridSearchStats(null);
+      if (error.name === 'AbortError') {
+        setHybridError(null);
+      } else {
+        setHybridError(error.message);
+        setHybridResults([]);
+        setHybridSearchStats(null);
+      }
     } finally {
       setHybridLoading(false);
+      abortRef.current = null;
     }
   };
 
@@ -274,18 +292,24 @@ export default function HybridSearchPanel() {
               <Terminal className="w-4 h-4" />
               <span className="text-sm font-medium">Command</span>
             </button>
-            <button
-              onClick={handleSearch}
-              disabled={hybridLoading || !hybridQuery.trim()}
-              className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {hybridLoading ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-              ) : (
+            {hybridLoading ? (
+              <button
+                onClick={handleCancel}
+                className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                <Ban className="w-4 h-4" />
+                <span className="text-sm font-medium">Cancel</span>
+              </button>
+            ) : (
+              <button
+                onClick={handleSearch}
+                disabled={!hybridQuery.trim()}
+                className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 <Search className="w-4 h-4" />
-              )}
-              <span className="text-sm font-medium">Search</span>
-            </button>
+                <span className="text-sm font-medium">Search</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

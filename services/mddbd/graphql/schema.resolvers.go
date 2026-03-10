@@ -39,6 +39,16 @@ func (r *mutationResolver) DeleteCollection(ctx context.Context, collection stri
 	panic(fmt.Errorf("not implemented: DeleteCollection - deleteCollection"))
 }
 
+// AddBatch is the resolver for the addBatch field.
+func (r *mutationResolver) AddBatch(ctx context.Context, collection string, documents []*AddBatchDocumentInput) (*BatchAddResult, error) {
+	panic(fmt.Errorf("not implemented: AddBatch - addBatch"))
+}
+
+// IngestDocuments is the resolver for the ingestDocuments field.
+func (r *mutationResolver) IngestDocuments(ctx context.Context, collection string, documents []*IngestDocumentInput, options *IngestOptionsInput) (*IngestResult, error) {
+	panic(fmt.Errorf("not implemented: IngestDocuments - ingestDocuments"))
+}
+
 // VectorReindex is the resolver for the vectorReindex field.
 func (r *mutationResolver) VectorReindex(ctx context.Context, collection string, force *bool) (*VectorStats, error) {
 	panic(fmt.Errorf("not implemented: VectorReindex - vectorReindex"))

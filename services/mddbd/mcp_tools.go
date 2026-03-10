@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"path"
+	"strings"
 )
 
 // MCPToolServer provides tool and resource call dispatch.
@@ -117,6 +120,10 @@ func (s *MCPToolServer) mcpCallTool(ctx context.Context, name string, args map[s
 		return s.toolCrossSearch(ctx, args)
 	case "find_duplicates":
 		return s.toolFindDuplicates(ctx, args)
+	case "ingest_documents":
+		return s.toolIngest(ctx, args)
+	case "upload_file":
+		return s.toolUploadFile(ctx, args)
 	default:
 		for _, ct := range s.customTools {
 			if ct.Name == name {
@@ -1042,6 +1049,187 @@ func (s *MCPToolServer) toolFindDuplicates(ctx context.Context, args map[string]
 	}
 	data, _ := json.MarshalIndent(resp, "", "  ")
 	return string(data), nil
+}
+
+func (s *MCPToolServer) toolIngest(ctx context.Context, args map[string]interface{}) (string, error) {
+	collection := mcpGetString(args, "collection")
+	docsRaw, ok := args["documents"].([]interface{})
+	if !ok {
+		return "", fmt.Errorf("documents must be an array")
+	}
+
+	docs := make([]MCPIngestDocument, len(docsRaw))
+	for i, d := range docsRaw {
+		docMap, ok := d.(map[string]interface{})
+		if !ok {
+			return "", fmt.Errorf("invalid document at index %d", i)
+		}
+		docs[i] = MCPIngestDocument{
+			URL:       mcpGetString(docMap, "url"),
+			Key:       mcpGetString(docMap, "key"),
+			Lang:      mcpGetString(docMap, "lang"),
+			ContentMD: mcpGetString(docMap, "content_md"),
+			Meta:      mcpGetMetaMap(docMap, "meta"),
+			Scraper:   mcpGetString(docMap, "scraper"),
+			ScrapedAt: int64(mcpGetInt(docMap, "scraped_at")),
+			TTL:       int64(mcpGetInt(docMap, "ttl")),
+		}
+		if ef, ok := docMap["extract_frontmatter"].(bool); ok {
+			docs[i].ExtractFrontmatter = ef
+		}
+	}
+
+	var opts MCPIngestOptions
+	if optsRaw, ok := args["options"].(map[string]interface{}); ok {
+		if v, ok := optsRaw["skip_duplicates"].(bool); ok {
+			opts.SkipDuplicates = v
+		}
+		if v, ok := optsRaw["skip_embeddings"].(bool); ok {
+			opts.SkipEmbeddings = v
+		}
+		if v, ok := optsRaw["skip_fts"].(bool); ok {
+			opts.SkipFTS = v
+		}
+		if v, ok := optsRaw["skip_webhooks"].(bool); ok {
+			opts.SkipWebhooks = v
+		}
+		if v, ok := optsRaw["auto_configure_collection"].(bool); ok {
+			opts.AutoConfigureCollection = v
+		}
+		if v, ok := optsRaw["save_revision"].(bool); ok {
+			opts.SaveRevision = v
+		}
+	}
+
+	resp, err := s.client.Ingest(ctx, &MCPIngestRequest{
+		Collection: collection,
+		Documents:  docs,
+		Options:    opts,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	data, _ := json.MarshalIndent(resp, "", "  ")
+	return string(data), nil
+}
+
+func (s *MCPToolServer) toolUploadFile(ctx context.Context, args map[string]interface{}) (string, error) {
+	collection := mcpGetString(args, "collection")
+	filename := mcpGetString(args, "filename")
+	contentB64 := mcpGetString(args, "content")
+	lang := mcpGetString(args, "lang")
+	key := mcpGetString(args, "key")
+	meta := mcpGetMetaMap(args, "meta")
+	ttl := int64(mcpGetInt(args, "ttl"))
+
+	if collection == "" || filename == "" || contentB64 == "" || lang == "" {
+		return "", fmt.Errorf("missing required fields: collection, filename, content, lang")
+	}
+
+	// Decode base64 content
+	data, err := base64.StdEncoding.DecodeString(contentB64)
+	if err != nil {
+		// Try URL-safe base64
+		data, err = base64.URLEncoding.DecodeString(contentB64)
+		if err != nil {
+			// Try raw (no padding)
+			data, err = base64.RawStdEncoding.DecodeString(contentB64)
+			if err != nil {
+				return "", fmt.Errorf("invalid base64 content: %w", err)
+			}
+		}
+	}
+
+	// Determine format from filename extension
+	ext := strings.ToLower(path.Ext(filename))
+	format := strings.TrimPrefix(ext, ".")
+	if format == "htm" {
+		format = "html"
+	}
+
+	// Convert to markdown
+	var contentMD string
+	var converted bool
+
+	switch format {
+	case "md", "markdown", "txt", "text", "":
+		contentMD = string(data)
+	case "html":
+		contentMD = htmlToMarkdown(data)
+		converted = true
+	case "pdf":
+		contentMD, err = pdfToMarkdown(data)
+		if err != nil {
+			return "", fmt.Errorf("pdf conversion: %w", err)
+		}
+		converted = true
+	case "docx":
+		contentMD, err = docxToMarkdown(data)
+		if err != nil {
+			return "", fmt.Errorf("docx conversion: %w", err)
+		}
+		converted = true
+	default:
+		return "", fmt.Errorf("unsupported format: %s (supported: md, txt, html, pdf, docx)", format)
+	}
+
+	// Extract frontmatter for md/txt
+	if !converted {
+		fmMeta, body := parseFrontmatter(contentMD)
+		if fmMeta != nil {
+			contentMD = body
+			if meta == nil {
+				meta = fmMeta
+			} else {
+				for k, v := range fmMeta {
+					if _, exists := meta[k]; !exists {
+						meta[k] = v
+					}
+				}
+			}
+		}
+	}
+
+	// Derive key from filename if not provided
+	if key == "" {
+		key = deriveKeyFromFilename(filename)
+	}
+	if key == "" {
+		return "", fmt.Errorf("cannot derive key from filename; provide key explicitly")
+	}
+
+	// Add upload metadata
+	if meta == nil {
+		meta = make(map[string][]string)
+	}
+	meta["upload_format"] = []string{format}
+	meta["upload_filename"] = []string{filename}
+	if converted {
+		meta["upload_converted"] = []string{"true"}
+	}
+
+	// Store via MCPClient.Add
+	doc, err := s.client.Add(ctx, &MCPAddRequest{
+		Collection: collection,
+		Key:        key,
+		Lang:       lang,
+		ContentMD:  contentMD,
+		Meta:       meta,
+	})
+	_ = ttl // TTL is set via /v1/set-ttl or SetTTL MCP tool separately
+	if err != nil {
+		return "", err
+	}
+
+	result := map[string]interface{}{
+		"key":       key,
+		"format":    format,
+		"converted": converted,
+		"document":  doc,
+	}
+	out, _ := json.MarshalIndent(result, "", "  ")
+	return string(out), nil
 }
 
 // --- arg helpers ---

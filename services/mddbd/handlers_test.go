@@ -34,9 +34,10 @@ func newHandlerTestServer(t *testing.T) (*Server, func()) {
 	}
 
 	s := &Server{
-		DB:   db,
-		Path: f.Name(),
-		Mode: ModeRW,
+		DB:    db,
+		Path:  f.Name(),
+		Mode:  ModeRW,
+		Ready: true,
 		BucketNames: BucketNames{
 			Docs:    []byte("docs"),
 			IdxMeta: []byte("idxmeta"),

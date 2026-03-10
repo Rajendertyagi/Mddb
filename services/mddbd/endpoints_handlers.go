@@ -51,9 +51,12 @@ func (s *Server) handleEndpoints(w http.ResponseWriter, r *http.Request) {
 
 		// Core document operations
 		{Method: "POST", Path: "/v1/add", Description: "Add/update document", RequiresAuth: authEnabled},
+		{Method: "POST", Path: "/v1/add-batch", Description: "Batch add/update documents", RequiresAuth: authEnabled},
+		{Method: "POST", Path: "/v1/ingest", Description: "Bulk ingest with URL key derivation, frontmatter extraction, dedup, and auto-metadata", RequiresAuth: authEnabled},
 		{Method: "POST", Path: "/v1/get", Description: "Get document by key", RequiresAuth: authEnabled},
 		{Method: "POST", Path: "/v1/search", Description: "Search documents with filters", RequiresAuth: authEnabled},
 		{Method: "POST", Path: "/v1/delete", Description: "Delete document", RequiresAuth: authEnabled},
+		{Method: "POST", Path: "/v1/delete-batch", Description: "Batch delete documents", RequiresAuth: authEnabled},
 		{Method: "POST", Path: "/v1/delete-collection", Description: "Delete entire collection", RequiresAuth: authEnabled},
 
 		// Export & backup
@@ -68,6 +71,7 @@ func (s *Server) handleEndpoints(w http.ResponseWriter, r *http.Request) {
 		{Method: "GET", Path: "/v1/vector-stats", Description: "Vector/embedding statistics", RequiresAuth: authEnabled},
 
 		// Search features
+		{Method: "POST", Path: "/v1/upload", Description: "Upload files (md/txt/html/pdf/docx) with auto-conversion to markdown", RequiresAuth: authEnabled},
 		{Method: "POST", Path: "/v1/import-url", Description: "Import markdown from URL", RequiresAuth: authEnabled},
 		{Method: "POST", Path: "/v1/set-ttl", Description: "Set document time-to-live", RequiresAuth: authEnabled},
 		{Method: "POST", Path: "/v1/fts", Description: "Full-text search (with in-graph metadata filtering)", RequiresAuth: authEnabled},
@@ -174,6 +178,7 @@ func (s *Server) handleEndpoints(w http.ResponseWriter, r *http.Request) {
 		// Document Management
 		{Name: "Add", Description: "Add/update document"},
 		{Name: "AddBatch", Description: "Batch add documents"},
+		{Name: "Ingest", Description: "Bulk ingest with URL key derivation, dedup, and auto-metadata"},
 		{Name: "UpdateDocument", Description: "Partial document update (meta/content/ttl)"},
 		{Name: "UpdateBatch", Description: "Batch update documents"},
 		{Name: "DeleteDocument", Description: "Delete a single document"},
@@ -292,6 +297,8 @@ func (s *Server) handleEndpoints(w http.ResponseWriter, r *http.Request) {
 		{Name: "list_collection_configs", Description: "List all collection configurations"},
 		{Name: "cross_search", Description: "Cross-collection vector search"},
 		{Name: "find_duplicates", Description: "Find duplicate and similar documents"},
+		{Name: "ingest_documents", Description: "Bulk ingest with URL key derivation, dedup, and auto-metadata"},
+		{Name: "upload_file", Description: "Upload file (PDF, DOCX, HTML, TXT, MD) with auto-conversion"},
 	}
 
 	response := EndpointsResponse{

@@ -1,4 +1,4 @@
-# MDDB - Markdown Database
+# MDDB — AI-Native Document Database
 
 [![Go Version](https://img.shields.io/badge/Go-1.26-blue.svg)](https://golang.org)
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-green.svg)](LICENSE)
@@ -7,17 +7,19 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/tradik/mddb)](https://hub.docker.com/r/tradik/mddb)
 [![Tests](https://github.com/tradik/mddb/workflows/Tests/badge.svg)](https://github.com/tradik/mddb/actions)
 
-**AI-native knowledge base with built-in MCP server, vector search, RAG support, and semantic document retrieval. Plugs directly into Claude, ChatGPT, Cursor, Windsurf, and any MCP-compatible agent.**
+**AI-native document database with built-in MCP server, file upload (PDF/DOCX/HTML→Markdown), vector search, RAG pipelines, and 53 MCP tools. Plugs directly into Claude, ChatGPT, Cursor, Windsurf, and any MCP-compatible agent.**
 
-MDDB is a knowledge base purpose-built for AI agents and LLM workflows. Store documents, search them semantically, and expose them to any AI agent via the built-in MCP server — all from a single ~29MB binary with zero configuration. Under the hood: BoltDB embedded storage, auto-embeddings, full revision history, and triple-protocol APIs (HTTP + gRPC + GraphQL).
+MDDB is a document database purpose-built for AI agents and LLM workflows. Upload files (PDF, DOCX, HTML, TXT) — they're auto-converted to Markdown and embedded for semantic search. Expose everything to AI agents via 53 built-in MCP tools. Integrates with [Docling](docs/INTEGRATIONS.md#1-docling--mddb-document-ingestion), [Langflow](docs/INTEGRATIONS.md#2-langflow--mddb-visual-rag-orchestration), [OpenSearch](docs/INTEGRATIONS.md#3-opensearch--mddb-scalable-search), [SSG](docs/INTEGRATIONS.md#4-ssg--static-site-generator-from-mddb), and [wpexporter](docs/INTEGRATIONS.md#5-wpexporter--wordpress-to-mddb-migration) for production pipelines. Single ~29MB binary, zero configuration, BoltDB embedded storage, triple-protocol APIs (HTTP + gRPC + GraphQL).
 
 ## 🎯 What is MDDB?
 
 MDDB gives your AI agents a persistent, searchable knowledge base:
 
-- **Built-in MCP Server** - Connect Claude Desktop, Cursor, Windsurf, or any MCP client in seconds
+- **File Upload** - Upload PDF, DOCX, HTML, TXT files — auto-converted to Markdown and indexed
+- **Built-in MCP Server** - 53 tools for Claude Desktop, Cursor, Windsurf, or any MCP client
 - **Vector Search** - Auto-embed documents, semantic similarity with 6 index algorithms (Flat, HNSW, IVF, PQ, SQ, BQ)
 - **RAG-Ready** - Hybrid search (BM25 + vector) for retrieval-augmented generation
+- **Integrations** - [Docling](docs/INTEGRATIONS.md), [Langflow](docs/INTEGRATIONS.md), [OpenSearch](docs/INTEGRATIONS.md), [SSG](docs/INTEGRATIONS.md), [wpexporter](docs/INTEGRATIONS.md) for production pipelines
 - **Zero-Shot Classification** — Classify documents against candidate labels using embeddings, no training data
 - **Custom AI Tools** - Define YAML-based MCP tools for domain-specific workflows
 - **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, BM25F, PMISparse, typo tolerance, stemming, synonyms
@@ -26,7 +28,7 @@ MDDB gives your AI agents a persistent, searchable knowledge base:
 - **Automation** - Triggers, crons, webhooks with template variables and sentiment analysis
 - **Zero Configuration** - Single ~29MB binary, embedded database, no dependencies
 
-**Perfect for:** AI agent memory, RAG pipelines, knowledge bases for LLMs, documentation chatbots, semantic search APIs, content management with AI superpowers
+**Perfect for:** AI agent memory, RAG pipelines, knowledge bases for LLMs, documentation chatbots, semantic search APIs, document processing (PDF/DOCX→Markdown), static site generation, WordPress migration
 
 ## 🚀 Quick Start
 
@@ -75,7 +77,7 @@ MDDB has a built-in MCP server — no extra service needed. Add to your MCP conf
 }
 ```
 
-That's it — your AI agent now has full access to your knowledge base with 51 built-in tools (add, search, vector search, classify, and more).
+That's it — your AI agent now has full access to your knowledge base with 53 built-in tools (add, search, vector search, classify, and more).
 
 **[→ Full MCP setup guide](docs/LLM_CONNECTIONS.md)** | **[→ Custom MCP tools](docs/CUSTOM-TOOLS.md)**
 
@@ -215,13 +217,15 @@ Proto definitions at `proto/mddb.proto` - generate clients for any language supp
 ## 💡 Key Features
 
 ### AI & Search
-- ✅ **MCP Server** - Built-in Model Context Protocol (stdio + HTTP) for Claude, Cursor, Windsurf, and any MCP client
+- ✅ **MCP Server** - 53 built-in tools via Model Context Protocol (stdio + HTTP) for Claude, Cursor, Windsurf, and any MCP client
+- ✅ **File Upload** - Upload PDF, DOCX, HTML, TXT — auto-converted to Markdown (single and batch, configurable size limit)
 - ✅ **Vector Search** - Semantic similarity with auto-embeddings (OpenAI, Ollama, Cohere, Voyage)
 - ✅ **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, BM25F, and PMISparse scoring, typo tolerance, metadata pre-filtering
 - ✅ **Hybrid Search** - Sparse (BM25) + dense (vector) fusion with alpha blending or RRF
 - ✅ **Zero-Shot Classification** - Classify documents against candidate labels using embedding similarity
 - ✅ **Custom MCP Tools** - Define YAML-based AI tools for domain-specific workflows
 - ✅ **RAG Pipeline** - Built-in support for retrieval-augmented generation workflows
+- ✅ **Integrations** - Docling, Langflow, OpenSearch, SSG, wpexporter ([guide](docs/INTEGRATIONS.md))
 
 ### Core Functionality
 - ✅ **Document Management** - Full CRUD with metadata and collections
@@ -284,6 +288,32 @@ Modern React-based UI for managing documents, users, and search with REST/GraphQ
 **[→ Panel documentation](docs/PANEL.md)**
 
 ## 📖 Quick Examples
+
+### Upload Files (PDF, DOCX, HTML, TXT)
+
+```bash
+# Upload a PDF — auto-converted to Markdown
+curl -X POST http://localhost:11023/v1/upload \
+  -F "file=@report.pdf" \
+  -F "collection=docs" \
+  -F "lang=en_US"
+
+# Upload with custom key and metadata
+curl -X POST http://localhost:11023/v1/upload \
+  -F "file=@manual.docx" \
+  -F "collection=docs" \
+  -F "key=user-manual" \
+  -F "lang=en_US" \
+  -F 'meta={"category":["documentation"]}'
+
+# Batch upload multiple files
+curl -X POST http://localhost:11023/v1/upload \
+  -F "files[]=@doc1.pdf" \
+  -F "files[]=@doc2.html" \
+  -F "files[]=@doc3.txt" \
+  -F "collection=docs" \
+  -F "lang=en_US"
+```
 
 ### Add and Retrieve Documents
 
@@ -422,6 +452,7 @@ mddb-cli stats
 - **[Authentication](docs/AUTH.md)** - JWT & API keys, RBAC
 - **[Web Panel](docs/PANEL.md)** - Admin UI guide
 - **[LLM Connections](docs/LLM_CONNECTIONS.md)** - MCP for Claude, ChatGPT, Ollama, DeepSeek
+- **[Integrations](docs/INTEGRATIONS.md)** - Docling, Langflow, OpenSearch, SSG, wpexporter
 - **[Bulk Import](docs/BULK-IMPORT.md)** - Load markdown folders
 
 ### Operations
@@ -452,6 +483,7 @@ mddb-cli stats
 │  :11023  │  :11024  │ /graphql │ :11443             │
 ├──────────┴──────────┴──────────┴────────────────────┤
 │           MDDB Server (Go)                          │
+│  • File Upload (PDF/DOCX/HTML/TXT → Markdown)       │
 │  • Auto-Embeddings (OpenAI, Ollama, Cohere, Voyage) │
 │  • Vector + Full-Text + Hybrid Search               │
 │  • Zero-Shot Classification                         │

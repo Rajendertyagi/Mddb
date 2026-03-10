@@ -1,0 +1,1134 @@
+# Integrations: Docling, Langflow & OpenSearch
+
+Use MDDB alongside popular AI/ML tools to build production document processing and RAG pipelines.
+
+## Architecture Overview
+
+```mermaid
+graph LR
+    subgraph Content Sources
+        PDF[PDF / DOCX / PPTX]
+        DOCLING[Docling<br>IBM Document Parser]
+        WP[WordPress]
+        WPEXP[wpexporter]
+    end
+
+    subgraph Storage & Search
+        MDDB[mddbd<br>:11023 / :11024]
+        BOLT[(BoltDB)]
+        VEC[(Vector Index)]
+        OS[(OpenSearch<br>optional)]
+    end
+
+    subgraph Output & Orchestration
+        SSG[SSG<br>Static Site Generator]
+        LF[Langflow<br>Visual RAG Builder]
+        LLM[LLM<br>Claude / GPT / Llama]
+        DEPLOY[GitHub Pages<br>Cloudflare / Netlify]
+    end
+
+    PDF -->|parse| DOCLING
+    DOCLING -->|markdown| MDDB
+    WP -->|export| WPEXP
+    WPEXP -->|markdown| MDDB
+    MDDB --> BOLT
+    MDDB --> VEC
+    MDDB -.->|sync| OS
+
+    MDDB -->|fetch docs| SSG
+    SSG -->|static HTML| DEPLOY
+    LF -->|REST / MCP| MDDB
+    LF -->|query| OS
+    LF -->|generate| LLM
+    LLM -->|answer| LF
+```
+
+---
+
+## 1. Docling → MDDB (Document Ingestion)
+
+[Docling](https://github.com/DS4SD/docling) is IBM's document parser that converts PDF, DOCX, PPTX, and HTML into structured Markdown. Since MDDB stores Markdown natively, this is a natural fit.
+
+### Install Docling
+
+```bash
+pip install docling
+```
+
+### Basic: Parse and Store a Single Document
+
+```python
+from docling.document_converter import DocumentConverter
+import requests
+
+MDDB_URL = "http://localhost:11023"
+
+# Step 1: Parse PDF to Markdown with Docling
+converter = DocumentConverter()
+result = converter.convert("report.pdf")
+markdown = result.document.export_to_markdown()
+
+# Step 2: Store in MDDB
+requests.post(f"{MDDB_URL}/v1/add", json={
+    "collection": "reports",
+    "key": "report-2026-q1",
+    "lang": "en_US",
+    "meta": {
+        "source": ["docling"],
+        "type": ["pdf"],
+        "title": ["Q1 2026 Report"],
+    },
+    "contentMd": markdown,
+})
+```
+
+### Batch: Ingest a Folder of Documents
+
+```python
+"""
+Bulk-import a folder of documents via Docling → MDDB.
+Supports PDF, DOCX, PPTX, HTML.
+"""
+from docling.document_converter import DocumentConverter
+from pathlib import Path
+import requests
+
+MDDB_URL = "http://localhost:11023"
+COLLECTION = "knowledge-base"
+INPUT_DIR = Path("./documents")
+
+converter = DocumentConverter()
+supported = {".pdf", ".docx", ".pptx", ".html", ".htm"}
+
+for file in INPUT_DIR.iterdir():
+    if file.suffix.lower() not in supported:
+        continue
+
+    print(f"Processing: {file.name}")
+    result = converter.convert(str(file))
+    markdown = result.document.export_to_markdown()
+
+    resp = requests.post(f"{MDDB_URL}/v1/add", json={
+        "collection": COLLECTION,
+        "key": file.stem,
+        "lang": "en_US",
+        "meta": {
+            "source": ["docling"],
+            "type": [file.suffix.lstrip(".")],
+            "filename": [file.name],
+        },
+        "contentMd": markdown,
+    })
+
+    if resp.status_code == 200:
+        print(f"  OK: {file.name}")
+    else:
+        print(f"  ERROR: {resp.text}")
+
+# Embeddings are generated automatically in the background
+print("Done. Check embedding progress:")
+print(requests.get(f"{MDDB_URL}/v1/vector-stats").json())
+```
+
+### With Chunking (for Better Vector Search)
+
+Long documents should be split into chunks for more precise semantic search:
+
+```python
+from docling.document_converter import DocumentConverter
+from docling.chunking import HybridChunker
+import requests
+
+MDDB_URL = "http://localhost:11023"
+
+converter = DocumentConverter()
+result = converter.convert("manual.pdf")
+
+# Docling's built-in chunker splits by sections/paragraphs
+chunker = HybridChunker(tokenizer="sentence-transformers/all-MiniLM-L6-v2")
+chunks = list(chunker.chunk(result.document))
+
+for i, chunk in enumerate(chunks):
+    text = chunk.text
+    # Skip very short chunks
+    if len(text.strip()) < 50:
+        continue
+
+    requests.post(f"{MDDB_URL}/v1/add", json={
+        "collection": "manual",
+        "key": f"manual-chunk-{i:04d}",
+        "lang": "en_US",
+        "meta": {
+            "source": ["docling"],
+            "chunk_index": [str(i)],
+            "parent_doc": ["manual.pdf"],
+        },
+        "contentMd": text,
+    })
+
+print(f"Imported {len(chunks)} chunks from manual.pdf")
+```
+
+### Docker Pipeline
+
+```bash
+# docker-compose.yml
+services:
+  mddb:
+    image: tradik/mddb:latest
+    ports:
+      - "11023:11023"
+      - "11024:11024"
+      - "9000:9000"
+    volumes:
+      - mddb-data:/app/data
+    environment:
+      MDDB_EMBEDDING_PROVIDER: openai
+      MDDB_EMBEDDING_API_KEY: ${OPENAI_API_KEY}
+
+  docling-ingest:
+    build:
+      context: .
+      dockerfile: Dockerfile.docling
+    volumes:
+      - ./documents:/documents
+    environment:
+      MDDB_URL: http://mddb:11023
+    depends_on:
+      - mddb
+
+volumes:
+  mddb-data:
+```
+
+```dockerfile
+# Dockerfile.docling
+FROM python:3.11-slim
+RUN pip install docling requests
+COPY ingest.py /app/ingest.py
+CMD ["python", "/app/ingest.py"]
+```
+
+---
+
+## 2. Langflow + MDDB (Visual RAG Orchestration)
+
+[Langflow](https://github.com/langflow-ai/langflow) is a visual framework for building LLM workflows. MDDB can be integrated as a retrieval component via REST API or MCP.
+
+### Install Langflow
+
+```bash
+pip install langflow
+langflow run
+# Opens at http://localhost:7860
+```
+
+### Option A: Custom Python Component (REST API)
+
+Create a custom Langflow component that queries MDDB:
+
+```python
+"""
+MDDB Search Component for Langflow.
+Save as: mddb_component.py
+Import in Langflow via Custom Components.
+"""
+from langflow.custom import Component
+from langflow.io import MessageTextInput, IntInput, Output
+from langflow.schema import Data
+import requests
+
+
+class MDDBSearch(Component):
+    display_name = "MDDB Semantic Search"
+    description = "Search MDDB knowledge base using semantic/vector search."
+    icon = "search"
+
+    inputs = [
+        MessageTextInput(
+            name="query",
+            display_name="Search Query",
+            info="Natural language query to search for.",
+        ),
+        MessageTextInput(
+            name="mddb_url",
+            display_name="MDDB URL",
+            value="http://localhost:11023",
+            info="MDDB server address.",
+        ),
+        MessageTextInput(
+            name="collection",
+            display_name="Collection",
+            value="docs",
+            info="MDDB collection to search.",
+        ),
+        IntInput(
+            name="top_k",
+            display_name="Top K",
+            value=5,
+            info="Number of results to return.",
+        ),
+    ]
+
+    outputs = [
+        Output(display_name="Results", name="results", method="search"),
+    ]
+
+    def search(self) -> list[Data]:
+        response = requests.post(
+            f"{self.mddb_url}/v1/vector-search",
+            json={
+                "collection": self.collection,
+                "query": self.query,
+                "topK": self.top_k,
+                "threshold": 0.6,
+                "includeContent": True,
+            },
+        )
+        results = response.json().get("results", [])
+
+        return [
+            Data(data={
+                "key": r["document"]["key"],
+                "content": r["document"].get("contentMd", ""),
+                "score": r["score"],
+                "meta": r["document"].get("meta", {}),
+            })
+            for r in results
+        ]
+```
+
+#### Using in Langflow
+
+1. Open Langflow UI → **My Collection** → **New Project**
+2. Go to **Custom Components** → upload `mddb_component.py`
+3. Build a flow:
+
+```
+[Chat Input] → [MDDB Semantic Search] → [Parse Data] → [Prompt] → [LLM] → [Chat Output]
+```
+
+The Prompt template:
+
+```
+Answer the user's question based on the following documents from the knowledge base.
+Cite sources by their key.
+
+Context:
+{documents}
+
+Question: {query}
+```
+
+### Option B: Langflow + MDDB via MCP
+
+If your Langflow version supports MCP tool calling, connect MDDB directly:
+
+```json
+{
+  "mcpServers": {
+    "mddb": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm", "--network", "host",
+        "-v", "mddb-data:/app/data",
+        "-e", "MDDB_MCP_STDIO=true",
+        "tradik/mddb:latest"
+      ]
+    }
+  }
+}
+```
+
+Available MCP tools for Langflow: `semantic_search`, `full_text_search`, `hybrid_search`, `search_documents`, `add_document`, `import_url`, and [48 more](LLM_CONNECTIONS.md).
+
+### Option C: Langflow API Tool (No Custom Code)
+
+Use Langflow's built-in **API Request** component to call MDDB directly:
+
+1. Add an **API Request** component
+2. Set **Method**: POST
+3. Set **URL**: `http://localhost:11023/v1/vector-search`
+4. Set **Body**:
+```json
+{
+  "collection": "docs",
+  "query": "{query}",
+  "topK": 5,
+  "includeContent": true
+}
+```
+5. Connect: `[Chat Input] → [API Request] → [Parse Data] → [Prompt] → [LLM] → [Chat Output]`
+
+### Full Langflow RAG Flow Example
+
+```mermaid
+graph LR
+    INPUT[Chat Input] --> MDDB[MDDB Search<br>vector-search]
+    MDDB --> PARSE[Parse Data<br>extract contentMd]
+    PARSE --> PROMPT[Prompt Template<br>context + question]
+    INPUT --> PROMPT
+    PROMPT --> LLM[OpenAI / Claude<br>/ Ollama]
+    LLM --> OUTPUT[Chat Output]
+```
+
+---
+
+## 3. OpenSearch + MDDB (Scalable Search)
+
+MDDB's built-in vector search works well up to ~50K documents. For larger datasets or advanced full-text search (BM25, aggregations, facets), sync documents to [OpenSearch](https://opensearch.org/).
+
+### Architecture
+
+| Feature | MDDB | OpenSearch |
+|---------|------|------------|
+| Storage | Primary (BoltDB) | Search index (replica) |
+| Vector search | In-memory, ~50K docs | kNN plugin, millions |
+| Full-text search | Built-in TF scoring | BM25, analyzers, stemming |
+| Aggregations | No | Yes (facets, histograms) |
+| MCP tools | 52 built-in | No |
+
+**Strategy**: MDDB as the primary store + MCP interface, OpenSearch as the search backend for scale.
+
+### Setup OpenSearch
+
+```bash
+# docker-compose.yml
+services:
+  mddb:
+    image: tradik/mddb:latest
+    ports:
+      - "11023:11023"
+    volumes:
+      - mddb-data:/app/data
+    environment:
+      MDDB_EMBEDDING_PROVIDER: openai
+      MDDB_EMBEDDING_API_KEY: ${OPENAI_API_KEY}
+
+  opensearch:
+    image: opensearchproject/opensearch:2
+    ports:
+      - "9200:9200"
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: "true"
+    volumes:
+      - os-data:/usr/share/opensearch/data
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2
+    ports:
+      - "5601:5601"
+    environment:
+      OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
+      DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
+
+volumes:
+  mddb-data:
+  os-data:
+```
+
+### Create OpenSearch Index
+
+```bash
+curl -X PUT http://localhost:9200/mddb-docs -H 'Content-Type: application/json' -d '{
+  "settings": {
+    "index": {
+      "knn": true,
+      "number_of_replicas": 0
+    }
+  },
+  "mappings": {
+    "properties": {
+      "key":        { "type": "keyword" },
+      "collection": { "type": "keyword" },
+      "lang":       { "type": "keyword" },
+      "contentMd":  { "type": "text", "analyzer": "standard" },
+      "meta":       { "type": "object", "enabled": true },
+      "addedAt":    { "type": "date" },
+      "updatedAt":  { "type": "date" },
+      "embedding": {
+        "type": "knn_vector",
+        "dimension": 1536,
+        "method": {
+          "name": "hnsw",
+          "engine": "lucene"
+        }
+      }
+    }
+  }
+}'
+```
+
+### Sync Script: MDDB → OpenSearch
+
+```python
+"""
+Sync documents from MDDB to OpenSearch.
+Run periodically (cron) or trigger via MDDB webhook.
+"""
+import requests
+import json
+
+MDDB_URL = "http://localhost:11023"
+OS_URL = "http://localhost:9200"
+INDEX = "mddb-docs"
+
+
+def sync_collection(collection: str):
+    """Export all docs from MDDB and index into OpenSearch."""
+
+    # Step 1: Export from MDDB as NDJSON
+    resp = requests.post(f"{MDDB_URL}/v1/export", json={
+        "collection": collection,
+        "format": "ndjson",
+    })
+
+    if resp.status_code != 200:
+        print(f"Export failed: {resp.text}")
+        return
+
+    # Step 2: Bulk index into OpenSearch
+    bulk_body = ""
+    count = 0
+
+    for line in resp.text.strip().split("\n"):
+        if not line:
+            continue
+        doc = json.loads(line)
+        doc_id = f"{collection}|{doc['key']}|{doc.get('lang', 'en_us')}"
+
+        bulk_body += json.dumps({"index": {"_index": INDEX, "_id": doc_id}}) + "\n"
+        bulk_body += json.dumps({
+            "key": doc["key"],
+            "collection": collection,
+            "lang": doc.get("lang", ""),
+            "contentMd": doc.get("contentMd", ""),
+            "meta": doc.get("meta", {}),
+            "addedAt": doc.get("addedAt"),
+            "updatedAt": doc.get("updatedAt"),
+        }) + "\n"
+        count += 1
+
+    if bulk_body:
+        r = requests.post(
+            f"{OS_URL}/_bulk",
+            data=bulk_body,
+            headers={"Content-Type": "application/x-ndjson"},
+        )
+        result = r.json()
+        errors = result.get("errors", False)
+        print(f"Synced {count} docs from '{collection}' → OpenSearch (errors={errors})")
+
+
+# Sync all collections
+stats = requests.get(f"{MDDB_URL}/v1/stats").json()
+for coll in stats.get("collections", {}).keys():
+    sync_collection(coll)
+```
+
+### Real-Time Sync via MDDB Webhooks
+
+Instead of periodic sync, use MDDB webhooks for real-time updates:
+
+```bash
+# Register webhook that fires on document add/update/delete
+curl -X POST http://localhost:11023/v1/webhooks -H 'Content-Type: application/json' -d '{
+  "url": "http://sync-service:8080/mddb-webhook",
+  "events": ["doc.add", "doc.update", "doc.delete"],
+  "collections": ["*"]
+}'
+```
+
+Webhook handler that updates OpenSearch:
+
+```python
+"""
+Webhook receiver: syncs individual document changes to OpenSearch.
+Run as a small Flask/FastAPI service.
+"""
+from fastapi import FastAPI, Request
+import requests
+
+app = FastAPI()
+OS_URL = "http://localhost:9200"
+INDEX = "mddb-docs"
+MDDB_URL = "http://localhost:11023"
+
+
+@app.post("/mddb-webhook")
+async def handle_webhook(request: Request):
+    payload = await request.json()
+    event = payload.get("event")
+    collection = payload.get("collection")
+    key = payload.get("key")
+    lang = payload.get("lang", "en_us")
+    doc_id = f"{collection}|{key}|{lang}"
+
+    if event in ("doc.add", "doc.update"):
+        # Fetch full document from MDDB
+        resp = requests.post(f"{MDDB_URL}/v1/get", json={
+            "collection": collection, "key": key, "lang": lang,
+        })
+        doc = resp.json()
+
+        # Index into OpenSearch
+        requests.put(f"{OS_URL}/{INDEX}/_doc/{doc_id}", json={
+            "key": key,
+            "collection": collection,
+            "lang": lang,
+            "contentMd": doc.get("contentMd", ""),
+            "meta": doc.get("meta", {}),
+        })
+
+    elif event == "doc.delete":
+        requests.delete(f"{OS_URL}/{INDEX}/_doc/{doc_id}")
+
+    return {"ok": True}
+```
+
+### Query OpenSearch from MDDB Pipeline
+
+```python
+"""
+Hybrid search: MDDB for semantic, OpenSearch for full-text.
+Merge results for best recall.
+"""
+import requests
+
+MDDB_URL = "http://localhost:11023"
+OS_URL = "http://localhost:9200"
+
+
+def hybrid_search(query: str, collection: str, top_k: int = 5) -> list:
+    # Semantic search via MDDB
+    mddb_resp = requests.post(f"{MDDB_URL}/v1/vector-search", json={
+        "collection": collection,
+        "query": query,
+        "topK": top_k,
+        "threshold": 0.6,
+        "includeContent": True,
+    })
+    vector_results = mddb_resp.json().get("results", [])
+
+    # Full-text search via OpenSearch (BM25)
+    os_resp = requests.post(f"{OS_URL}/mddb-docs/_search", json={
+        "query": {
+            "bool": {
+                "must": {"match": {"contentMd": query}},
+                "filter": {"term": {"collection": collection}},
+            }
+        },
+        "size": top_k,
+    })
+    os_hits = os_resp.json().get("hits", {}).get("hits", [])
+
+    # Merge and deduplicate
+    seen = set()
+    merged = []
+
+    for r in vector_results:
+        key = r["document"]["key"]
+        if key not in seen:
+            seen.add(key)
+            merged.append({
+                "key": key,
+                "content": r["document"].get("contentMd", ""),
+                "vector_score": r["score"],
+                "source": "mddb-vector",
+            })
+
+    for hit in os_hits:
+        key = hit["_source"]["key"]
+        if key not in seen:
+            seen.add(key)
+            merged.append({
+                "key": key,
+                "content": hit["_source"].get("contentMd", ""),
+                "bm25_score": hit["_score"],
+                "source": "opensearch-bm25",
+            })
+
+    return merged[:top_k]
+```
+
+### OpenSearch kNN Search (Vector Search at Scale)
+
+For datasets larger than ~50K documents, use OpenSearch kNN instead of MDDB's in-memory index:
+
+```python
+"""
+Use OpenSearch kNN for large-scale vector search.
+Requires syncing embeddings from MDDB to OpenSearch.
+"""
+import requests
+import numpy as np
+
+MDDB_URL = "http://localhost:11023"
+OS_URL = "http://localhost:9200"
+
+
+def get_embedding(text: str) -> list:
+    """Get embedding vector from MDDB's embedding endpoint."""
+    resp = requests.post(f"{MDDB_URL}/v1/embed", json={"text": text})
+    return resp.json().get("embedding", [])
+
+
+def opensearch_knn_search(query: str, collection: str, k: int = 10):
+    """Semantic search via OpenSearch kNN plugin."""
+    embedding = get_embedding(query)
+
+    resp = requests.post(f"{OS_URL}/mddb-docs/_search", json={
+        "size": k,
+        "query": {
+            "bool": {
+                "must": {
+                    "knn": {
+                        "embedding": {
+                            "vector": embedding,
+                            "k": k,
+                        }
+                    }
+                },
+                "filter": {"term": {"collection": collection}},
+            }
+        },
+    })
+
+    hits = resp.json().get("hits", {}).get("hits", [])
+    return [
+        {
+            "key": h["_source"]["key"],
+            "content": h["_source"].get("contentMd", ""),
+            "score": h["_score"],
+        }
+        for h in hits
+    ]
+```
+
+---
+
+## 4. SSG — Static Site Generator from MDDB
+
+[SSG](https://github.com/spagu/ssg/) is a high-performance static site generator written in Go with **built-in MDDB support**. It pulls Markdown content directly from MDDB collections and renders complete static websites with themes, minification, and deployment-ready output.
+
+```mermaid
+graph LR
+    subgraph Content Management
+        MDDB[MDDB<br>:11023]
+        PANEL[MDDB Panel<br>:9000]
+    end
+
+    subgraph Static Generation
+        SSG[SSG<br>Static Site Generator]
+        TPL[Templates<br>Go / Pongo2 / Mustache]
+        OPT[Optimizer<br>WebP / Minify / Sitemap]
+    end
+
+    subgraph Deployment
+        GH[GitHub Pages]
+        CF[Cloudflare Pages]
+        NL[Netlify / Vercel]
+    end
+
+    PANEL -->|edit content| MDDB
+    MDDB -->|fetch docs<br>REST API| SSG
+    SSG --> TPL
+    TPL --> OPT
+    OPT -->|static HTML/CSS/JS| GH
+    OPT --> CF
+    OPT --> NL
+```
+
+### Generate a Site from MDDB Collection
+
+```bash
+# Install SSG
+brew install spagu/tap/ssg
+# or: go install github.com/spagu/ssg@latest
+
+# Generate site from MDDB collection
+ssg --mddb-url=http://localhost:11023 \
+    --mddb-collection=blog \
+    --mddb-lang=en_US \
+    krowy example.com
+
+# Output in ./public/ — ready to deploy
+```
+
+### CLI Flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--mddb-url` | MDDB server URL (enables MDDB mode) | — |
+| `--mddb-collection` | Collection to fetch posts from | — |
+| `--mddb-key` | API key for authentication | — |
+| `--mddb-lang` | Language filter | `en_US` |
+| `--mddb-timeout` | Request timeout in seconds | `30` |
+
+### Dev Server with Live Reload
+
+```bash
+# Watch MDDB for changes, auto-rebuild
+ssg serve --mddb-url=http://localhost:11023 \
+          --mddb-collection=blog \
+          krowy example.com
+# Opens at http://localhost:8080 with file watching
+```
+
+### CI/CD Pipeline: MDDB → SSG → GitHub Pages
+
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy Site
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *'  # every 6 hours
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SSG
+        run: |
+          curl -sL https://github.com/spagu/ssg/releases/latest/download/ssg_linux_amd64.tar.gz | tar xz
+          sudo mv ssg /usr/local/bin/
+
+      - name: Build site from MDDB
+        run: |
+          ssg --mddb-url=${{ secrets.MDDB_URL }} \
+              --mddb-collection=blog \
+              --mddb-key=${{ secrets.MDDB_API_KEY }} \
+              krowy ${{ vars.SITE_DOMAIN }}
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+```
+
+### Docker Pipeline
+
+```bash
+# docker-compose.yml
+services:
+  mddb:
+    image: tradik/mddb:latest
+    ports:
+      - "11023:11023"
+      - "9000:9000"
+    volumes:
+      - mddb-data:/app/data
+
+  ssg:
+    image: spagu/ssg:latest
+    depends_on:
+      - mddb
+    command: >
+      ssg --mddb-url=http://mddb:11023
+          --mddb-collection=blog
+          krowy example.com
+    volumes:
+      - ./public:/app/public
+
+volumes:
+  mddb-data:
+```
+
+### Workflow: Edit in Panel → Generate → Deploy
+
+```mermaid
+sequenceDiagram
+    participant U as Editor
+    participant P as MDDB Panel
+    participant M as MDDB
+    participant S as SSG
+    participant D as GitHub Pages
+
+    U->>P: Edit blog post in Panel
+    P->>M: POST /v1/add (save document)
+    Note over M: Webhook fires on doc.add
+    M->>S: Webhook triggers SSG build
+    S->>M: GET /v1/search (fetch all posts)
+    M->>S: Markdown documents + metadata
+    S->>S: Render templates, optimize assets
+    S->>D: Deploy static files
+    D->>U: Site updated at example.com
+```
+
+---
+
+## 5. wpexporter — WordPress to MDDB Migration
+
+[wpexporter](https://github.com/tradik/wpexporter/) is a Go toolkit for exporting WordPress content. It supports 14+ output formats including Markdown, and includes an MCP server (`wpmcp`) for AI-assisted migrations.
+
+```mermaid
+graph LR
+    subgraph WordPress
+        WP[WordPress Site]
+        REST[REST API<br>/wp-json/wp/v2]
+        XMLRPC[XML-RPC<br>/xmlrpc.php]
+    end
+
+    subgraph wpexporter
+        EXP[wpexportjson<br>Public content]
+        XR[wpxmlrpc<br>Private content]
+        MCP_WP[wpmcp<br>MCP Server]
+    end
+
+    subgraph MDDB
+        MDDB_S[mddbd<br>:11023]
+        MCP_MD[mddb-mcp<br>MCP Server]
+        BOLT[(BoltDB)]
+        VEC[(Vector Index)]
+    end
+
+    WP --> REST --> EXP
+    WP --> XMLRPC --> XR
+    WP --> MCP_WP
+
+    EXP -->|markdown export| MDDB_S
+    XR -->|markdown export| MDDB_S
+    MCP_WP -->|AI orchestration| MCP_MD
+
+    MDDB_S --> BOLT
+    MDDB_S --> VEC
+```
+
+### Quick Export: WordPress → Markdown → MDDB
+
+```bash
+# Step 1: Export WordPress to Markdown
+wpexportjson -url https://your-site.com -format markdown -output ./wp-export/
+
+# Step 2: Bulk import into MDDB
+for file in wp-export/*.md; do
+  key=$(basename "$file" .md)
+  content=$(cat "$file")
+
+  curl -X POST http://localhost:11023/v1/add \
+    -H 'Content-Type: application/json' \
+    -d "{
+      \"collection\": \"blog\",
+      \"key\": \"$key\",
+      \"lang\": \"en_US\",
+      \"meta\": {\"source\": [\"wordpress\"]},
+      \"contentMd\": $(echo "$content" | jq -Rs .)
+    }"
+done
+```
+
+### Python: Full Migration with Metadata
+
+```python
+"""
+Migrate WordPress → MDDB with full metadata preservation.
+Uses wpexportjson JSON output for richer metadata.
+"""
+import subprocess
+import json
+import requests
+from pathlib import Path
+
+MDDB_URL = "http://localhost:11023"
+WP_URL = "https://your-site.com"
+COLLECTION = "blog"
+
+# Step 1: Export WordPress as JSON (includes metadata)
+subprocess.run([
+    "wpexportjson",
+    "-url", WP_URL,
+    "-format", "json",
+    "-output", "./wp-export.json",
+])
+
+# Step 2: Load and import into MDDB
+with open("wp-export.json") as f:
+    posts = json.load(f)
+
+for post in posts:
+    slug = post.get("slug", "")
+    title = post.get("title", "")
+    content_md = post.get("content_markdown", post.get("content", ""))
+    categories = post.get("categories", [])
+    tags = post.get("tags", [])
+    date = post.get("date", "")
+
+    resp = requests.post(f"{MDDB_URL}/v1/add", json={
+        "collection": COLLECTION,
+        "key": slug,
+        "lang": "en_US",
+        "meta": {
+            "title": [title],
+            "source": ["wordpress"],
+            "wp_url": [f"{WP_URL}/{slug}/"],
+            "category": categories if categories else ["uncategorized"],
+            "tags": tags,
+            "date": [date],
+        },
+        "contentMd": f"# {title}\n\n{content_md}",
+    })
+
+    status = "OK" if resp.status_code == 200 else f"ERROR: {resp.text}"
+    print(f"  {slug}: {status}")
+
+print(f"\nMigrated {len(posts)} posts. Embeddings generating in background.")
+```
+
+### AI-Assisted Migration via MCP
+
+Both wpexporter (`wpmcp`) and MDDB (`mddb-mcp`) have MCP servers. Connect both to Claude Desktop and let the AI orchestrate the migration:
+
+```json
+{
+  "mcpServers": {
+    "wordpress": {
+      "command": "wpmcp",
+      "args": [],
+      "env": {
+        "WP_URL": "https://your-site.com",
+        "WP_USER": "admin",
+        "WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx"
+      }
+    },
+    "mddb": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm", "--network", "host",
+        "-v", "mddb-data:/app/data",
+        "-e", "MDDB_MCP_STDIO=true",
+        "tradik/mddb:latest"
+      ]
+    }
+  }
+}
+```
+
+Then ask Claude:
+
+> "Migrate all posts from WordPress to MDDB collection 'blog'. Preserve categories, tags, and dates as metadata. Skip draft posts."
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant C as Claude Desktop
+    participant WP as wpmcp<br>(WordPress)
+    participant MD as mddb-mcp<br>(MDDB)
+
+    U->>C: "Migrate all published posts<br>from WordPress to MDDB"
+
+    C->>WP: tool: list_posts(status=published)
+    WP->>C: 142 posts with metadata
+
+    loop For each post
+        C->>WP: tool: get_post(id=N, format=markdown)
+        WP->>C: Markdown content + meta
+        C->>MD: tool: add_document(collection=blog,<br>key=slug, contentMd=...)
+        MD->>C: OK
+    end
+
+    C->>MD: tool: vector_reindex(collection=blog)
+    MD->>C: Reindexing 142 documents
+
+    C->>U: "Done! Migrated 142 posts.<br>Embeddings generating in background."
+```
+
+### Full WordPress Migration Pipeline
+
+```mermaid
+graph TB
+    subgraph "1. Export"
+        WP[WordPress] -->|REST API| WPEXP[wpexporter]
+        WP -->|XML-RPC| WPEXP
+        WPEXP -->|markdown + metadata| MD_FILES[Markdown Files]
+    end
+
+    subgraph "2. Store & Index"
+        MD_FILES -->|bulk import| MDDB[MDDB]
+        MDDB -->|auto-embed| VEC[(Vector Index)]
+        MDDB -->|store| BOLT[(BoltDB)]
+    end
+
+    subgraph "3. Use"
+        MDDB -->|MCP| CLAUDE[Claude / AI Agents]
+        MDDB -->|REST| SSG_N[SSG<br>New Static Site]
+        MDDB -->|vector search| RAG[RAG Pipeline]
+    end
+
+    style WP fill:#21759b,color:#fff
+    style MDDB fill:#00d4aa,color:#000
+    style CLAUDE fill:#d97706,color:#fff
+```
+
+---
+
+## 6. Full Pipeline: All Integrations Together
+
+Combine all tools for a complete content platform:
+
+```mermaid
+graph TB
+    subgraph "1. Content Sources"
+        WP[WordPress] -->|wpexporter| WPEXP[wpexporter<br>markdown + meta]
+        FILES[PDF / DOCX / PPTX] -->|parse| DOCLING[Docling]
+    end
+
+    subgraph "2. MDDB — Central Hub"
+        WPEXP -->|bulk import| MDDB[MDDB<br>:11023 / :11024]
+        DOCLING -->|markdown + chunks| MDDB
+        MDDB -->|primary store| BOLT[(BoltDB)]
+        MDDB -->|auto-embed| VEC[(Vector Index)]
+        MDDB -->|webhook sync| OS[(OpenSearch<br>scale search)]
+    end
+
+    subgraph "3. Orchestration & AI"
+        LF[Langflow] -->|semantic search| MDDB
+        LF -->|BM25 / kNN| OS
+        LF -->|generate| LLM[LLM]
+        LLM --> LF
+        MDDB -->|MCP| CLAUDE[Claude Desktop]
+    end
+
+    subgraph "4. Output"
+        MDDB -->|REST API| SSG[SSG<br>Static Site Generator]
+        SSG -->|HTML/CSS/JS| DEPLOY[GitHub Pages<br>Cloudflare<br>Netlify]
+        LF --> WEBAPP[Web App]
+        MDDB -->|REST| API[Custom Apps]
+    end
+
+    style WP fill:#21759b,color:#fff
+    style MDDB fill:#00d4aa,color:#000
+    style LLM fill:#d97706,color:#fff
+    style SSG fill:#7c3aed,color:#fff
+    style CLAUDE fill:#d97706,color:#fff
+```
+
+### Step-by-Step
+
+1. **Import** — wpexporter migrates WordPress content; Docling parses PDFs/DOCX into Markdown
+2. **Store** — MDDB stores all documents with metadata in BoltDB
+3. **Index** — MDDB auto-generates embeddings; optionally syncs to OpenSearch for scale
+4. **Search** — Langflow orchestrates RAG: semantic search via MDDB, BM25 via OpenSearch
+5. **Answer** — LLM generates answers from retrieved context, cites sources
+6. **Publish** — SSG renders static sites from MDDB collections, deploys to CDN
+7. **Manage** — Claude Desktop via MCP (52 tools), Panel UI, REST/gRPC APIs
+
+### When to Use What
+
+| Scenario | Recommendation |
+|----------|---------------|
+| Migrate from WordPress | wpexporter → MDDB |
+| Parse PDF/DOCX to Markdown | Docling → MDDB |
+| Generate static website | MDDB → SSG |
+| < 50K docs, simple RAG | MDDB only (no OpenSearch needed) |
+| > 50K docs, enterprise search | MDDB + OpenSearch |
+| Visual workflow building | MDDB + Langflow |
+| AI agent integration | MDDB MCP (52 tools) |
+| AI-assisted migration | wpmcp + mddb-mcp via Claude |
+| Full production pipeline | All together |
+
+**[← Back to README](../README.md)** · **[LLM Connections →](LLM_CONNECTIONS.md)** · **[RAG Pipeline →](RAG-PIPELINE.md)**

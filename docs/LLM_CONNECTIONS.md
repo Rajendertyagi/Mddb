@@ -80,9 +80,9 @@ Use the `mddbd` binary directly:
 }
 ```
 
-### Available MCP Tools (51)
+### Available MCP Tools (53)
 
-Once connected, your LLM agent has access to all 51 built-in tools:
+Once connected, your LLM agent has access to all 53 built-in tools:
 
 **Document Management**
 `add_document` `update_document` `delete_document` `search_documents` `get_document_meta` `add_documents_batch` `delete_documents_batch`
@@ -102,8 +102,11 @@ Once connected, your LLM agent has access to all 51 built-in tools:
 **Revisions**
 `list_revisions` `restore_revision` `truncate_revisions`
 
+**Upload & Import**
+`upload_file` `import_url` `ingest_documents`
+
 **Export & Backup**
-`export_documents` `create_backup` `restore_backup` `import_url`
+`export_documents` `create_backup` `restore_backup`
 
 **Full-Text Search Config**
 `list_synonyms` `add_synonym` `delete_synonym` `list_stopwords` `add_stopwords` `delete_stopwords`
@@ -132,7 +135,7 @@ Create a Custom GPT that connects to MDDB via its REST API.
 ```json
 {
   "openapi": "3.1.0",
-  "info": { "title": "MDDB API", "version": "2.7.0" },
+  "info": { "title": "MDDB API", "version": "2.7.1" },
   "servers": [{ "url": "https://your-domain:11023" }],
   "paths": {
     "/v1/search": {
