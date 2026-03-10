@@ -1776,17 +1776,7 @@ func (c *DirectClient) FindDuplicates(ctx context.Context, req *MCPFindDuplicate
 func (c *DirectClient) Ingest(ctx context.Context, req *MCPIngestRequest) (*MCPIngestResponse, error) {
 	docs := make([]IngestDocumentHTTP, len(req.Documents))
 	for i, d := range req.Documents {
-		docs[i] = IngestDocumentHTTP{
-			URL:                d.URL,
-			Key:                d.Key,
-			Lang:               d.Lang,
-			ContentMD:          d.ContentMD,
-			Meta:               d.Meta,
-			ExtractFrontmatter: d.ExtractFrontmatter,
-			ScrapedAt:          d.ScrapedAt,
-			Scraper:            d.Scraper,
-			TTL:                d.TTL,
-		}
+		docs[i] = IngestDocumentHTTP(d)
 	}
 
 	opts := IngestOptionsHTTP{

@@ -409,9 +409,10 @@ func extractPDFText(content string, result *strings.Builder) {
 					j += 2
 					continue
 				}
-				if content[j] == '(' {
+				switch content[j] {
+				case '(':
 					depth++
-				} else if content[j] == ')' {
+				case ')':
 					depth--
 				}
 				if depth > 0 {
