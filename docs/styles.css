@@ -685,6 +685,105 @@ code {
     animation: fadeIn 0.3s ease;
 }
 
+/* Terminal styling */
+.terminal {
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.terminal-header {
+    background: #2d2d2d;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.terminal-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+.terminal-dot.red { background: #ff5f57; }
+.terminal-dot.yellow { background: #febc2e; }
+.terminal-dot.green { background: #28c840; }
+
+.terminal-title {
+    color: #999;
+    font-size: 0.75rem;
+    margin-left: 8px;
+    font-family: 'Monaco', 'Courier New', monospace;
+}
+
+.terminal pre {
+    border-radius: 0;
+    margin: 0;
+    min-height: 280px;
+    background: #1a1a2e;
+}
+
+.terminal code {
+    color: #e0e0e0;
+}
+
+.terminal .line {
+    display: block;
+    opacity: 0;
+    transform: translateY(4px);
+    animation: termLine 0.15s ease forwards;
+}
+
+.terminal .line.comment {
+    color: #6a9955;
+}
+
+.terminal .line.command {
+    color: #e0e0e0;
+}
+
+.terminal .line.command::before {
+    content: '$ ';
+    color: #28c840;
+    font-weight: bold;
+}
+
+.terminal .line.continuation {
+    color: #e0e0e0;
+    padding-left: 1.2em;
+}
+
+.terminal .line.json {
+    color: #ce9178;
+    padding-left: 1.2em;
+}
+
+.terminal .line.output {
+    color: #569cd6;
+}
+
+.terminal .cursor {
+    display: inline-block;
+    width: 8px;
+    height: 1.1em;
+    background: #28c840;
+    vertical-align: text-bottom;
+    animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+@keyframes termLine {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 /* Use Cases Section */
 .use-cases {
     padding: 5rem 0;

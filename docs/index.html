@@ -609,7 +609,14 @@ docker pull tradik/mddb:2.7.1</code></pre>
                 </div>
                 <div class="example-content">
                     <div class="example-pane active" id="add">
-                        <pre><code># Add document with TTL (expires in 1 hour)
+                        <div class="terminal">
+                            <div class="terminal-header">
+                                <span class="terminal-dot red"></span>
+                                <span class="terminal-dot yellow"></span>
+                                <span class="terminal-dot green"></span>
+                                <span class="terminal-title">bash — mddb</span>
+                            </div>
+                            <pre><code data-terminal="bash"># Add document with TTL (expires in 1 hour)
 curl -X POST http://localhost:11023/v1/add \
   -H "Content-Type: application/json" \
   -d '{
@@ -627,9 +634,17 @@ curl -X POST http://localhost:11023/v1/add \
 # Import directly from URL
 curl -X POST http://localhost:11023/v1/import-url \
   -d '{"collection":"docs", "url":"https://example.com/guide.md", "lang":"en_US"}'</code></pre>
+                        </div>
                     </div>
                     <div class="example-pane" id="vector">
-                        <pre><code># Semantic search - flat (exact, default)
+                        <div class="terminal">
+                            <div class="terminal-header">
+                                <span class="terminal-dot red"></span>
+                                <span class="terminal-dot yellow"></span>
+                                <span class="terminal-dot green"></span>
+                                <span class="terminal-title">bash — vector search</span>
+                            </div>
+                            <pre><code data-terminal="bash"># Semantic search - flat (exact, default)
 curl -X POST http://localhost:11023/v1/vector-search \
   -H "Content-Type: application/json" \
   -d '{
@@ -651,9 +666,17 @@ curl -X POST http://localhost:11023/v1/vector-search \
 # PQ - compressed, memory-efficient search
 curl -X POST http://localhost:11023/v1/vector-search \
   -d '{"collection":"kb", "query":"refund", "topK":5, "algorithm":"pq"}'</code></pre>
+                        </div>
                     </div>
                     <div class="example-pane" id="fts">
-                        <pre><code># Full-text search with TF-IDF (default)
+                        <div class="terminal">
+                            <div class="terminal-header">
+                                <span class="terminal-dot red"></span>
+                                <span class="terminal-dot yellow"></span>
+                                <span class="terminal-dot green"></span>
+                                <span class="terminal-title">bash — full-text search</span>
+                            </div>
+                            <pre><code data-terminal="bash"># Full-text search with TF-IDF (default)
 curl -X POST http://localhost:11023/v1/fts \
   -H "Content-Type: application/json" \
   -d '{
@@ -679,9 +702,17 @@ curl -X POST http://localhost:11023/v1/webhooks \
 # Set TTL on existing document (0 = remove)
 curl -X POST http://localhost:11023/v1/set-ttl \
   -d '{"collection":"cache", "key":"temp", "lang":"en", "ttl":7200}'</code></pre>
+                        </div>
                     </div>
                     <div class="example-pane" id="search">
-                        <pre><code>curl -X POST http://localhost:11023/v1/search \
+                        <div class="terminal">
+                            <div class="terminal-header">
+                                <span class="terminal-dot red"></span>
+                                <span class="terminal-dot yellow"></span>
+                                <span class="terminal-dot green"></span>
+                                <span class="terminal-title">bash — metadata search</span>
+                            </div>
+                            <pre><code data-terminal="bash">curl -X POST http://localhost:11023/v1/search \
   -H "Content-Type: application/json" \
   -d '{
     "collection": "blog",
@@ -692,9 +723,17 @@ curl -X POST http://localhost:11023/v1/set-ttl \
     "sort": "updatedAt",
     "limit": 10
   }'</code></pre>
+                        </div>
                     </div>
                     <div class="example-pane" id="python">
-                        <pre><code>from mddb import MDDB
+                        <div class="terminal">
+                            <div class="terminal-header">
+                                <span class="terminal-dot red"></span>
+                                <span class="terminal-dot yellow"></span>
+                                <span class="terminal-dot green"></span>
+                                <span class="terminal-title">python3 — mddb client</span>
+                            </div>
+                            <pre><code data-terminal="python">from mddb import MDDB
 
 db = MDDB.connect('localhost:11023', 'write').collection('kb')
 
@@ -715,9 +754,17 @@ db.import_url('https://example.com/docs.md', 'en_US')
 
 # TTL
 db.set_ttl('temp-key', 'en', 3600)  # expires in 1h</code></pre>
+                        </div>
                     </div>
                     <div class="example-pane" id="php">
-                        <pre><code>&lt;?php
+                        <div class="terminal">
+                            <div class="terminal-header">
+                                <span class="terminal-dot red"></span>
+                                <span class="terminal-dot yellow"></span>
+                                <span class="terminal-dot green"></span>
+                                <span class="terminal-title">php — mddb client</span>
+                            </div>
+                            <pre><code data-terminal="php">&lt;?php
 require_once 'mddb.php';
 
 $db = mddb::connect('localhost:11023', 'write');
@@ -739,9 +786,17 @@ $db->collection('docs')->importUrl('https://example.com/post.md', 'en_US');
 
 // TTL
 $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
+                        </div>
                     </div>
                     <div class="example-pane" id="mcp">
-                        <pre><code># Docker (Easiest) - for Windsurf / Claude Desktop
+                        <div class="terminal">
+                            <div class="terminal-header">
+                                <span class="terminal-dot red"></span>
+                                <span class="terminal-dot yellow"></span>
+                                <span class="terminal-dot green"></span>
+                                <span class="terminal-title">json — mcp.json</span>
+                            </div>
+                            <pre><code data-terminal="json"># Docker (Easiest) - for Windsurf / Claude Desktop
 # Configure ~/.windsurf/mcp.json:
 {
   "mcpServers": {
@@ -764,6 +819,7 @@ $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
 # - classify_document, find_duplicates
 # - automation, webhooks, schemas, backups
 # - collection config, revisions, and more</code></pre>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -962,6 +1018,71 @@ graph LR
             });
         });
 
+        // Terminal animation
+        function animateTerminal(codeEl) {
+            if (!codeEl || codeEl.dataset.animated === 'done') return;
+            const raw = codeEl.textContent;
+            const lang = codeEl.getAttribute('data-terminal') || 'bash';
+            const lines = raw.split('\n');
+            codeEl.innerHTML = '';
+            codeEl.dataset.animated = 'done';
+
+            let inContinuation = false;
+            lines.forEach(function (text, i) {
+                const span = document.createElement('span');
+                span.classList.add('line');
+                span.style.animationDelay = (i * 0.04) + 's';
+
+                const trimmed = text.trimStart();
+                if (lang === 'bash') {
+                    if (trimmed.startsWith('#') || trimmed.startsWith('//')) {
+                        span.classList.add('comment');
+                    } else if (trimmed.startsWith('curl ') || trimmed.startsWith('docker ') || trimmed.startsWith('wget ') || trimmed.startsWith('chmod ') || trimmed.startsWith('./') || trimmed.startsWith('git ') || trimmed.startsWith('make ') || trimmed.startsWith('sudo ')) {
+                        span.classList.add('command');
+                        inContinuation = text.endsWith('\\');
+                    } else if (inContinuation) {
+                        span.classList.add('continuation');
+                        inContinuation = text.endsWith('\\');
+                    } else if (trimmed === '') {
+                        // empty line
+                    } else if (trimmed.startsWith('{') || trimmed.startsWith('"') || trimmed.startsWith('}')) {
+                        span.classList.add('json');
+                    } else {
+                        span.classList.add('command');
+                        inContinuation = text.endsWith('\\');
+                    }
+                } else if (lang === 'python') {
+                    if (trimmed.startsWith('#')) {
+                        span.classList.add('comment');
+                    } else {
+                        span.classList.add('output');
+                    }
+                } else if (lang === 'php') {
+                    if (trimmed.startsWith('//')) {
+                        span.classList.add('comment');
+                    } else {
+                        span.classList.add('output');
+                    }
+                } else if (lang === 'json') {
+                    if (trimmed.startsWith('#')) {
+                        span.classList.add('comment');
+                    } else {
+                        span.classList.add('json');
+                    }
+                }
+
+                span.textContent = text;
+                codeEl.appendChild(span);
+                codeEl.appendChild(document.createTextNode('\n'));
+            });
+
+            // Add blinking cursor at end
+            const cursor = document.createElement('span');
+            cursor.classList.add('cursor');
+            cursor.style.animationDelay = (lines.length * 0.04) + 's';
+            codeEl.appendChild(cursor);
+        }
+
         // Example tabs
         function activateExample(exampleId) {
             document.querySelectorAll('.example-tab').forEach(b => b.classList.remove('active'));
@@ -969,7 +1090,11 @@ graph LR
             const tab = document.querySelector('.example-tab[data-example="' + exampleId + '"]');
             const pane = document.getElementById(exampleId);
             if (tab) tab.classList.add('active');
-            if (pane) pane.classList.add('active');
+            if (pane) {
+                pane.classList.add('active');
+                const codeEl = pane.querySelector('code[data-terminal]');
+                if (codeEl) animateTerminal(codeEl);
+            }
         }
 
         document.querySelectorAll('.example-tab').forEach(btn => {
@@ -979,6 +1104,12 @@ graph LR
                 history.replaceState(null, '', '#example-' + example);
             });
         });
+
+        // Animate the initially active terminal
+        (function () {
+            const firstCode = document.querySelector('.example-pane.active code[data-terminal]');
+            if (firstCode) animateTerminal(firstCode);
+        })();
 
         // Handle anchor links inside example tabs
         document.querySelectorAll('.example-tab .anchor-link').forEach(link => {
