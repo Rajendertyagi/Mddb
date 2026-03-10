@@ -57,7 +57,7 @@
         "priceCurrency": "USD"
       },
       "description": "AI-native knowledge base with built-in MCP server, vector search, RAG support, and semantic retrieval for AI agents and LLM workflows",
-      "softwareVersion": "2.7.0",
+      "softwareVersion": "2.7.1",
       "featureList": [
         "Built-in MCP server (stdio + HTTP) for Claude, Cursor, Windsurf",
         "Vector/semantic search (OpenAI, Ollama, Cohere, Voyage AI)",
@@ -125,12 +125,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                     <p class="hero-subtitle">Built-in MCP server, vector search, RAG, and hybrid retrieval. Plugs into Claude, ChatGPT, Cursor, Windsurf, and any MCP client — single ~29MB binary, zero config</p>
                     <div class="hero-badges">
                         <span class="badge">51 MCP Tools</span>
-                        <span class="badge">v2.7.0</span>
+                        <span class="badge" data-v>v{v}</span>
                         <span class="badge">RAG-Ready</span>
                         <span class="badge">Docker Ready</span>
                     </div>
                     <div class="hero-actions">
-                        <a href="#download" class="btn btn-primary">Download v2.7.0</a>
+                        <a href="#download" class="btn btn-primary" data-v>Download v{v}</a>
                         <a href="https://github.com/tradik/mddb" class="btn btn-secondary" target="_blank"
                             rel="noopener">View on GitHub</a>
                     </div>
@@ -254,6 +254,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                         <p>Fetch markdown from any URL with frontmatter parsing</p>
                     </div>
                     <div class="feature-card">
+                        <div class="feature-icon">📄</div>
+                        <h3>Multi-Format Input</h3>
+                        <p>Primary Markdown storage with native PDF and HTML ingestion — auto-converted to Markdown on import</p>
+                    </div>
+                    <div class="feature-card">
                         <div class="feature-icon">🐳</div>
                         <h3>Docker Ready</h3>
                         <p>~29MB Alpine-based image with health checks</p>
@@ -353,8 +358,8 @@ make docker-up
 # - MCP Server: http://localhost:9000</code></pre>
                     </div>
                     <div class="tab-pane" id="binary">
-                        <pre><code># Download binary
-wget https://github.com/tradik/mddb/releases/download/v2.7.0/mddbd-linux-amd64
+                        <pre><code id="binary-download-code"># Download binary
+wget https://github.com/tradik/mddb/releases/download/v2.7.1/mddbd-linux-amd64
 chmod +x mddbd-linux-amd64
 
 # Run server
@@ -384,41 +389,41 @@ make build
                 <div class="download-grid">
                     <div class="download-card">
                         <h3>Latest Release</h3>
-                        <div class="version">v2.7.0</div>
-                        <p class="release-date">Released: March 5, 2026</p>
+                        <div class="version" data-v>v{v}</div>
+                        <p class="release-date" id="release-date">Released: March 5, 2026</p>
                         <div class="download-links">
-                            <a href="https://github.com/tradik/mddb/releases/download/v2.7.0/mddbd-linux-amd64"
+                            <a href="#" data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-linux-amd64"
                                 class="download-link">
                                 <span class="platform">Linux AMD64</span>
                                 <span class="size">~29MB</span>
                             </a>
-                            <a href="https://github.com/tradik/mddb/releases/download/v2.7.0/mddbd-linux-arm64"
+                            <a href="#" data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-linux-arm64"
                                 class="download-link">
                                 <span class="platform">Linux ARM64</span>
                                 <span class="size">~29MB</span>
                             </a>
-                            <a href="https://github.com/tradik/mddb/releases/download/v2.7.0/mddbd-darwin-amd64"
+                            <a href="#" data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-darwin-amd64"
                                 class="download-link">
                                 <span class="platform">macOS AMD64</span>
                                 <span class="size">~29MB</span>
                             </a>
-                            <a href="https://github.com/tradik/mddb/releases/download/v2.7.0/mddbd-darwin-arm64"
+                            <a href="#" data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-darwin-arm64"
                                 class="download-link">
                                 <span class="platform">macOS ARM64</span>
                                 <span class="size">~29MB</span>
                             </a>
-                            <a href="https://github.com/tradik/mddb/releases/download/v2.7.0/mddbd-freebsd-amd64"
+                            <a href="#" data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-freebsd-amd64"
                                 class="download-link">
                                 <span class="platform">FreeBSD AMD64</span>
                                 <span class="size">~29MB</span>
                             </a>
                         </div>
                         <div class="package-links">
-                            <a href="https://github.com/tradik/mddb/releases/download/v2.7.0/mddb_2.7.0_amd64.deb"
+                            <a href="#" data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddb_{v}_amd64.deb"
                                 class="package-link">
                                 📦 Debian/Ubuntu (.deb)
                             </a>
-                            <a href="https://github.com/tradik/mddb/releases/download/v2.7.0/mddb-2.7.0-1.x86_64.rpm"
+                            <a href="#" data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddb-{v}-1.x86_64.rpm"
                                 class="package-link">
                                 📦 RedHat/CentOS (.rpm)
                             </a>
@@ -426,16 +431,16 @@ make build
                     </div>
                     <div class="download-card">
                         <h3>Docker Image</h3>
-                        <div class="version">tradik/mddb:2.7.0</div>
+                        <div class="version" data-v>tradik/mddb:{v}</div>
                         <p class="release-date">Alpine-based (~29MB)</p>
-                        <pre><code>docker pull tradik/mddb:latest
-docker pull tradik/mddb:2.7.0</code></pre>
+                        <pre><code id="docker-pull-code">docker pull tradik/mddb:latest
+docker pull tradik/mddb:2.7.1</code></pre>
                         <a href="https://hub.docker.com/r/tradik/mddb" class="btn btn-secondary" target="_blank"
                             rel="noopener">View on Docker Hub</a>
                     </div>
                 </div>
                 <div class="release-notes">
-                    <h3>What's New in v2.7.0</h3>
+                    <h3 id="whats-new-header">What's New in v2.7.1</h3>
                     <ul>
                         <li>✏️ <strong>Partial Document Update</strong> - <code>PATCH /v1/update</code> to update metadata and/or content independently without re-sending entire document</li>
                         <li>📋 <strong>Document Metadata Read</strong> - <code>GET /v1/doc-meta</code> lightweight endpoint returning only metadata (no content transfer)</li>
@@ -872,7 +877,7 @@ graph LR
                 <div class="footer-section">
                     <h4>MDDB</h4>
                     <p>AI-native knowledge base</p>
-                    <p class="footer-version">Version 2.7.0</p>
+                    <p class="footer-version" id="footer-version">Version 2.7.1</p>
                 </div>
                 <div class="footer-section">
                     <h4>Documentation</h4>
@@ -912,6 +917,32 @@ graph LR
     </footer>
 
     <script defer>
+        // Single source of truth for version — change here to update everywhere
+        const MDDB_VERSION = '2.7.1';
+        const MDDB_RELEASE_DATE = 'March 10, 2026';
+
+        // Replace all version references in the page
+        document.querySelectorAll('[data-v]').forEach(el => {
+            el.textContent = el.textContent.replace(/\{v\}/g, MDDB_VERSION);
+        });
+        document.querySelectorAll('[data-v-href]').forEach(el => {
+            el.setAttribute('href', el.getAttribute('data-v-href').replace(/\{v\}/g, MDDB_VERSION));
+        });
+        const rdEl = document.getElementById('release-date');
+        if (rdEl) rdEl.textContent = 'Released: ' + MDDB_RELEASE_DATE;
+        // Update docker pull code block
+        const dpEl = document.getElementById('docker-pull-code');
+        if (dpEl) dpEl.textContent = 'docker pull tradik/mddb:latest\ndocker pull tradik/mddb:' + MDDB_VERSION;
+        // Update binary download code block
+        const bdEl = document.getElementById('binary-download-code');
+        if (bdEl) bdEl.textContent = '# Download binary\nwget https://github.com/tradik/mddb/releases/download/v' + MDDB_VERSION + '/mddbd-linux-amd64\nchmod +x mddbd-linux-amd64\n\n# Run server\n./mddbd-linux-amd64\n\n# Server starts on http://localhost:11023';
+        // Update "What's New" header
+        const wnEl = document.getElementById('whats-new-header');
+        if (wnEl) wnEl.textContent = "What's New in v" + MDDB_VERSION;
+        // Update footer version
+        const fvEl = document.getElementById('footer-version');
+        if (fvEl) fvEl.textContent = 'Version ' + MDDB_VERSION;
+
         // Mobile menu toggle
         document.querySelector('.mobile-menu-toggle').addEventListener('click', function () {
             const isExpanded = this.getAttribute('aria-expanded') === 'true';

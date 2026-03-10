@@ -1,0 +1,176 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net/http"
+	"strings"
+	"time"
+
+	json "github.com/goccy/go-json"
+	proto "mddb/proto"
+)
+
+// ---- HTTP types for /v1/add-batch ----
+
+type AddBatchHTTPRequest struct {
+	Collection string              `json:"collection"`
+	Documents  []AddBatchDocument  `json:"documents"`
+}
+
+type AddBatchDocument struct {
+	Key          string              `json:"key"`
+	Lang         string              `json:"lang"`
+	Meta         map[string][]string `json:"meta,omitempty"`
+	ContentMD    string              `json:"contentMd"`
+	SaveRevision bool                `json:"saveRevision,omitempty"`
+}
+
+type AddBatchHTTPResponse struct {
+	Added   int      `json:"added"`
+	Updated int      `json:"updated"`
+	Failed  int      `json:"failed"`
+	Errors  []string `json:"errors,omitempty"`
+}
+
+// handleAddBatch handles POST /v1/add-batch
+func (s *Server) handleAddBatch(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req AddBatchHTTPRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		bad(w, err)
+		return
+	}
+	if req.Collection == "" {
+		bad(w, errors.New("missing collection"))
+		return
+	}
+	if len(req.Documents) == 0 {
+		ok(w, AddBatchHTTPResponse{})
+		return
+	}
+
+	// Convert to proto BatchDocument
+	protoDocs := make([]*proto.BatchDocument, len(req.Documents))
+	for i, d := range req.Documents {
+		protoDocs[i] = &proto.BatchDocument{
+			Key:          d.Key,
+			Lang:         d.Lang,
+			Meta:         toProtoMeta(d.Meta),
+			ContentMd:    d.ContentMD,
+			SaveRevision: d.SaveRevision,
+		}
+	}
+
+	// Process batch
+	resp, processed, err := s.processBatchWithDocs(r.Context(), req.Collection, protoDocs)
+	if err != nil {
+		bad(w, err)
+		return
+	}
+
+	// Fire post-batch hooks
+	s.firePostBatchHooks(req.Collection, processed, postBatchOptions{})
+
+	s.Metrics.IncOp("add_batch")
+
+	ok(w, AddBatchHTTPResponse{
+		Added:   int(resp.Added),
+		Updated: int(resp.Updated),
+		Failed:  int(resp.Failed),
+		Errors:  resp.Errors,
+	})
+}
+
+// postBatchOptions controls which post-commit hooks to fire.
+type postBatchOptions struct {
+	SkipEmbeddings bool
+	SkipFTS        bool
+	SkipWebhooks   bool
+}
+
+// processBatchWithDocs runs the batch processor and returns both the response and processed docs.
+func (s *Server) processBatchWithDocs(ctx context.Context, collection string, protoDocs []*proto.BatchDocument) (*proto.AddBatchResponse, []*ProcessedDoc, error) {
+	now := time.Now().Unix()
+
+	var resp *proto.AddBatchResponse
+	var processed []*ProcessedDoc
+	var err error
+
+	if s.UseExtreme && s.finalBatchProcessor != nil {
+		// FinalBatchProcessor: single read tx → parallel marshal → single write tx
+		existingMap := s.finalBatchProcessor.batchReadAll(collection, protoDocs)
+		processed = s.finalBatchProcessor.parallelMarshal(ctx, collection, protoDocs, existingMap, now)
+		resp = s.finalBatchProcessor.commitBatch(collection, processed, now)
+	} else {
+		bp := NewBatchProcessor(s, 8)
+		processed = bp.parallelProcess(ctx, collection, protoDocs, now)
+		resp = bp.commitBatch(collection, processed, now)
+	}
+
+	if resp.Failed == int32(len(protoDocs)) && len(resp.Errors) > 0 {
+		err = fmt.Errorf("all documents failed: %s", resp.Errors[0])
+	}
+
+	return resp, processed, err
+}
+
+// firePostBatchHooks fires embedding, FTS, webhook, TTL, and automation hooks
+// for all successfully processed documents after batch commit.
+func (s *Server) firePostBatchHooks(collection string, processed []*ProcessedDoc, opts postBatchOptions) {
+	for _, p := range processed {
+		if p.Error != nil {
+			continue
+		}
+
+		// Embedding
+		if !opts.SkipEmbeddings && s.EmbeddingWorker != nil && p.Doc.ContentMD != "" {
+			s.EmbeddingWorker.Enqueue(EmbeddingJob{
+				Collection: collection,
+				DocID:      p.DocID,
+				ContentMD:  p.Doc.ContentMD,
+			})
+		}
+
+		// TTL
+		if s.TTLManager != nil && p.Doc.ExpiresAt > 0 {
+			_ = s.TTLManager.Set(collection, p.DocID, p.Doc.ExpiresAt)
+		}
+
+		// FTS indexing
+		if !opts.SkipFTS && s.FTSIndex != nil && p.Doc.ContentMD != "" {
+			_ = s.FTSIndex.Index(collection, p.DocID, p.Doc.ContentMD)
+			fields := map[string]string{"content": p.Doc.ContentMD}
+			for k, vals := range p.Doc.Meta {
+				if len(vals) > 0 {
+					fields["meta."+k] = strings.Join(vals, " ")
+				}
+			}
+			_ = s.FTSIndex.IndexFields(collection, p.DocID, fields)
+		}
+
+		// Webhooks
+		if !opts.SkipWebhooks && s.WebhookManager != nil {
+			event := "doc.updated"
+			if !p.IsUpdate {
+				event = "doc.added"
+			}
+			s.WebhookManager.Fire(event, collection, p.Doc.Key, p.Doc.Lang, &p.Doc)
+		}
+
+		// Automation triggers
+		if s.AutomationManager != nil && env("MDDB_TRIGGERS", "false") == "true" {
+			triggerEvent := "insert"
+			if p.IsUpdate {
+				triggerEvent = "update"
+			}
+			go s.AutomationManager.EvaluateTriggers(collection, p.Doc, triggerEvent)
+		}
+	}
+}
+

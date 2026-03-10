@@ -228,6 +228,8 @@ type MutationResolver interface {
 	UpdateDocument(ctx context.Context, input UpdateDocumentInput) (*Document, error)
 	DeleteDocument(ctx context.Context, collection string, key string, lang string) (bool, error)
 	DeleteCollection(ctx context.Context, collection string) (int, error)
+	AddBatch(ctx context.Context, collection string, documents []*AddBatchDocumentInput) (*BatchAddResult, error)
+	IngestDocuments(ctx context.Context, collection string, documents []*IngestDocumentInput, options *IngestOptionsInput) (*IngestResult, error)
 	VectorReindex(ctx context.Context, collection string, force *bool) (*VectorStats, error)
 	SetTTL(ctx context.Context, collection string, key string, lang string, ttl int) (*Document, error)
 	ImportURL(ctx context.Context, collection string, url string, key *string, lang string, meta []*MetaInput, ttl *int) (*Document, error)

@@ -86,6 +86,36 @@ class MDDB:
             'lang': lang,
         })
 
+    # --- Batch operations ---
+
+    def add_batch(self, documents: list) -> dict:
+        """Add/update multiple documents in a single batch.
+        Each document should be a dict with keys: key, lang, contentMd, meta (optional).
+        """
+        if self._mode == 'read':
+            raise RuntimeError('read-only client')
+        return self._post('/add-batch', {
+            'collection': self._collection,
+            'documents': documents,
+        })
+
+    def ingest(self, documents: list, options: dict = None) -> dict:
+        """Bulk ingest documents with URL key derivation, frontmatter extraction, and dedup.
+        Each document should be a dict with keys: url, key (optional), lang, contentMd,
+        meta (optional), extractFrontmatter (optional), scrapedAt (optional), scraper (optional).
+        Options: skipDuplicates, skipEmbeddings, skipFts, skipWebhooks,
+                 autoConfigureCollection, saveRevision.
+        """
+        if self._mode == 'read':
+            raise RuntimeError('read-only client')
+        payload = {
+            'collection': self._collection,
+            'documents': documents,
+        }
+        if options:
+            payload['options'] = options
+        return self._post('/ingest', payload)
+
     # --- Vector search ---
 
     def vector_search(self, query: str, top_k: int = 5, threshold: float = 0.0,

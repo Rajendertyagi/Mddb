@@ -27,7 +27,7 @@ export default function LoginForm({ onSuccess }) {
       <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
         <div className="text-center mb-6">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">MDDB</h1>
-          <p className="text-gray-600">Markdown Database Admin Panel</p>
+          <p className="text-gray-600">AI-Native Document Database</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

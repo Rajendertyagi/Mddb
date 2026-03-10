@@ -159,6 +159,9 @@ service MDDB {
   // Find duplicate documents in a collection
   rpc FindDuplicates(FindDuplicatesRequest) returns (FindDuplicatesResponse);
 
+  // Bulk ingest documents with URL key derivation, frontmatter extraction, and deduplication
+  rpc Ingest(IngestRequest) returns (IngestResponse);
+
   // List revision history for a document
   rpc ListRevisions(ListRevisionsRequest) returns (ListRevisionsResponse);
 
@@ -973,6 +976,45 @@ message FindDuplicatesResponse {
   repeated DuplicateGroupProto similar_groups = 8;
   int32 exact_duplicates = 9;
   int32 similar_pairs = 10;
+}
+
+// --- Bulk Ingest ---
+
+message IngestDocument {
+  string url = 1;                          // Source URL (key derived if key is empty)
+  string key = 2;                          // Explicit key (overrides URL derivation)
+  string lang = 3;
+  string content_md = 4;
+  map<string, MetaValues> meta = 5;
+  bool extract_frontmatter = 6;           // Parse YAML frontmatter from content_md
+  int64 scraped_at = 7;                   // Unix timestamp of when content was collected
+  string scraper = 8;                     // Source identifier (e.g. scraper name)
+  int64 ttl = 9;                          // Optional TTL in seconds
+}
+
+message IngestOptions {
+  bool skip_duplicates = 1;               // Skip documents whose content hash matches existing
+  bool skip_embeddings = 2;               // Skip async embedding generation
+  bool skip_fts = 3;                      // Skip FTS indexing
+  bool skip_webhooks = 4;                 // Skip webhook firing
+  bool auto_configure_collection = 5;     // Auto-set collection config to type="scraping"
+  bool save_revision = 6;                 // Save revision for all documents
+}
+
+message IngestRequest {
+  string collection = 1;
+  repeated IngestDocument documents = 2;
+  IngestOptions options = 3;
+}
+
+message IngestResponse {
+  int32 added = 1;
+  int32 updated = 2;
+  int32 skipped = 3;                      // Documents skipped due to deduplication
+  int32 failed = 4;
+  repeated string errors = 5;
+  string collection = 6;
+  int64 duration_ms = 7;
 }
 
 // --- Revisions ---

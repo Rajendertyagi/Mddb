@@ -586,6 +586,49 @@ type MCPToolCallRequest struct {
 	Arguments map[string]interface{} `json:"arguments"`
 }
 
+// --- Bulk Ingest Types ---
+
+// MCPIngestDocument represents a document in an ingest operation.
+type MCPIngestDocument struct {
+	URL                string              `json:"url"`
+	Key                string              `json:"key,omitempty"`
+	Lang               string              `json:"lang"`
+	ContentMD          string              `json:"content_md"`
+	Meta               map[string][]string `json:"meta,omitempty"`
+	ExtractFrontmatter bool                `json:"extract_frontmatter,omitempty"`
+	ScrapedAt          int64               `json:"scraped_at,omitempty"`
+	Scraper            string              `json:"scraper,omitempty"`
+	TTL                int64               `json:"ttl,omitempty"`
+}
+
+// MCPIngestOptions represents options for ingest operation.
+type MCPIngestOptions struct {
+	SkipDuplicates          bool `json:"skip_duplicates,omitempty"`
+	SkipEmbeddings          bool `json:"skip_embeddings,omitempty"`
+	SkipFTS                 bool `json:"skip_fts,omitempty"`
+	SkipWebhooks            bool `json:"skip_webhooks,omitempty"`
+	AutoConfigureCollection bool `json:"auto_configure_collection,omitempty"`
+	SaveRevision            bool `json:"save_revision,omitempty"`
+}
+
+// MCPIngestRequest represents request to ingest multiple documents.
+type MCPIngestRequest struct {
+	Collection string              `json:"collection"`
+	Documents  []MCPIngestDocument `json:"documents"`
+	Options    MCPIngestOptions    `json:"options,omitempty"`
+}
+
+// MCPIngestResponse represents result of ingest operation.
+type MCPIngestResponse struct {
+	Added      int      `json:"added"`
+	Updated    int      `json:"updated"`
+	Skipped    int      `json:"skipped"`
+	Failed     int      `json:"failed"`
+	Errors     []string `json:"errors,omitempty"`
+	Collection string   `json:"collection"`
+	DurationMs int64    `json:"duration_ms"`
+}
+
 // --- MCP Client Interface ---
 
 // MCPClient is the interface for MCP to access MDDB operations.
@@ -652,6 +695,8 @@ type MCPClient interface {
 	CrossSearch(ctx context.Context, req *MCPCrossSearchRequest) (*MCPCrossSearchResponse, error)
 	// Duplicate detection
 	FindDuplicates(ctx context.Context, req *MCPFindDuplicatesRequest) (*MCPFindDuplicatesResponse, error)
+	// Bulk ingest
+	Ingest(ctx context.Context, req *MCPIngestRequest) (*MCPIngestResponse, error)
 	Close() error
 }
 

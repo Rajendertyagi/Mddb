@@ -256,6 +256,54 @@ input CreateAPIKeyInput {
   expiresAt: Time
 }
 
+# Batch add result
+type BatchAddResult {
+  added: Int!
+  updated: Int!
+  failed: Int!
+  errors: [String!]
+}
+
+# Ingest types
+input IngestDocumentInput {
+  url: String
+  key: String
+  lang: String!
+  contentMd: String!
+  meta: [MetaInput!]
+  extractFrontmatter: Boolean
+  scrapedAt: Int
+  scraper: String
+  ttl: Int
+}
+
+input IngestOptionsInput {
+  skipDuplicates: Boolean
+  skipEmbeddings: Boolean
+  skipFts: Boolean
+  skipWebhooks: Boolean
+  autoConfigureCollection: Boolean
+  saveRevision: Boolean
+}
+
+type IngestResult {
+  added: Int!
+  updated: Int!
+  skipped: Int!
+  failed: Int!
+  errors: [String!]
+  collection: String!
+  durationMs: Int!
+}
+
+input AddBatchDocumentInput {
+  key: String!
+  lang: String!
+  contentMd: String!
+  meta: [MetaInput!]
+  saveRevision: Boolean
+}
+
 # Queries
 type Query {
   # Document operations
@@ -295,6 +343,10 @@ type Mutation {
   updateDocument(input: UpdateDocumentInput!): Document! @auth
   deleteDocument(collection: String!, key: String!, lang: String!): Boolean! @auth
   deleteCollection(collection: String!): Int! @auth
+
+  # Batch operations
+  addBatch(collection: String!, documents: [AddBatchDocumentInput!]!): BatchAddResult! @auth
+  ingestDocuments(collection: String!, documents: [IngestDocumentInput!]!, options: IngestOptionsInput): IngestResult! @auth
 
   # Vector operations
   vectorReindex(collection: String!, force: Boolean): VectorStats! @auth

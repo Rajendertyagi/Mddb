@@ -99,8 +99,8 @@ export default function Sidebar({ stats, statsError, onStatsRefresh, onCollapse 
     <button
       onClick={() => setViewMode(mode)}
       className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${viewMode === mode
-          ? 'bg-blue-100 text-blue-700'
-          : 'text-gray-700 hover:bg-gray-100'
+        ? 'bg-blue-100 text-blue-700'
+        : 'text-gray-700 hover:bg-gray-100'
         }`}
     >
       <Icon className="w-4 h-4" />
@@ -232,8 +232,8 @@ export default function Sidebar({ stats, statsError, onStatsRefresh, onCollapse 
               <div
                 key={collection.name}
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors group ${currentCollection === collection.name
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-700 hover:bg-gray-100'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'text-gray-700 hover:bg-gray-100'
                   }`}
               >
                 <button
@@ -315,7 +315,7 @@ export default function Sidebar({ stats, statsError, onStatsRefresh, onCollapse 
       {/* Version Footer */}
       <div className="px-4 py-2 border-t border-gray-200 text-center">
         <span className="text-[10px] text-gray-400">
-          Server v{config?.version || '...'} · Panel v2.7.0
+          Server v{config?.version || '...'} · Panel v2.7.1
         </span>
       </div>
 

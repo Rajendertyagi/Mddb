@@ -61,7 +61,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: "2.7.0"
+  version: "2.7.1"
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -237,6 +237,143 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /v1/add-batch:
+    post:
+      tags:
+        - Documents
+      summary: Batch add documents
+      description: |
+        Add multiple documents to a collection in a single request. Uses the optimized batch processor for high throughput.
+        Fires all post-commit hooks (embedding, FTS indexing, webhooks, TTL, automation triggers).
+      operationId: addBatch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddBatchRequest"
+      responses:
+        "200":
+          description: Batch result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddBatchResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Read-only mode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/ingest:
+    post:
+      tags:
+        - Documents
+      summary: Bulk ingest documents
+      description: |
+        Advanced bulk ingest endpoint for scraping pipelines and data import workflows.
+        Supports URL key derivation, YAML frontmatter extraction, content deduplication,
+        auto-metadata injection, and collection auto-configuration.
+      operationId: ingestDocuments
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IngestRequest"
+      responses:
+        "200":
+          description: Ingest result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Read-only mode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/upload:
+    post:
+      tags:
+        - Documents
+      summary: Upload files with auto-conversion to Markdown
+      description: |
+        Upload files (PDF, DOCX, HTML, TXT, Markdown) via multipart/form-data. Files are auto-converted
+        to Markdown and stored as documents. Supports single and batch upload.
+
+        Supported formats: `.md`, `.txt`, `.html`, `.pdf`, `.docx`.
+        Default (md/txt) is stored as-is with frontmatter extraction; others are converted.
+      operationId: uploadFile
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - collection
+                - lang
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Single file to upload
+                "files[]":
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: Multiple files to upload
+                collection:
+                  type: string
+                  description: Target collection name
+                lang:
+                  type: string
+                  description: Document language code (e.g. en_US)
+                key:
+                  type: string
+                  description: Document key (derived from filename if empty)
+                meta:
+                  type: string
+                  description: JSON-encoded metadata map
+                ttl:
+                  type: integer
+                  description: Time-to-live in seconds
+                maxSize:
+                  type: integer
+                  description: Per-file size limit in bytes (default 10MB, max 100MB)
+      responses:
+        "200":
+          description: File(s) uploaded and stored
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/UploadResponse"
+                  - $ref: "#/components/schemas/UploadBatchResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /v1/get:
     post:
       tags:
@@ -343,6 +480,76 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "403":
           description: Read-only mode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/delete-batch:
+    post:
+      tags:
+        - Documents
+      summary: Batch delete documents
+      description: Delete multiple documents in a single request
+      operationId: deleteDocumentsBatch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - collection
+                - documents
+              properties:
+                collection:
+                  type: string
+                  description: Target collection
+                  example: blog
+                documents:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      key:
+                        type: string
+                      lang:
+                        type: string
+                  example:
+                    - key: post-1
+                      lang: en
+                    - key: post-2
+                      lang: en
+      responses:
+        "200":
+          description: Batch delete result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: integer
+                    example: 2
+                  not_found:
+                    type: integer
+                    example: 0
+                  failed:
+                    type: integer
+                    example: 0
+                  errors:
+                    type: array
+                    items:
+                      type: string
+                    nullable: true
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
           content:
             application/json:
               schema:
@@ -3190,6 +3397,205 @@ components:
           description: Markdown content
           example: "# Hello World\n\nWelcome to MDDB!"
 
+    AddBatchRequest:
+      type: object
+      required:
+        - collection
+        - documents
+      properties:
+        collection:
+          type: string
+          description: Collection name
+          example: blog
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/AddBatchDocument"
+          description: Documents to add
+
+    AddBatchDocument:
+      type: object
+      required:
+        - key
+        - lang
+        - contentMd
+      properties:
+        key:
+          type: string
+          description: Document key
+          example: post1
+        lang:
+          type: string
+          description: Language code
+          example: en
+        contentMd:
+          type: string
+          description: Markdown content
+          example: "# Hello World"
+        meta:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Metadata key-value pairs
+          example:
+            category: [blog]
+        saveRevision:
+          type: boolean
+          description: Whether to save a revision
+          default: false
+
+    AddBatchResponse:
+      type: object
+      properties:
+        added:
+          type: integer
+          description: Number of documents added
+          example: 2
+        updated:
+          type: integer
+          description: Number of documents updated
+          example: 0
+        failed:
+          type: integer
+          description: Number of documents that failed
+          example: 0
+        errors:
+          type: array
+          items:
+            type: string
+          description: Error messages for failed documents
+
+    IngestRequest:
+      type: object
+      required:
+        - collection
+        - documents
+      properties:
+        collection:
+          type: string
+          description: Collection name
+          example: imported
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/IngestDocument"
+          description: Documents to ingest
+        options:
+          $ref: "#/components/schemas/IngestOptions"
+
+    IngestDocument:
+      type: object
+      required:
+        - lang
+        - contentMd
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Source URL (used for key derivation and auto-injected as source_url metadata)
+          example: https://example.com/page1
+        key:
+          type: string
+          description: Document key (derived from URL if empty)
+          example: page1
+        lang:
+          type: string
+          description: Language code
+          example: en
+        contentMd:
+          type: string
+          description: Markdown content
+          example: "# Page 1\n\nContent here."
+        meta:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Metadata key-value pairs
+        extractFrontmatter:
+          type: boolean
+          description: Parse YAML frontmatter from content and merge into metadata
+          default: false
+        scrapedAt:
+          type: integer
+          format: int64
+          description: Unix timestamp of when the content was scraped (auto-injected as scraped_at metadata)
+          example: 1709500000
+        scraper:
+          type: string
+          description: Scraper identifier (auto-injected as scraper metadata)
+          example: my-crawler
+        ttl:
+          type: integer
+          format: int64
+          description: Time-to-live in seconds
+          example: 86400
+
+    IngestOptions:
+      type: object
+      properties:
+        skipDuplicates:
+          type: boolean
+          description: Skip documents whose content hasn't changed (CRC32 hash comparison)
+          default: false
+        skipEmbeddings:
+          type: boolean
+          description: Skip embedding generation for this batch
+          default: false
+        skipFts:
+          type: boolean
+          description: Skip FTS indexing for this batch
+          default: false
+        skipWebhooks:
+          type: boolean
+          description: Skip webhook firing for this batch
+          default: false
+        autoConfigureCollection:
+          type: boolean
+          description: Auto-configure collection as "scraping" type if it doesn't exist
+          default: false
+        saveRevision:
+          type: boolean
+          description: Save revision history for all documents in this batch
+          default: false
+
+    IngestResponse:
+      type: object
+      properties:
+        added:
+          type: integer
+          description: Number of documents added
+          example: 2
+        updated:
+          type: integer
+          description: Number of documents updated
+          example: 0
+        skipped:
+          type: integer
+          description: Number of documents skipped (deduplication)
+          example: 0
+        failed:
+          type: integer
+          description: Number of documents that failed
+          example: 0
+        errors:
+          type: array
+          items:
+            type: string
+          description: Error messages for failed documents
+        collection:
+          type: string
+          description: Collection name
+          example: imported
+        durationMs:
+          type: integer
+          format: int64
+          description: Total processing time in milliseconds
+          example: 45
+
     GetRequest:
       type: object
       required:
@@ -4145,6 +4551,39 @@ components:
           description: Error message
           example: document not found
 
+    UploadResponse:
+      type: object
+      properties:
+        key:
+          type: string
+          description: Document key
+        format:
+          type: string
+          description: Detected file format (md, txt, html, pdf, docx)
+        converted:
+          type: boolean
+          description: Whether the file was converted to markdown
+        document:
+          $ref: "#/components/schemas/Document"
+
+    UploadBatchResponse:
+      type: object
+      properties:
+        added:
+          type: integer
+        updated:
+          type: integer
+        failed:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: string
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/UploadResponse"
+
     SynonymRequest:
       type: object
       required:
@@ -4286,7 +4725,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.7.0
+          example: 2.7.1
         uptimeSeconds:
           type: integer
           format: int64
@@ -4350,7 +4789,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.7.0
+          example: 2.7.1
         databasePath:
           type: string
           description: Path to the database file

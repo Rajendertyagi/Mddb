@@ -45,6 +45,9 @@ class MDDBClient {
 
       return await response.json();
     } catch (error) {
+      if (error.name === 'AbortError') {
+        throw error;
+      }
       console.error('MDDB API Error:', error);
       throw error;
     }
@@ -177,7 +180,7 @@ class MDDBClient {
   /**
    * Vector/semantic search
    */
-  async vectorSearch({ collection, query, topK = 5, threshold = 0.0, filterMeta = {}, includeContent = false, algorithm = 'flat', distanceMetric = 'cosine' }) {
+  async vectorSearch({ collection, query, topK = 5, threshold = 0.0, filterMeta = {}, includeContent = false, algorithm = 'flat', distanceMetric = 'cosine', signal }) {
     return this.request('/vector-search', {
       method: 'POST',
       body: JSON.stringify({
@@ -190,6 +193,7 @@ class MDDBClient {
         algorithm,
         distanceMetric,
       }),
+      signal,
     });
   }
 
@@ -250,7 +254,7 @@ class MDDBClient {
   /**
    * Full-text search
    */
-  async ftsSearch({ collection, query, limit = 50, algorithm = 'tfidf', fuzzy = 0, disableStem = false, disableSynonyms = false, fieldWeights = null, filterMeta = {} }) {
+  async ftsSearch({ collection, query, limit = 50, algorithm = 'tfidf', fuzzy = 0, disableStem = false, disableSynonyms = false, fieldWeights = null, filterMeta = {}, signal }) {
     const body = { collection, query, limit, algorithm, fuzzy, disableStem, disableSynonyms };
     if (filterMeta && Object.keys(filterMeta).length > 0) {
       body.filterMeta = filterMeta;
@@ -261,6 +265,7 @@ class MDDBClient {
     return this.request('/fts', {
       method: 'POST',
       body: JSON.stringify(body),
+      signal,
     });
   }
 
@@ -274,7 +279,7 @@ class MDDBClient {
   /**
    * Hybrid search (sparse + dense)
    */
-  async hybridSearch({ collection, query, topK = 10, algorithm = 'bm25', vectorAlgorithm = 'flat', alpha = 0.5, strategy = 'alpha', rrfK = 60, fuzzy = 0, threshold = 0.0, filterMeta = {}, includeContent = false, distanceMetric = 'cosine' }) {
+  async hybridSearch({ collection, query, topK = 10, algorithm = 'bm25', vectorAlgorithm = 'flat', alpha = 0.5, strategy = 'alpha', rrfK = 60, fuzzy = 0, threshold = 0.0, filterMeta = {}, includeContent = false, distanceMetric = 'cosine', signal }) {
     return this.request('/hybrid-search', {
       method: 'POST',
       body: JSON.stringify({
@@ -292,6 +297,7 @@ class MDDBClient {
         includeContent,
         distanceMetric,
       }),
+      signal,
     });
   }
 
@@ -718,11 +724,50 @@ class MDDBClient {
   /**
    * Cross-collection semantic search
    */
-  async crossSearch(params) {
+  async crossSearch(params, { signal } = {}) {
     return this.request('/cross-search', {
       method: 'POST',
       body: JSON.stringify(params),
+      signal,
     });
+  }
+
+  /**
+   * Upload files via multipart/form-data (supports md/txt/html/pdf/docx)
+   */
+  async uploadFile({ files, collection, lang, key, signal }) {
+    const url = `${this.baseUrl}/upload`;
+    const token = authManager.getToken();
+
+    const formData = new FormData();
+    if (Array.isArray(files)) {
+      files.forEach((f) => formData.append('files[]', f));
+    } else {
+      formData.append('file', files);
+    }
+    if (collection) formData.append('collection', collection);
+    if (lang) formData.append('lang', lang);
+    if (key) formData.append('key', key);
+
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formData,
+      signal,
+    });
+
+    if (response.status === 401) {
+      const error = await response.text();
+      throw new Error(`Unauthorized: ${error}`);
+    }
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Upload Error (${response.status}): ${error}`);
+    }
+    return response.json();
   }
 
   async getRevisions({ collection, key, lang }) {

@@ -23,7 +23,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-const VERSION = "2.7.0"
+const VERSION = "2.7.1"
 
 type AccessMode string
 
@@ -79,6 +79,8 @@ type Server struct {
 	NodeID          string             // Unique node identifier
 	replServer      *ReplicationServer // Leader-side gRPC replication service
 	replClient      *ReplicationClient // Follower-side replication client
+	// Readiness
+	Ready bool // Set to true after full initialization; health check returns "warming_up" until then
 }
 
 // BucketNames caches bucket name byte slices to avoid repeated allocations
@@ -209,6 +211,26 @@ func main() {
 		UseExtreme:    useExtreme,
 	}
 	s.IndexQueue.server = s // Set server reference
+
+	// Start early health-only HTTP server so clients can poll readiness during init.
+	// This server is shut down gracefully before the main HTTP server starts.
+	var earlyServer *http.Server
+	if srvCfg.HTTP.Enabled {
+		earlyMux := http.NewServeMux()
+		earlyMux.HandleFunc("/health", s.handleHealth)
+		earlyMux.HandleFunc("/v1/health", s.handleHealth)
+		earlyServer = &http.Server{
+			Addr:              srvCfg.HTTP.Addr,
+			Handler:           earlyMux,
+			ReadHeaderTimeout: 5 * time.Second,
+		}
+		go func() {
+			if err := earlyServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.Printf("Early health server: %v", err)
+			}
+		}()
+		log.Printf("Health endpoint available on %s (warming up...)", srvCfg.HTTP.Addr)
+	}
 
 	// Initialize extreme performance features
 	if useExtreme {
@@ -524,6 +546,8 @@ func main() {
 	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/v1/health", s.handleHealth)
 	mux.HandleFunc("/v1/add", s.guardWrite(s.handleAdd))
+	mux.HandleFunc("/v1/add-batch", s.guardWrite(s.handleAddBatch))
+	mux.HandleFunc("/v1/ingest", s.guardWrite(s.handleIngest))
 	mux.HandleFunc("/v1/get", s.handleGet)
 	mux.HandleFunc("/v1/search", s.handleSearch)
 	mux.HandleFunc("/v1/export", s.handleExport)
@@ -531,6 +555,7 @@ func main() {
 	mux.HandleFunc("/v1/restore", s.guardWrite(s.handleRestore))
 	mux.HandleFunc("/v1/truncate", s.guardWrite(s.handleTruncate))
 	mux.HandleFunc("/v1/delete", s.guardWrite(s.handleDelete))
+	mux.HandleFunc("/v1/delete-batch", s.guardWrite(s.handleDeleteBatch))
 	mux.HandleFunc("/v1/delete-collection", s.guardWrite(s.handleDeleteCollection))
 	mux.HandleFunc("/v1/stats", s.handleStats)
 	mux.HandleFunc("/v1/vector-search", s.handleVectorSearch)
@@ -539,6 +564,7 @@ func main() {
 	mux.HandleFunc("/v1/embedding-configs", s.handleEmbeddingConfigs)
 	mux.HandleFunc("/v1/embedding-configs/", s.handleEmbeddingConfigDetail)
 	mux.HandleFunc("/v1/embedding-configs/set-default", s.guardWrite(s.handleSetDefaultEmbeddingConfig))
+	mux.HandleFunc("/v1/upload", s.guardWrite(s.handleUpload))
 	mux.HandleFunc("/v1/import-url", s.guardWrite(s.handleImportURL))
 	mux.HandleFunc("/v1/set-ttl", s.guardWrite(s.handleSetTTL))
 	mux.HandleFunc("/v1/fts", s.handleFTS)
@@ -635,6 +661,16 @@ func main() {
 	if panelMode == "external" {
 		log.Printf("Panel mode: external (CORS disabled, panel proxies requests)")
 	}
+
+	// Shut down early health server before starting the main one
+	if earlyServer != nil {
+		_ = earlyServer.Close()
+		time.Sleep(50 * time.Millisecond) // brief pause to release port
+	}
+
+	// Mark server as ready — health check will now return "healthy" instead of "warming_up"
+	s.Ready = true
+	log.Println("Server initialization complete — ready to serve")
 
 	// Start HTTP server
 	if srvCfg.HTTP.Enabled {
@@ -1473,6 +1509,13 @@ func bad(w http.ResponseWriter, err error) {
 
 // handleHealth returns a simple health check response
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	// Check if server has finished initialization
+	if !s.Ready {
+		w.WriteHeader(503)
+		_, _ = w.Write([]byte(`{"status":"warming_up"}`))
+		return
+	}
+
 	// Check if database is accessible
 	err := s.DB.View(func(tx *bolt.Tx) error {
 		return nil
@@ -2191,6 +2234,63 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 		"collection": req.Collection,
 		"key":        req.Key,
 		"lang":       req.Lang,
+	})
+}
+
+// handleDeleteBatch deletes multiple documents in a single request.
+func (s *Server) handleDeleteBatch(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Collection string `json:"collection"`
+		Documents  []struct {
+			Key  string `json:"key"`
+			Lang string `json:"lang"`
+		} `json:"documents"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		bad(w, err)
+		return
+	}
+	if req.Collection == "" {
+		bad(w, errors.New("missing collection"))
+		return
+	}
+	if len(req.Documents) == 0 {
+		bad(w, errors.New("missing documents"))
+		return
+	}
+
+	if s.AuthManager != nil {
+		if err := s.AuthManager.CheckPermission(r.Context(), req.Collection, PermWrite); err != nil {
+			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+			return
+		}
+	}
+
+	var deleted, notFound, failed int
+	var errs []string
+	for _, d := range req.Documents {
+		if d.Key == "" || d.Lang == "" {
+			failed++
+			errs = append(errs, "missing key or lang")
+			continue
+		}
+		if err := s.deleteDocumentInternal(req.Collection, d.Key, d.Lang); err != nil {
+			if strings.Contains(err.Error(), "not found") {
+				notFound++
+			} else {
+				failed++
+				errs = append(errs, err.Error())
+			}
+			continue
+		}
+		deleted++
+	}
+
+	ok(w, map[string]interface{}{
+		"deleted":   deleted,
+		"not_found": notFound,
+		"failed":    failed,
+		"errors":    errs,
 	})
 }
 

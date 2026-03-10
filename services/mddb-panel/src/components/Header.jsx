@@ -13,7 +13,7 @@ export default function Header({ onRefresh }) {
           <Database className="w-8 h-8 text-primary-600" />
           <div>
             <h1 className="text-xl font-bold text-gray-900">MDDB Panel</h1>
-            <p className="text-xs text-gray-500">Markdown Database Admin</p>
+            <p className="text-xs text-gray-500">AI-Native Document Database</p>
           </div>
         </div>
 

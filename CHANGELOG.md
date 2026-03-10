@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.1] - 2026-03-10
+
+### Added
+- **`POST /v1/delete-batch` endpoint** — Batch delete documents via REST API (previously only available in MCP/gRPC)
+- **MCP tools**: `list_revisions` and `restore_revision` added to builtin tool schemas and validation map
+- **MCP endpoint list**: Added missing `ingest_documents` and `upload_file` to `/v1/endpoints` MCP tools list
+- **OpenAPI spec**: Added `/v1/delete-batch` endpoint definition with full request/response schema
+
+### Fixed
+- Panel endpoint counts now correct: HTTP(78), gRPC(54), MCP(53) — previously showed HTTP(76), MCP(51)
+- MCP tool count updated from 52 to 53 across README, LLM_CONNECTIONS.md, and all documentation
+- API.md expanded with ~35 missing endpoint docs (delete-batch, delete-collection, hybrid-search, cross-search, find-duplicates, collection-config, webhooks, revisions, automation, auth endpoints, system endpoints)
+
 ## [2.7.0] - 2026-03-06
 
 ### Added
