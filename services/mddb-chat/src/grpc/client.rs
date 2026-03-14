@@ -32,7 +32,7 @@ impl MddbClient {
         let request = proto::HybridSearchRequest {
             query: query.to_string(),
             collection: collection.to_string(),
-            limit: top_k as i32,
+            top_k: top_k as i32,
             ..Default::default()
         };
 

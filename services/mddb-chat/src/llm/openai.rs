@@ -1,7 +1,6 @@
-use futures::{Stream, StreamExt};
+use futures::StreamExt;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::pin::Pin;
 
 use crate::config::LlmConfig;
 use crate::error::AppError;

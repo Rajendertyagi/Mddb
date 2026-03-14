@@ -10,7 +10,7 @@ export default defineConfig({
       formats: ['iife'],
     },
     outDir: 'dist',
-    minify: 'terser',
+    minify: 'esbuild',
     rollupOptions: {
       output: {
         entryFileNames: 'mddb-chat.min.js',

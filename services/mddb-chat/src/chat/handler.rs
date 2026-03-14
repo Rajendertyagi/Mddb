@@ -8,7 +8,7 @@ use tracing::{error, info, warn};
 use crate::chat::scenario;
 use crate::error::AppError;
 use crate::grpc::context::build_context;
-use crate::session::manager::{JoinResult, SessionManager};
+use crate::session::manager::JoinResult;
 use crate::session::types::{MessageRole, WsIncoming, WsOutgoing};
 use crate::state::AppState;
 use crate::webhook::types::WebhookPayload;

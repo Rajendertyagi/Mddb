@@ -1,7 +1,7 @@
 # Build stage
-FROM rust:1.82-alpine AS builder
+FROM rust:latest AS builder
 
-RUN apk add --no-cache musl-dev protobuf-dev protoc
+RUN apt-get update && apt-get install -y protobuf-compiler libprotobuf-dev && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -17,10 +17,10 @@ RUN sed -i 's|../../proto/|/proto/|g' build.rs
 RUN cargo build --release
 
 # Runtime stage
-FROM alpine:3.22
+FROM debian:bookworm-slim
 
-RUN apk add --no-cache ca-certificates && \
-    addgroup -S mddb && adduser -S mddb -G mddb
+RUN apt-get update && apt-get install -y ca-certificates wget && rm -rf /var/lib/apt/lists/* && \
+    groupadd -r mddb && useradd -r -g mddb mddb
 
 COPY --from=builder /app/target/release/mddb-chat /usr/local/bin/mddb-chat
 

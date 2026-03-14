@@ -101,3 +101,9 @@ services/mddb-panel/.env
 services/mddb-panel/.env.local
 services/mddb-cli/mddb-cli
 services/mddbd/mddb-server
+
+# Rust build artifacts
+services/mddb-chat/target/
+
+# Chat widget build artifacts
+services/mddb-chat-widget/dist/
