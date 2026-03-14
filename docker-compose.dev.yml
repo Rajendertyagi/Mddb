@@ -62,6 +62,40 @@ services:
 
   # MCP is built into mddbd — runs on port 9000 by default
 
+  # MDDB Chat (Rust server)
+  mddb-chat:
+    build:
+      context: .
+      dockerfile: services/mddb-chat/Dockerfile.dev
+    container_name: mddb-chat
+    ports:
+      - "11030:11030"
+    volumes:
+      - ./services/mddb-chat:/app
+      - ./proto:/proto
+    environment:
+      - MDDB_CHAT_CONFIG=/app/config.toml
+      - MDDB_CHAT_LLM_API_KEY=${MDDB_CHAT_LLM_API_KEY}
+      - RUST_LOG=mddb_chat=debug,tower_http=debug
+    networks:
+      - mddb-network
+    depends_on:
+      mddbd:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # MDDB Chat Widget (static JS)
+  mddb-chat-widget:
+    build:
+      context: .
+      dockerfile: services/mddb-chat-widget/Dockerfile
+    container_name: mddb-chat-widget
+    ports:
+      - "11032:80"
+    networks:
+      - mddb-network
+    restart: unless-stopped
+
   # Ollama (Optional - for vector embeddings)
   ollama:
     image: ollama/ollama:latest

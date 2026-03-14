@@ -1,0 +1,39 @@
+[server]
+host = "0.0.0.0"
+port = 11030
+cors_origins = ["*"]
+
+[mddb]
+grpc_addr = "http://mddbd:11024"
+default_collection = "docs"
+search_top_k = 5
+search_type = "hybrid"
+
+[llm]
+provider = "openai"
+api_url = "https://api.openai.com/v1"
+api_key = ""
+model = "gpt-4o-mini"
+max_tokens = 1024
+temperature = 0.7
+stream = true
+
+[session]
+max_concurrent = 2
+queue_size = 10
+max_history_length = 50
+session_ttl_minutes = 60
+max_response_length = 4096
+name_max_chars = 50
+
+[security]
+rate_limit_per_minute = 30
+max_message_length = 2000
+
+[scenarios.assistant]
+name = "Documentation Assistant"
+system_prompt = """You are a helpful documentation assistant for MDDB.
+Answer questions based on the provided context from the documentation.
+Be concise, accurate, and helpful. If you don't know the answer,
+say so honestly rather than making something up."""
+allowed_collections = ["docs"]

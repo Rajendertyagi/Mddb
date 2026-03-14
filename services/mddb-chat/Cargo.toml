@@ -1,0 +1,49 @@
+[package]
+name = "mddb-chat"
+version = "0.1.0"
+edition = "2024"
+description = "Chat support server for MDDB — embeddable AI assistant with RAG"
+
+[dependencies]
+# Web framework
+axum = { version = "0.8", features = ["ws"] }
+tokio = { version = "1", features = ["full"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+
+# gRPC client
+tonic = "0.12"
+prost = "0.13"
+prost-types = "0.13"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# HTTP client (LLM calls)
+reqwest = { version = "0.12", features = ["json", "stream"] }
+futures = "0.3"
+
+# Session management
+dashmap = "6"
+uuid = { version = "1", features = ["v4"] }
+
+# Security
+governor = "0.8"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Crypto (webhook signatures)
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+
+# Async utilities
+tokio-stream = "0.1"
+async-trait = "0.1"
+
+[build-dependencies]
+tonic-build = "0.12"

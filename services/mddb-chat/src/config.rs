@@ -1,0 +1,161 @@
+use serde::Deserialize;
+use std::collections::HashMap;
+use std::path::Path;
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Config {
+    pub server: ServerConfig,
+    pub mddb: MddbConfig,
+    pub llm: LlmConfig,
+    pub session: SessionConfig,
+    pub security: SecurityConfig,
+    #[serde(default)]
+    pub scenarios: HashMap<String, Scenario>,
+    #[serde(default)]
+    pub webhooks: Vec<WebhookConfig>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct ServerConfig {
+    #[serde(default = "default_host")]
+    pub host: String,
+    #[serde(default = "default_port")]
+    pub port: u16,
+    #[serde(default = "default_cors_origins")]
+    pub cors_origins: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct MddbConfig {
+    #[serde(default = "default_grpc_addr")]
+    pub grpc_addr: String,
+    #[serde(default = "default_collection")]
+    pub default_collection: String,
+    #[serde(default = "default_search_top_k")]
+    pub search_top_k: u32,
+    #[serde(default = "default_search_type")]
+    pub search_type: String,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct LlmConfig {
+    #[serde(default = "default_llm_provider")]
+    pub provider: String,
+    pub api_url: String,
+    #[serde(default)]
+    pub api_key: String,
+    pub model: String,
+    #[serde(default = "default_max_tokens")]
+    pub max_tokens: u32,
+    #[serde(default = "default_temperature")]
+    pub temperature: f32,
+    #[serde(default = "default_true")]
+    pub stream: bool,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct SessionConfig {
+    #[serde(default = "default_max_concurrent")]
+    pub max_concurrent: usize,
+    #[serde(default = "default_queue_size")]
+    pub queue_size: usize,
+    #[serde(default = "default_max_history")]
+    pub max_history_length: usize,
+    #[serde(default = "default_session_ttl")]
+    pub session_ttl_minutes: u64,
+    #[serde(default = "default_max_response_length")]
+    pub max_response_length: usize,
+    #[serde(default = "default_name_max_chars")]
+    pub name_max_chars: usize,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct SecurityConfig {
+    #[serde(default = "default_rate_limit")]
+    pub rate_limit_per_minute: u32,
+    #[serde(default = "default_max_message_length")]
+    pub max_message_length: usize,
+    #[serde(default)]
+    pub webhook_secret: String,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Scenario {
+    pub name: String,
+    pub system_prompt: String,
+    #[serde(default)]
+    pub allowed_collections: Vec<String>,
+    #[serde(default)]
+    pub temperature: Option<f32>,
+    #[serde(default)]
+    pub max_turns: Option<usize>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct WebhookConfig {
+    pub url: String,
+    pub events: Vec<String>,
+    #[serde(default)]
+    pub headers: HashMap<String, String>,
+}
+
+impl Config {
+    pub fn load(path: &Path) -> Result<Self, Box<dyn std::error::Error>> {
+        let content = std::fs::read_to_string(path)?;
+        let mut config: Config = toml::from_str(&content)?;
+
+        // Override api_key from env if empty
+        if config.llm.api_key.is_empty() {
+            if let Ok(key) = std::env::var("MDDB_CHAT_LLM_API_KEY") {
+                config.llm.api_key = key;
+            }
+        }
+
+        // Override webhook secret from env if empty
+        if config.security.webhook_secret.is_empty() {
+            if let Ok(secret) = std::env::var("MDDB_CHAT_WEBHOOK_SECRET") {
+                config.security.webhook_secret = secret;
+            }
+        }
+
+        // Ensure default scenario exists
+        if !config.scenarios.contains_key("assistant") {
+            config.scenarios.insert(
+                "assistant".to_string(),
+                Scenario {
+                    name: "Documentation Assistant".to_string(),
+                    system_prompt: "You are a helpful documentation assistant. Answer questions based on the provided context. Be concise and accurate.".to_string(),
+                    allowed_collections: vec![],
+                    temperature: None,
+                    max_turns: None,
+                },
+            );
+        }
+
+        Ok(config)
+    }
+
+    pub fn get_scenario(&self, name: &str) -> Option<&Scenario> {
+        self.scenarios.get(name)
+    }
+}
+
+fn default_host() -> String { "0.0.0.0".to_string() }
+fn default_port() -> u16 { 11030 }
+fn default_cors_origins() -> Vec<String> { vec!["*".to_string()] }
+fn default_grpc_addr() -> String { "http://localhost:11024".to_string() }
+fn default_collection() -> String { "docs".to_string() }
+fn default_search_top_k() -> u32 { 5 }
+fn default_search_type() -> String { "hybrid".to_string() }
+fn default_llm_provider() -> String { "openai".to_string() }
+fn default_max_tokens() -> u32 { 1024 }
+fn default_temperature() -> f32 { 0.7 }
+fn default_true() -> bool { true }
+fn default_max_concurrent() -> usize { 2 }
+fn default_queue_size() -> usize { 10 }
+fn default_max_history() -> usize { 50 }
+fn default_session_ttl() -> u64 { 60 }
+fn default_max_response_length() -> usize { 4096 }
+fn default_name_max_chars() -> usize { 50 }
+fn default_rate_limit() -> u32 { 30 }
+fn default_max_message_length() -> usize { 2000 }

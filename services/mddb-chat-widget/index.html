@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MDDB Chat Widget - Dev Preview</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 800px;
+      margin: 100px auto;
+      padding: 20px;
+      color: #333;
+    }
+    h1 { font-size: 24px; }
+    p { color: #666; line-height: 1.6; }
+    code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+    pre { background: #1e293b; color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; }
+    pre code { background: none; color: inherit; }
+  </style>
+</head>
+<body>
+  <h1>MDDB Chat Widget - Dev Preview</h1>
+  <p>This page demonstrates the embeddable chat widget. Click the chat icon in the bottom-right corner to open it.</p>
+  <p>The widget connects to the chat server at <code>ws://localhost:11030/ws</code>.</p>
+
+  <h2>Usage</h2>
+  <pre><code>&lt;script src="https://your-domain.com/mddb-chat.min.js"
+  data-server="wss://chat.example.com/ws"
+  data-scenario="assistant"
+  data-theme="light"
+  data-accent="#3B82F6"
+  data-position="bottom-right"&gt;
+&lt;/script&gt;</code></pre>
+
+  <script type="module" src="/src/index.ts"
+    data-server="ws://localhost:11030/ws"
+    data-scenario="assistant"
+    data-accent="#3B82F6"
+    data-position="bottom-right">
+  </script>
+</body>
+</html>
