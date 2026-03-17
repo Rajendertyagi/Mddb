@@ -22,7 +22,7 @@ MDDB gives your AI agents a persistent, searchable knowledge base:
 - **Integrations** - [Docling](docs/INTEGRATIONS.md), [Langflow](docs/INTEGRATIONS.md), [OpenSearch](docs/INTEGRATIONS.md), [SSG](docs/INTEGRATIONS.md), [wpexporter](docs/INTEGRATIONS.md) for production pipelines
 - **Zero-Shot Classification** — Classify documents against candidate labels using embeddings, no training data
 - **Custom AI Tools** - Define YAML-based MCP tools for domain-specific workflows
-- **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, BM25F, PMISparse, 7 search modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), typo tolerance, stemming, synonyms
+- **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, BM25F, PMISparse, 7 search modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), typo tolerance, multi-language stemming (18 languages), synonyms
 - **Full Revision History** - Every update creates a new revision with complete snapshots
 - **Triple Protocol APIs** - HTTP/JSON (easy), gRPC (fast), or GraphQL (flexible)
 - **Automation** - Triggers, crons, webhooks with template variables and sentiment analysis
@@ -222,7 +222,7 @@ Proto definitions at `proto/mddb.proto` - generate clients for any language supp
 - ✅ **MCP Server** - 54 built-in tools via Model Context Protocol (stdio + HTTP) for Claude, Cursor, Windsurf, and any MCP client
 - ✅ **File Upload** - Upload PDF, DOCX, HTML, ODT, RTF, TEX, YAML, TXT — auto-converted to Markdown (single and batch, configurable size limit)
 - ✅ **Vector Search** - Semantic similarity with auto-embeddings (OpenAI, Ollama, Cohere, Voyage)
-- ✅ **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, BM25F, PMISparse scoring, 7 search modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), typo tolerance, metadata pre-filtering
+- ✅ **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, BM25F, PMISparse scoring, 7 search modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), typo tolerance, metadata pre-filtering, multi-language stemming and stop words (18 languages)
 - ✅ **Hybrid Search** - Sparse (BM25) + dense (vector) fusion with alpha blending or RRF
 - ✅ **Aggregations** - Metadata facets (value counts) and date histograms with optional pre-filtering
 - ✅ **Zero-Shot Classification** - Classify documents against candidate labels using embedding similarity
@@ -477,7 +477,7 @@ mddb-cli stats
 - **[Vector Search](docs/EMBEDDING_PROVIDERS.md)** - Semantic search setup (OpenAI, Cohere, Voyage, Ollama)
 - **[RAG Pipeline](docs/RAG-PIPELINE.md)** - Complete RAG implementation guide
 - **[Search Algorithms](docs/SEARCH.md)** - TF-IDF, BM25, BM25F, PMISparse, Flat, HNSW, IVF, PQ, SQ, BQ
-- **[Full-Text Search](docs/FTS.md)** - Built-in inverted index
+- **[Full-Text Search](docs/FTS.md)** - Built-in inverted index with multi-language support
 - **[Zero-Shot Classification](docs/ZERO-SHOT-CLASSIFICATION.md)** - Classify documents against labels using embeddings
 - **[PMISparse](docs/PMISPARSE.md)** - Two-phase BM25 + PPMI query expansion (invented by Tradik Limited)
 - **[Webhooks](docs/WEBHOOKS.md)** - Event-driven integration

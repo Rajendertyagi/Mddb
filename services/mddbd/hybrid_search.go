@@ -30,6 +30,7 @@ type HybridSearchRequest struct {
 	FieldWeights    map[string]float64  `json:"fieldWeights,omitempty"`
 	DisableStem     bool                `json:"disableStem"`
 	DisableSynonyms bool                `json:"disableSynonyms"`
+	Lang            string              `json:"lang,omitempty"`
 }
 
 // HybridSearchResultItem represents a single hybrid search result.
@@ -151,7 +152,7 @@ func (s *Server) handleHybridSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if searchStatsEnabled() && s.FTSIndex != nil {
-		tokens := s.FTSIndex.TokenizeQuery(req.Collection, req.Query)
+		tokens := s.FTSIndex.TokenizeQueryLang(req.Collection, req.Query, req.Lang)
 		terms := make([]string, 0, len(tokens))
 		for t := range tokens {
 			terms = append(terms, t)
@@ -202,7 +203,7 @@ func (s *Server) runFTSSearch(req HybridSearchRequest) ([]FTSResult, error) {
 		searchLimit = 50
 	}
 
-	tokens := s.FTSIndex.TokenizeQuery(req.Collection, req.Query)
+	tokens := s.FTSIndex.TokenizeQueryLang(req.Collection, req.Query, req.Lang)
 
 	var results []FTSResult
 	var err error

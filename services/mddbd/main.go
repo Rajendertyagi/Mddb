@@ -338,10 +338,13 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Initialize stemmer
+	// Initialize multi-language FTS support
+	langReg := NewLangRegistry(srvCfg.FTS.DefaultLang)
 	if srvCfg.FTS.StemmingEnabled {
+		RegisterDefaultLanguages(langReg)
 		s.FTSIndex.SetStemmer(NewPorterStemmer())
-		log.Println("FTS stemming enabled (Porter)")
+		s.FTSIndex.SetLangRegistry(langReg)
+		log.Printf("FTS stemming enabled — %d languages (default: %s)", len(langReg.Languages()), srvCfg.FTS.DefaultLang)
 	}
 
 	// Initialize synonym manager
@@ -581,6 +584,8 @@ func main() {
 	mux.HandleFunc("/v1/import-url", s.guardWrite(s.handleImportURL))
 	mux.HandleFunc("/v1/set-ttl", s.guardWrite(s.handleSetTTL))
 	mux.HandleFunc("/v1/fts", s.handleFTS)
+	mux.HandleFunc("/v1/fts-reindex", s.guardWrite(s.handleFTSReindex))
+	mux.HandleFunc("/v1/fts-languages", s.handleFTSLanguages)
 	mux.HandleFunc("/v1/meta-keys", s.handleMetaKeys)
 	mux.HandleFunc("/v1/checksum", s.handleChecksum)
 	mux.HandleFunc("/v1/update", s.guardWrite(s.handleUpdate))
@@ -968,11 +973,11 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 		_ = s.TTLManager.Set(collection, saved.ID, saved.ExpiresAt)
 	}
 
-	// FTS indexing
+	// FTS indexing (language-aware)
 	if s.FTSIndex != nil && saved.ContentMD != "" {
-		_ = s.FTSIndex.Index(collection, saved.ID, saved.ContentMD)
+		_ = s.FTSIndex.IndexWithLang(collection, saved.ID, saved.ContentMD, saved.Lang)
 		// Positional index for phrase/proximity search
-		_ = s.FTSIndex.IndexPositions(collection, saved.ID, saved.ContentMD)
+		_ = s.FTSIndex.IndexPositionsWithLang(collection, saved.ID, saved.ContentMD, saved.Lang)
 		// Field-level indexing for BM25F
 		fields := map[string]string{"content": saved.ContentMD}
 		for k, vals := range saved.Meta {
@@ -980,7 +985,7 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 				fields["meta."+k] = strings.Join(vals, " ")
 			}
 		}
-		_ = s.FTSIndex.IndexFields(collection, saved.ID, fields)
+		_ = s.FTSIndex.IndexFieldsWithLang(collection, saved.ID, fields, saved.Lang)
 	}
 
 	// Webhooks
@@ -1802,15 +1807,15 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if hasContent && s.FTSIndex != nil && saved.ContentMD != "" {
-		_ = s.FTSIndex.Index(collection, saved.ID, saved.ContentMD)
-		_ = s.FTSIndex.IndexPositions(collection, saved.ID, saved.ContentMD)
+		_ = s.FTSIndex.IndexWithLang(collection, saved.ID, saved.ContentMD, saved.Lang)
+		_ = s.FTSIndex.IndexPositionsWithLang(collection, saved.ID, saved.ContentMD, saved.Lang)
 		fields := map[string]string{"content": saved.ContentMD}
 		for k, vals := range saved.Meta {
 			if len(vals) > 0 {
 				fields["meta."+k] = strings.Join(vals, " ")
 			}
 		}
-		_ = s.FTSIndex.IndexFields(collection, saved.ID, fields)
+		_ = s.FTSIndex.IndexFieldsWithLang(collection, saved.ID, fields, saved.Lang)
 	}
 
 	if s.WebhookManager != nil {

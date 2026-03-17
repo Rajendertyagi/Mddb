@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description"
-        content="MDDB — AI-native embedded document database with built-in MCP server (54 tools), vector search (Flat, HNSW, IVF, PQ, SQ, BQ), hybrid BM25+vector RAG, full-text search with 7 modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), triple protocol (REST, gRPC, GraphQL). Accepts .md, .txt, .html, .pdf, .docx, .odt, .rtf, .tex, .yaml. Connects to Claude, ChatGPT, Cursor, Windsurf, Ollama, DeepSeek. Single ~29MB binary, zero config.">
+        content="MDDB — AI-native embedded document database with built-in MCP server (54 tools), vector search (Flat, HNSW, IVF, PQ, SQ, BQ), hybrid BM25+vector RAG, full-text search with 7 modes and 18-language stemming, triple protocol (REST, gRPC, GraphQL). Accepts .md, .txt, .html, .pdf, .docx, .odt, .rtf, .tex, .yaml. Connects to Claude, ChatGPT, Cursor, Windsurf, Ollama, DeepSeek. Single ~29MB binary, zero config.">
     <meta name="keywords"
         content="MCP server, AI knowledge base, RAG, LLM integration, Claude MCP, embedding database, semantic search, vector search, markdown database, document database, gRPC, protobuf, graphql, embedded database, BoltDB, Go, HNSW, BM25, PMISparse, hybrid search, zero-shot classification, document TTL, replication, automation, webhooks, Cursor MCP, Windsurf MCP, Ollama, DeepSeek, Docling, Langflow">
     <meta name="author" content="MDDB Team">
@@ -68,7 +68,7 @@
         "Built-in MCP server with 54 tools (stdio + HTTP) for Claude, Cursor, Windsurf, ChatGPT, Ollama, DeepSeek",
         "Vector/semantic search with 6 index algorithms: Flat, HNSW, IVF, PQ, SQ, BQ (OpenAI, Ollama, Cohere, Voyage AI)",
         "Hybrid search combining sparse BM25 + dense vector with alpha blending and Reciprocal Rank Fusion",
-        "Full-text search with TF-IDF, BM25, BM25F, PMISparse scoring, 7 search modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), and typo tolerance",
+        "Full-text search with TF-IDF, BM25, BM25F, PMISparse scoring, 7 search modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), multi-language stemming (18 languages), and typo tolerance",
         "Zero-shot document classification using embedding cosine similarity",
         "Custom YAML-based MCP tools for domain-specific AI workflows",
         "RAG pipeline: auto-embed on ingest, semantic retrieval, MCP exposure",
@@ -187,7 +187,7 @@
                             DeepSeek, Manus via stdio and HTTP transport</li>
                         <li>Vector/semantic search with 6 index algorithms: Flat (exact), HNSW, IVF, PQ, SQ, BQ —
                             supports OpenAI, Ollama, Cohere, Voyage AI embeddings</li>
-                        <li>Full-text search with 7 modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), TF-IDF, BM25, BM25F, PMISparse scoring, typo tolerance, metadata
+                        <li>Full-text search with 7 modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), TF-IDF, BM25, BM25F, PMISparse scoring, multi-language stemming (18 languages), typo tolerance, metadata
                             pre-filtering</li>
                         <li>Hybrid search combining sparse (BM25) and dense (vector) with alpha blending or Reciprocal
                             Rank Fusion</li>
@@ -256,11 +256,11 @@
                         <div class="feat-text">
                             <span class="feat-label">Search</span>
                             <h3>Hybrid Search Engine</h3>
-                            <p>Full-text with 7 search modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy) + vector search with 6 index types. Combine with
+                            <p>Full-text with 7 search modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy) + vector search with 6 index types. Multi-language stemming for 18 languages. Combine with
                                 alpha blending or Reciprocal Rank Fusion. Metadata pre-filtering, typo tolerance.</p>
                             <ul class="feat-tags">
                                 <li>Vector Search</li>
-                                <li>Full-Text (7 modes)</li>
+                                <li>Full-Text (7 modes, 18 langs)</li>
                                 <li>Hybrid RAG</li>
                                 <li>Zero-Shot Classification</li>
                             </ul>

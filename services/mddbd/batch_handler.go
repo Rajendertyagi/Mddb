@@ -145,17 +145,17 @@ func (s *Server) firePostBatchHooks(collection string, processed []*ProcessedDoc
 			_ = s.TTLManager.Set(collection, p.DocID, p.Doc.ExpiresAt)
 		}
 
-		// FTS indexing
+		// FTS indexing (language-aware)
 		if !opts.SkipFTS && s.FTSIndex != nil && p.Doc.ContentMD != "" {
-			_ = s.FTSIndex.Index(collection, p.DocID, p.Doc.ContentMD)
-			_ = s.FTSIndex.IndexPositions(collection, p.DocID, p.Doc.ContentMD)
+			_ = s.FTSIndex.IndexWithLang(collection, p.DocID, p.Doc.ContentMD, p.Doc.Lang)
+			_ = s.FTSIndex.IndexPositionsWithLang(collection, p.DocID, p.Doc.ContentMD, p.Doc.Lang)
 			fields := map[string]string{"content": p.Doc.ContentMD}
 			for k, vals := range p.Doc.Meta {
 				if len(vals) > 0 {
 					fields["meta."+k] = strings.Join(vals, " ")
 				}
 			}
-			_ = s.FTSIndex.IndexFields(collection, p.DocID, fields)
+			_ = s.FTSIndex.IndexFieldsWithLang(collection, p.DocID, fields, p.Doc.Lang)
 		}
 
 		// Webhooks

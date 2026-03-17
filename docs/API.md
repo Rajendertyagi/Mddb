@@ -19,6 +19,8 @@
   - [PATCH /v1/update](#patch-v1update)
   - [GET /v1/doc-meta](#get-v1doc-meta)
   - [POST /v1/fts](#post-v1fts)
+  - [POST /v1/fts-reindex](#post-v1fts-reindex)
+  - [GET /v1/fts-languages](#get-v1fts-languages)
   - [POST /v1/synonyms](#post-v1synonyms)
   - [GET /v1/synonyms](#get-v1synonyms)
   - [DELETE /v1/synonyms](#delete-v1synonyms)
@@ -97,7 +99,8 @@ The server can be configured using environment variables:
 | `MDDB_EMBEDDING_API_URL` | *(per provider)* | API base URL (see [Vector Search](#vector-search-configuration)) |
 | `MDDB_EMBEDDING_MODEL` | *(per provider)* | Embedding model name |
 | `MDDB_EMBEDDING_DIMENSIONS` | *(per provider)* | Vector dimensions |
-| `MDDB_FTS_STEMMING` | `true` | Enable Porter stemming for FTS |
+| `MDDB_FTS_STEMMING` | `true` | Enable stemming for FTS |
+| `MDDB_FTS_DEFAULT_LANG` | `en` | Default language for FTS stemming and stop words (18 languages supported) |
 | `MDDB_FTS_SYNONYMS` | `true` | Enable synonym expansion for FTS |
 | `MDDB_COMPRESSION_ENABLED` | `true` | Enable adaptive compression (Snappy/Zstd) |
 | `MDDB_COMPRESSION_SMALL_THRESHOLD` | `1024` | Snappy compression threshold (bytes) |
@@ -835,7 +838,8 @@ Perform full-text search across document content. Supports multiple search modes
 - `mode` (optional): Search mode — `"auto"` (default), `"simple"`, `"boolean"`, `"phrase"`, `"wildcard"`, `"proximity"`
 - `distance` (optional): Proximity distance in words (default: 5) — only used with mode=proximity
 - `fuzzy` (optional): Typo tolerance — `0` (off, default), `1` (1 edit), `2` (2 edits) — used for simple mode
-- `disableStem` (optional): Disable Porter stemming for this query (default: false)
+- `lang` (optional): Language code for query tokenization (e.g., `"pl"`, `"de"`, `"fr"`). Uses language-specific stemmer and stop words. Falls back to server default if omitted (default: `"en"`, configurable via `MDDB_FTS_DEFAULT_LANG`)
+- `disableStem` (optional): Disable stemming for this query (default: false)
 - `disableSynonyms` (optional): Disable synonym expansion for this query (default: false)
 - `fieldWeights` (optional, BM25F only): Map of field name to weight. Defaults: content=1.0, meta.title=3.0, meta.tags=2.0, meta.category=2.0, meta.description=1.5
 - `filterMeta` (optional): Metadata pre-filter — `{"key": ["value1", "value2"]}`
@@ -875,6 +879,7 @@ Perform full-text search across document content. Supports multiple search modes
   "total": 1,
   "algorithm": "bm25",
   "mode": "simple",
+  "lang": "en",
   "stemmingActive": true,
   "synonymsActive": true
 }
@@ -911,6 +916,57 @@ curl -X POST http://localhost:11023/v1/fts \
 curl -X POST http://localhost:11023/v1/fts \
   -H 'Content-Type: application/json' \
   -d '{"collection":"shop","query":"widget","rangeMeta":[{"field":"price","gte":"10","lte":"100"}]}'
+
+# Multi-language search (Polish)
+curl -X POST http://localhost:11023/v1/fts \
+  -H 'Content-Type: application/json' \
+  -d '{"collection":"articles","query":"programowanie wydajne","lang":"pl","algorithm":"bm25"}'
+```
+
+---
+
+### POST /v1/fts-reindex
+
+Reindex all documents in a collection using their stored `lang` field for language-aware FTS processing.
+
+**Query Parameters**:
+- `collection` (required): Collection name to reindex
+
+**cURL Example**:
+```bash
+curl -X POST "http://localhost:11023/v1/fts-reindex?collection=articles"
+```
+
+**Response**:
+```json
+{
+  "reindexed": 150,
+  "collection": "articles"
+}
+```
+
+---
+
+### GET /v1/fts-languages
+
+Returns all supported languages for multi-language FTS.
+
+**cURL Example**:
+```bash
+curl http://localhost:11023/v1/fts-languages
+```
+
+**Response**:
+```json
+{
+  "languages": [
+    {"code": "ar", "name": "Arabic"},
+    {"code": "da", "name": "Danish"},
+    {"code": "de", "name": "German"},
+    {"code": "en", "name": "English"}
+  ],
+  "defaultLang": "en"
+}
 ```
 
 ---
@@ -2567,7 +2623,7 @@ curl http://localhost:11023/v1/system/info
   "os": "linux",
   "arch": "amd64",
   "numCPU": 4,
-  "goVersion": "go1.23.0",
+  "goVersion": "go1.26.0",
   "version": "2.8.0",
   "uptimeSeconds": 3600,
   "memoryTotal": 134217728,

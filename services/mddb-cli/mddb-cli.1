@@ -203,12 +203,18 @@ FTS scoring algorithm. One of: bm25, bm25f, tfidf, pmisparse (default: bm25).
 .TP
 .B \-\-fuzzy
 Enable fuzzy (typo-tolerant) matching.
+.TP
+.B \-\-lang \fILANG\fR
+Language code for query tokenization (e.g., en, pl, de). Uses language-specific
+stemmer and stop words. Falls back to server default if omitted. Supported: en,
+pl, de, fr, es, it, pt, nl, ru, sv, no, da, fi, hu, ro, tr, ar, ta (v2.8+).
 .PP
 Examples:
 .RS
 .nf
 mddb-cli fts blog --query="markdown database tutorial"
 mddb-cli fts kb --query="authentication setup" --limit=10
+mddb-cli fts articles --query="programowanie wydajne" --lang=pl --algorithm=bm25
 .fi
 .RE
 .SS vector-search

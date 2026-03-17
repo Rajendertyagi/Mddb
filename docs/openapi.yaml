@@ -10,7 +10,7 @@ info:
     - Multi-language support
     - Fast metadata-based search
     - **Vector search** with embedding providers (OpenAI, Cohere, Voyage AI, Ollama)
-    - **Full-text search** with TF-IDF, BM25, BM25F, PMISparse scoring and 7 search modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy)
+    - **Full-text search** with TF-IDF, BM25, BM25F, PMISparse scoring, 7 search modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), and multi-language stemming (18 languages)
     - **Hybrid search** combining FTS + vector search with alpha blending or RRF fusion
     - **Webhooks** for real-time event notifications
     - **TTL** (time-to-live) support for automatic document expiration
@@ -847,7 +847,7 @@ paths:
         - Full-Text Search
       summary: Full-text search
       description: |
-        Perform full-text search across documents in a collection. Supports 7 search modes with auto-detection.
+        Perform full-text search across documents in a collection. Supports 7 search modes with auto-detection and multi-language stemming (18 languages).
 
         **Search modes** (`mode` parameter, default `auto`):
         - `simple`: Classic keyword search scored by algorithm (TF-IDF, BM25, BM25F, PMISparse)
@@ -886,6 +886,72 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/fts-reindex:
+    post:
+      tags:
+        - Full-Text Search
+      summary: Reindex FTS for a collection
+      description: |
+        Re-indexes all documents in a collection using their stored `lang` field for language-aware stemming and stop words.
+        Use this after enabling multi-language support to update existing documents indexed with the default English pipeline.
+      operationId: ftsReindex
+      parameters:
+        - name: collection
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Collection name to reindex
+      responses:
+        "200":
+          description: Reindex completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reindexed:
+                    type: integer
+                    description: Number of documents reindexed
+                  collection:
+                    type: string
+        "400":
+          description: Missing collection parameter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/fts-languages:
+    get:
+      tags:
+        - Full-Text Search
+      summary: List supported FTS languages
+      description: Returns all supported languages for multi-language FTS with their codes, names, and the configured default language.
+      operationId: ftsLanguages
+      responses:
+        "200":
+          description: Supported languages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  languages:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        code:
+                          type: string
+                          example: en
+                        name:
+                          type: string
+                          example: English
+                  defaultLang:
+                    type: string
+                    example: en
 
   /v1/hybrid-search:
     post:
@@ -4122,6 +4188,12 @@ components:
           description: Maximum word distance for proximity search (default 5)
           default: 5
           example: 5
+        lang:
+          type: string
+          description: |
+            Language code for query tokenization (e.g., "en", "pl", "de"). Uses language-specific stemmer and stop words.
+            Language codes are normalized: "en_US" → "en", "pl_PL" → "pl". Falls back to server default if omitted.
+          example: en
         rangeMeta:
           type: array
           description: Range filters on metadata or timestamp fields
@@ -4169,6 +4241,10 @@ components:
           type: string
           description: Search mode used (simple, boolean, phrase, wildcard, proximity)
           example: simple
+        lang:
+          type: string
+          description: Language used for query tokenization
+          example: en
         fuzzy:
           type: integer
           description: Typo tolerance level used
@@ -4817,7 +4893,7 @@ components:
         goVersion:
           type: string
           description: Go runtime version
-          example: go1.22.0
+          example: go1.26.0
         version:
           type: string
           description: MDDB server version

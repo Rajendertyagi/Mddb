@@ -1193,11 +1193,14 @@ func (g *GRPCServer) FTS(ctx context.Context, req *proto.FTSRequest) (*proto.FTS
 		}
 	}
 
+	// Language-aware tokenization
+	queryLang := req.Lang
+	tokens := g.server.FTSIndex.TokenizeQueryLang(req.Collection, req.Query, queryLang)
+
 	var results []FTSResult
 	var err error
 	switch algo {
 	case "bm25f":
-		tokens := g.server.FTSIndex.TokenizeQuery(req.Collection, req.Query)
 		if fuzzy > 0 {
 			results, err = g.server.FTSIndex.SearchBM25FFuzzy(req.Collection, tokens, limit, fuzzy, nil)
 		} else {
@@ -1268,6 +1271,93 @@ func (g *GRPCServer) FTS(ctx context.Context, req *proto.FTSRequest) (*proto.FTS
 		Total:     safeInt32(len(protoResults)),
 		Algorithm: algo,
 		Fuzzy:     int32(fuzzy),
+		Lang:      queryLang,
+	}, nil
+}
+
+// FTSReindex implements the FTSReindex RPC — re-indexes all documents using their lang field.
+func (g *GRPCServer) FTSReindex(ctx context.Context, req *proto.FTSReindexRequest) (*proto.FTSReindexResponse, error) {
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermWrite); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+	if req.Collection == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing required field: collection")
+	}
+	if g.server.FTSIndex == nil {
+		return nil, status.Error(codes.FailedPrecondition, "full-text search not initialized")
+	}
+
+	// Collect docs first (read tx), then index outside to avoid deadlock
+	type reindexDoc struct {
+		ID, ContentMD, Lang string
+		Meta                map[string][]string
+	}
+	var docs []reindexDoc
+	var skipped int
+	_ = g.server.DB.View(func(tx *bolt.Tx) error {
+		bDocs := tx.Bucket([]byte("docs"))
+		if bDocs == nil {
+			return nil
+		}
+		prefix := []byte("doc|" + req.Collection + "|")
+		c := bDocs.Cursor()
+		for k, v := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = c.Next() {
+			docPtr, err := loadDoc(v)
+			if err != nil || docPtr.ContentMD == "" {
+				skipped++
+				continue
+			}
+			if docPtr.ExpiresAt > 0 && docPtr.ExpiresAt < time.Now().Unix() {
+				skipped++
+				continue
+			}
+			docs = append(docs, reindexDoc{docPtr.ID, docPtr.ContentMD, docPtr.Lang, docPtr.Meta})
+		}
+		return nil
+	})
+
+	reindexed := 0
+	for _, d := range docs {
+		_ = g.server.FTSIndex.IndexWithLang(req.Collection, d.ID, d.ContentMD, d.Lang)
+		_ = g.server.FTSIndex.IndexPositionsWithLang(req.Collection, d.ID, d.ContentMD, d.Lang)
+		fields := map[string]string{"content": d.ContentMD}
+		for mk, vals := range d.Meta {
+			if len(vals) > 0 {
+				fields["meta."+mk] = strings.Join(vals, " ")
+			}
+		}
+		_ = g.server.FTSIndex.IndexFieldsWithLang(req.Collection, d.ID, fields, d.Lang)
+		reindexed++
+	}
+
+	return &proto.FTSReindexResponse{
+		Status:    "ok",
+		Reindexed: int32(reindexed),
+		Skipped:   int32(skipped),
+	}, nil
+}
+
+// FTSLanguages implements the FTSLanguages RPC — returns supported languages.
+func (g *GRPCServer) FTSLanguages(ctx context.Context, _ *proto.FTSLanguagesRequest) (*proto.FTSLanguagesResponse, error) {
+	if g.server.FTSIndex == nil || g.server.FTSIndex.langRegistry == nil {
+		return &proto.FTSLanguagesResponse{}, nil
+	}
+
+	var langs []*proto.FTSLanguageInfo
+	for _, code := range g.server.FTSIndex.langRegistry.Languages() {
+		cfg := g.server.FTSIndex.langRegistry.Resolve(code)
+		name := code
+		if cfg != nil {
+			name = cfg.Name
+		}
+		langs = append(langs, &proto.FTSLanguageInfo{Code: code, Name: name})
+	}
+
+	return &proto.FTSLanguagesResponse{
+		Languages:   langs,
+		DefaultLang: g.server.FTSIndex.langRegistry.DefaultLang(),
 	}, nil
 }
 
@@ -1349,6 +1439,7 @@ func (g *GRPCServer) HybridSearch(ctx context.Context, req *proto.HybridSearchRe
 		FilterMeta:      filterMeta,
 		IncludeContent:  req.IncludeContent,
 		FieldWeights:    fieldWeights,
+		Lang:            req.Lang,
 	}
 
 	// Step 1: Run FTS search

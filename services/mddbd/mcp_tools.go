@@ -48,6 +48,10 @@ func (s *MCPToolServer) mcpCallTool(ctx context.Context, name string, args map[s
 		return s.toolSetTTL(ctx, args)
 	case "full_text_search":
 		return s.toolFTSSearch(ctx, args)
+	case "fts_reindex":
+		return s.toolFTSReindex(ctx, args)
+	case "fts_languages":
+		return s.toolFTSLanguages(ctx, args)
 	case "hybrid_search":
 		return s.toolHybridSearch(ctx, args)
 	case "register_webhook":
@@ -399,6 +403,7 @@ func (s *MCPToolServer) toolFTSSearch(ctx context.Context, args map[string]inter
 		Limit:      mcpGetInt(args, "limit"),
 		Algorithm:  mcpGetString(args, "algorithm"),
 		Fuzzy:      mcpGetInt(args, "fuzzy"),
+		Lang:       mcpGetString(args, "lang"),
 	}
 
 	resp, err := s.client.FTSSearch(ctx, req)
@@ -406,6 +411,27 @@ func (s *MCPToolServer) toolFTSSearch(ctx context.Context, args map[string]inter
 		return "", err
 	}
 
+	data, _ := json.MarshalIndent(resp, "", "  ")
+	return string(data), nil
+}
+
+func (s *MCPToolServer) toolFTSReindex(ctx context.Context, args map[string]interface{}) (string, error) {
+	req := &MCPFTSReindexRequest{
+		Collection: mcpGetString(args, "collection"),
+	}
+	resp, err := s.client.FTSReindex(ctx, req)
+	if err != nil {
+		return "", err
+	}
+	data, _ := json.MarshalIndent(resp, "", "  ")
+	return string(data), nil
+}
+
+func (s *MCPToolServer) toolFTSLanguages(ctx context.Context, args map[string]interface{}) (string, error) {
+	resp, err := s.client.FTSLanguages(ctx)
+	if err != nil {
+		return "", err
+	}
 	data, _ := json.MarshalIndent(resp, "", "  ")
 	return string(data), nil
 }

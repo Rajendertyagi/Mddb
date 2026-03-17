@@ -89,6 +89,9 @@ func newTestGRPCServer(t *testing.T) (*GRPCServer, *Server, func()) {
 		_ = db.Close()
 		t.Fatal(err)
 	}
+	langReg := NewLangRegistry("en")
+	RegisterDefaultLanguages(langReg)
+	s.FTSIndex.SetLangRegistry(langReg)
 
 	// Webhooks
 	s.WebhookManager = NewWebhookManager(db)
@@ -1196,6 +1199,90 @@ func TestGRPCFTS_SearchWithResults(t *testing.T) {
 	}
 	if resp.Total == 0 {
 		t.Error("expected at least 1 FTS result")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test: FTS Language Endpoints
+// ---------------------------------------------------------------------------
+
+func TestGRPCFTSLanguages(t *testing.T) {
+	gs, _, cleanup := newTestGRPCServer(t)
+	defer cleanup()
+
+	resp, err := gs.FTSLanguages(context.Background(), &pb.FTSLanguagesRequest{})
+	if err != nil {
+		t.Fatalf("FTSLanguages: %v", err)
+	}
+	if resp.DefaultLang != "en" {
+		t.Errorf("expected default lang 'en', got %q", resp.DefaultLang)
+	}
+	if len(resp.Languages) == 0 {
+		t.Error("expected at least one language")
+	}
+	// Check that English and Polish are present
+	found := map[string]bool{}
+	for _, l := range resp.Languages {
+		found[l.Code] = true
+	}
+	for _, want := range []string{"en", "pl", "de", "fr", "es"} {
+		if !found[want] {
+			t.Errorf("expected language %q in list", want)
+		}
+	}
+}
+
+func TestGRPCFTSReindex_MissingCollection(t *testing.T) {
+	gs, _, cleanup := newTestGRPCServer(t)
+	defer cleanup()
+
+	_, err := gs.FTSReindex(context.Background(), &pb.FTSReindexRequest{})
+	if err == nil {
+		t.Fatal("expected error for missing collection")
+	}
+	st, _ := status.FromError(err)
+	if st.Code() != codes.InvalidArgument {
+		t.Errorf("expected InvalidArgument, got %v", st.Code())
+	}
+}
+
+func TestGRPCFTSReindex_Success(t *testing.T) {
+	gs, s, cleanup := newTestGRPCServer(t)
+	defer cleanup()
+
+	// Insert a Polish doc directly into BoltDB to avoid IndexQueue async
+	addDocForSearch(t, s, "notes", "plnote1", "plnote", "pl", "programowanie jest fajne", nil)
+
+	resp, err := gs.FTSReindex(context.Background(), &pb.FTSReindexRequest{Collection: "notes"})
+	if err != nil {
+		t.Fatalf("FTSReindex: %v", err)
+	}
+	if resp.Status != "ok" {
+		t.Errorf("expected status ok, got %q", resp.Status)
+	}
+	if resp.Reindexed == 0 {
+		t.Error("expected at least 1 reindexed document")
+	}
+}
+
+func TestGRPCFTS_WithLang(t *testing.T) {
+	gs, s, cleanup := newTestGRPCServer(t)
+	defer cleanup()
+
+	// Insert and index a German document directly
+	addDocForSearch(t, s, "articles", "deart1", "deart", "de", "die Programmierung ist wunderbar", nil)
+	_ = s.FTSIndex.IndexWithLang("articles", "deart1", "die Programmierung ist wunderbar", "de")
+
+	resp, err := gs.FTS(context.Background(), &pb.FTSRequest{
+		Collection: "articles",
+		Query:      "Programmierung",
+		Lang:       "de",
+	})
+	if err != nil {
+		t.Fatalf("FTS with lang: %v", err)
+	}
+	if resp.Lang != "de" {
+		t.Errorf("expected lang 'de' in response, got %q", resp.Lang)
 	}
 }
 

@@ -57,6 +57,12 @@ service MDDB {
   // Full-text search
   rpc FTS(FTSRequest) returns (FTSResponse);
 
+  // Reindex FTS for a collection (re-applies language-aware stemming)
+  rpc FTSReindex(FTSReindexRequest) returns (FTSReindexResponse);
+
+  // List supported FTS languages
+  rpc FTSLanguages(FTSLanguagesRequest) returns (FTSLanguagesResponse);
+
   // Hybrid search (combines FTS + vector search)
   rpc HybridSearch(HybridSearchRequest) returns (HybridSearchResponse);
 
@@ -448,6 +454,7 @@ message FTSRequest {
   string algorithm = 4;                          // "tfidf" (default) or "bm25"
   int32 fuzzy = 5;                               // typo tolerance: 0 (off), 1 (1 edit), 2 (2 edits)
   map<string, MetaValues> filter_meta = 6;       // optional metadata pre-filter
+  string lang = 7;                               // language for stemming/stop words (default: server default)
 }
 
 message FTSResult {
@@ -461,6 +468,33 @@ message FTSResponse {
   int32 total = 2;
   string algorithm = 3;                          // algorithm used for this search
   int32 fuzzy = 4;                               // typo tolerance level used
+  string lang = 5;                               // language used for tokenization
+}
+
+// --- FTS reindex ---
+
+message FTSReindexRequest {
+  string collection = 1;                         // collection to reindex
+}
+
+message FTSReindexResponse {
+  string status = 1;                             // "ok"
+  int32 reindexed = 2;                           // number of documents reindexed
+  int32 skipped = 3;                             // number of documents skipped
+}
+
+// --- FTS languages ---
+
+message FTSLanguagesRequest {}
+
+message FTSLanguageInfo {
+  string code = 1;                               // language code, e.g. "en", "pl"
+  string name = 2;                               // language name, e.g. "English", "Polish"
+}
+
+message FTSLanguagesResponse {
+  repeated FTSLanguageInfo languages = 1;
+  string default_lang = 2;                       // server's default language
 }
 
 // --- Hybrid search ---
@@ -480,6 +514,7 @@ message HybridSearchRequest {
   map<string, MetaValues> filter_meta = 11;
   bool include_content = 12;
   map<string, double> field_weights = 13;
+  string lang = 14;                              // language for FTS stemming/stop words
 }
 
 message HybridSearchResult {

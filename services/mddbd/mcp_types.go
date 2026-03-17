@@ -282,6 +282,7 @@ type MCPFTSSearchRequest struct {
 	Limit      int    `json:"limit,omitempty"`
 	Algorithm  string `json:"algorithm,omitempty"`
 	Fuzzy      int    `json:"fuzzy,omitempty"`
+	Lang       string `json:"lang,omitempty"`
 }
 
 // MCPFTSResult represents a single FTS result.
@@ -297,6 +298,31 @@ type MCPFTSSearchResponse struct {
 	Total     int            `json:"total"`
 	Algorithm string         `json:"algorithm"`
 	Fuzzy     int            `json:"fuzzy"`
+	Lang      string         `json:"lang,omitempty"`
+}
+
+// MCPFTSReindexRequest represents a request to reindex FTS for a collection.
+type MCPFTSReindexRequest struct {
+	Collection string `json:"collection"`
+}
+
+// MCPFTSReindexResponse represents the result of FTS reindex.
+type MCPFTSReindexResponse struct {
+	Status    string `json:"status"`
+	Reindexed int    `json:"reindexed"`
+	Skipped   int    `json:"skipped"`
+}
+
+// MCPFTSLanguageInfo represents a supported language.
+type MCPFTSLanguageInfo struct {
+	Code string `json:"code"`
+	Name string `json:"name"`
+}
+
+// MCPFTSLanguagesResponse represents the list of supported FTS languages.
+type MCPFTSLanguagesResponse struct {
+	Languages   []MCPFTSLanguageInfo `json:"languages"`
+	DefaultLang string               `json:"defaultLang"`
 }
 
 // MCPHybridSearchRequest represents hybrid sparse+dense search request.
@@ -653,6 +679,8 @@ type MCPClient interface {
 	ImportURL(ctx context.Context, req *MCPImportURLRequest) (*MCPDocument, error)
 	SetTTL(ctx context.Context, req *MCPSetTTLRequest) (*MCPDocument, error)
 	FTSSearch(ctx context.Context, req *MCPFTSSearchRequest) (*MCPFTSSearchResponse, error)
+	FTSReindex(ctx context.Context, req *MCPFTSReindexRequest) (*MCPFTSReindexResponse, error)
+	FTSLanguages(ctx context.Context) (*MCPFTSLanguagesResponse, error)
 	HybridSearch(ctx context.Context, req *MCPHybridSearchRequest) (*MCPHybridSearchResponse, error)
 	RegisterWebhook(ctx context.Context, req *MCPRegisterWebhookRequest) (*MCPWebhook, error)
 	ListWebhooks(ctx context.Context) ([]MCPWebhook, error)

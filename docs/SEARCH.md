@@ -16,12 +16,34 @@ MDDB provides four search methods: **Metadata Search**, **Full-Text Search**, **
 
 Full-text search uses an inverted index built from document content. Queries are tokenized, stop words are removed, and documents are scored by relevance.
 
+### Multi-Language Support (v2.8.0+)
+
+FTS supports language-aware stemming and stop word filtering for 18 languages. Each document's `lang` field determines which stemmer and stop word list is used during indexing and querying.
+
+**Supported languages:** English, Polish, German, French, Spanish, Italian, Portuguese, Dutch, Russian, Swedish, Norwegian, Danish, Finnish, Hungarian, Romanian, Turkish, Arabic, Tamil.
+
+Language codes are normalized: `en_US` → `en`, `pl_PL` → `pl`. Unknown languages fall back to the configured default (English by default).
+
+```bash
+# Index a Polish document
+curl -X POST http://localhost:11023/v1/add \
+  -d '{"collection":"articles","key":"post-pl","lang":"pl","contentMd":"Programowanie w Go jest wydajne."}'
+
+# Search with Polish query tokenization
+curl -X POST http://localhost:11023/v1/fts \
+  -d '{"collection":"articles","query":"programowanie wydajne","lang":"pl","algorithm":"bm25"}'
+```
+
+Configure default language: `MDDB_FTS_DEFAULT_LANG=en` (default). Query supported languages: `GET /v1/fts-languages`. Reindex existing documents: `POST /v1/fts-reindex?collection=X`.
+
+**Protocol parity:** The `lang` parameter, FTS reindex, and FTS languages endpoints are available across all protocols: REST API, gRPC (`FTS`, `FTSReindex`, `FTSLanguages` RPCs), and MCP tools (`full_text_search` with `lang`, `fts_reindex`, `fts_languages`).
+
 ### Text Processing Pipeline
 
 1. **Lowercasing** - All text converted to lowercase
 2. **Tokenization** - Split on non-alphanumeric characters, minimum 2 characters
-3. **Stop Word Removal** - ~90 common English words filtered out
-4. **Stemming** (v2.6.4+) - Porter Stemmer reduces words to their root form (e.g., "running" -> "run", "organization" -> "organ"). Enabled by default, configurable via `MDDB_FTS_STEMMING`.
+3. **Stop Word Removal** - Language-specific stop words filtered (e.g., ~79 English, ~297 Polish, ~232 German). Configurable via per-collection custom stop words.
+4. **Stemming** (v2.6.4+) - Language-specific stemmer reduces words to their root form (e.g., English "running" → "run", Polish "domów" → "dom", German "Häuser" → "haus"). Enabled by default, configurable via `MDDB_FTS_STEMMING`.
 5. **Synonym Expansion** (v2.6.4+, query-time only) - Query terms are expanded with configured synonyms. Bidirectional: if "big" has synonym "large", searching "large" also finds "big". Configurable via `MDDB_FTS_SYNONYMS`.
 
 #### Per-Query Control
@@ -54,7 +76,7 @@ curl -X DELETE http://localhost:11023/v1/synonyms \
 
 ### Stop Word Management
 
-MDDB ships with ~100 default English stop words. You can add custom stop words per collection.
+MDDB ships with language-specific stop words for 18 languages (e.g., ~79 English, ~297 Polish, ~232 German). You can add custom stop words per collection on top of language defaults.
 
 ```bash
 # Add custom stop words

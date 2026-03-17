@@ -101,7 +101,7 @@ func (t *TTLManager) Remove(collection, docID string) error {
 			_ = bTTL.Delete(oldKey)
 			bo.Delete("ttl", oldKey)
 		}
-	bo.Delete("ttlrev", revKey)
+		bo.Delete("ttlrev", revKey)
 		return bRev.Delete(revKey)
 	})
 	if err == nil {

@@ -36,6 +36,8 @@ const (
 	MDDB_ImportURL_FullMethodName             = "/mddb.MDDB/ImportURL"
 	MDDB_SetTTL_FullMethodName                = "/mddb.MDDB/SetTTL"
 	MDDB_FTS_FullMethodName                   = "/mddb.MDDB/FTS"
+	MDDB_FTSReindex_FullMethodName            = "/mddb.MDDB/FTSReindex"
+	MDDB_FTSLanguages_FullMethodName          = "/mddb.MDDB/FTSLanguages"
 	MDDB_HybridSearch_FullMethodName          = "/mddb.MDDB/HybridSearch"
 	MDDB_RegisterWebhook_FullMethodName       = "/mddb.MDDB/RegisterWebhook"
 	MDDB_ListWebhooks_FullMethodName          = "/mddb.MDDB/ListWebhooks"
@@ -115,6 +117,10 @@ type MDDBClient interface {
 	SetTTL(ctx context.Context, in *SetTTLRequest, opts ...grpc.CallOption) (*Document, error)
 	// Full-text search
 	FTS(ctx context.Context, in *FTSRequest, opts ...grpc.CallOption) (*FTSResponse, error)
+	// Reindex FTS for a collection (re-applies language-aware stemming)
+	FTSReindex(ctx context.Context, in *FTSReindexRequest, opts ...grpc.CallOption) (*FTSReindexResponse, error)
+	// List supported FTS languages
+	FTSLanguages(ctx context.Context, in *FTSLanguagesRequest, opts ...grpc.CallOption) (*FTSLanguagesResponse, error)
 	// Hybrid search (combines FTS + vector search)
 	HybridSearch(ctx context.Context, in *HybridSearchRequest, opts ...grpc.CallOption) (*HybridSearchResponse, error)
 	// Register a webhook
@@ -372,6 +378,26 @@ func (c *mDDBClient) FTS(ctx context.Context, in *FTSRequest, opts ...grpc.CallO
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(FTSResponse)
 	err := c.cc.Invoke(ctx, MDDB_FTS_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) FTSReindex(ctx context.Context, in *FTSReindexRequest, opts ...grpc.CallOption) (*FTSReindexResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FTSReindexResponse)
+	err := c.cc.Invoke(ctx, MDDB_FTSReindex_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) FTSLanguages(ctx context.Context, in *FTSLanguagesRequest, opts ...grpc.CallOption) (*FTSLanguagesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FTSLanguagesResponse)
+	err := c.cc.Invoke(ctx, MDDB_FTSLanguages_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -788,6 +814,10 @@ type MDDBServer interface {
 	SetTTL(context.Context, *SetTTLRequest) (*Document, error)
 	// Full-text search
 	FTS(context.Context, *FTSRequest) (*FTSResponse, error)
+	// Reindex FTS for a collection (re-applies language-aware stemming)
+	FTSReindex(context.Context, *FTSReindexRequest) (*FTSReindexResponse, error)
+	// List supported FTS languages
+	FTSLanguages(context.Context, *FTSLanguagesRequest) (*FTSLanguagesResponse, error)
 	// Hybrid search (combines FTS + vector search)
 	HybridSearch(context.Context, *HybridSearchRequest) (*HybridSearchResponse, error)
 	// Register a webhook
@@ -922,6 +952,12 @@ func (UnimplementedMDDBServer) SetTTL(context.Context, *SetTTLRequest) (*Documen
 }
 func (UnimplementedMDDBServer) FTS(context.Context, *FTSRequest) (*FTSResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FTS not implemented")
+}
+func (UnimplementedMDDBServer) FTSReindex(context.Context, *FTSReindexRequest) (*FTSReindexResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FTSReindex not implemented")
+}
+func (UnimplementedMDDBServer) FTSLanguages(context.Context, *FTSLanguagesRequest) (*FTSLanguagesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FTSLanguages not implemented")
 }
 func (UnimplementedMDDBServer) HybridSearch(context.Context, *HybridSearchRequest) (*HybridSearchResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method HybridSearch not implemented")
@@ -1350,6 +1386,42 @@ func _MDDB_FTS_Handler(srv interface{}, ctx context.Context, dec func(interface{
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MDDBServer).FTS(ctx, req.(*FTSRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_FTSReindex_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FTSReindexRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).FTSReindex(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_FTSReindex_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).FTSReindex(ctx, req.(*FTSReindexRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_FTSLanguages_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FTSLanguagesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).FTSLanguages(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_FTSLanguages_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).FTSLanguages(ctx, req.(*FTSLanguagesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2090,6 +2162,14 @@ var MDDB_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FTS",
 			Handler:    _MDDB_FTS_Handler,
+		},
+		{
+			MethodName: "FTSReindex",
+			Handler:    _MDDB_FTSReindex_Handler,
+		},
+		{
+			MethodName: "FTSLanguages",
+			Handler:    _MDDB_FTSLanguages_Handler,
 		},
 		{
 			MethodName: "HybridSearch",

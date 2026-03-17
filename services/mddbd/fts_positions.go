@@ -83,6 +83,114 @@ func (f *FTSIndex) TokenizePositions(text string) map[string][]uint32 {
 	return positions
 }
 
+// TokenizePositionsLang splits text into a map of term -> positions using language-specific processing.
+func (f *FTSIndex) TokenizePositionsLang(text, lang string) map[string][]uint32 {
+	stemmer, stopWords := f.resolveLang(lang)
+	positions := make(map[string][]uint32)
+	text = strings.ToLower(text)
+
+	var word strings.Builder
+	var pos uint32
+	for _, r := range text {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			word.WriteRune(r)
+		} else {
+			if word.Len() >= 2 {
+				w := word.String()
+				if !stopWords[w] {
+					if stemmer != nil {
+						w = stemmer.Stem(w)
+					}
+					positions[w] = append(positions[w], pos)
+				}
+				pos++
+			}
+			word.Reset()
+		}
+	}
+	if word.Len() >= 2 {
+		w := word.String()
+		if !stopWords[w] {
+			if stemmer != nil {
+				w = stemmer.Stem(w)
+			}
+			positions[w] = append(positions[w], pos)
+		}
+	}
+	return positions
+}
+
+// IndexPositionsWithLang stores term positions using language-specific tokenization.
+func (f *FTSIndex) IndexPositionsWithLang(collection, docID, content, lang string) error {
+	positions := f.TokenizePositionsLang(content, lang)
+	if len(positions) == 0 {
+		return nil
+	}
+
+	return f.db.Update(func(tx *bolt.Tx) error {
+		bPos := tx.Bucket(bucketFTSPos)
+		if bPos == nil {
+			return nil
+		}
+
+		revKey := ftspRevKey(collection, docID)
+		if old := bPos.Get(revKey); old != nil {
+			oldTerms := strings.Split(string(old), ",")
+			for _, term := range oldTerms {
+				if term != "" {
+					_ = bPos.Delete(ftspKey(collection, term, docID))
+				}
+			}
+		}
+
+		termList := make([]string, 0, len(positions))
+		for term, posSlice := range positions {
+			k := ftspKey(collection, term, docID)
+			if err := bPos.Put(k, encodePositions(posSlice)); err != nil {
+				return err
+			}
+			termList = append(termList, term)
+		}
+
+		return bPos.Put(revKey, []byte(strings.Join(termList, ",")))
+	})
+}
+
+// tokenizeOrderedLang returns terms in order using language-specific processing.
+func (f *FTSIndex) tokenizeOrderedLang(text, lang string) []string {
+	stemmer, stopWords := f.resolveLang(lang)
+	text = strings.ToLower(text)
+	var terms []string
+	var word strings.Builder
+
+	for _, r := range text {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			word.WriteRune(r)
+		} else {
+			if word.Len() >= 2 {
+				w := word.String()
+				if !stopWords[w] {
+					if stemmer != nil {
+						w = stemmer.Stem(w)
+					}
+					terms = append(terms, w)
+				}
+			}
+			word.Reset()
+		}
+	}
+	if word.Len() >= 2 {
+		w := word.String()
+		if !stopWords[w] {
+			if stemmer != nil {
+				w = stemmer.Stem(w)
+			}
+			terms = append(terms, w)
+		}
+	}
+	return terms
+}
+
 // IndexPositions stores term positions for a document (used for phrase/proximity search).
 func (f *FTSIndex) IndexPositions(collection, docID, content string) error {
 	positions := f.TokenizePositions(content)

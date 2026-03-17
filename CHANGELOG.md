@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - New `mode` parameter: `"auto"`, `"simple"`, `"boolean"`, `"phrase"`, `"wildcard"`, `"proximity"`
   - Positional index for phrase/proximity search (new `ftsp` bucket)
   - Panel: search mode selector, proximity distance slider, syntax hints
+- **Multi-Language Full-Text Search** — Language-aware stemming and stop word filtering for 18 languages (English, Polish, German, French, Spanish, Italian, Portuguese, Dutch, Russian, Swedish, Norwegian, Danish, Finnish, Hungarian, Romanian, Turkish, Arabic, Tamil). Each document's `lang` field determines the FTS pipeline. New endpoints: `GET /v1/fts-languages`, `POST /v1/fts-reindex`. New config: `MDDB_FTS_DEFAULT_LANG`. New `lang` parameter in FTS search requests.
 - **Chat Service Improvements** — Anthropic Claude LLM provider, tool-use support (search, get document), improved widget UI with typing indicators and error handling
 - **File Upload Enhancements** — Extended `POST /v1/upload` with support for PDF, DOCX, HTML, ODT, RTF, TeX, YAML, and plain text file formats alongside Markdown
 
@@ -438,7 +439,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker Compose configuration for production deployment
 
 ### Changed
-- Updated golangci-lint to v2.6.1 with Go 1.25 support
+- Updated golangci-lint to v2.6.1 with Go 1.26 support
 - Improved error handling across codebase
 - Optimized buffer pool usage to avoid allocations
 
@@ -573,7 +574,7 @@ Tested with 3000 documents:
 - Docker and systemd configurations
 
 ### Technical Details
-- Go 1.25+ required
+- Go 1.26+ required
 - BoltDB for storage
 - HTTP/JSON API
 - Single binary deployment
@@ -614,7 +615,7 @@ make run
 See the [Quick Start Guide](docs/QUICKSTART.md) for detailed instructions.
 
 **Requirements:**
-- Go 1.25 or later
+- Go 1.26 or later
 - 512 MB RAM minimum
 - Linux, macOS, or Windows
 

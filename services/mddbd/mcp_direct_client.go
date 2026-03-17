@@ -996,6 +996,7 @@ func (c *DirectClient) FTSSearch(ctx context.Context, req *MCPFTSSearchRequest) 
 	resp := &MCPFTSSearchResponse{
 		Algorithm: algo,
 		Fuzzy:     fuzzy,
+		Lang:      req.Lang,
 		Results:   make([]MCPFTSResult, 0, len(results)),
 	}
 
@@ -1024,6 +1025,87 @@ func (c *DirectClient) FTSSearch(ctx context.Context, req *MCPFTSSearchRequest) 
 	resp.Total = len(resp.Results)
 
 	return resp, nil
+}
+
+// FTSReindex re-indexes all documents in a collection using their lang field.
+func (c *DirectClient) FTSReindex(ctx context.Context, req *MCPFTSReindexRequest) (*MCPFTSReindexResponse, error) {
+	if req.Collection == "" {
+		return nil, errors.New("missing required field: collection")
+	}
+	if c.server.FTSIndex == nil {
+		return nil, errors.New("full-text search not initialized")
+	}
+
+	// Collect docs first (read tx), then index outside to avoid deadlock
+	type reindexDoc struct {
+		ID, ContentMD, Lang string
+		Meta                map[string][]string
+	}
+	var docs []reindexDoc
+	var skipped int
+	_ = c.server.DB.View(func(tx *bolt.Tx) error {
+		bDocs := tx.Bucket([]byte("docs"))
+		if bDocs == nil {
+			return nil
+		}
+		prefix := []byte("doc|" + req.Collection + "|")
+		cur := bDocs.Cursor()
+		for k, v := cur.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = cur.Next() {
+			docPtr, err := loadDoc(v)
+			if err != nil || docPtr.ContentMD == "" {
+				skipped++
+				continue
+			}
+			if docPtr.ExpiresAt > 0 && docPtr.ExpiresAt < time.Now().Unix() {
+				skipped++
+				continue
+			}
+			docs = append(docs, reindexDoc{docPtr.ID, docPtr.ContentMD, docPtr.Lang, docPtr.Meta})
+		}
+		return nil
+	})
+
+	reindexed := 0
+	for _, d := range docs {
+		_ = c.server.FTSIndex.IndexWithLang(req.Collection, d.ID, d.ContentMD, d.Lang)
+		_ = c.server.FTSIndex.IndexPositionsWithLang(req.Collection, d.ID, d.ContentMD, d.Lang)
+		fields := map[string]string{"content": d.ContentMD}
+		for mk, vals := range d.Meta {
+			if len(vals) > 0 {
+				fields["meta."+mk] = strings.Join(vals, " ")
+			}
+		}
+		_ = c.server.FTSIndex.IndexFieldsWithLang(req.Collection, d.ID, fields, d.Lang)
+		reindexed++
+	}
+
+	return &MCPFTSReindexResponse{
+		Status:    "ok",
+		Reindexed: reindexed,
+		Skipped:   skipped,
+	}, nil
+}
+
+// FTSLanguages returns the list of supported FTS languages.
+func (c *DirectClient) FTSLanguages(ctx context.Context) (*MCPFTSLanguagesResponse, error) {
+	if c.server.FTSIndex == nil || c.server.FTSIndex.langRegistry == nil {
+		return &MCPFTSLanguagesResponse{Languages: []MCPFTSLanguageInfo{}}, nil
+	}
+
+	var langs []MCPFTSLanguageInfo
+	for _, code := range c.server.FTSIndex.langRegistry.Languages() {
+		cfg := c.server.FTSIndex.langRegistry.Resolve(code)
+		name := code
+		if cfg != nil {
+			name = cfg.Name
+		}
+		langs = append(langs, MCPFTSLanguageInfo{Code: code, Name: name})
+	}
+
+	return &MCPFTSLanguagesResponse{
+		Languages:   langs,
+		DefaultLang: c.server.FTSIndex.langRegistry.DefaultLang(),
+	}, nil
 }
 
 // HybridSearch performs a combined full-text and vector search via the direct client.
