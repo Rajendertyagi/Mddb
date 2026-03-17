@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description"
-        content="MDDB — AI-native embedded document database with built-in MCP server (53 tools), vector search (Flat, HNSW, IVF, PQ, SQ, BQ), hybrid BM25+vector RAG, full-text search with 7 modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), triple protocol (REST, gRPC, GraphQL). Accepts .md, .txt, .html, .pdf, .docx, .odt, .rtf, .tex, .yaml. Connects to Claude, ChatGPT, Cursor, Windsurf, Ollama, DeepSeek. Single ~29MB binary, zero config.">
+        content="MDDB — AI-native embedded document database with built-in MCP server (54 tools), vector search (Flat, HNSW, IVF, PQ, SQ, BQ), hybrid BM25+vector RAG, full-text search with 7 modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), triple protocol (REST, gRPC, GraphQL). Accepts .md, .txt, .html, .pdf, .docx, .odt, .rtf, .tex, .yaml. Connects to Claude, ChatGPT, Cursor, Windsurf, Ollama, DeepSeek. Single ~29MB binary, zero config.">
     <meta name="keywords"
         content="MCP server, AI knowledge base, RAG, LLM integration, Claude MCP, embedding database, semantic search, vector search, markdown database, document database, gRPC, protobuf, graphql, embedded database, BoltDB, Go, HNSW, BM25, PMISparse, hybrid search, zero-shot classification, document TTL, replication, automation, webhooks, Cursor MCP, Windsurf MCP, Ollama, DeepSeek, Docling, Langflow">
     <meta name="author" content="MDDB Team">
@@ -65,7 +65,7 @@
       "description": "AI-native knowledge base with built-in MCP server, vector search, RAG support, and semantic retrieval for AI agents and LLM workflows",
       "softwareVersion": "2.8.0",
       "featureList": [
-        "Built-in MCP server with 53 tools (stdio + HTTP) for Claude, Cursor, Windsurf, ChatGPT, Ollama, DeepSeek",
+        "Built-in MCP server with 54 tools (stdio + HTTP) for Claude, Cursor, Windsurf, ChatGPT, Ollama, DeepSeek",
         "Vector/semantic search with 6 index algorithms: Flat, HNSW, IVF, PQ, SQ, BQ (OpenAI, Ollama, Cohere, Voyage AI)",
         "Hybrid search combining sparse BM25 + dense vector with alpha blending and Reciprocal Rank Fusion",
         "Full-text search with TF-IDF, BM25, BM25F, PMISparse scoring, 7 search modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), and typo tolerance",
@@ -139,7 +139,7 @@
                     <p class="hero-subtitle">Built-in MCP server, vector search, RAG, and hybrid retrieval. Plugs into
                         Claude, ChatGPT, Cursor, Windsurf, and any MCP client — single ~29MB binary, zero config</p>
                     <div class="hero-badges">
-                        <span class="badge">53 MCP Tools</span>
+                        <span class="badge">54 MCP Tools</span>
                         <span class="badge" data-v>v{v}</span>
                         <span class="badge">RAG-Ready</span>
                         <span class="badge">Docker Ready</span>
@@ -183,7 +183,7 @@
                         auto-converting everything to Markdown. All documents are stored with full revision history.</p>
                     <h3>Core capabilities</h3>
                     <ul>
-                        <li>Built-in MCP server with 53 tools — connects to Claude, Cursor, Windsurf, ChatGPT, Ollama,
+                        <li>Built-in MCP server with 54 tools — connects to Claude, Cursor, Windsurf, ChatGPT, Ollama,
                             DeepSeek, Manus via stdio and HTTP transport</li>
                         <li>Vector/semantic search with 6 index algorithms: Flat (exact), HNSW, IVF, PQ, SQ, BQ —
                             supports OpenAI, Ollama, Cohere, Voyage AI embeddings</li>
@@ -230,7 +230,7 @@
                         </div>
                         <div class="feat-text">
                             <span class="feat-label">AI Integration</span>
-                            <h3>53 Built-in MCP Tools</h3>
+                            <h3>54 Built-in MCP Tools</h3>
                             <p>Connect Claude, Cursor, Windsurf, or any MCP client in seconds. Stdio and HTTP modes.
                                 Define custom tools in YAML with preconfigured defaults.</p>
                             <ul class="feat-tags">
@@ -917,7 +917,7 @@ $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
   }
 }
 
-# MCP provides 53 built-in tools including:
+# MCP provides 54 built-in tools including:
 # - add_document, search_documents, semantic_search
 # - full_text_search, hybrid_search, cross_search
 # - classify_document, find_duplicates

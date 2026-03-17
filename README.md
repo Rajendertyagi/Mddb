@@ -7,16 +7,16 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/tradik/mddb)](https://hub.docker.com/r/tradik/mddb)
 [![Tests](https://github.com/tradik/mddb/workflows/Tests/badge.svg)](https://github.com/tradik/mddb/actions)
 
-**AI-native document database with built-in MCP server, file upload (PDF/DOCX/HTML/ODT/RTF/TEX/YAML→Markdown), vector search, RAG pipelines, and 53 MCP tools. Plugs directly into Claude, ChatGPT, Cursor, Windsurf, and any MCP-compatible agent.**
+**AI-native document database with built-in MCP server, file upload (PDF/DOCX/HTML/ODT/RTF/TEX/YAML→Markdown), vector search, RAG pipelines, and 54 MCP tools. Plugs directly into Claude, ChatGPT, Cursor, Windsurf, and any MCP-compatible agent.**
 
-MDDB is a document database purpose-built for AI agents and LLM workflows. Upload files (PDF, DOCX, HTML, ODT, RTF, TEX, YAML, TXT) — they're auto-converted to Markdown and embedded for semantic search. Expose everything to AI agents via 53 built-in MCP tools. Integrates with [Docling](docs/INTEGRATIONS.md#1-docling--mddb-document-ingestion), [Langflow](docs/INTEGRATIONS.md#2-langflow--mddb-visual-rag-orchestration), [OpenSearch](docs/INTEGRATIONS.md#3-opensearch--mddb-scalable-search), [SSG](docs/INTEGRATIONS.md#4-ssg--static-site-generator-from-mddb), and [wpexporter](docs/INTEGRATIONS.md#5-wpexporter--wordpress-to-mddb-migration) for production pipelines. Single ~29MB binary, zero configuration, BoltDB embedded storage, triple-protocol APIs (HTTP + gRPC + GraphQL).
+MDDB is a document database purpose-built for AI agents and LLM workflows. Upload files (PDF, DOCX, HTML, ODT, RTF, TEX, YAML, TXT) — they're auto-converted to Markdown and embedded for semantic search. Expose everything to AI agents via 54 built-in MCP tools. Integrates with [Docling](docs/INTEGRATIONS.md#1-docling--mddb-document-ingestion), [Langflow](docs/INTEGRATIONS.md#2-langflow--mddb-visual-rag-orchestration), [OpenSearch](docs/INTEGRATIONS.md#3-opensearch--mddb-scalable-search), [SSG](docs/INTEGRATIONS.md#4-ssg--static-site-generator-from-mddb), and [wpexporter](docs/INTEGRATIONS.md#5-wpexporter--wordpress-to-mddb-migration) for production pipelines. Single ~29MB binary, zero configuration, BoltDB embedded storage, triple-protocol APIs (HTTP + gRPC + GraphQL).
 
 ## 🎯 What is MDDB?
 
 MDDB gives your AI agents a persistent, searchable knowledge base:
 
 - **File Upload** - Upload PDF, DOCX, HTML, ODT, RTF, TEX, YAML, TXT files — auto-converted to Markdown and indexed
-- **Built-in MCP Server** - 53 tools for Claude Desktop, Cursor, Windsurf, or any MCP client
+- **Built-in MCP Server** - 54 tools for Claude Desktop, Cursor, Windsurf, or any MCP client
 - **Vector Search** - Auto-embed documents, semantic similarity with 6 index algorithms (Flat, HNSW, IVF, PQ, SQ, BQ)
 - **RAG-Ready** - Hybrid search (BM25 + vector) for retrieval-augmented generation
 - **Integrations** - [Docling](docs/INTEGRATIONS.md), [Langflow](docs/INTEGRATIONS.md), [OpenSearch](docs/INTEGRATIONS.md), [SSG](docs/INTEGRATIONS.md), [wpexporter](docs/INTEGRATIONS.md) for production pipelines
@@ -77,7 +77,7 @@ MDDB has a built-in MCP server — no extra service needed. Add to your MCP conf
 }
 ```
 
-That's it — your AI agent now has full access to your knowledge base with 53 built-in tools (add, search, vector search, classify, and more).
+That's it — your AI agent now has full access to your knowledge base with 54 built-in tools (add, search, vector search, classify, and more).
 
 **[→ Full MCP setup guide](docs/LLM_CONNECTIONS.md)** | **[→ Custom MCP tools](docs/CUSTOM-TOOLS.md)**
 
@@ -219,7 +219,7 @@ Proto definitions at `proto/mddb.proto` - generate clients for any language supp
 ## 💡 Key Features
 
 ### AI & Search
-- ✅ **MCP Server** - 53 built-in tools via Model Context Protocol (stdio + HTTP) for Claude, Cursor, Windsurf, and any MCP client
+- ✅ **MCP Server** - 54 built-in tools via Model Context Protocol (stdio + HTTP) for Claude, Cursor, Windsurf, and any MCP client
 - ✅ **File Upload** - Upload PDF, DOCX, HTML, ODT, RTF, TEX, YAML, TXT — auto-converted to Markdown (single and batch, configurable size limit)
 - ✅ **Vector Search** - Semantic similarity with auto-embeddings (OpenAI, Ollama, Cohere, Voyage)
 - ✅ **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, BM25F, PMISparse scoring, 7 search modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), typo tolerance, metadata pre-filtering
