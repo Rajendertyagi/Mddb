@@ -33,9 +33,14 @@ func NewSQIndex() *SQIndex {
 	}
 }
 
-func (s *SQIndex) Name() string  { return "sq" }
+// Name implements the VectorSearcher interface.
+func (s *SQIndex) Name() string { return "sq" }
+
+// IsReady implements the VectorSearcher interface.
 func (s *SQIndex) IsReady() bool { return s.ready.Load() }
-func (s *SQIndex) SetReady()     { s.ready.Store(true) }
+
+// SetReady implements the VectorSearcher interface.
+func (s *SQIndex) SetReady() { s.ready.Store(true) }
 
 func (s *SQIndex) getOrCreate(collection string) *sqCollection {
 	c, ok := s.data[collection]
@@ -49,6 +54,7 @@ func (s *SQIndex) getOrCreate(collection string) *sqCollection {
 	return c
 }
 
+// Add implements the VectorSearcher interface.
 func (s *SQIndex) Add(collection, docID string, vector []float32) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -61,6 +67,7 @@ func (s *SQIndex) Add(collection, docID string, vector []float32) {
 	}
 }
 
+// Remove implements the VectorSearcher interface.
 func (s *SQIndex) Remove(collection, docID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -188,6 +195,7 @@ func (s *SQIndex) Search(collection string, query []float32, topK int, threshold
 	return s.adcSearch(c, query, topK, threshold, nil, metric)
 }
 
+// SearchWithFilter implements the VectorSearcher interface.
 func (s *SQIndex) SearchWithFilter(collection string, query []float32, topK int, threshold float64, allowed map[string]bool, metric SimilarityFunc) []VectorResult {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -282,6 +290,7 @@ func (s *SQIndex) adcSearch(c *sqCollection, query []float32, topK int, threshol
 	return results
 }
 
+// CollectionSize implements the VectorSearcher interface.
 func (s *SQIndex) CollectionSize(collection string) int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -292,6 +301,7 @@ func (s *SQIndex) CollectionSize(collection string) int {
 	return len(c.origVecs)
 }
 
+// Collections implements the VectorSearcher interface.
 func (s *SQIndex) Collections() []string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

@@ -1011,6 +1011,7 @@ dependencies = [
  "hmac",
  "prost",
  "prost-types",
+ "regex",
  "reqwest",
  "serde",
  "serde_json",

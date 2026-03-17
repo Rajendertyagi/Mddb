@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { X, FileText, Upload, File } from 'lucide-react';
 import mddbClient from '../lib/mddb-client';
 
-const SUPPORTED_EXTENSIONS = ['.md', '.txt', '.html', '.htm', '.pdf', '.docx'];
+const SUPPORTED_EXTENSIONS = ['.md', '.txt', '.html', '.htm', '.pdf', '.docx', '.odt', '.rtf', '.yaml', '.yml', '.log', '.lex', '.tex', '.latex'];
 const ACCEPT_STRING = SUPPORTED_EXTENSIONS.join(',');
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 

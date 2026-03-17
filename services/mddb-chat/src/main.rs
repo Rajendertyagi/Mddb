@@ -22,7 +22,9 @@ mod webhook;
 
 use config::Config;
 use grpc::client::MddbClient;
+use llm::anthropic::AnthropicProvider;
 use llm::openai::OpenAiProvider;
+use llm::provider::LlmProvider;
 use security::rate_limiter::RateLimiter;
 use security::sanitizer::Sanitizer;
 use session::manager::SessionManager;
@@ -58,7 +60,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize components
     let mddb_client = MddbClient::connect(config.mddb.clone()).await?;
     let session_manager = SessionManager::new(config.session.clone());
-    let llm_provider = Arc::new(OpenAiProvider::new(config.llm.clone()));
+    let llm_provider: Arc<dyn LlmProvider> = match config.llm.provider.as_str() {
+        "anthropic" | "claude" => Arc::new(AnthropicProvider::new(config.llm.clone())),
+        // "openai" and anything else (ollama, bielik, groq, mistral, openrouter, etc.)
+        // all use OpenAI-compatible API format
+        _ => Arc::new(OpenAiProvider::new(config.llm.clone())),
+    };
     let webhook_dispatcher =
         WebhookDispatcher::new(config.webhooks.clone(), config.security.webhook_secret.clone());
     let rate_limiter = RateLimiter::new(config.security.rate_limit_per_minute);

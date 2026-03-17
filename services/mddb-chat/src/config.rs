@@ -35,6 +35,10 @@ pub struct MddbConfig {
     pub search_top_k: u32,
     #[serde(default = "default_search_type")]
     pub search_type: String,
+    #[serde(default)]
+    pub auth_username: String,
+    #[serde(default)]
+    pub auth_password: String,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -154,7 +158,7 @@ fn default_true() -> bool { true }
 fn default_max_concurrent() -> usize { 2 }
 fn default_queue_size() -> usize { 10 }
 fn default_max_history() -> usize { 50 }
-fn default_session_ttl() -> u64 { 60 }
+fn default_session_ttl() -> u64 { 1440 }
 fn default_max_response_length() -> usize { 4096 }
 fn default_name_max_chars() -> usize { 50 }
 fn default_rate_limit() -> u32 { 30 }

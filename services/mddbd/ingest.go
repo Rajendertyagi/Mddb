@@ -16,12 +16,14 @@ import (
 
 // ---- HTTP types for /v1/ingest ----
 
+// IngestRequestHTTP is the HTTP request body for bulk document ingestion.
 type IngestRequestHTTP struct {
-	Collection string              `json:"collection"`
+	Collection string               `json:"collection"`
 	Documents  []IngestDocumentHTTP `json:"documents"`
-	Options    IngestOptionsHTTP   `json:"options,omitempty"`
+	Options    IngestOptionsHTTP    `json:"options,omitempty"`
 }
 
+// IngestDocumentHTTP represents a single document in an ingest request.
 type IngestDocumentHTTP struct {
 	URL                string              `json:"url"`
 	Key                string              `json:"key,omitempty"`
@@ -34,6 +36,7 @@ type IngestDocumentHTTP struct {
 	TTL                int64               `json:"ttl,omitempty"`
 }
 
+// IngestOptionsHTTP controls optional behavior during ingestion.
 type IngestOptionsHTTP struct {
 	SkipDuplicates          bool `json:"skipDuplicates,omitempty"`
 	SkipEmbeddings          bool `json:"skipEmbeddings,omitempty"`
@@ -43,6 +46,7 @@ type IngestOptionsHTTP struct {
 	SaveRevision            bool `json:"saveRevision,omitempty"`
 }
 
+// IngestResponseHTTP is the HTTP response body for a bulk ingest operation.
 type IngestResponseHTTP struct {
 	Added      int      `json:"added"`
 	Updated    int      `json:"updated"`
@@ -331,10 +335,10 @@ func protoFromIngestResponse(resp *IngestResponseHTTP) *proto.IngestResponse {
 		errs = resp.Errors
 	}
 	return &proto.IngestResponse{
-		Added:      int32(resp.Added),
-		Updated:    int32(resp.Updated),
-		Skipped:    int32(resp.Skipped),
-		Failed:     int32(resp.Failed),
+		Added:      safeInt32(resp.Added),
+		Updated:    safeInt32(resp.Updated),
+		Skipped:    safeInt32(resp.Skipped),
+		Failed:     safeInt32(resp.Failed),
 		Errors:     errs,
 		Collection: resp.Collection,
 		DurationMs: resp.DurationMs,

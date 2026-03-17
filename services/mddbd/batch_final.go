@@ -297,7 +297,7 @@ func (fbp *FinalBatchProcessor) commitBatch(collection string, processed []*Proc
 	})
 
 	if err != nil {
-		resp.Failed = int32(len(processed))
+		resp.Failed = safeInt32(len(processed))
 		resp.Errors = append(resp.Errors, fmt.Sprintf("transaction error: %v", err))
 	}
 

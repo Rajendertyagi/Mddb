@@ -254,10 +254,19 @@ class MDDBClient {
   /**
    * Full-text search
    */
-  async ftsSearch({ collection, query, limit = 50, algorithm = 'tfidf', fuzzy = 0, disableStem = false, disableSynonyms = false, fieldWeights = null, filterMeta = {}, signal }) {
+  async ftsSearch({ collection, query, limit = 50, algorithm = 'tfidf', fuzzy = 0, mode = 'auto', distance, disableStem = false, disableSynonyms = false, fieldWeights = null, filterMeta = {}, rangeMeta, signal }) {
     const body = { collection, query, limit, algorithm, fuzzy, disableStem, disableSynonyms };
+    if (mode && mode !== 'auto') {
+      body.mode = mode;
+    }
+    if (mode === 'proximity' && distance) {
+      body.distance = distance;
+    }
     if (filterMeta && Object.keys(filterMeta).length > 0) {
       body.filterMeta = filterMeta;
+    }
+    if (rangeMeta && rangeMeta.length > 0) {
+      body.rangeMeta = rangeMeta;
     }
     if (algorithm === 'bm25f' && fieldWeights) {
       body.fieldWeights = fieldWeights;

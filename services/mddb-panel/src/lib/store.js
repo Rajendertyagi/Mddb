@@ -42,6 +42,8 @@ export const useStore = create((set, get) => ({
   ftsStemming: true,
   ftsSynonyms: true,
   ftsFieldWeights: { content: 1, 'meta.title': 3, 'meta.tags': 2, 'meta.description': 1.5 },
+  ftsMode: 'auto',
+  ftsDistance: 5,
   ftsResults: [],
   ftsLoading: false,
   ftsError: null,
@@ -158,6 +160,8 @@ export const useStore = create((set, get) => ({
   setFtsLimit: (l) => set({ ftsLimit: l }),
   setFtsAlgorithm: (a) => set({ ftsAlgorithm: a }),
   setFtsFuzzy: (f) => set({ ftsFuzzy: f }),
+  setFtsMode: (m) => set({ ftsMode: m }),
+  setFtsDistance: (d) => set({ ftsDistance: d }),
   setFtsStemming: (v) => set({ ftsStemming: v }),
   setFtsSynonyms: (v) => set({ ftsSynonyms: v }),
   setFtsFieldWeight: (field, weight) => set((state) => ({

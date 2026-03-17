@@ -40,9 +40,14 @@ func NewIVFIndex(nProbe, maxIter int) *IVFIndex {
 	}
 }
 
-func (idx *IVFIndex) Name() string  { return "ivf" }
+// Name implements the VectorSearcher interface.
+func (idx *IVFIndex) Name() string { return "ivf" }
+
+// IsReady implements the VectorSearcher interface.
 func (idx *IVFIndex) IsReady() bool { return idx.ready.Load() }
-func (idx *IVFIndex) SetReady()     { idx.ready.Store(true) }
+
+// SetReady implements the VectorSearcher interface.
+func (idx *IVFIndex) SetReady() { idx.ready.Store(true) }
 
 func (idx *IVFIndex) getOrCreate(collection string) *ivfCollection {
 	c, ok := idx.data[collection]
@@ -55,6 +60,7 @@ func (idx *IVFIndex) getOrCreate(collection string) *ivfCollection {
 	return c
 }
 
+// Add implements the VectorSearcher interface.
 func (idx *IVFIndex) Add(collection, docID string, vector []float32) {
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
@@ -72,6 +78,7 @@ func (idx *IVFIndex) Add(collection, docID string, vector []float32) {
 	}
 }
 
+// Remove implements the VectorSearcher interface.
 func (idx *IVFIndex) Remove(collection, docID string) {
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
@@ -141,6 +148,7 @@ func (idx *IVFIndex) Train(collection string, vectors map[string][]float32) {
 	idx.mu.Unlock()
 }
 
+// Search implements the VectorSearcher interface.
 func (idx *IVFIndex) Search(collection string, query []float32, topK int, threshold float64, metric SimilarityFunc) []VectorResult {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
@@ -182,6 +190,7 @@ func (idx *IVFIndex) Search(collection string, query []float32, topK int, thresh
 	return results
 }
 
+// SearchWithFilter implements the VectorSearcher interface.
 func (idx *IVFIndex) SearchWithFilter(collection string, query []float32, topK int, threshold float64, allowed map[string]bool, metric SimilarityFunc) []VectorResult {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
@@ -224,6 +233,7 @@ func (idx *IVFIndex) SearchWithFilter(collection string, query []float32, topK i
 	return results
 }
 
+// CollectionSize implements the VectorSearcher interface.
 func (idx *IVFIndex) CollectionSize(collection string) int {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
@@ -234,6 +244,7 @@ func (idx *IVFIndex) CollectionSize(collection string) int {
 	return len(c.allVecs)
 }
 
+// Collections implements the VectorSearcher interface.
 func (idx *IVFIndex) Collections() []string {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
@@ -255,7 +266,7 @@ func kmeansInit(vecs [][]float32, k int) [][]float32 {
 	centroids := make([][]float32, 0, k)
 
 	// Pick first centroid randomly
-	centroids = append(centroids, copyVec(vecs[rand.Intn(len(vecs))]))
+	centroids = append(centroids, copyVec(vecs[rand.Intn(len(vecs))])) // #nosec G404 -- not security-sensitive
 
 	for len(centroids) < k {
 		// Compute distances to nearest centroid
@@ -278,7 +289,7 @@ func kmeansInit(vecs [][]float32, k int) [][]float32 {
 			continue
 		}
 		// Weighted random selection
-		r := rand.Float64() * total
+		r := rand.Float64() * total // #nosec G404 -- not security-sensitive
 		cumulative := 0.0
 		selected := 0
 		for i, d := range dists {

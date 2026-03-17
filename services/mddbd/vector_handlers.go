@@ -34,7 +34,7 @@ type VectorSearchResultItem struct {
 	Rank     int     `json:"rank"`
 }
 
-// VectorSearchResponse represents the response from vector search.
+// VectorSearchResponseHTTP represents the response from vector search.
 type VectorSearchResponseHTTP struct {
 	Results        []VectorSearchResultItem `json:"results"`
 	Total          int                      `json:"total"`
@@ -45,7 +45,7 @@ type VectorSearchResponseHTTP struct {
 	Stats          *SearchStats             `json:"searchStats,omitempty"`
 }
 
-// VectorReindexRequest represents a reindex request.
+// VectorReindexRequestHTTP represents a reindex request.
 type VectorReindexRequestHTTP struct {
 	Collection string `json:"collection"`
 	Force      bool   `json:"force"`

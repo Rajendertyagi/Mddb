@@ -23,11 +23,15 @@ services:
       - MDDB_AUTH_ADMIN_USERNAME=admin
       - MDDB_AUTH_ADMIN_PASSWORD=admin123
       - MDDB_METRICS=true
+      - MDDB_MCP_ENABLED=true
+      - MDDB_GRPC_ENABLED=true
       - MDDB_EMBEDDING_PROVIDER=ollama
-      - MDDB_EMBEDDING_API_URL=http://ollama:11434
+      - MDDB_EMBEDDING_API_URL=http://host.docker.internal:11434
       - MDDB_EMBEDDING_MODEL=nomic-embed-text
       - MDDB_EMBEDDING_DIMENSIONS=768
       # - MDDB_PANEL_MODE=external  # internal (default, CORS enabled) or external (CORS disabled, panel proxies)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - mddb-network
     restart: unless-stopped
@@ -79,6 +83,8 @@ services:
       - RUST_LOG=mddb_chat=debug,tower_http=debug
     networks:
       - mddb-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       mddbd:
         condition: service_healthy
@@ -96,7 +102,7 @@ services:
       - mddb-network
     restart: unless-stopped
 
-  # Ollama (Optional - for vector embeddings)
+  # Ollama (Optional - use profile "with-ollama" if no local Ollama)
   ollama:
     image: ollama/ollama:latest
     container_name: mddb-ollama
@@ -109,6 +115,11 @@ services:
     restart: unless-stopped
     profiles:
       - with-ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   mddb-data:

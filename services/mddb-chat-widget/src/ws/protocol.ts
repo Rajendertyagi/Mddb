@@ -15,11 +15,22 @@ export interface ResumeMessage {
   session_id: string;
 }
 
+export interface EndMessage {
+  type: 'end';
+}
+
 export interface PingMessage {
   type: 'ping';
 }
 
-export type WsOutgoing = JoinMessage | ChatMessage | ResumeMessage | PingMessage;
+export interface FeedbackMessage {
+  type: 'feedback';
+  rating: 'up' | 'down';
+  question: string;
+  answer: string;
+}
+
+export type WsOutgoing = JoinMessage | ChatMessage | ResumeMessage | EndMessage | FeedbackMessage | PingMessage;
 
 // Incoming messages (server → client)
 export interface SessionMessage {
@@ -51,10 +62,15 @@ export interface PongMessage {
   type: 'pong';
 }
 
+export interface EndedMessage {
+  type: 'ended';
+}
+
 export type WsIncoming =
   | SessionMessage
   | QueuedMessage
   | ChunkMessage
   | DoneMessage
   | ErrorMessage
-  | PongMessage;
+  | PongMessage
+  | EndedMessage;

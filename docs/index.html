@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description"
-        content="MDDB — AI-native embedded document database with built-in MCP server (53 tools), vector search (Flat, HNSW, IVF, PQ, SQ, BQ), hybrid BM25+vector RAG, full-text search (TF-IDF, BM25, BM25F, PMISparse), triple protocol (REST, gRPC, GraphQL). Accepts .md, .txt, .html, .pdf, .docx. Connects to Claude, ChatGPT, Cursor, Windsurf, Ollama, DeepSeek. Single ~29MB binary, zero config.">
+        content="MDDB — AI-native embedded document database with built-in MCP server (53 tools), vector search (Flat, HNSW, IVF, PQ, SQ, BQ), hybrid BM25+vector RAG, full-text search with 7 modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), triple protocol (REST, gRPC, GraphQL). Accepts .md, .txt, .html, .pdf, .docx, .odt, .rtf, .tex, .yaml. Connects to Claude, ChatGPT, Cursor, Windsurf, Ollama, DeepSeek. Single ~29MB binary, zero config.">
     <meta name="keywords"
         content="MCP server, AI knowledge base, RAG, LLM integration, Claude MCP, embedding database, semantic search, vector search, markdown database, document database, gRPC, protobuf, graphql, embedded database, BoltDB, Go, HNSW, BM25, PMISparse, hybrid search, zero-shot classification, document TTL, replication, automation, webhooks, Cursor MCP, Windsurf MCP, Ollama, DeepSeek, Docling, Langflow">
     <meta name="author" content="MDDB Team">
@@ -28,11 +28,14 @@
     <meta property="twitter:image" content="https://tradik.github.io/mddb/og-image.png">
 
     <!-- Google Tag Manager -->
-    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-    })(window,document,'script','dataLayer','GTM-K296KCVM');</script>
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-K296KCVM');</script>
     <!-- End Google Tag Manager -->
 
     <title>MDDB - AI-Native Knowledge Base with Built-in MCP Server</title>
@@ -60,16 +63,16 @@
         "priceCurrency": "USD"
       },
       "description": "AI-native knowledge base with built-in MCP server, vector search, RAG support, and semantic retrieval for AI agents and LLM workflows",
-      "softwareVersion": "2.7.1",
+      "softwareVersion": "2.8.0",
       "featureList": [
         "Built-in MCP server with 53 tools (stdio + HTTP) for Claude, Cursor, Windsurf, ChatGPT, Ollama, DeepSeek",
         "Vector/semantic search with 6 index algorithms: Flat, HNSW, IVF, PQ, SQ, BQ (OpenAI, Ollama, Cohere, Voyage AI)",
         "Hybrid search combining sparse BM25 + dense vector with alpha blending and Reciprocal Rank Fusion",
-        "Full-text search with TF-IDF, BM25, BM25F, PMISparse scoring and typo tolerance",
+        "Full-text search with TF-IDF, BM25, BM25F, PMISparse scoring, 7 search modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), and typo tolerance",
         "Zero-shot document classification using embedding cosine similarity",
         "Custom YAML-based MCP tools for domain-specific AI workflows",
         "RAG pipeline: auto-embed on ingest, semantic retrieval, MCP exposure",
-        "Multi-format upload: .md, .txt, .html, .pdf, .docx with auto-conversion to Markdown",
+        "Multi-format upload: .md, .txt, .html, .pdf, .docx, .odt, .rtf, .tex, .yaml with auto-conversion to Markdown",
         "URL import: fetch and store documents from any URL",
         "Full revision history for every document",
         "Triple protocol: HTTP/JSON REST + gRPC/Protobuf + GraphQL",
@@ -97,10 +100,10 @@
 </head>
 
 <body>
-<!-- Google Tag Manager (noscript) -->
-<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-K296KCVM"
-height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-<!-- End Google Tag Manager (noscript) -->
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-K296KCVM" height="0" width="0"
+            style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
     <a href="#main-content" class="skip-to-main">Skip to main content</a>
     <!-- Navigation -->
     <nav class="navbar">
@@ -114,6 +117,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 <a href="#download">Download</a>
                 <a href="#docs">Documentation</a>
                 <a href="#examples">Examples</a>
+                <a href="chat.html">Chat Widget</a>
                 <a href="https://github.com/tradik/mddb" target="_blank" rel="noopener">GitHub</a>
             </div>
             <button class="mobile-menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
@@ -132,7 +136,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="container">
                 <div class="hero-content">
                     <h1>The Knowledge Base<br>Your AI Agent Needs</h1>
-                    <p class="hero-subtitle">Built-in MCP server, vector search, RAG, and hybrid retrieval. Plugs into Claude, ChatGPT, Cursor, Windsurf, and any MCP client — single ~29MB binary, zero config</p>
+                    <p class="hero-subtitle">Built-in MCP server, vector search, RAG, and hybrid retrieval. Plugs into
+                        Claude, ChatGPT, Cursor, Windsurf, and any MCP client — single ~29MB binary, zero config</p>
                     <div class="hero-badges">
                         <span class="badge">53 MCP Tools</span>
                         <span class="badge" data-v>v{v}</span>
@@ -173,18 +178,25 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
                 <!-- Machine-readable feature summary (visually hidden, for crawlers and screen readers) -->
                 <div class="sr-only">
-                    <p>MDDB is an AI-native embedded document database written in Go, using BoltDB for storage. It accepts Markdown, plain text, HTML, PDF, and DOCX documents, auto-converting everything to Markdown. All documents are stored with full revision history.</p>
+                    <p>MDDB is an AI-native embedded document database written in Go, using BoltDB for storage. It
+                        accepts Markdown, plain text, HTML, PDF, DOCX, ODT, RTF, LaTeX, and YAML documents,
+                        auto-converting everything to Markdown. All documents are stored with full revision history.</p>
                     <h3>Core capabilities</h3>
                     <ul>
-                        <li>Built-in MCP server with 53 tools — connects to Claude, Cursor, Windsurf, ChatGPT, Ollama, DeepSeek, Manus via stdio and HTTP transport</li>
-                        <li>Vector/semantic search with 6 index algorithms: Flat (exact), HNSW, IVF, PQ, SQ, BQ — supports OpenAI, Ollama, Cohere, Voyage AI embeddings</li>
-                        <li>Full-text search with TF-IDF, BM25, BM25F, and PMISparse scoring, typo tolerance, metadata pre-filtering</li>
-                        <li>Hybrid search combining sparse (BM25) and dense (vector) with alpha blending or Reciprocal Rank Fusion</li>
+                        <li>Built-in MCP server with 53 tools — connects to Claude, Cursor, Windsurf, ChatGPT, Ollama,
+                            DeepSeek, Manus via stdio and HTTP transport</li>
+                        <li>Vector/semantic search with 6 index algorithms: Flat (exact), HNSW, IVF, PQ, SQ, BQ —
+                            supports OpenAI, Ollama, Cohere, Voyage AI embeddings</li>
+                        <li>Full-text search with 7 modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), TF-IDF, BM25, BM25F, PMISparse scoring, typo tolerance, metadata
+                            pre-filtering</li>
+                        <li>Hybrid search combining sparse (BM25) and dense (vector) with alpha blending or Reciprocal
+                            Rank Fusion</li>
                         <li>Zero-shot document classification using embedding cosine similarity</li>
                         <li>Custom MCP tools defined in YAML for domain-specific AI workflows</li>
                         <li>RAG pipeline: auto-embed on ingest, semantic retrieval, MCP exposure to LLMs</li>
                         <li>Triple protocol: HTTP/JSON REST API, gRPC/Protobuf, GraphQL</li>
-                        <li>Multi-format upload: .md, .txt, .html, .pdf, .docx with auto-conversion to Markdown</li>
+                        <li>Multi-format upload: .md, .txt, .html, .pdf, .docx, .odt, .rtf, .tex, .yaml with
+                            auto-conversion to Markdown</li>
                         <li>URL import: fetch and store documents from any URL</li>
                         <li>Document TTL with auto-expiry and background cleanup</li>
                         <li>Full revision history for every document</li>
@@ -195,6 +207,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                         <li>Prometheus metrics and Grafana dashboard support</li>
                         <li>~29MB single binary, embedded BoltDB, zero external dependencies</li>
                         <li>Docker image: ~29MB Alpine-based with health checks</li>
+                        <li>Aggregations: metadata facets (value counts) and date histograms with optional pre-filtering</li>
+                        <li>Per-collection storage backends: BoltDB (default), in-memory (ephemeral), S3/MinIO —
+                            configurable via API and web panel</li>
                         <li>Web admin panel (React-based) with REST/GraphQL API toggle</li>
                         <li>PHP and Python client libraries</li>
                     </ul>
@@ -216,9 +231,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                         <div class="feat-text">
                             <span class="feat-label">AI Integration</span>
                             <h3>53 Built-in MCP Tools</h3>
-                            <p>Connect Claude, Cursor, Windsurf, or any MCP client in seconds. Stdio and HTTP modes. Define custom tools in YAML with preconfigured defaults.</p>
+                            <p>Connect Claude, Cursor, Windsurf, or any MCP client in seconds. Stdio and HTTP modes.
+                                Define custom tools in YAML with preconfigured defaults.</p>
                             <ul class="feat-tags">
-                                <li>MCP Server</li><li>Custom Tools</li><li>stdio + HTTP</li>
+                                <li>MCP Server</li>
+                                <li>Custom Tools</li>
+                                <li>stdio + HTTP</li>
                             </ul>
                         </div>
                     </div>
@@ -226,9 +244,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                     <div class="feat-row feat-row-reverse">
                         <div class="feat-visual">
                             <div class="feat-stack">
-                                <div class="feat-stack-layer l1"><span>BM25</span><span>TF-IDF</span><span>PMISparse</span></div>
+                                <div class="feat-stack-layer l1">
+                                    <span>BM25</span><span>TF-IDF</span><span>PMISparse</span></div>
                                 <div class="feat-stack-plus">+</div>
-                                <div class="feat-stack-layer l2"><span>Flat</span><span>HNSW</span><span>IVF</span><span>PQ</span></div>
+                                <div class="feat-stack-layer l2">
+                                    <span>Flat</span><span>HNSW</span><span>IVF</span><span>PQ</span></div>
                                 <div class="feat-stack-eq">=</div>
                                 <div class="feat-stack-layer l3"><span>Hybrid RAG</span></div>
                             </div>
@@ -236,9 +256,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                         <div class="feat-text">
                             <span class="feat-label">Search</span>
                             <h3>Hybrid Search Engine</h3>
-                            <p>Full-text with BM25/BM25F/PMISparse + vector search with 6 index types. Combine with alpha blending or Reciprocal Rank Fusion. Metadata pre-filtering, typo tolerance.</p>
+                            <p>Full-text with 7 search modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy) + vector search with 6 index types. Combine with
+                                alpha blending or Reciprocal Rank Fusion. Metadata pre-filtering, typo tolerance.</p>
                             <ul class="feat-tags">
-                                <li>Vector Search</li><li>Full-Text</li><li>Hybrid RAG</li><li>Zero-Shot Classification</li>
+                                <li>Vector Search</li>
+                                <li>Full-Text (7 modes)</li>
+                                <li>Hybrid RAG</li>
+                                <li>Zero-Shot Classification</li>
                             </ul>
                         </div>
                     </div>
@@ -254,9 +278,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                         <div class="feat-text">
                             <span class="feat-label">Protocols</span>
                             <h3>Triple Protocol Access</h3>
-                            <p>REST for easy debugging, gRPC for high-throughput pipelines, GraphQL for flexible frontend queries. All endpoints, one server.</p>
+                            <p>REST for easy debugging, gRPC for high-throughput pipelines, GraphQL for flexible
+                                frontend queries. All endpoints, one server.</p>
                             <ul class="feat-tags">
-                                <li>REST API</li><li>gRPC</li><li>GraphQL</li>
+                                <li>REST API</li>
+                                <li>gRPC</li>
+                                <li>GraphQL</li>
                             </ul>
                         </div>
                     </div>
@@ -269,6 +296,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                                 <div class="feat-file f-html">.html</div>
                                 <div class="feat-file f-pdf">.pdf</div>
                                 <div class="feat-file f-docx">.docx</div>
+                                <div class="feat-file f-odt">.odt</div>
+                                <div class="feat-file f-rtf">.rtf</div>
+                                <div class="feat-file f-tex">.tex</div>
+                                <div class="feat-file f-yaml">.yaml</div>
                                 <div class="feat-file f-url">URL</div>
                                 <div class="feat-arrow-down"></div>
                                 <div class="feat-file f-out">Markdown</div>
@@ -277,9 +308,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                         <div class="feat-text">
                             <span class="feat-label">Ingestion</span>
                             <h3>Multi-Format Pipeline</h3>
-                            <p>Upload .md, .txt, .html, .pdf, .docx or import from any URL. Everything auto-converts to Markdown. Background embedding worker indexes documents as they arrive.</p>
+                            <p>Upload .md, .txt, .html, .pdf, .docx, .odt, .rtf, .tex, .yaml or import from any URL.
+                                Everything auto-converts to Markdown. Background embedding worker indexes documents as
+                                they arrive.</p>
                             <ul class="feat-tags">
-                                <li>5 Formats</li><li>URL Import</li><li>Auto-Embed</li><li>TTL Expiry</li>
+                                <li>12 Formats</li>
+                                <li>URL Import</li>
+                                <li>Auto-Embed</li>
+                                <li>TTL Expiry</li>
                             </ul>
                         </div>
                     </div>
@@ -291,9 +327,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                     <div class="feat-chip"><strong>Replication</strong> Leader-follower binlog</div>
                     <div class="feat-chip"><strong>Auth & RBAC</strong> JWT, API keys, per-collection</div>
                     <div class="feat-chip"><strong>Automations</strong> Triggers, crons, webhooks</div>
+                    <div class="feat-chip"><strong>Aggregations</strong> Facets & histograms</div>
                     <div class="feat-chip"><strong>Multi-Language</strong> Same key, many locales</div>
                     <div class="feat-chip"><strong>Docker</strong> ~29MB Alpine image</div>
                     <div class="feat-chip"><strong>Zero Config</strong> Single binary, no deps</div>
+                    <div class="feat-chip"><strong>Storage Backends</strong> BoltDB, In-Memory, S3</div>
                     <div class="feat-chip"><strong>Telemetry</strong> Prometheus + Grafana</div>
                 </div>
             </div>
@@ -420,7 +458,7 @@ make docker-up
                                 <span class="terminal-title">bash — binary</span>
                             </div>
                             <pre><code id="binary-download-code" data-terminal="bash"># Download binary
-wget https://github.com/tradik/mddb/releases/download/v2.7.1/mddbd-linux-amd64
+wget https://github.com/tradik/mddb/releases/download/v2.8.0/mddbd-linux-amd64
 chmod +x mddbd-linux-amd64
 
 # Run server
@@ -464,38 +502,45 @@ make build
                         <div class="version" data-v>v{v}</div>
                         <p class="release-date" id="release-date">Released: March 5, 2026</p>
                         <div class="download-links">
-                            <a href="#" data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-linux-amd64"
+                            <a href="#"
+                                data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-linux-amd64"
                                 class="download-link">
                                 <span class="platform">Linux AMD64</span>
                                 <span class="size">~29MB</span>
                             </a>
-                            <a href="#" data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-linux-arm64"
+                            <a href="#"
+                                data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-linux-arm64"
                                 class="download-link">
                                 <span class="platform">Linux ARM64</span>
                                 <span class="size">~29MB</span>
                             </a>
-                            <a href="#" data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-darwin-amd64"
+                            <a href="#"
+                                data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-darwin-amd64"
                                 class="download-link">
                                 <span class="platform">macOS AMD64</span>
                                 <span class="size">~29MB</span>
                             </a>
-                            <a href="#" data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-darwin-arm64"
+                            <a href="#"
+                                data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-darwin-arm64"
                                 class="download-link">
                                 <span class="platform">macOS ARM64</span>
                                 <span class="size">~29MB</span>
                             </a>
-                            <a href="#" data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-freebsd-amd64"
+                            <a href="#"
+                                data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-freebsd-amd64"
                                 class="download-link">
                                 <span class="platform">FreeBSD AMD64</span>
                                 <span class="size">~29MB</span>
                             </a>
                         </div>
                         <div class="package-links">
-                            <a href="#" data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddb_{v}_amd64.deb"
+                            <a href="#"
+                                data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddb_{v}_amd64.deb"
                                 class="package-link">
                                 📦 Debian/Ubuntu (.deb)
                             </a>
-                            <a href="#" data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddb-{v}-1.x86_64.rpm"
+                            <a href="#"
+                                data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddb-{v}-1.x86_64.rpm"
                                 class="package-link">
                                 📦 RedHat/CentOS (.rpm)
                             </a>
@@ -506,18 +551,22 @@ make build
                         <div class="version" data-v>tradik/mddb:{v}</div>
                         <p class="release-date">Alpine-based (~29MB)</p>
                         <pre><code id="docker-pull-code">docker pull tradik/mddb:latest
-docker pull tradik/mddb:2.7.1</code></pre>
+docker pull tradik/mddb:2.8.0</code></pre>
                         <a href="https://hub.docker.com/r/tradik/mddb" class="btn btn-secondary" target="_blank"
                             rel="noopener">View on Docker Hub</a>
                     </div>
                 </div>
                 <div class="release-notes">
-                    <h3 id="whats-new-header">What's New in v2.7.1</h3>
+                    <h3 id="whats-new-header">What's New in v2.8.0</h3>
                     <ul>
-                        <li>✏️ <strong>Partial Document Update</strong> - <code>PATCH /v1/update</code> to update metadata and/or content independently without re-sending entire document</li>
-                        <li>📋 <strong>Document Metadata Read</strong> - <code>GET /v1/doc-meta</code> lightweight endpoint returning only metadata (no content transfer)</li>
-                        <li>🔌 <strong>gRPC + MCP Support</strong> - <code>UpdateDocument</code> and <code>GetDocumentMeta</code> RPCs, plus MCP tools</li>
-                        <li>🧪 <strong>Zero-Shot Classification</strong> - <code>POST /v1/classify</code> classifies documents against candidate labels using embedding similarity, no training data needed</li>
+                        <li>✏️ <strong>Partial Document Update</strong> - <code>PATCH /v1/update</code> to update
+                            metadata and/or content independently without re-sending entire document</li>
+                        <li>📋 <strong>Document Metadata Read</strong> - <code>GET /v1/doc-meta</code> lightweight
+                            endpoint returning only metadata (no content transfer)</li>
+                        <li>🔌 <strong>gRPC + MCP Support</strong> - <code>UpdateDocument</code> and
+                            <code>GetDocumentMeta</code> RPCs, plus MCP tools</li>
+                        <li>🧪 <strong>Zero-Shot Classification</strong> - <code>POST /v1/classify</code> classifies
+                            documents against candidate labels using embedding similarity, no training data needed</li>
                     </ul>
                     <a href="https://github.com/tradik/mddb/blob/main/CHANGELOG.md" target="_blank" rel="noopener">View
                         Full Changelog →</a>
@@ -528,46 +577,83 @@ docker pull tradik/mddb:2.7.1</code></pre>
         <!-- Documentation Section -->
         <section id="docs" class="documentation">
             <div class="container">
-                <h2>Documentation <a href="#docs" class="anchor-link" aria-label="Link to Documentation section">#</a></h2>
+                <h2>Documentation <a href="#docs" class="anchor-link" aria-label="Link to Documentation section">#</a>
+                </h2>
                 <div class="docs-columns">
                     <div class="docs-col">
                         <h3 class="docs-group-title">Getting Started</h3>
                         <ul class="docs-list">
-                            <li><a href="md-viewer.html?doc=QUICKSTART.md">Quick Start</a><span class="docs-desc">Get up and running in 5 minutes</span></li>
-                            <li><a href="swagger.html">API Documentation</a><span class="docs-badge">Interactive</span><span class="docs-desc">Swagger UI for all endpoints</span></li>
-                            <li><a href="openapi.yaml">OpenAPI Spec</a><span class="docs-desc">Machine-readable API specification</span></li>
-                            <li><a href="md-viewer.html?doc=EXAMPLES.md">Examples</a><span class="docs-desc">Code examples and patterns</span></li>
-                            <li><a href="md-viewer.html?doc=DOCKER.md">Docker Guide</a><span class="docs-desc">Container deployment</span></li>
-                            <li><a href="md-viewer.html?doc=ARCHITECTURE.md">Architecture</a><span class="docs-desc">System design and internals</span></li>
+                            <li><a href="md-viewer.html?doc=QUICKSTART.md">Quick Start</a><span class="docs-desc">Get up
+                                    and running in 5 minutes</span></li>
+                            <li><a href="swagger.html">API Documentation</a><span
+                                    class="docs-badge">Interactive</span><span class="docs-desc">Swagger UI for all
+                                    endpoints</span></li>
+                            <li><a href="openapi.yaml">OpenAPI Spec</a><span class="docs-desc">Machine-readable API
+                                    specification</span></li>
+                            <li><a href="md-viewer.html?doc=EXAMPLES.md">Examples</a><span class="docs-desc">Code
+                                    examples and patterns</span></li>
+                            <li><a href="md-viewer.html?doc=DOCKER.md">Docker Guide</a><span class="docs-desc">Container
+                                    deployment</span></li>
+                            <li><a href="md-viewer.html?doc=ARCHITECTURE.md">Architecture</a><span
+                                    class="docs-desc">System design and internals</span></li>
                         </ul>
 
                         <h3 class="docs-group-title">Search & AI</h3>
                         <ul class="docs-list">
-                            <li><a href="md-viewer.html?doc=SEARCH.md">Search Algorithms</a><span class="docs-badge">New</span><span class="docs-desc">TF-IDF, BM25, BM25F, Flat, HNSW, IVF, PQ, SQ, BQ</span></li>
-                            <li><a href="md-viewer.html?doc=PMISPARSE.md">PMISparse</a><span class="docs-badge">New</span><span class="docs-desc">BM25 + PPMI query expansion (Tradik Limited)</span></li>
-                            <li><a href="md-viewer.html?doc=RAG-PIPELINE.md">RAG Pipeline</a><span class="docs-badge">New</span><span class="docs-desc">WordPress → MDDB → LLM guide</span></li>
-                            <li><a href="md-viewer.html?doc=LLM_CONNECTIONS.md">LLM Connections</a><span class="docs-badge">New</span><span class="docs-desc">Claude, ChatGPT, Ollama, DeepSeek, Manus, Bielik.ai</span></li>
-                            <li><a href="md-viewer.html?doc=CUSTOM-TOOLS.md">Custom MCP Tools</a><span class="docs-badge">New</span><span class="docs-desc">YAML-defined website-specific AI tools</span></li>
-                            <li><a href="md-viewer.html?doc=INTEGRATIONS.md">Integrations</a><span class="docs-badge">New</span><span class="docs-desc">Docling, Langflow, OpenSearch pipelines</span></li>
+                            <li><a href="md-viewer.html?doc=SEARCH.md">Search Algorithms</a><span
+                                    class="docs-badge">New</span><span class="docs-desc">TF-IDF, BM25, BM25F, Flat,
+                                    HNSW, IVF, PQ, SQ, BQ</span></li>
+                            <li><a href="md-viewer.html?doc=PMISPARSE.md">PMISparse</a><span
+                                    class="docs-badge">New</span><span class="docs-desc">BM25 + PPMI query expansion
+                                    (Tradik Limited)</span></li>
+                            <li><a href="md-viewer.html?doc=RAG-PIPELINE.md">RAG Pipeline</a><span
+                                    class="docs-badge">New</span><span class="docs-desc">WordPress → MDDB → LLM
+                                    guide</span></li>
+                            <li><a href="md-viewer.html?doc=LLM_CONNECTIONS.md">LLM Connections</a><span
+                                    class="docs-badge">New</span><span class="docs-desc">Claude, ChatGPT, Ollama,
+                                    DeepSeek, Manus, Bielik.ai</span></li>
+                            <li><a href="md-viewer.html?doc=CUSTOM-TOOLS.md">Custom MCP Tools</a><span
+                                    class="docs-badge">New</span><span class="docs-desc">YAML-defined website-specific
+                                    AI tools</span></li>
+                            <li><a href="md-viewer.html?doc=INTEGRATIONS.md">Integrations</a><span
+                                    class="docs-badge">New</span><span class="docs-desc">Docling, Langflow, OpenSearch
+                                    pipelines</span></li>
                         </ul>
                     </div>
                     <div class="docs-col">
                         <h3 class="docs-group-title">Security & Operations</h3>
                         <ul class="docs-list">
-                            <li><a href="md-viewer.html?doc=AUTHENTICATION.md">Authentication & RBAC</a><span class="docs-badge">New</span><span class="docs-desc">JWT tokens, API keys, role-based access</span></li>
-                            <li><a href="md-viewer.html?doc=AUTH_QUICKSTART.md">Auth Quick Start</a><span class="docs-desc">5-minute authentication setup</span></li>
-                            <li><a href="md-viewer.html?doc=REPLICATION.md">Replication</a><span class="docs-badge">New</span><span class="docs-desc">Leader-follower, Docker Compose, monitoring</span></li>
-                            <li><a href="md-viewer.html?doc=TELEMETRY.md">Telemetry & Monitoring</a><span class="docs-badge">New</span><span class="docs-desc">Prometheus metrics, Grafana dashboards</span></li>
-                            <li><a href="md-viewer.html?doc=HEALTHCHECK.md">Health Checks</a><span class="docs-desc">Docker & Kubernetes monitoring</span></li>
-                            <li><a href="md-viewer.html?doc=LICENSE_AUDIT.md">License Audit</a><span class="docs-desc">Dependency license compliance (Trivy)</span></li>
+                            <li><a href="md-viewer.html?doc=AUTHENTICATION.md">Authentication & RBAC</a><span
+                                    class="docs-badge">New</span><span class="docs-desc">JWT tokens, API keys,
+                                    role-based access</span></li>
+                            <li><a href="md-viewer.html?doc=AUTH_QUICKSTART.md">Auth Quick Start</a><span
+                                    class="docs-desc">5-minute authentication setup</span></li>
+                            <li><a href="md-viewer.html?doc=REPLICATION.md">Replication</a><span
+                                    class="docs-badge">New</span><span class="docs-desc">Leader-follower, Docker
+                                    Compose, monitoring</span></li>
+                            <li><a href="md-viewer.html?doc=TELEMETRY.md">Telemetry & Monitoring</a><span
+                                    class="docs-badge">New</span><span class="docs-desc">Prometheus metrics, Grafana
+                                    dashboards</span></li>
+                            <li><a href="md-viewer.html?doc=HEALTHCHECK.md">Health Checks</a><span
+                                    class="docs-desc">Docker & Kubernetes monitoring</span></li>
+                            <li><a href="md-viewer.html?doc=LICENSE_AUDIT.md">License Audit</a><span
+                                    class="docs-desc">Dependency license compliance (Trivy)</span></li>
                         </ul>
 
                         <h3 class="docs-group-title">Protocols & Advanced</h3>
                         <ul class="docs-list">
-                            <li><a href="md-viewer.html?doc=GRPC.md">gRPC Guide</a><span class="docs-desc">High-performance protocol</span></li>
-                            <li><a href="md-viewer.html?doc=SCHEMA-VALIDATION.md">Schema Validation</a><span class="docs-desc">Enforce metadata structure per collection</span></li>
-                            <li><a href="md-viewer.html?doc=AUTOMATIONS.md">Automations</a><span class="docs-badge">New</span><span class="docs-desc">Triggers, crons, webhooks, sentiment</span></li>
-                            <li><a href="md-viewer.html?doc=WORDPRESS-AGENT.md">WordPress AI Agent</a><span class="docs-badge">New</span><span class="docs-desc">Build a chatbot for your WP site</span></li>
+                            <li><a href="md-viewer.html?doc=GRPC.md">gRPC Guide</a><span
+                                    class="docs-desc">High-performance protocol</span></li>
+                            <li><a href="md-viewer.html?doc=SCHEMA-VALIDATION.md">Schema Validation</a><span
+                                    class="docs-desc">Enforce metadata structure per collection</span></li>
+                            <li><a href="md-viewer.html?doc=AUTOMATIONS.md">Automations</a><span
+                                    class="docs-badge">New</span><span class="docs-desc">Triggers, crons, webhooks,
+                                    sentiment</span></li>
+                            <li><a href="md-viewer.html?doc=WORDPRESS-AGENT.md">WordPress AI Agent</a><span
+                                    class="docs-badge">New</span><span class="docs-desc">Build a chatbot for your WP
+                                    site</span></li>
+                            <li><a href="chat.html">Chat Widget</a><span class="docs-badge">New</span><span
+                                    class="docs-desc">Embeddable AI chatbot powered by MDDB</span></li>
                         </ul>
                     </div>
                 </div>
@@ -675,16 +761,7 @@ curl -X POST http://localhost:11023/v1/vector-search \
                                 </div>
                                 <span class="terminal-title">bash — full-text search</span>
                             </div>
-                            <pre><code data-terminal="bash"># Full-text search with TF-IDF (default)
-curl -X POST http://localhost:11023/v1/fts \
-  -H "Content-Type: application/json" \
-  -d '{
-    "collection": "blog",
-    "query": "markdown database tutorial",
-    "limit": 10
-  }'
-
-# Full-text search with BM25 scoring
+                            <pre><code data-terminal="bash"># Simple search with BM25 scoring
 curl -X POST http://localhost:11023/v1/fts \
   -H "Content-Type: application/json" \
   -d '{
@@ -694,13 +771,33 @@ curl -X POST http://localhost:11023/v1/fts \
     "algorithm": "bm25"
   }'
 
-# Register webhook for document changes
-curl -X POST http://localhost:11023/v1/webhooks \
-  -d '{"url":"https://your-app.com/hook", "events":["doc.added","doc.updated"]}'
+# Boolean search (AND, OR, NOT, +required, -excluded)
+curl -X POST http://localhost:11023/v1/fts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "blog",
+    "query": "rust AND performance NOT garbage",
+    "mode": "boolean"
+  }'
 
-# Set TTL on existing document (0 = remove)
-curl -X POST http://localhost:11023/v1/set-ttl \
-  -d '{"collection":"cache", "key":"temp", "lang":"en", "ttl":7200}'</code></pre>
+# Phrase search — exact word sequence
+curl -X POST http://localhost:11023/v1/fts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "blog",
+    "query": "\"machine learning\"",
+    "mode": "phrase"
+  }'
+
+# Proximity search — terms within 5 words
+curl -X POST http://localhost:11023/v1/fts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "blog",
+    "query": "\"database performance\"~5",
+    "mode": "proximity",
+    "distance": 5
+  }'</code></pre>
                         </div>
                     </div>
                     <div class="example-pane" id="search">
@@ -839,11 +936,13 @@ $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
                 <div class="use-cases-grid">
                     <div class="use-case">
                         <h3>🧠 AI Agent Memory</h3>
-                        <p>Persistent knowledge store for autonomous agents. MCP integration lets any AI read and write documents</p>
+                        <p>Persistent knowledge store for autonomous agents. MCP integration lets any AI read and write
+                            documents</p>
                     </div>
                     <div class="use-case">
                         <h3>🤖 RAG Pipelines</h3>
-                        <p>Semantic vector search + hybrid retrieval + auto-embeddings. Purpose-built for retrieval-augmented generation</p>
+                        <p>Semantic vector search + hybrid retrieval + auto-embeddings. Purpose-built for
+                            retrieval-augmented generation</p>
                     </div>
                     <div class="use-case">
                         <h3>💬 Documentation Chatbots</h3>
@@ -940,7 +1039,7 @@ graph LR
                 <div class="footer-section">
                     <h4>MDDB</h4>
                     <p>AI-native knowledge base</p>
-                    <p class="footer-version" id="footer-version">Version 2.7.1</p>
+                    <p class="footer-version" id="footer-version">Version 2.8.0</p>
                 </div>
                 <div class="footer-section">
                     <h4>Documentation</h4>
@@ -981,7 +1080,7 @@ graph LR
 
     <script defer>
         // Single source of truth for version — change here to update everywhere
-        const MDDB_VERSION = '2.7.1';
+        const MDDB_VERSION = '2.8.0';
         const MDDB_RELEASE_DATE = 'March 10, 2026';
 
         // Replace all version references in the page
@@ -1178,23 +1277,23 @@ graph LR
 
     <!-- MDDB Chat Widget (inline for local dev) -->
     <script>
-    (function() {
-        const CHAT_SERVER = 'ws://localhost:11030/ws';
-        const ACCENT = '#3B82F6';
+        (function () {
+            const CHAT_SERVER = 'ws://localhost:11030/ws';
+            const ACCENT = '#3B82F6';
 
-        // --- State ---
-        let state = {
-            isOpen: false, isConnected: false, isJoined: false,
-            isStreaming: false, isQueued: false, queuePosition: 0,
-            sessionId: null, userName: null, messages: [], error: null,
-        };
-        let ws = null;
-        let reconnectAttempts = 0;
-        let reconnectTimer = null;
-        let pingTimer = null;
+            // --- State ---
+            let state = {
+                isOpen: false, isConnected: false, isJoined: false,
+                isStreaming: false, isQueued: false, queuePosition: 0,
+                sessionId: null, userName: null, messages: [], error: null,
+            };
+            let ws = null;
+            let reconnectAttempts = 0;
+            let reconnectTimer = null;
+            let pingTimer = null;
 
-        // --- Styles (injected into shadow DOM) ---
-        const CSS = `
+            // --- Styles (injected into shadow DOM) ---
+            const CSS = `
         :host { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; line-height: 1.5; }
         * { box-sizing: border-box; }
         .icon { position: fixed; bottom: 20px; right: 20px; width: 56px; height: 56px; border-radius: 50%; background: ${ACCENT}; color: #fff; border: none; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; align-items: center; justify-content: center; transition: transform 0.2s, box-shadow 0.2s; z-index: 99999; }
@@ -1243,211 +1342,211 @@ graph LR
         @media (max-width: 480px) { .win { bottom: 0; right: 0; width: 100vw; height: 100vh; max-width: 100vw; max-height: 100vh; border-radius: 0; } .icon { bottom: 16px; right: 16px; } }
         `;
 
-        // --- Minimal markdown ---
-        function md(text) {
-            let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-            h = h.replace(/\`\`\`\\w*\\n([\\s\\S]*?)\`\`\`/g, '<pre><code>$1</code></pre>');
-            h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
-            h = h.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-            h = h.replace(/\n/g, '<br>');
-            return h;
-        }
-
-        function esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
-
-        // --- WebSocket ---
-        function wsConnect() {
-            if (ws && ws.readyState === WebSocket.OPEN) return;
-            try {
-                ws = new WebSocket(CHAT_SERVER);
-                ws.onopen = () => { state.isConnected = true; reconnectAttempts = 0; render(); startPing(); };
-                ws.onmessage = (e) => { try { handleMsg(JSON.parse(e.data)); } catch {} };
-                ws.onclose = () => { state.isConnected = false; render(); stopPing(); scheduleReconnect(); };
-                ws.onerror = () => {};
-            } catch { scheduleReconnect(); }
-        }
-        function wsSend(msg) { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg)); }
-        function scheduleReconnect() {
-            if (reconnectAttempts >= 10) return;
-            const d = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
-            reconnectAttempts++;
-            reconnectTimer = setTimeout(wsConnect, d);
-        }
-        function startPing() { pingTimer = setInterval(() => wsSend({type:'ping'}), 30000); }
-        function stopPing() { if (pingTimer) { clearInterval(pingTimer); pingTimer = null; } }
-
-        function handleMsg(msg) {
-            switch(msg.type) {
-                case 'session':
-                    state.isJoined = true; state.isQueued = false; state.sessionId = msg.id;
-                    try { localStorage.setItem('mddb-chat-session', JSON.stringify({sessionId: msg.id, userName: state.userName, lastActive: Date.now()})); } catch {}
-                    break;
-                case 'queued': state.isQueued = true; state.queuePosition = msg.position; break;
-                case 'chunk':
-                    const msgs = state.messages;
-                    const last = msgs[msgs.length - 1];
-                    if (last && last.role === 'assistant') { last.content += msg.content; }
-                    else { msgs.push({role:'assistant', content: msg.content}); }
-                    break;
-                case 'done': state.isStreaming = false; break;
-                case 'error': state.error = msg.message; state.isStreaming = false; setTimeout(() => { state.error = null; render(); }, 5000); break;
-                case 'pong': return;
+            // --- Minimal markdown ---
+            function md(text) {
+                let h = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                h = h.replace(/\`\`\`\\w*\\n([\\s\\S]*?)\`\`\`/g, '<pre><code>$1</code></pre>');
+                h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
+                h = h.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+                h = h.replace(/\n/g, '<br>');
+                return h;
             }
-            render();
-        }
 
-        // --- DOM ---
-        const host = document.createElement('div');
-        host.id = 'mddb-chat-widget';
-        document.body.appendChild(host);
-        const shadow = host.attachShadow({mode:'closed'});
-        const styleEl = document.createElement('style');
-        styleEl.textContent = CSS;
-        shadow.appendChild(styleEl);
-        const root = document.createElement('div');
-        shadow.appendChild(root);
+            function esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
 
-        // Build
-        const iconBtn = document.createElement('button');
-        iconBtn.className = 'icon';
-        iconBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>';
-        iconBtn.onclick = toggle;
-        root.appendChild(iconBtn);
-
-        const winEl = document.createElement('div');
-        winEl.className = 'win hidden';
-
-        // Header
-        const hdr = document.createElement('div');
-        hdr.className = 'hdr';
-        hdr.innerHTML = '<div><div class="hdr-t">Chat Support</div><div class="hdr-s" id="mc-status">Offline</div></div>';
-        const closeBtn = document.createElement('button');
-        closeBtn.className = 'hdr-x';
-        closeBtn.textContent = '\u00D7';
-        closeBtn.onclick = toggle;
-        hdr.appendChild(closeBtn);
-        winEl.appendChild(hdr);
-
-        // Error
-        const errEl = document.createElement('div');
-        errEl.className = 'err';
-        errEl.style.display = 'none';
-        winEl.appendChild(errEl);
-
-        // Queue
-        const queueEl = document.createElement('div');
-        queueEl.className = 'queue';
-        queueEl.style.display = 'none';
-        winEl.appendChild(queueEl);
-
-        // Name form
-        const nf = document.createElement('div');
-        nf.className = 'nf';
-        nf.innerHTML = '<h3>Welcome!</h3><p>Enter your name to start chatting</p>';
-        const nameIn = document.createElement('input');
-        nameIn.type = 'text'; nameIn.placeholder = 'Your name...'; nameIn.maxLength = 50;
-        const nameBtn = document.createElement('button');
-        nameBtn.textContent = 'Start Chat';
-        function submitName() { const n = nameIn.value.trim().slice(0,50); if(n) join(n); }
-        nameBtn.onclick = submitName;
-        nameIn.onkeydown = (e) => { if(e.key==='Enter') submitName(); };
-        nf.appendChild(nameIn); nf.appendChild(nameBtn);
-        winEl.appendChild(nf);
-
-        // Chat view
-        const cv = document.createElement('div');
-        cv.className = 'cv'; cv.style.display = 'none';
-        const msgsEl = document.createElement('div');
-        msgsEl.className = 'msgs';
-        const typingEl = document.createElement('div');
-        typingEl.className = 'typing'; typingEl.style.display = 'none';
-        typingEl.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
-
-        const iarea = document.createElement('div');
-        iarea.className = 'iarea';
-        const inputEl = document.createElement('textarea');
-        inputEl.placeholder = 'Type a message...'; inputEl.rows = 1;
-        inputEl.onkeydown = (e) => { if(e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); } };
-        inputEl.oninput = () => { inputEl.style.height = 'auto'; inputEl.style.height = Math.min(inputEl.scrollHeight, 80) + 'px'; };
-        const sendBtn = document.createElement('button');
-        sendBtn.className = 'sbtn';
-        sendBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>';
-        sendBtn.onclick = sendMsg;
-        iarea.appendChild(inputEl); iarea.appendChild(sendBtn);
-
-        const pwr = document.createElement('div');
-        pwr.className = 'pwr'; pwr.textContent = 'Powered by MDDB';
-
-        cv.appendChild(msgsEl); cv.appendChild(typingEl); cv.appendChild(iarea); cv.appendChild(pwr);
-        winEl.appendChild(cv);
-        root.appendChild(winEl);
-
-        // --- Actions ---
-        function toggle() {
-            state.isOpen = !state.isOpen;
-            if (state.isOpen && !state.isConnected) wsConnect();
-            render();
-        }
-
-        function join(name) {
-            state.userName = name;
-            if (!state.isConnected) {
-                wsConnect();
-                const check = setInterval(() => {
-                    if (state.isConnected) { clearInterval(check); wsSend({type:'join', name, scenario:'assistant'}); }
-                }, 200);
-            } else {
-                wsSend({type:'join', name, scenario:'assistant'});
+            // --- WebSocket ---
+            function wsConnect() {
+                if (ws && ws.readyState === WebSocket.OPEN) return;
+                try {
+                    ws = new WebSocket(CHAT_SERVER);
+                    ws.onopen = () => { state.isConnected = true; reconnectAttempts = 0; render(); startPing(); };
+                    ws.onmessage = (e) => { try { handleMsg(JSON.parse(e.data)); } catch { } };
+                    ws.onclose = () => { state.isConnected = false; render(); stopPing(); scheduleReconnect(); };
+                    ws.onerror = () => { };
+                } catch { scheduleReconnect(); }
             }
-        }
+            function wsSend(msg) { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg)); }
+            function scheduleReconnect() {
+                if (reconnectAttempts >= 10) return;
+                const d = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+                reconnectAttempts++;
+                reconnectTimer = setTimeout(wsConnect, d);
+            }
+            function startPing() { pingTimer = setInterval(() => wsSend({ type: 'ping' }), 30000); }
+            function stopPing() { if (pingTimer) { clearInterval(pingTimer); pingTimer = null; } }
 
-        function sendMsg() {
-            if (state.isStreaming || !state.isJoined) return;
-            const content = inputEl.value.replace(/<[^>]*>/g,'').trim().slice(0,2000);
-            if (!content) return;
-            inputEl.value = ''; inputEl.style.height = 'auto';
-            state.messages.push({role:'user', content});
-            state.isStreaming = true;
-            wsSend({type:'message', content});
-            render();
-        }
-
-        // --- Render ---
-        let lastMsgCount = 0;
-        function render() {
-            winEl.classList.toggle('hidden', !state.isOpen);
-
-            // Status
-            const statusEl = shadow.querySelector('#mc-status');
-            if (statusEl) statusEl.textContent = state.isConnected ? 'Online' : 'Connecting...';
-
-            if (state.isJoined) { nf.style.display = 'none'; cv.style.display = 'flex'; }
-            else { nf.style.display = 'flex'; cv.style.display = 'none'; }
-
-            if (state.isQueued) { queueEl.style.display = 'block'; queueEl.textContent = 'You are #' + state.queuePosition + ' in queue. Please wait...'; }
-            else { queueEl.style.display = 'none'; }
-
-            if (state.error) { errEl.style.display = 'block'; errEl.textContent = state.error; }
-            else { errEl.style.display = 'none'; }
-
-            // Messages
-            if (state.messages.length !== lastMsgCount || state.isStreaming) {
-                msgsEl.innerHTML = '';
-                for (const m of state.messages) {
-                    const el = document.createElement('div');
-                    el.className = 'msg ' + m.role;
-                    el.innerHTML = m.role === 'assistant' ? md(m.content) : esc(m.content);
-                    msgsEl.appendChild(el);
+            function handleMsg(msg) {
+                switch (msg.type) {
+                    case 'session':
+                        state.isJoined = true; state.isQueued = false; state.sessionId = msg.id;
+                        try { localStorage.setItem('mddb-chat-session', JSON.stringify({ sessionId: msg.id, userName: state.userName, lastActive: Date.now() })); } catch { }
+                        break;
+                    case 'queued': state.isQueued = true; state.queuePosition = msg.position; break;
+                    case 'chunk':
+                        const msgs = state.messages;
+                        const last = msgs[msgs.length - 1];
+                        if (last && last.role === 'assistant') { last.content += msg.content; }
+                        else { msgs.push({ role: 'assistant', content: msg.content }); }
+                        break;
+                    case 'done': state.isStreaming = false; break;
+                    case 'error': state.error = msg.message; state.isStreaming = false; setTimeout(() => { state.error = null; render(); }, 5000); break;
+                    case 'pong': return;
                 }
-                lastMsgCount = state.messages.length;
-                msgsEl.scrollTop = msgsEl.scrollHeight;
+                render();
             }
 
-            typingEl.style.display = state.isStreaming ? 'flex' : 'none';
-            sendBtn.disabled = state.isStreaming || !state.isJoined;
-            inputEl.disabled = state.isStreaming || !state.isJoined;
-        }
-    })();
+            // --- DOM ---
+            const host = document.createElement('div');
+            host.id = 'mddb-chat-widget';
+            document.body.appendChild(host);
+            const shadow = host.attachShadow({ mode: 'closed' });
+            const styleEl = document.createElement('style');
+            styleEl.textContent = CSS;
+            shadow.appendChild(styleEl);
+            const root = document.createElement('div');
+            shadow.appendChild(root);
+
+            // Build
+            const iconBtn = document.createElement('button');
+            iconBtn.className = 'icon';
+            iconBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>';
+            iconBtn.onclick = toggle;
+            root.appendChild(iconBtn);
+
+            const winEl = document.createElement('div');
+            winEl.className = 'win hidden';
+
+            // Header
+            const hdr = document.createElement('div');
+            hdr.className = 'hdr';
+            hdr.innerHTML = '<div><div class="hdr-t">Chat Support</div><div class="hdr-s" id="mc-status">Offline</div></div>';
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'hdr-x';
+            closeBtn.textContent = '\u00D7';
+            closeBtn.onclick = toggle;
+            hdr.appendChild(closeBtn);
+            winEl.appendChild(hdr);
+
+            // Error
+            const errEl = document.createElement('div');
+            errEl.className = 'err';
+            errEl.style.display = 'none';
+            winEl.appendChild(errEl);
+
+            // Queue
+            const queueEl = document.createElement('div');
+            queueEl.className = 'queue';
+            queueEl.style.display = 'none';
+            winEl.appendChild(queueEl);
+
+            // Name form
+            const nf = document.createElement('div');
+            nf.className = 'nf';
+            nf.innerHTML = '<h3>Welcome!</h3><p>Enter your name to start chatting</p>';
+            const nameIn = document.createElement('input');
+            nameIn.type = 'text'; nameIn.placeholder = 'Your name...'; nameIn.maxLength = 50;
+            const nameBtn = document.createElement('button');
+            nameBtn.textContent = 'Start Chat';
+            function submitName() { const n = nameIn.value.trim().slice(0, 50); if (n) join(n); }
+            nameBtn.onclick = submitName;
+            nameIn.onkeydown = (e) => { if (e.key === 'Enter') submitName(); };
+            nf.appendChild(nameIn); nf.appendChild(nameBtn);
+            winEl.appendChild(nf);
+
+            // Chat view
+            const cv = document.createElement('div');
+            cv.className = 'cv'; cv.style.display = 'none';
+            const msgsEl = document.createElement('div');
+            msgsEl.className = 'msgs';
+            const typingEl = document.createElement('div');
+            typingEl.className = 'typing'; typingEl.style.display = 'none';
+            typingEl.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+
+            const iarea = document.createElement('div');
+            iarea.className = 'iarea';
+            const inputEl = document.createElement('textarea');
+            inputEl.placeholder = 'Type a message...'; inputEl.rows = 1;
+            inputEl.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); } };
+            inputEl.oninput = () => { inputEl.style.height = 'auto'; inputEl.style.height = Math.min(inputEl.scrollHeight, 80) + 'px'; };
+            const sendBtn = document.createElement('button');
+            sendBtn.className = 'sbtn';
+            sendBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>';
+            sendBtn.onclick = sendMsg;
+            iarea.appendChild(inputEl); iarea.appendChild(sendBtn);
+
+            const pwr = document.createElement('div');
+            pwr.className = 'pwr'; pwr.textContent = 'Powered by MDDB';
+
+            cv.appendChild(msgsEl); cv.appendChild(typingEl); cv.appendChild(iarea); cv.appendChild(pwr);
+            winEl.appendChild(cv);
+            root.appendChild(winEl);
+
+            // --- Actions ---
+            function toggle() {
+                state.isOpen = !state.isOpen;
+                if (state.isOpen && !state.isConnected) wsConnect();
+                render();
+            }
+
+            function join(name) {
+                state.userName = name;
+                if (!state.isConnected) {
+                    wsConnect();
+                    const check = setInterval(() => {
+                        if (state.isConnected) { clearInterval(check); wsSend({ type: 'join', name, scenario: 'assistant' }); }
+                    }, 200);
+                } else {
+                    wsSend({ type: 'join', name, scenario: 'assistant' });
+                }
+            }
+
+            function sendMsg() {
+                if (state.isStreaming || !state.isJoined) return;
+                const content = inputEl.value.replace(/<[^>]*>/g, '').trim().slice(0, 2000);
+                if (!content) return;
+                inputEl.value = ''; inputEl.style.height = 'auto';
+                state.messages.push({ role: 'user', content });
+                state.isStreaming = true;
+                wsSend({ type: 'message', content });
+                render();
+            }
+
+            // --- Render ---
+            let lastMsgCount = 0;
+            function render() {
+                winEl.classList.toggle('hidden', !state.isOpen);
+
+                // Status
+                const statusEl = shadow.querySelector('#mc-status');
+                if (statusEl) statusEl.textContent = state.isConnected ? 'Online' : 'Connecting...';
+
+                if (state.isJoined) { nf.style.display = 'none'; cv.style.display = 'flex'; }
+                else { nf.style.display = 'flex'; cv.style.display = 'none'; }
+
+                if (state.isQueued) { queueEl.style.display = 'block'; queueEl.textContent = 'You are #' + state.queuePosition + ' in queue. Please wait...'; }
+                else { queueEl.style.display = 'none'; }
+
+                if (state.error) { errEl.style.display = 'block'; errEl.textContent = state.error; }
+                else { errEl.style.display = 'none'; }
+
+                // Messages
+                if (state.messages.length !== lastMsgCount || state.isStreaming) {
+                    msgsEl.innerHTML = '';
+                    for (const m of state.messages) {
+                        const el = document.createElement('div');
+                        el.className = 'msg ' + m.role;
+                        el.innerHTML = m.role === 'assistant' ? md(m.content) : esc(m.content);
+                        msgsEl.appendChild(el);
+                    }
+                    lastMsgCount = state.messages.length;
+                    msgsEl.scrollTop = msgsEl.scrollHeight;
+                }
+
+                typingEl.style.display = state.isStreaming ? 'flex' : 'none';
+                sendBtn.disabled = state.isStreaming || !state.isJoined;
+                inputEl.disabled = state.isStreaming || !state.isJoined;
+            }
+        })();
     </script>
 </body>
 

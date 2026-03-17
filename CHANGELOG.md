@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.8.0] - 2026-03-15
+
+### Added
+- **Per-Collection Storage Backends** — Each collection can now use its own storage backend instead of the server-wide default. Supported backends:
+  - `boltdb` (default) — Embedded BoltDB, same as before
+  - `memory` — In-memory ephemeral storage, data lost on restart. Ideal for scratch/cache collections
+  - `s3` — S3-compatible object storage (AWS S3, MinIO, Cloudflare R2, etc.) with configurable endpoint, bucket, region, credentials, and prefix
+- **Storage backend configuration via API** — `PUT /v1/collection-config` now accepts `storageBackend` and `storageConfig` fields
+- **Storage backend configuration via Panel** — Collection Settings modal now includes Storage Backend selector with S3 configuration form
+- **StorageBackend interface** (`storage_backend.go`) — Pluggable storage abstraction with `BackendRegistry` for per-collection routing
+- **MemoryBackend** (`storage_memory.go`) — Thread-safe in-memory document store
+- **S3Backend** (`storage_s3.go`) — S3-compatible storage using `minio-go/v7`, with auto bucket creation
+- **Aggregations** — New `POST /v1/aggregate` endpoint for metadata facets and date histograms
+  - Facets: count distinct values per metadata key with `count` or `value` ordering
+  - Histograms: group documents by `addedAt`/`updatedAt` with `day`/`week`/`month`/`year` intervals
+  - Optional `filterMeta` pre-filtering (same as `/v1/search`)
+  - MCP tool: `aggregate`
+- **Advanced Full-Text Search Modes** — The `/v1/fts` endpoint now supports 8 search types:
+  - Boolean search: `AND`, `OR`, `NOT` operators and `+`/`-` prefix notation
+  - Phrase search: exact consecutive phrase matching via positional index
+  - Wildcard search: `*` (any chars) and `?` (single char) pattern matching
+  - Proximity search: terms within N words of each other (`"rust performance"~5`)
+  - Range search: numeric/date range filtering on metadata and timestamps (`rangeMeta`)
+  - Auto-detect mode: automatically selects search type from query syntax
+  - New `mode` parameter: `"auto"`, `"simple"`, `"boolean"`, `"phrase"`, `"wildcard"`, `"proximity"`
+  - Positional index for phrase/proximity search (new `ftsp` bucket)
+  - Panel: search mode selector, proximity distance slider, syntax hints
+- **Chat Service Improvements** — Anthropic Claude LLM provider, tool-use support (search, get document), improved widget UI with typing indicators and error handling
+- **File Upload Enhancements** — Extended `POST /v1/upload` with support for PDF, DOCX, XLSX, CSV, HTML, XML, and YAML file formats alongside Markdown
+
+### Changed
+- Updated docs: README, openapi.yaml, docs/index.html, API.md, SEARCH.md, man page
+- Updated OpenAPI spec with FTS `mode`, `distance`, and `rangeMeta` schema fields
+
+### Fixed
+- **golint** — Fixed all 190 warnings across the codebase (added doc comments to all exported types, methods, constants)
+- **gosec** — Fixed all 108 security issues in non-generated code:
+  - G115: Added `safeInt32()` / `safeUint16()` helpers for overflow-safe integer conversions
+  - G706/G704/G703/G705/G117/G404: Added targeted `#nosec` annotations with justification comments
+
 ## [2.7.1] - 2026-03-10
 
 ### Added

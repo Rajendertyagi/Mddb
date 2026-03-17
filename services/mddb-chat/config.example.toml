@@ -9,6 +9,19 @@ default_collection = "docs"
 search_top_k = 5
 search_type = "hybrid"  # "hybrid", "vector", "fts"
 
+# LLM provider configuration
+# Supported providers:
+#   "openai"    — OpenAI (gpt-4o, gpt-4o-mini)
+#   "anthropic" — Claude (claude-sonnet-4-20250514, claude-haiku-4-5-20251001)
+#   Any OpenAI-compatible service also works with provider = "openai":
+#     - Ollama:      api_url = "http://localhost:11434/v1", model = "qwen3:8b"
+#     - Bielik:      api_url = "https://api.bielik.ai/v1", model = "Bielik-11B-v2.3-Instruct"
+#     - Groq:        api_url = "https://api.groq.com/openai/v1", model = "llama-3.3-70b-versatile"
+#     - Mistral:     api_url = "https://api.mistral.ai/v1", model = "mistral-large-latest"
+#     - OpenRouter:  api_url = "https://openrouter.ai/api/v1", model = "anthropic/claude-sonnet-4"
+#     - Together:    api_url = "https://api.together.xyz/v1"
+#     - DeepSeek:    api_url = "https://api.deepseek.com/v1", model = "deepseek-chat"
+
 [llm]
 provider = "openai"
 api_url = "https://api.openai.com/v1"

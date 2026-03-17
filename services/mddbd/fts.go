@@ -67,12 +67,16 @@ type FTSSearchRequest struct {
 	Collection      string              `json:"collection"`
 	Query           string              `json:"query"`
 	Limit           int                 `json:"limit"`
-	Algorithm       string              `json:"algorithm"`              // "tfidf", "bm25", or "bm25f"
+	Algorithm       string              `json:"algorithm"`              // "tfidf", "bm25", "bm25f", "pmisparse"
 	Fuzzy           int                 `json:"fuzzy"`                  // typo tolerance: 0 (off), 1 (1 edit), 2 (2 edits)
 	DisableStem     bool                `json:"disableStem"`            // temporarily disable stemming for this query
 	DisableSynonyms bool                `json:"disableSynonyms"`        // temporarily disable synonyms for this query
 	FieldWeights    map[string]float64  `json:"fieldWeights,omitempty"` // BM25F field weights
 	FilterMeta      map[string][]string `json:"filterMeta,omitempty"`   // metadata pre-filter (in-graph filtering)
+	// Advanced search modes
+	Mode      string        `json:"mode,omitempty"`      // "simple" (default), "boolean", "phrase", "wildcard", "proximity", "auto"
+	Distance  int           `json:"distance,omitempty"`  // proximity distance (words) for mode=proximity
+	RangeMeta []RangeFilter `json:"rangeMeta,omitempty"` // range filters on metadata/timestamps
 }
 
 // FTSSearchResponse is the HTTP response for full-text search.
@@ -80,6 +84,7 @@ type FTSSearchResponse struct {
 	Results        []FTSResultWithDoc `json:"results"`
 	Total          int                `json:"total"`
 	Algorithm      string             `json:"algorithm"`
+	Mode           string             `json:"mode"`
 	Fuzzy          int                `json:"fuzzy"`
 	StemmingActive bool               `json:"stemmingActive"`
 	SynonymsActive bool               `json:"synonymsActive"`
@@ -108,6 +113,7 @@ func (f *FTSIndex) EnsureBuckets() error {
 		for _, b := range [][]byte{
 			bucketFTS, bucketFTSRev,
 			bucketFTSF, bucketFTSFMeta, bucketFTSFStat, bucketFTSFRev,
+			bucketFTSPos,
 		} {
 			if _, err := tx.CreateBucketIfNotExists(b); err != nil {
 				return err
@@ -209,7 +215,7 @@ func (f *FTSIndex) Index(collection, docID, content string) error {
 		termList := make([]string, 0, len(terms))
 		for term, count := range terms {
 			var buf [4]byte
-			binary.LittleEndian.PutUint32(buf[:], uint32(count))
+			binary.LittleEndian.PutUint32(buf[:], uint32(count)) // #nosec G115 -- value always positive and bounded
 			k := ftsKey(collection, term, docID)
 			if err := bFTS.Put(k, buf[:]); err != nil {
 				return err
@@ -228,7 +234,7 @@ func (f *FTSIndex) Index(collection, docID, content string) error {
 		// Store BM25 metadata (document length = sum of term frequencies)
 		var docLength uint32
 		for _, count := range terms {
-			docLength += uint32(count)
+			docLength += uint32(count) // #nosec G115 -- value always positive and bounded
 		}
 		return f.IndexBM25Meta(tx, collection, docID, docLength)
 	})
@@ -265,6 +271,8 @@ func (f *FTSIndex) Remove(collection, docID string) error {
 		if err := f.removeFieldData(tx, collection, docID); err != nil {
 			return err
 		}
+		// Clean up positional index
+		f.removePositionsInTx(tx, collection, docID)
 		bo.Delete("ftsrev", revKey)
 		return bRev.Delete(revKey)
 	})
@@ -472,12 +480,12 @@ func (f *FTSIndex) IndexFields(collection, docID string, fields map[string]strin
 			var docLength uint32
 			for term, count := range tokens {
 				var buf [4]byte
-				binary.LittleEndian.PutUint32(buf[:], uint32(count))
+				binary.LittleEndian.PutUint32(buf[:], uint32(count)) // #nosec G115 -- value always positive and bounded
 				if err := bF.Put(ftsfKey(collection, field, term, docID), buf[:]); err != nil {
 					return err
 				}
 				allEntries = append(allEntries, fieldTermEntry{Field: field, Term: term})
-				docLength += uint32(count)
+				docLength += uint32(count) // #nosec G115 -- value always positive and bounded
 			}
 
 			// Store per-field doc length
@@ -557,6 +565,25 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 		fuzzy = 2
 	}
 
+	// Determine search mode
+	mode := req.Mode
+	if mode == "" || mode == "auto" {
+		parsed := ParseAdvancedQuery(req.Query)
+		if parsed.IsAdvanced() {
+			if parsed.HasPhrase && !parsed.HasBoolean && !parsed.HasWildcard && !parsed.HasProximity {
+				mode = "phrase"
+			} else if parsed.HasProximity && !parsed.HasBoolean && !parsed.HasWildcard {
+				mode = "proximity"
+			} else if parsed.HasWildcard && !parsed.HasBoolean && !parsed.HasPhrase && !parsed.HasProximity {
+				mode = "wildcard"
+			} else {
+				mode = "boolean"
+			}
+		} else {
+			mode = "simple"
+		}
+	}
+
 	// Pre-filter by metadata (in-graph filtering)
 	var allowed map[string]bool
 	if len(req.FilterMeta) > 0 {
@@ -565,6 +592,7 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 			ok(w, FTSSearchResponse{
 				Results:   []FTSResultWithDoc{},
 				Algorithm: algo,
+				Mode:      mode,
 				Fuzzy:     fuzzy,
 			})
 			return
@@ -576,34 +604,70 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 
 	var results []FTSResult
 	var err error
-	switch algo {
-	case "bm25f":
-		if fuzzy > 0 {
-			results, err = s.FTSIndex.SearchBM25FFuzzy(req.Collection, tokens, req.Limit, fuzzy, req.FieldWeights)
-		} else {
-			results, err = s.FTSIndex.SearchBM25F(req.Collection, tokens, req.Limit, req.FieldWeights)
+
+	switch mode {
+	case "boolean":
+		parsed := ParseAdvancedQuery(req.Query)
+		results, err = s.FTSIndex.SearchBoolean(req.Collection, parsed, req.Limit)
+
+	case "phrase":
+		// Extract phrase text (strip quotes if present)
+		phraseText := strings.Trim(req.Query, "\"")
+		results, err = s.FTSIndex.SearchPhrase(req.Collection, phraseText, req.Limit)
+
+	case "proximity":
+		parsed := ParseAdvancedQuery(req.Query)
+		distance := req.Distance
+		if distance <= 0 {
+			distance = 5 // default proximity distance
 		}
-	case "bm25":
-		if fuzzy > 0 {
-			results, err = s.FTSIndex.SearchBM25Fuzzy(req.Collection, req.Query, req.Limit, fuzzy)
-		} else {
-			results, err = s.FTSIndex.SearchBM25(req.Collection, req.Query, req.Limit)
+		// If parsed has proximity clause, use its distance
+		for _, c := range parsed.Clauses {
+			if c.Type == "proximity" {
+				distance = c.Distance
+				results, err = s.FTSIndex.SearchProximity(req.Collection, c.Value, distance, req.Limit)
+				break
+			}
 		}
-	case "tfidf":
-		if fuzzy > 0 {
-			results, err = s.FTSIndex.SearchFuzzy(req.Collection, req.Query, req.Limit, fuzzy)
-		} else {
-			results, err = s.FTSIndex.Search(req.Collection, req.Query, req.Limit)
+		if results == nil && err == nil {
+			phraseText := strings.Trim(req.Query, "\"")
+			results, err = s.FTSIndex.SearchProximity(req.Collection, phraseText, distance, req.Limit)
 		}
-	case "pmisparse":
-		if fuzzy > 0 {
-			results, err = s.FTSIndex.SearchPMISparseFuzzy(req.Collection, req.Query, req.Limit, fuzzy)
-		} else {
-			results, err = s.FTSIndex.SearchPMISparse(req.Collection, req.Query, req.Limit)
+
+	case "wildcard":
+		results, err = s.FTSIndex.SearchWildcard(req.Collection, req.Query, req.Limit)
+
+	default: // "simple"
+		mode = "simple"
+		switch algo {
+		case "bm25f":
+			if fuzzy > 0 {
+				results, err = s.FTSIndex.SearchBM25FFuzzy(req.Collection, tokens, req.Limit, fuzzy, req.FieldWeights)
+			} else {
+				results, err = s.FTSIndex.SearchBM25F(req.Collection, tokens, req.Limit, req.FieldWeights)
+			}
+		case "bm25":
+			if fuzzy > 0 {
+				results, err = s.FTSIndex.SearchBM25Fuzzy(req.Collection, req.Query, req.Limit, fuzzy)
+			} else {
+				results, err = s.FTSIndex.SearchBM25(req.Collection, req.Query, req.Limit)
+			}
+		case "tfidf":
+			if fuzzy > 0 {
+				results, err = s.FTSIndex.SearchFuzzy(req.Collection, req.Query, req.Limit, fuzzy)
+			} else {
+				results, err = s.FTSIndex.Search(req.Collection, req.Query, req.Limit)
+			}
+		case "pmisparse":
+			if fuzzy > 0 {
+				results, err = s.FTSIndex.SearchPMISparseFuzzy(req.Collection, req.Query, req.Limit, fuzzy)
+			} else {
+				results, err = s.FTSIndex.SearchPMISparse(req.Collection, req.Query, req.Limit)
+			}
+		default:
+			bad(w, fmt.Errorf("unknown algorithm: %s, available: tfidf, bm25, bm25f, pmisparse", algo))
+			return
 		}
-	default:
-		bad(w, fmt.Errorf("unknown algorithm: %s, available: tfidf, bm25, bm25f, pmisparse", algo))
-		return
 	}
 	if err != nil {
 		bad(w, err)
@@ -612,7 +676,7 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 
 	// Track FTS search operation
 	if s.Metrics != nil {
-		s.Metrics.IncOp("fts_search", algo)
+		s.Metrics.IncOp("fts_search", mode+"/"+algo)
 	}
 
 	// Apply metadata filter to results
@@ -626,9 +690,19 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 		results = filtered
 	}
 
+	// Apply range filters
+	if len(req.RangeMeta) > 0 && len(results) > 0 {
+		results, err = s.FilterByRange(req.Collection, results, req.RangeMeta)
+		if err != nil {
+			bad(w, err)
+			return
+		}
+	}
+
 	// Load full documents
 	var resp FTSSearchResponse
 	resp.Algorithm = algo
+	resp.Mode = mode
 	resp.Fuzzy = fuzzy
 	resp.StemmingActive = origStemmer != nil && !req.DisableStem
 	resp.SynonymsActive = origSynonyms != nil && !req.DisableSynonyms

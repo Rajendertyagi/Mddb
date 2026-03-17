@@ -8,6 +8,7 @@ import (
 	gql "mddb/graphql"
 )
 
+// Sentinel errors returned by the GraphQL adapter.
 var (
 	ErrAuthNotEnabled         = errors.New("authentication not enabled")
 	ErrVectorSearchNotEnabled = errors.New("vector search not enabled")
@@ -80,27 +81,32 @@ func (a *SimpleGraphQLAdapter) GenerateJWT(username string, isAdmin bool) (strin
 	return token, expiresAt, nil
 }
 
-// Stub implementations for other methods - return not implemented for now
+// GetDocument retrieves a single document by collection, key, and language.
 func (a *SimpleGraphQLAdapter) GetDocument(ctx context.Context, collection, key, lang string, env map[string]string) (interface{}, error) {
 	return nil, errors.New("not yet implemented - use REST API")
 }
 
+// SearchDocuments searches for documents in a collection with optional filters.
 func (a *SimpleGraphQLAdapter) SearchDocuments(ctx context.Context, collection string, filterMeta map[string][]string, sort string, asc bool, limit, offset int) (interface{}, error) {
 	return nil, errors.New("not yet implemented - use REST API")
 }
 
+// AddDocument adds a new document to a collection.
 func (a *SimpleGraphQLAdapter) AddDocument(ctx context.Context, collection, key, lang string, meta map[string][]string, contentMd string, ttl int64) (interface{}, bool, error) {
 	return nil, false, errors.New("not yet implemented - use REST API")
 }
 
+// DeleteDocument removes a document from a collection.
 func (a *SimpleGraphQLAdapter) DeleteDocument(ctx context.Context, collection, key, lang string) error {
 	return errors.New("not yet implemented - use REST API")
 }
 
+// GetStats returns database statistics.
 func (a *SimpleGraphQLAdapter) GetStats(ctx context.Context) (interface{}, error) {
 	return nil, errors.New("not yet implemented - use REST API")
 }
 
+// VectorSearch performs a vector similarity search in a collection.
 func (a *SimpleGraphQLAdapter) VectorSearch(ctx context.Context, collection, query string, queryVector []float32, topK int, threshold float64, filterMeta map[string][]string, includeContent bool) (interface{}, error) {
 	return nil, errors.New("not yet implemented - use REST API")
 }

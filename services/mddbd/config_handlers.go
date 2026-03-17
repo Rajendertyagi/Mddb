@@ -9,6 +9,7 @@ import (
 
 // ---- Request/Response types ----
 
+// ConfigResponse represents the server configuration returned by the config endpoint.
 type ConfigResponse struct {
 	Version               string          `json:"version"`
 	DatabasePath          string          `json:"databasePath"`
@@ -25,11 +26,13 @@ type ConfigResponse struct {
 	SearchStatsEnabled    bool            `json:"searchStatsEnabled"`
 }
 
+// ChunkConfig holds the chunking configuration for embeddings.
 type ChunkConfig struct {
 	Enabled   bool `json:"enabled"`
 	ChunkSize int  `json:"chunkSize"`
 }
 
+// ProtocolsConfig holds the status of all server protocols.
 type ProtocolsConfig struct {
 	HTTP  HTTPProtocolStatus  `json:"http"`
 	GRPC  GRPCProtocolStatus  `json:"grpc"`
@@ -37,27 +40,32 @@ type ProtocolsConfig struct {
 	HTTP3 HTTP3ProtocolStatus `json:"http3"`
 }
 
+// HTTPProtocolStatus indicates whether the HTTP protocol is enabled and its address.
 type HTTPProtocolStatus struct {
 	Enabled bool   `json:"enabled"`
 	Addr    string `json:"addr"`
 }
 
+// GRPCProtocolStatus indicates whether the gRPC protocol is enabled and its address.
 type GRPCProtocolStatus struct {
 	Enabled bool   `json:"enabled"`
 	Addr    string `json:"addr"`
 }
 
+// MCPProtocolStatus indicates whether the MCP protocol is enabled and its address.
 type MCPProtocolStatus struct {
 	Enabled bool   `json:"enabled"`
 	Addr    string `json:"addr"`
 	Stdio   bool   `json:"stdio"`
 }
 
+// HTTP3ProtocolStatus indicates whether the HTTP/3 protocol is enabled and its address.
 type HTTP3ProtocolStatus struct {
 	Enabled bool   `json:"enabled"`
 	Addr    string `json:"addr"`
 }
 
+// VectorConfig holds the vector/embedding configuration settings.
 type VectorConfig struct {
 	Enabled    bool   `json:"enabled"`
 	Provider   string `json:"provider"`

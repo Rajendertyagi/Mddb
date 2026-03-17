@@ -697,6 +697,8 @@ type MCPClient interface {
 	FindDuplicates(ctx context.Context, req *MCPFindDuplicatesRequest) (*MCPFindDuplicatesResponse, error)
 	// Bulk ingest
 	Ingest(ctx context.Context, req *MCPIngestRequest) (*MCPIngestResponse, error)
+	// Aggregations
+	Aggregate(ctx context.Context, req *AggregateRequest) (*AggregateResponse, error)
 	Close() error
 }
 

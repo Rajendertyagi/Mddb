@@ -119,6 +119,22 @@
   background: rgba(255, 255, 255, 0.15);
 }
 
+.mddb-header-end {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  cursor: pointer;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: var(--mddb-font);
+  transition: background 0.2s;
+}
+
+.mddb-header-end:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
 /* Name form */
 .mddb-name-form {
   flex: 1;
@@ -202,14 +218,12 @@
 }
 
 .mddb-message.user {
-  align-self: flex-end;
   background: var(--mddb-user-bg);
   color: var(--mddb-user-text);
   border-bottom-right-radius: 4px;
 }
 
 .mddb-message.assistant {
-  align-self: flex-start;
   background: var(--mddb-assistant-bg);
   color: var(--mddb-assistant-text);
   border-bottom-left-radius: 4px;
@@ -242,6 +256,57 @@
 .mddb-message a {
   color: inherit;
   text-decoration: underline;
+}
+
+/* Message wrapper */
+.mddb-msg-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.mddb-msg-wrap.user {
+  align-items: flex-end;
+}
+
+.mddb-msg-wrap.assistant {
+  align-items: flex-start;
+}
+
+/* Feedback buttons */
+.mddb-feedback {
+  display: flex;
+  gap: 2px;
+  margin-top: 2px;
+  padding-left: 4px;
+}
+
+.mddb-feedback-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  opacity: 0.35;
+  transition: opacity 0.2s;
+  display: flex;
+  align-items: center;
+}
+
+.mddb-feedback-btn:hover:not(:disabled) {
+  opacity: 0.8;
+  background: var(--mddb-assistant-bg);
+}
+
+.mddb-feedback-btn:disabled {
+  cursor: default;
+}
+
+.mddb-feedback-btn.rated {
+  opacity: 0.5;
+}
+
+.mddb-feedback-btn svg {
+  fill: var(--mddb-text-secondary);
 }
 
 /* Typing indicator */

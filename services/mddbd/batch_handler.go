@@ -14,11 +14,13 @@ import (
 
 // ---- HTTP types for /v1/add-batch ----
 
+// AddBatchHTTPRequest is the HTTP request body for adding documents in batch.
 type AddBatchHTTPRequest struct {
-	Collection string              `json:"collection"`
-	Documents  []AddBatchDocument  `json:"documents"`
+	Collection string             `json:"collection"`
+	Documents  []AddBatchDocument `json:"documents"`
 }
 
+// AddBatchDocument represents a single document within a batch add request.
 type AddBatchDocument struct {
 	Key          string              `json:"key"`
 	Lang         string              `json:"lang"`
@@ -27,6 +29,7 @@ type AddBatchDocument struct {
 	SaveRevision bool                `json:"saveRevision,omitempty"`
 }
 
+// AddBatchHTTPResponse is the HTTP response body for a batch add operation.
 type AddBatchHTTPResponse struct {
 	Added   int      `json:"added"`
 	Updated int      `json:"updated"`
@@ -113,7 +116,7 @@ func (s *Server) processBatchWithDocs(ctx context.Context, collection string, pr
 		resp = bp.commitBatch(collection, processed, now)
 	}
 
-	if resp.Failed == int32(len(protoDocs)) && len(resp.Errors) > 0 {
+	if resp.Failed == safeInt32(len(protoDocs)) && len(resp.Errors) > 0 {
 		err = fmt.Errorf("all documents failed: %s", resp.Errors[0])
 	}
 
@@ -145,6 +148,7 @@ func (s *Server) firePostBatchHooks(collection string, processed []*ProcessedDoc
 		// FTS indexing
 		if !opts.SkipFTS && s.FTSIndex != nil && p.Doc.ContentMD != "" {
 			_ = s.FTSIndex.Index(collection, p.DocID, p.Doc.ContentMD)
+			_ = s.FTSIndex.IndexPositions(collection, p.DocID, p.Doc.ContentMD)
 			fields := map[string]string{"content": p.Doc.ContentMD}
 			for k, vals := range p.Doc.Meta {
 				if len(vals) > 0 {
@@ -173,4 +177,3 @@ func (s *Server) firePostBatchHooks(collection string, processed []*ProcessedDoc
 		}
 	}
 }
-

@@ -24,6 +24,7 @@ type QueryStats struct {
 // IndexType represents different index types
 type IndexType int
 
+// Index type constants define available indexing strategies.
 const (
 	IndexTypeHash IndexType = iota
 	IndexTypeBTree
@@ -77,7 +78,7 @@ func (aim *AdaptiveIndexManager) analyzeQuery(collection, pattern string, durati
 		return
 	}
 
-	avgDuration := time.Duration(stats.TotalDuration.Load() / int64(count))
+	avgDuration := time.Duration(stats.TotalDuration.Load() / int64(count)) // #nosec G115 -- counter value within int64 range
 
 	// Determine best index based on query characteristics
 	var preferredIndex IndexType

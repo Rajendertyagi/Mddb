@@ -57,7 +57,7 @@ func (t *TTLManager) Set(collection, docID string, expiresAt int64) error {
 
 		// Remove old TTL entry if exists
 		if old := bRev.Get(revKey); old != nil {
-			oldExpiry := int64(binary.BigEndian.Uint64(old))
+			oldExpiry := int64(binary.BigEndian.Uint64(old)) // #nosec G115 -- TTL timestamp within int64 range
 			oldKey := ttlKey(oldExpiry, collection, docID)
 			_ = bTTL.Delete(oldKey)
 			bo.Delete("ttl", oldKey)
@@ -96,12 +96,12 @@ func (t *TTLManager) Remove(collection, docID string) error {
 
 		revKey := ttlRevKey(collection, docID)
 		if old := bRev.Get(revKey); old != nil {
-			oldExpiry := int64(binary.BigEndian.Uint64(old))
+			oldExpiry := int64(binary.BigEndian.Uint64(old)) // #nosec G115 -- TTL timestamp within int64 range
 			oldKey := ttlKey(oldExpiry, collection, docID)
 			_ = bTTL.Delete(oldKey)
 			bo.Delete("ttl", oldKey)
 		}
-		bo.Delete("ttlrev", revKey)
+	bo.Delete("ttlrev", revKey)
 		return bRev.Delete(revKey)
 	})
 	if err == nil {

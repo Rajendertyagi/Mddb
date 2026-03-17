@@ -70,7 +70,7 @@ func (rs *ReplicationServer) RequestSnapshot(req *proto.SnapshotRequest, stream 
 
 		buf := make([]byte, snapshotChunkSize)
 		var offset uint64
-		totalSize := uint64(tx.Size())
+		totalSize := uint64(tx.Size()) // #nosec G115 -- db size always non-negative
 
 		for {
 			n, err := pr.Read(buf)
@@ -198,7 +198,7 @@ func (rs *ReplicationServer) ReplicationStatus(_ context.Context, _ *proto.Repli
 		if rs.server.Binlog != nil {
 			currentLSN := rs.server.Binlog.CurrentLSN()
 			if currentLSN > fs.ConfirmedLSN {
-				lagMs = int64(currentLSN-fs.ConfirmedLSN) * 10 // rough estimate
+				lagMs = int64(currentLSN-fs.ConfirmedLSN) * 10 // #nosec G115 -- rough estimate, LSN diff within int64 range
 			}
 		}
 		resp.Followers = append(resp.Followers, &proto.FollowerInfo{
@@ -251,7 +251,7 @@ func entryToProto(e *BinlogEntry) *proto.BinlogEntryProto {
 func protoToEntry(p *proto.BinlogEntryProto) *BinlogEntry {
 	return &BinlogEntry{
 		LSN:        p.Lsn,
-		Type:       BinlogEntryType(p.Type),
+		Type:       BinlogEntryType(p.Type), // #nosec G115 -- entry type always within byte range
 		Timestamp:  p.Timestamp,
 		BucketName: p.BucketName,
 		Key:        p.Key,

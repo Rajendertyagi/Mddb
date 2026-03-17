@@ -254,7 +254,7 @@ func (bp *BatchProcessor) commitBatch(collection string, processed []*ProcessedD
 	})
 
 	if err != nil {
-		resp.Failed = int32(len(processed))
+		resp.Failed = safeInt32(len(processed))
 		resp.Errors = append(resp.Errors, fmt.Sprintf("transaction error: %v", err))
 	} else {
 		bo.FlushTo(bp.server.Binlog)

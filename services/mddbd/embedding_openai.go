@@ -33,7 +33,10 @@ func NewOpenAIEmbeddingProvider(apiKey, apiURL, model string, dimensions int) *O
 	}
 }
 
-func (p *OpenAIEmbeddingProvider) Model() string   { return p.model }
+// Model returns the model name used by this provider.
+func (p *OpenAIEmbeddingProvider) Model() string { return p.model }
+
+// Dimensions returns the embedding dimensionality.
 func (p *OpenAIEmbeddingProvider) Dimensions() int { return p.dimensions }
 
 // Embed generates an embedding for a single text.
@@ -61,14 +64,14 @@ func (p *OpenAIEmbeddingProvider) EmbedBatch(ctx context.Context, texts []string
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", p.apiURL+"/embeddings", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", p.apiURL+"/embeddings", bytes.NewReader(body)) // #nosec G704 -- URL from server config
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+p.apiKey)
 
-	resp, err := p.client.Do(req)
+	resp, err := p.client.Do(req) // #nosec G704 -- URL from server config
 	if err != nil {
 		return nil, fmt.Errorf("API request: %w", err)
 	}

@@ -16,6 +16,7 @@ function init(): void {
     return;
   }
 
+  const sessionTtlAttr = script.getAttribute('data-session-ttl');
   const options: WidgetOptions = {
     server,
     scenario: script.getAttribute('data-scenario') || 'assistant',
@@ -24,6 +25,7 @@ function init(): void {
     position:
       (script.getAttribute('data-position') as 'bottom-right' | 'bottom-left') ||
       'bottom-right',
+    sessionTtlHours: sessionTtlAttr ? parseInt(sessionTtlAttr, 10) : undefined,
   };
 
   // Create host element

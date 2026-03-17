@@ -681,7 +681,7 @@ func (am *AuthManager) UpdateGroup(name, description string, members []string) (
 		return nil, err
 	}
 
-	log.Printf("Updated group: %s (now %d members)", name, len(members))
+	log.Printf("Updated group: %s (now %d members)", name, len(members)) // #nosec G706 -- internal operational log
 	return group, nil
 }
 
@@ -722,7 +722,7 @@ func (am *AuthManager) DeleteGroup(name string) error {
 	delete(am.groups, name)
 	delete(am.groupPermissions, name)
 
-	log.Printf("Deleted group: %s", name)
+	log.Printf("Deleted group: %s", name) // #nosec G706 -- internal operational log
 	return nil
 }
 

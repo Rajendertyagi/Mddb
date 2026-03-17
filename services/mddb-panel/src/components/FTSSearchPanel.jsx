@@ -12,6 +12,8 @@ export default function FTSSearchPanel() {
     ftsLimit, setFtsLimit,
     ftsAlgorithm, setFtsAlgorithm,
     ftsFuzzy, setFtsFuzzy,
+    ftsMode, setFtsMode,
+    ftsDistance, setFtsDistance,
     ftsStemming, setFtsStemming,
     ftsSynonyms, setFtsSynonyms,
     ftsFieldWeights, setFtsFieldWeight, removeFtsFieldWeight,
@@ -51,6 +53,8 @@ export default function FTSSearchPanel() {
         limit: ftsLimit,
         algorithm: ftsAlgorithm,
         fuzzy: ftsFuzzy,
+        mode: ftsMode,
+        distance: ftsMode === 'proximity' ? ftsDistance : undefined,
         disableStem: !ftsStemming,
         disableSynonyms: !ftsSynonyms,
         fieldWeights: ftsAlgorithm === 'bm25f' ? ftsFieldWeights : null,
@@ -139,13 +143,29 @@ export default function FTSSearchPanel() {
           />
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Search Mode</label>
+            <select
+              value={ftsMode}
+              onChange={(e) => setFtsMode(e.target.value)}
+              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="auto">Auto-detect</option>
+              <option value="simple">Simple</option>
+              <option value="boolean">Boolean (AND/OR/NOT)</option>
+              <option value="phrase">Phrase (exact)</option>
+              <option value="wildcard">Wildcard (*/?) </option>
+              <option value="proximity">Proximity (~N)</option>
+            </select>
+          </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Algorithm</label>
             <select
               value={ftsAlgorithm}
               onChange={(e) => setFtsAlgorithm(e.target.value)}
               className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              disabled={ftsMode !== 'simple' && ftsMode !== 'auto'}
             >
               <option value="tfidf">TF-IDF</option>
               <option value="bm25">BM25</option>
@@ -159,6 +179,7 @@ export default function FTSSearchPanel() {
               value={ftsFuzzy}
               onChange={(e) => setFtsFuzzy(parseInt(e.target.value))}
               className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              disabled={ftsMode !== 'simple' && ftsMode !== 'auto'}
             >
               <option value={0}>Off</option>
               <option value={1}>Low (1 edit)</option>
@@ -179,6 +200,33 @@ export default function FTSSearchPanel() {
             />
           </div>
         </div>
+
+        {/* Proximity Distance (shown when mode=proximity) */}
+        {ftsMode === 'proximity' && (
+          <div className="flex items-center space-x-3">
+            <label className="text-xs font-medium text-gray-600 whitespace-nowrap">
+              Max Distance: {ftsDistance} words
+            </label>
+            <input
+              type="range"
+              min={1}
+              max={50}
+              value={ftsDistance}
+              onChange={(e) => setFtsDistance(parseInt(e.target.value))}
+              className="flex-1 accent-primary-600"
+            />
+          </div>
+        )}
+
+        {/* Search mode hint */}
+        {ftsMode !== 'simple' && ftsMode !== 'auto' && (
+          <div className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+            {ftsMode === 'boolean' && 'Use AND, OR, NOT operators: "rust AND performance", "+required -excluded"'}
+            {ftsMode === 'phrase' && 'Enter exact phrase to match: "machine learning algorithms"'}
+            {ftsMode === 'wildcard' && 'Use * (any chars) and ? (single char): prog*, te?t'}
+            {ftsMode === 'proximity' && 'Enter terms to find within N words: "rust systems"'}
+          </div>
+        )}
 
         {/* BM25F Field Weights */}
         {ftsAlgorithm === 'bm25f' && (
@@ -397,6 +445,8 @@ export default function FTSSearchPanel() {
           limit: ftsLimit,
           algorithm: ftsAlgorithm,
           fuzzy: ftsFuzzy,
+          mode: ftsMode,
+          distance: ftsMode === 'proximity' ? ftsDistance : undefined,
           disableStem: !ftsStemming,
           disableSynonyms: !ftsSynonyms,
           fieldWeights: ftsAlgorithm === 'bm25f' ? ftsFieldWeights : null,

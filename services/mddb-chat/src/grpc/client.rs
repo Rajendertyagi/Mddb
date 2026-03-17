@@ -1,3 +1,4 @@
+use tonic::metadata::MetadataValue;
 use tonic::transport::Channel;
 
 use crate::config::MddbConfig;
@@ -11,6 +12,7 @@ pub mod proto {
 pub struct MddbClient {
     client: proto::mddb_client::MddbClient<Channel>,
     config: MddbConfig,
+    auth_token: Option<String>,
 }
 
 impl MddbClient {
@@ -19,7 +21,72 @@ impl MddbClient {
             .await
             .map_err(|e| AppError::Internal(format!("failed to connect to mddbd: {e}")))?;
 
-        Ok(Self { client, config })
+        let mut this = Self {
+            client,
+            config,
+            auth_token: None,
+        };
+
+        this.login().await?;
+
+        Ok(this)
+    }
+
+    /// Login to mddbd HTTP API and get JWT token
+    async fn login(&mut self) -> Result<(), AppError> {
+        if self.config.auth_username.is_empty() {
+            return Ok(());
+        }
+
+        // Derive HTTP URL from gRPC addr (replace port 11024 -> 11023)
+        let http_url = self
+            .config
+            .grpc_addr
+            .replace("11024", "11023")
+            .replace("grpc://", "http://");
+
+        let login_url = format!("{}/v1/auth/login", http_url.trim_end_matches('/'));
+
+        let resp = reqwest::Client::new()
+            .post(&login_url)
+            .json(&serde_json::json!({
+                "username": self.config.auth_username,
+                "password": self.config.auth_password,
+            }))
+            .send()
+            .await
+            .map_err(|e| AppError::Internal(format!("mddbd login failed: {e}")))?;
+
+        if !resp.status().is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            return Err(AppError::Internal(format!("mddbd login failed: {body}")));
+        }
+
+        #[derive(serde::Deserialize)]
+        struct LoginResp {
+            token: String,
+        }
+
+        let login: LoginResp = resp
+            .json()
+            .await
+            .map_err(|e| AppError::Internal(format!("mddbd login parse error: {e}")))?;
+
+        self.auth_token = Some(login.token);
+        tracing::info!("authenticated with mddbd");
+
+        Ok(())
+    }
+
+    /// Create a tonic request with auth metadata
+    fn auth_request<T>(&self, inner: T) -> tonic::Request<T> {
+        let mut req = tonic::Request::new(inner);
+        if let Some(token) = &self.auth_token {
+            if let Ok(val) = format!("Bearer {}", token).parse::<MetadataValue<tonic::metadata::Ascii>>() {
+                req.metadata_mut().insert("authorization", val);
+            }
+        }
+        req
     }
 
     /// Search documents using hybrid search (FTS + vector)
@@ -33,12 +100,13 @@ impl MddbClient {
             query: query.to_string(),
             collection: collection.to_string(),
             top_k: top_k as i32,
+            include_content: true,
             ..Default::default()
         };
 
         let response = self
             .client
-            .hybrid_search(request)
+            .hybrid_search(self.auth_request(request))
             .await
             .map_err(AppError::GrpcError)?;
 
@@ -76,7 +144,7 @@ impl MddbClient {
 
         let response = self
             .client
-            .fts(request)
+            .fts(self.auth_request(request))
             .await
             .map_err(AppError::GrpcError)?;
 
@@ -109,12 +177,13 @@ impl MddbClient {
             query: query.to_string(),
             collection: collection.to_string(),
             top_k: top_k as i32,
+            include_content: true,
             ..Default::default()
         };
 
         let response = self
             .client
-            .vector_search(request)
+            .vector_search(self.auth_request(request))
             .await
             .map_err(AppError::GrpcError)?;
 

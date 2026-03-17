@@ -45,5 +45,8 @@ hex = "0.4"
 tokio-stream = "0.1"
 async-trait = "0.1"
 
+# Text processing
+regex = "1"
+
 [build-dependencies]
 tonic-build = "0.12"

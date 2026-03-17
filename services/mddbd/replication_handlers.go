@@ -61,7 +61,7 @@ func (s *Server) handleReplicationStatus(w http.ResponseWriter, r *http.Request)
 				lagMs := int64(0)
 				currentLSN := s.Binlog.CurrentLSN()
 				if currentLSN > fs.ConfirmedLSN {
-					lagMs = int64(currentLSN-fs.ConfirmedLSN) * 10
+					lagMs = int64(currentLSN-fs.ConfirmedLSN) * 10 // #nosec G115 -- LSN diff within int64 range
 				}
 
 				status := "healthy"

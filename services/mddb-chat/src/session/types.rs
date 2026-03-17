@@ -81,6 +81,12 @@ pub enum WsIncoming {
     Resume {
         session_id: String,
     },
+    End,
+    Feedback {
+        rating: String,
+        question: String,
+        answer: String,
+    },
     Ping,
 }
 
@@ -102,6 +108,7 @@ pub enum WsOutgoing {
         message: String,
     },
     Pong,
+    Ended,
 }
 
 fn default_scenario() -> String {

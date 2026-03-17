@@ -11,31 +11,37 @@ import (
 
 // ---- Request/Response types ----
 
+// LoginRequest is the request body for user login.
 type LoginRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
 
+// LoginResponse is the response body for a successful login.
 type LoginResponse struct {
 	Token     string `json:"token"`
 	ExpiresAt int64  `json:"expiresAt"`
 }
 
+// RegisterRequest is the request body for user registration.
 type RegisterRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
 
+// RegisterResponse is the response body for a successful registration.
 type RegisterResponse struct {
 	Username  string `json:"username"`
 	CreatedAt int64  `json:"createdAt"`
 }
 
+// CreateAPIKeyRequest is the request body for creating an API key.
 type CreateAPIKeyRequest struct {
 	Description string `json:"description"`
 	ExpiresAt   int64  `json:"expiresAt,omitempty"` // 0 = never
 }
 
+// CreateAPIKeyResponse is the response body after creating an API key.
 type CreateAPIKeyResponse struct {
 	Key         string `json:"key"` // shown only once!
 	Description string `json:"description"`
@@ -43,6 +49,7 @@ type CreateAPIKeyResponse struct {
 	CreatedAt   int64  `json:"createdAt"`
 }
 
+// APIKeyListItem represents a single API key in a list response.
 type APIKeyListItem struct {
 	KeyHash     string `json:"keyHash"` // for deletion
 	Description string `json:"description"`
@@ -50,16 +57,19 @@ type APIKeyListItem struct {
 	ExpiresAt   int64  `json:"expiresAt"`
 }
 
+// ListAPIKeysResponse is the response body listing a user's API keys.
 type ListAPIKeysResponse struct {
 	Keys []APIKeyListItem `json:"keys"`
 }
 
+// GetMeResponse is the response body for the current authenticated user.
 type GetMeResponse struct {
 	Username  string `json:"username"`
 	Admin     bool   `json:"admin"`
 	CreatedAt int64  `json:"createdAt"`
 }
 
+// SetPermissionRequest is the request body for setting user permissions.
 type SetPermissionRequest struct {
 	Username   string `json:"username"`
 	Collection string `json:"collection"`
@@ -68,6 +78,7 @@ type SetPermissionRequest struct {
 	Admin      bool   `json:"admin"`
 }
 
+// SetPermissionResponse is the response body after setting permissions.
 type SetPermissionResponse struct {
 	Status string `json:"status"`
 }
@@ -407,6 +418,7 @@ func (s *Server) handleAuthDeleteUser(w http.ResponseWriter, r *http.Request) {
 
 // ---- Users List Handler ----
 
+// UserInfoResponse represents a single user in the users list.
 type UserInfoResponse struct {
 	Username  string   `json:"username"`
 	CreatedAt int64    `json:"createdAt"`
@@ -415,6 +427,7 @@ type UserInfoResponse struct {
 	Groups    []string `json:"groups"`
 }
 
+// UsersListResponse is the response body listing all users.
 type UsersListResponse struct {
 	Users []UserInfoResponse `json:"users"`
 }
@@ -456,17 +469,20 @@ func (s *Server) handleAuthUsersList(w http.ResponseWriter, r *http.Request) {
 
 // ---- Group Handlers ----
 
+// CreateGroupRequest is the request body for creating a user group.
 type CreateGroupRequest struct {
 	Name        string   `json:"name"`
 	Description string   `json:"description"`
 	Members     []string `json:"members"`
 }
 
+// UpdateGroupRequest is the request body for updating a user group.
 type UpdateGroupRequest struct {
 	Description string   `json:"description"`
 	Members     []string `json:"members"`
 }
 
+// GroupsListResponse is the response body listing all groups.
 type GroupsListResponse struct {
 	Groups []*Group `json:"groups"`
 }

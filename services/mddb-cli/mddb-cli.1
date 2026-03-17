@@ -1,4 +1,4 @@
-.TH MDDB-CLI 1 "March 2026" "mddb-cli 2.7.1" "User Commands"
+.TH MDDB-CLI 1 "March 2026" "mddb-cli 2.8.0" "User Commands"
 .SH NAME
 mddb-cli \- command-line client for MDDB (Markdown Database)
 .SH SYNOPSIS
@@ -588,6 +588,57 @@ mddb-cli playground
 mddb-cli -s http://production.server:11023 playground
 .fi
 .RE
+.SH AGGREGATIONS
+MDDB supports metadata aggregations (v2.8+), including facets and date histograms.
+.SS Facets
+Count distinct values for a metadata key across all documents in a collection.
+Useful for building filter sidebars, tag clouds, and category breakdowns.
+.SS Histograms
+Group documents by time intervals (day, week, month, year) on addedAt or updatedAt fields.
+Useful for activity charts and trend analysis.
+.SS Example via API
+.nf
+curl -X POST http://localhost:11023/v1/aggregate \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "collection": "blog",
+    "facets": [{"field": "category"}, {"field": "author"}],
+    "histograms": [{"field": "addedAt", "interval": "month"}]
+  }'
+.fi
+.PP
+Supports optional \fBfilterMeta\fR for pre-filtering (same syntax as search).
+Also available as MCP tool: \fBaggregate\fR.
+.SH STORAGE BACKENDS
+MDDB supports per-collection storage backends (v2.8+). Each collection can use
+a different backend configured via the REST API or the web panel.
+.SS Available Backends
+.TP
+.B boltdb
+Default embedded storage. Data is persisted to the BoltDB database file. No
+additional configuration required.
+.TP
+.B memory
+In-memory ephemeral storage. All data is lost when the server restarts. Useful
+for scratch collections, caching, and testing.
+.TP
+.B s3
+S3-compatible object storage (AWS S3, MinIO, Cloudflare R2, etc.). Requires
+\fBstorageConfig\fR with at least \fBendpoint\fR and \fBbucket\fR.
+.SS Configuring via API
+.nf
+# Set a collection to use in-memory storage
+curl -X PUT http://localhost:11023/v1/collection-config \\
+  -H "Content-Type: application/json" \\
+  -d '{"collection":"scratch","storageBackend":"memory"}'
+
+# Set a collection to use S3
+curl -X PUT http://localhost:11023/v1/collection-config \\
+  -H "Content-Type: application/json" \\
+  -d '{"collection":"archive","storageBackend":"s3","storageConfig":{"endpoint":"s3.amazonaws.com","bucket":"my-bucket","useTLS":true}}'
+.fi
+.PP
+Storage backend can also be configured from the web panel under Collection Settings.
 .SH ENVIRONMENT
 .TP
 .B MDDB_SERVER

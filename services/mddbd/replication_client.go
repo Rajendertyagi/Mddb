@@ -366,7 +366,7 @@ func (rc *ReplicationClient) ackLoop(ctx context.Context) {
 			}
 			// Update lag based on leader's current LSN
 			if resp.LeaderLsn > lsn {
-				rc.lagMs.Store(int64(resp.LeaderLsn-lsn) * 10) // rough estimate
+				rc.lagMs.Store(int64(resp.LeaderLsn-lsn) * 10) // #nosec G115 -- LSN diff within int64 range
 			} else {
 				rc.lagMs.Store(0)
 			}

@@ -42,6 +42,7 @@
   - [POST /v1/hybrid-search](#post-v1hybrid-search)
   - [POST /v1/cross-search](#post-v1cross-search)
   - [POST /v1/find-duplicates](#post-v1find-duplicates)
+  - [POST /v1/aggregate](#post-v1aggregate)
   - [GET /v1/collection-config](#get-v1collection-config)
   - [GET /v1/collection-configs](#get-v1collection-configs)
   - [GET /v1/embedding-configs](#get-v1embedding-configs)
@@ -325,12 +326,12 @@ curl -X POST http://localhost:11023/v1/ingest \
 
 ### POST /v1/upload
 
-Upload files (PDF, DOCX, HTML, TXT, Markdown) via multipart/form-data. Files are auto-converted to Markdown and stored as documents. Supports single and batch upload.
+Upload files via multipart/form-data. Files are auto-converted to Markdown and stored as documents. Supports single and batch upload.
 
 **Content-Type**: `multipart/form-data`
 
 **Form Fields**:
-- `file` or `files[]` (required): One or more files to upload. Supported formats: `.md`, `.txt`, `.html`, `.htm`, `.pdf`, `.docx`
+- `file` or `files[]` (required): One or more files to upload. Supported formats: `.md`, `.txt`, `.html`, `.htm`, `.pdf`, `.docx`, `.odt`, `.rtf`, `.yaml`, `.yml`, `.log`, `.lex`, `.tex`, `.latex`
 - `collection` (required): Target collection name
 - `lang` (required): Document language code (e.g. `en_US`, `pl_PL`)
 - `key` (optional): Document key — if empty, derived from filename (lowercase, spaces→hyphens, extension stripped)
@@ -346,6 +347,12 @@ Upload files (PDF, DOCX, HTML, TXT, Markdown) via multipart/form-data. Files are
 | HTML | `.html`, `.htm` | Converted to Markdown (headings, links, lists, bold/italic preserved) |
 | PDF | `.pdf` | Text extracted (text-based PDFs only; scanned/image PDFs not supported — use Docling) |
 | DOCX | `.docx` | Text extracted with headings and list structure preserved |
+| ODT | `.odt` | OpenDocument text extracted with headings preserved |
+| RTF | `.rtf` | Rich Text Format — text extracted, formatting stripped |
+| LaTeX | `.tex`, `.latex` | Converted to Markdown (sections, formatting, environments, math preserved) |
+| YAML | `.yaml`, `.yml` | Wrapped in code block for structured data |
+| Log | `.log` | Wrapped in code block |
+| LEX | `.lex` | Wrapped in code block |
 
 **Auto-injected Metadata**:
 - `upload_format`: Original file format (e.g. `pdf`, `html`, `docx`)
@@ -796,7 +803,7 @@ Metadata pre-filtering significantly reduces search time (e.g., filtering to 10%
 
 ### POST /v1/fts
 
-Perform full-text search across document content using TF-IDF, BM25, or BM25F scoring with optional stemming, synonyms, and typo tolerance.
+Perform full-text search across document content. Supports multiple search modes: simple, boolean, phrase, wildcard, proximity, and range filtering. Uses TF-IDF, BM25, BM25F, or PMISparse scoring with optional stemming, synonyms, and typo tolerance.
 
 **Request Body**:
 ```json
@@ -806,13 +813,17 @@ Perform full-text search across document content using TF-IDF, BM25, or BM25F sc
   "limit": 10,
   "algorithm": "bm25f",
   "fuzzy": 1,
+  "mode": "auto",
   "disableStem": false,
   "disableSynonyms": false,
   "fieldWeights": {
     "content": 1.0,
     "meta.title": 3.0,
     "meta.tags": 2.0
-  }
+  },
+  "rangeMeta": [
+    {"field": "addedAt", "gte": "2024-01-01", "lte": "2024-12-31"}
+  ]
 }
 ```
 
@@ -820,11 +831,30 @@ Perform full-text search across document content using TF-IDF, BM25, or BM25F sc
 - `collection` (required): Collection name
 - `query` (required): Search query text
 - `limit` (optional): Maximum results (default: 50)
-- `algorithm` (optional): `"tfidf"` (default), `"bm25"`, or `"bm25f"`
-- `fuzzy` (optional): Typo tolerance — `0` (off, default), `1` (1 edit), `2` (2 edits)
+- `algorithm` (optional): `"tfidf"` (default), `"bm25"`, `"bm25f"`, or `"pmisparse"` — used for simple mode
+- `mode` (optional): Search mode — `"auto"` (default), `"simple"`, `"boolean"`, `"phrase"`, `"wildcard"`, `"proximity"`
+- `distance` (optional): Proximity distance in words (default: 5) — only used with mode=proximity
+- `fuzzy` (optional): Typo tolerance — `0` (off, default), `1` (1 edit), `2` (2 edits) — used for simple mode
 - `disableStem` (optional): Disable Porter stemming for this query (default: false)
 - `disableSynonyms` (optional): Disable synonym expansion for this query (default: false)
 - `fieldWeights` (optional, BM25F only): Map of field name to weight. Defaults: content=1.0, meta.title=3.0, meta.tags=2.0, meta.category=2.0, meta.description=1.5
+- `filterMeta` (optional): Metadata pre-filter — `{"key": ["value1", "value2"]}`
+- `rangeMeta` (optional): Array of range filters on metadata or timestamps
+
+**Search Modes**:
+- **simple**: Standard full-text search with TF-IDF/BM25/BM25F/PMISparse scoring
+- **boolean**: Boolean operators — `rust AND performance`, `rust OR golang`, `NOT java`, `+required -excluded`
+- **phrase**: Exact phrase matching — `"machine learning algorithms"` (consecutive terms)
+- **wildcard**: Pattern matching — `prog*` (any suffix), `te?t` (single char)
+- **proximity**: Terms within N words — `"rust systems"` with `distance: 5`
+- **auto**: Auto-detects mode from query syntax (default)
+
+**Range Filter Object**:
+- `field` (required): Metadata key name, or `"addedAt"` / `"updatedAt"` for timestamps
+- `gte` (optional): Greater than or equal (supports unix timestamps, ISO dates, numeric strings)
+- `lte` (optional): Less than or equal
+- `gt` (optional): Greater than (strict)
+- `lt` (optional): Less than (strict)
 
 **Response**:
 ```json
@@ -844,22 +874,43 @@ Perform full-text search across document content using TF-IDF, BM25, or BM25F sc
   ],
   "total": 1,
   "algorithm": "bm25",
+  "mode": "simple",
   "stemmingActive": true,
   "synonymsActive": true
 }
 ```
 
-**cURL Example**:
+**cURL Examples**:
 ```bash
+# Simple search
 curl -X POST http://localhost:11023/v1/fts \
   -H 'Content-Type: application/json' \
-  -d '{
-    "collection": "blog",
-    "query": "markdown database",
-    "algorithm": "bm25",
-    "fuzzy": 1,
-    "limit": 10
-  }'
+  -d '{"collection":"blog","query":"markdown database","algorithm":"bm25","limit":10}'
+
+# Boolean search
+curl -X POST http://localhost:11023/v1/fts \
+  -H 'Content-Type: application/json' \
+  -d '{"collection":"blog","query":"rust AND performance NOT java","mode":"boolean"}'
+
+# Phrase search
+curl -X POST http://localhost:11023/v1/fts \
+  -H 'Content-Type: application/json' \
+  -d '{"collection":"blog","query":"\"machine learning\"","mode":"phrase"}'
+
+# Wildcard search
+curl -X POST http://localhost:11023/v1/fts \
+  -H 'Content-Type: application/json' \
+  -d '{"collection":"blog","query":"prog*","mode":"wildcard"}'
+
+# Proximity search (terms within 5 words)
+curl -X POST http://localhost:11023/v1/fts \
+  -H 'Content-Type: application/json' \
+  -d '{"collection":"blog","query":"rust systems","mode":"proximity","distance":5}'
+
+# Range filter (price between 10 and 100)
+curl -X POST http://localhost:11023/v1/fts \
+  -H 'Content-Type: application/json' \
+  -d '{"collection":"shop","query":"widget","rangeMeta":[{"field":"price","gte":"10","lte":"100"}]}'
 ```
 
 ---
@@ -1894,6 +1945,79 @@ Detect exact and similar documents in a collection using content hashing and vec
 
 ---
 
+### POST /v1/aggregate
+
+Compute metadata facets and date histograms for a collection. Supports optional metadata pre-filtering.
+
+**Request Body:**
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `collection` | string | Yes | Collection name |
+| `filterMeta` | object | No | Metadata pre-filter (same as `/v1/search`) |
+| `facets` | array | No | Facet aggregation requests |
+| `facets[].field` | string | Yes | Metadata key to aggregate (e.g. `"category"`) |
+| `facets[].orderBy` | string | No | `"count"` (default, descending) or `"value"` (alphabetical) |
+| `histograms` | array | No | Date histogram requests |
+| `histograms[].field` | string | Yes | `"addedAt"` or `"updatedAt"` |
+| `histograms[].interval` | string | No | `"day"`, `"week"`, `"month"` (default), `"year"` |
+| `maxFacetSize` | int | No | Max values per facet (default: 50) |
+
+**Example:**
+```bash
+curl -X POST http://localhost:11023/v1/aggregate \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "blog",
+    "facets": [
+      {"field": "category"},
+      {"field": "author", "orderBy": "value"}
+    ],
+    "histograms": [
+      {"field": "addedAt", "interval": "month"}
+    ]
+  }'
+```
+
+**Example with metadata pre-filter:**
+```bash
+curl -X POST http://localhost:11023/v1/aggregate \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "blog",
+    "filterMeta": {"status": ["published"]},
+    "facets": [{"field": "tags"}]
+  }'
+```
+
+**Response:**
+```json
+{
+  "collection": "blog",
+  "totalDocs": 42,
+  "facets": {
+    "category": [
+      {"value": "tutorial", "count": 15},
+      {"value": "news", "count": 12},
+      {"value": "release", "count": 8}
+    ],
+    "author": [
+      {"value": "Alice", "count": 20},
+      {"value": "Bob", "count": 22}
+    ]
+  },
+  "histograms": {
+    "addedAt": [
+      {"key": "2026-01", "from": 1767225600, "to": 1769904000, "count": 10},
+      {"key": "2026-02", "from": 1769904000, "to": 1772323200, "count": 18},
+      {"key": "2026-03", "from": 1772323200, "to": 1775001600, "count": 14}
+    ]
+  },
+  "durationMs": 3
+}
+```
+
+---
+
 ### GET /v1/collection-config
 
 Get configuration for a specific collection.
@@ -1924,6 +2048,74 @@ curl "http://localhost:11023/v1/collection-config?collection=blog"
 ```
 
 Also supports **PUT** to set config and **DELETE** to remove config for a collection.
+
+#### PUT /v1/collection-config
+
+Set or update collection configuration including storage backend.
+
+**Request Body:**
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `collection` | string | Yes | Collection name |
+| `type` | string | No | Collection type (`default`, `website`, `images`, `audio`, `documents`) |
+| `description` | string | No | Collection description |
+| `icon` | string | No | Emoji icon |
+| `color` | string | No | Hex color code |
+| `customMeta` | object | No | Custom key-value metadata |
+| `storageBackend` | string | No | Storage backend: `boltdb` (default), `memory`, `s3` |
+| `storageConfig` | object | No | Backend-specific settings (required for `s3`) |
+
+**storageConfig fields (for S3):**
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `endpoint` | string | Yes | S3 endpoint (e.g. `s3.amazonaws.com`, `minio:9000`) |
+| `bucket` | string | Yes | S3 bucket name |
+| `region` | string | No | AWS region (e.g. `us-east-1`) |
+| `accessKey` | string | No | Access key |
+| `secretKey` | string | No | Secret key |
+| `prefix` | string | No | Key prefix within bucket (e.g. `mddb/`) |
+| `useTLS` | bool | No | Use HTTPS (default: false) |
+
+**Example — In-Memory backend:**
+```bash
+curl -X PUT http://localhost:11023/v1/collection-config \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "scratch",
+    "type": "default",
+    "storageBackend": "memory"
+  }'
+```
+
+**Example — S3 backend:**
+```bash
+curl -X PUT http://localhost:11023/v1/collection-config \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "archive",
+    "type": "documents",
+    "storageBackend": "s3",
+    "storageConfig": {
+      "endpoint": "s3.amazonaws.com",
+      "bucket": "my-mddb-archive",
+      "region": "us-east-1",
+      "accessKey": "AKIAIOSFODNN7EXAMPLE",
+      "secretKey": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+      "prefix": "mddb/",
+      "useTLS": true
+    }
+  }'
+```
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "collection": "archive"
+}
+```
+
+> **Note:** The `memory` backend is ephemeral — all data is lost on server restart. The `s3` backend requires `endpoint` and `bucket` in `storageConfig`. The default `boltdb` backend uses the embedded database.
 
 ---
 
@@ -2376,7 +2568,7 @@ curl http://localhost:11023/v1/system/info
   "arch": "amd64",
   "numCPU": 4,
   "goVersion": "go1.23.0",
-  "version": "2.7.1",
+  "version": "2.8.0",
   "uptimeSeconds": 3600,
   "memoryTotal": 134217728,
   "memoryUsed": 67108864,
@@ -2399,7 +2591,7 @@ curl http://localhost:11023/v1/config
 **Response**:
 ```json
 {
-  "version": "2.7.1",
+  "version": "2.8.0",
   "databasePath": "mddb.db",
   "mode": "wr",
   "protocols": {

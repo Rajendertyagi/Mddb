@@ -12,13 +12,27 @@ import (
 
 var bucketColMeta = []byte("colmeta")
 
-// CollectionConfig stores per-collection attributes: type, description, icon, color, and custom metadata.
+// CollectionConfig stores per-collection attributes: type, description, icon, color, custom metadata, and storage backend.
 type CollectionConfig struct {
-	Type        string            `json:"type"` // "default","website","images","audio","documents"
-	Description string            `json:"description,omitempty"`
-	Icon        string            `json:"icon,omitempty"`
-	Color       string            `json:"color,omitempty"`
-	CustomMeta  map[string]string `json:"customMeta,omitempty"`
+	Type           string            `json:"type"` // "default","website","images","audio","documents"
+	Description    string            `json:"description,omitempty"`
+	Icon           string            `json:"icon,omitempty"`
+	Color          string            `json:"color,omitempty"`
+	CustomMeta     map[string]string `json:"customMeta,omitempty"`
+	StorageBackend string            `json:"storageBackend,omitempty"` // "boltdb" (default), "memory", "s3"
+	StorageConfig  *StorageConfigDef `json:"storageConfig,omitempty"`  // backend-specific settings (required for s3)
+}
+
+// StorageConfigDef holds backend-specific configuration for non-default storage backends.
+type StorageConfigDef struct {
+	// S3 / MinIO settings
+	Endpoint  string `json:"endpoint,omitempty"`
+	Bucket    string `json:"bucket,omitempty"`
+	Region    string `json:"region,omitempty"`
+	AccessKey string `json:"accessKey,omitempty"`
+	SecretKey string `json:"secretKey,omitempty"`
+	Prefix    string `json:"prefix,omitempty"`
+	UseTLS    bool   `json:"useTLS,omitempty"`
 }
 
 // CollectionManager manages per-collection configuration in a dedicated BoltDB bucket.
@@ -143,12 +157,14 @@ func (cm *CollectionManager) ListAll() map[string]*CollectionConfig {
 
 // SetCollectionConfigRequest is the request body for PUT /v1/collection-config.
 type SetCollectionConfigRequest struct {
-	Collection  string            `json:"collection"`
-	Type        string            `json:"type,omitempty"`
-	Description string            `json:"description,omitempty"`
-	Icon        string            `json:"icon,omitempty"`
-	Color       string            `json:"color,omitempty"`
-	CustomMeta  map[string]string `json:"customMeta,omitempty"`
+	Collection     string            `json:"collection"`
+	Type           string            `json:"type,omitempty"`
+	Description    string            `json:"description,omitempty"`
+	Icon           string            `json:"icon,omitempty"`
+	Color          string            `json:"color,omitempty"`
+	CustomMeta     map[string]string `json:"customMeta,omitempty"`
+	StorageBackend string            `json:"storageBackend,omitempty"` // "boltdb", "memory", "s3"
+	StorageConfig  *StorageConfigDef `json:"storageConfig,omitempty"`
 }
 
 func (s *Server) handleCollectionConfig(w http.ResponseWriter, r *http.Request) {
@@ -222,12 +238,25 @@ func (s *Server) handleCollectionConfigSet(w http.ResponseWriter, r *http.Reques
 		s.Metrics.IncOp("collection_config_set", req.Collection)
 	}
 
+	// Validate storage backend
+	sb := req.StorageBackend
+	if sb != "" && sb != "boltdb" && sb != "memory" && sb != "s3" {
+		bad(w, errors.New("invalid storageBackend: must be boltdb, memory, or s3"))
+		return
+	}
+	if sb == "s3" && (req.StorageConfig == nil || req.StorageConfig.Endpoint == "" || req.StorageConfig.Bucket == "") {
+		bad(w, errors.New("s3 storageBackend requires storageConfig with endpoint and bucket"))
+		return
+	}
+
 	cfg := &CollectionConfig{
-		Type:        req.Type,
-		Description: req.Description,
-		Icon:        req.Icon,
-		Color:       req.Color,
-		CustomMeta:  req.CustomMeta,
+		Type:           req.Type,
+		Description:    req.Description,
+		Icon:           req.Icon,
+		Color:          req.Color,
+		CustomMeta:     req.CustomMeta,
+		StorageBackend: sb,
+		StorageConfig:  req.StorageConfig,
 	}
 	if err := s.CollectionManager.Set(req.Collection, cfg); err != nil {
 		bad(w, err)

@@ -10,12 +10,20 @@ const COLLECTION_TYPES = [
   { value: 'documents', label: 'Documents', icon: '\uD83D\uDCC4' },
 ];
 
+const STORAGE_BACKENDS = [
+  { value: 'boltdb', label: 'BoltDB (default)', icon: '\uD83D\uDDC4\uFE0F', description: 'Embedded key-value store, persisted to disk' },
+  { value: 'memory', label: 'In-Memory (ephemeral)', icon: '\u26A1', description: 'Fast but data is lost on restart' },
+  { value: 's3', label: 'S3 / MinIO', icon: '\u2601\uFE0F', description: 'S3-compatible object storage' },
+];
+
 export default function CollectionConfigModal({ collection, onClose, onSave }) {
   const [type, setType] = useState('default');
   const [description, setDescription] = useState('');
   const [icon, setIcon] = useState('');
   const [color, setColor] = useState('#3b82f6');
   const [customMeta, setCustomMeta] = useState([]);
+  const [storageBackend, setStorageBackend] = useState('boltdb');
+  const [storageConfig, setStorageConfig] = useState({ endpoint: '', bucket: '', region: '', accessKey: '', secretKey: '', prefix: '', useTLS: false });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -39,6 +47,10 @@ export default function CollectionConfigModal({ collection, onClose, onSave }) {
           ? Object.entries(cfg.customMeta).map(([k, v]) => ({ key: k, value: v }))
           : [];
         setCustomMeta(metaEntries);
+        setStorageBackend(cfg.storageBackend || 'boltdb');
+        if (cfg.storageConfig) {
+          setStorageConfig({ endpoint: '', bucket: '', region: '', accessKey: '', secretKey: '', prefix: '', useTLS: false, ...cfg.storageConfig });
+        }
       }
     } catch (err) {
       setError(err.message);
@@ -57,14 +69,19 @@ export default function CollectionConfigModal({ collection, onClose, onSave }) {
           metaObj[key.trim()] = value;
         }
       });
-      await mddbClient.setCollectionConfig({
+      const payload = {
         collection,
         type,
         description,
         icon,
         color,
         customMeta: Object.keys(metaObj).length > 0 ? metaObj : undefined,
-      });
+        storageBackend: storageBackend !== 'boltdb' ? storageBackend : undefined,
+      };
+      if (storageBackend === 's3') {
+        payload.storageConfig = storageConfig;
+      }
+      await mddbClient.setCollectionConfig(payload);
       onSave();
       onClose();
     } catch (err) {
@@ -181,6 +198,114 @@ export default function CollectionConfigModal({ collection, onClose, onSave }) {
                   />
                 </div>
               </div>
+
+              {/* Storage Backend */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Storage Backend</label>
+                <select
+                  value={storageBackend}
+                  onChange={(e) => setStorageBackend(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                >
+                  {STORAGE_BACKENDS.map((b) => (
+                    <option key={b.value} value={b.value}>
+                      {b.icon} {b.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-400 mt-1">
+                  {STORAGE_BACKENDS.find(b => b.value === storageBackend)?.description}
+                </p>
+              </div>
+
+              {/* S3 Configuration */}
+              {storageBackend === 's3' && (
+                <div className="space-y-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">S3 / MinIO Settings</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-0.5">Endpoint *</label>
+                      <input
+                        type="text"
+                        value={storageConfig.endpoint}
+                        onChange={(e) => setStorageConfig({ ...storageConfig, endpoint: e.target.value })}
+                        placeholder="s3.amazonaws.com"
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-0.5">Bucket *</label>
+                      <input
+                        type="text"
+                        value={storageConfig.bucket}
+                        onChange={(e) => setStorageConfig({ ...storageConfig, bucket: e.target.value })}
+                        placeholder="my-mddb-bucket"
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-0.5">Region</label>
+                      <input
+                        type="text"
+                        value={storageConfig.region}
+                        onChange={(e) => setStorageConfig({ ...storageConfig, region: e.target.value })}
+                        placeholder="us-east-1"
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-0.5">Prefix</label>
+                      <input
+                        type="text"
+                        value={storageConfig.prefix}
+                        onChange={(e) => setStorageConfig({ ...storageConfig, prefix: e.target.value })}
+                        placeholder="mddb/"
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-0.5">Access Key</label>
+                      <input
+                        type="text"
+                        value={storageConfig.accessKey}
+                        onChange={(e) => setStorageConfig({ ...storageConfig, accessKey: e.target.value })}
+                        placeholder="AKIAIOSFODNN7EXAMPLE"
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-0.5">Secret Key</label>
+                      <input
+                        type="password"
+                        value={storageConfig.secretKey}
+                        onChange={(e) => setStorageConfig({ ...storageConfig, secretKey: e.target.value })}
+                        placeholder="wJalrXUtnFEMI/K7MDENG..."
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={storageConfig.useTLS}
+                      onChange={(e) => setStorageConfig({ ...storageConfig, useTLS: e.target.checked })}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    Use TLS (HTTPS)
+                  </label>
+                </div>
+              )}
+
+              {/* In-Memory Warning */}
+              {storageBackend === 'memory' && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-sm text-amber-800">Data in this collection will be lost when the server restarts. Use for temporary/scratch data only.</p>
+                </div>
+              )}
 
               {/* Custom Metadata */}
               <div>

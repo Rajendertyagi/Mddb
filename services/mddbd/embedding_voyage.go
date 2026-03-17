@@ -33,7 +33,10 @@ func NewVoyageEmbeddingProvider(apiKey, apiURL, model string, dimensions int) *V
 	}
 }
 
-func (p *VoyageEmbeddingProvider) Model() string   { return p.model }
+// Model returns the model name used by this provider.
+func (p *VoyageEmbeddingProvider) Model() string { return p.model }
+
+// Dimensions returns the embedding dimensionality.
 func (p *VoyageEmbeddingProvider) Dimensions() int { return p.dimensions }
 
 // Embed generates an embedding for a single text.
@@ -60,14 +63,14 @@ func (p *VoyageEmbeddingProvider) EmbedBatch(ctx context.Context, texts []string
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", p.apiURL+"/embeddings", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", p.apiURL+"/embeddings", bytes.NewReader(body)) // #nosec G704 -- URL from server config
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+p.apiKey)
 
-	resp, err := p.client.Do(req)
+	resp, err := p.client.Do(req) // #nosec G704 -- URL from server config
 	if err != nil {
 		return nil, fmt.Errorf("voyage AI API request: %w", err)
 	}

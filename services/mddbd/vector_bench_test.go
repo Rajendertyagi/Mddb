@@ -134,12 +134,12 @@ func BenchmarkCosineSimilarity_1024(b *testing.B) {
 func benchmarkCosine(b *testing.B, dims int) {
 	rng := rand.New(rand.NewSource(42))
 	a := generateRandomVector(dims, rng)
-	vec_b := generateRandomVector(dims, rng)
+	vecB := generateRandomVector(dims, rng)
 
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		_ = cosineSimilarity(a, vec_b)
+		_ = cosineSimilarity(a, vecB)
 	}
 }
 

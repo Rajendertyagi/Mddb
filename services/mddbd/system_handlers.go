@@ -76,12 +76,14 @@ func (c *cpuSamplerState) sample() float64 {
 
 // ---- Request/Response types ----
 
+// NetworkInterface represents a non-loopback network interface with its addresses.
 type NetworkInterface struct {
 	Name      string   `json:"name"`
 	Addresses []string `json:"addresses"`
 	Flags     string   `json:"flags"`
 }
 
+// SystemInfoResponse contains system-level information such as OS, CPU, memory, and uptime.
 type SystemInfoResponse struct {
 	Hostname        string             `json:"hostname"`
 	OS              string             `json:"os"`
