@@ -317,7 +317,7 @@ paths:
         Upload files via multipart/form-data. Files are auto-converted
         to Markdown and stored as documents. Supports single and batch upload.
 
-        Supported formats: `.md`, `.txt`, `.html`, `.pdf`, `.docx`, `.odt`, `.rtf`, `.yaml`, `.yml`, `.log`, `.lex`, `.tex`, `.latex`.
+        Supported formats: `.md`, `.txt`, `.html`, `.htm`, `.pdf`, `.docx`, `.odt`, `.rtf`, `.yaml`, `.yml`, `.log`, `.lex`, `.tex`, `.latex`.
         Default (md/txt) is stored as-is with frontmatter extraction; others are converted.
         ODT and DOCX are ZIP-based with XML extraction. RTF is parsed to plain text.
         LaTeX/TeX is converted (sections, formatting, environments). YAML/LOG/LEX are wrapped in code blocks.

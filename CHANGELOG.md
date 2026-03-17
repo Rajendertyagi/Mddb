@@ -35,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Positional index for phrase/proximity search (new `ftsp` bucket)
   - Panel: search mode selector, proximity distance slider, syntax hints
 - **Chat Service Improvements** — Anthropic Claude LLM provider, tool-use support (search, get document), improved widget UI with typing indicators and error handling
-- **File Upload Enhancements** — Extended `POST /v1/upload` with support for PDF, DOCX, XLSX, CSV, HTML, XML, and YAML file formats alongside Markdown
+- **File Upload Enhancements** — Extended `POST /v1/upload` with support for PDF, DOCX, HTML, ODT, RTF, TeX, YAML, and plain text file formats alongside Markdown
 
 ### Changed
 - Updated docs: README, openapi.yaml, docs/index.html, API.md, SEARCH.md, man page

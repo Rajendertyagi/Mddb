@@ -191,6 +191,18 @@ Search query (keywords)
 .TP
 .BR \-l ", " \-\-limit =\fIN\fR
 Maximum results (default: 50)
+.TP
+.B \-\-mode \fImode\fR
+Search mode. One of: auto, simple, boolean, phrase, wildcard, proximity (default: auto).
+.TP
+.B \-\-distance \fIN\fR
+Maximum word distance for proximity search (default: 5).
+.TP
+.B \-\-algorithm \fIalgorithm\fR
+FTS scoring algorithm. One of: bm25, bm25f, tfidf, pmisparse (default: bm25).
+.TP
+.B \-\-fuzzy
+Enable fuzzy (typo-tolerant) matching.
 .PP
 Examples:
 .RS

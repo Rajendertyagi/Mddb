@@ -160,6 +160,8 @@ MDDB ships as a monorepo with multiple packages:
 | **mddbd** | Go | `services/mddbd/` | Database server (HTTP + gRPC + GraphQL + MCP) |
 | **mddb-panel** | React/JS | `services/mddb-panel/` | Web admin panel |
 | **mddb-cli** | Go | `services/mddb-cli/` | Command-line client with GraphQL support |
+| **mddb-chat** | Rust | `services/mddb-chat/` | WebSocket chat server with LLM integration |
+| **mddb-chat-widget** | JS/TS | `services/mddb-chat-widget/` | Embeddable JS chat widget |
 
 ### Client Libraries (REST)
 
