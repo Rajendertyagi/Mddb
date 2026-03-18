@@ -358,8 +358,10 @@ class MDDBClient {
   /**
    * Stop Words CRUD
    */
-  async listStopWords(collection) {
-    return this.request(`/stopwords?collection=${encodeURIComponent(collection)}`, { method: 'GET' });
+  async listStopWords(collection, lang) {
+    let url = `/stopwords?collection=${encodeURIComponent(collection)}`;
+    if (lang) url += `&lang=${encodeURIComponent(lang)}`;
+    return this.request(url, { method: 'GET' });
   }
 
   async addStopWords({ collection, words }) {

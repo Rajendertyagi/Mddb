@@ -369,6 +369,7 @@ func main() {
 		log.Fatal(err)
 	}
 	s.FTSIndex.SetStopWordManager(s.StopWordManager)
+	s.StopWordManager.SetLangRegistry(langReg)
 	log.Println("Stop word manager initialized")
 
 	// Initialize PMI data for PMISparse search

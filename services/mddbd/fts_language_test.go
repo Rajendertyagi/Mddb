@@ -1,10 +1,13 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"sort"
 	"testing"
 
+	json "github.com/goccy/go-json"
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -580,6 +583,221 @@ func TestFTSLanguages(t *testing.T) {
 	langs := s.FTSIndex.langRegistry.Languages()
 	if len(langs) < 17 {
 		t.Errorf("expected at least 17 languages, got %d", len(langs))
+	}
+}
+
+// --- StopWordManager.ListLang tests ---
+
+func TestStopWordManager_ListLang_DefaultEnglish(t *testing.T) {
+	s, cleanup := newTestServerForLang(t)
+	defer cleanup()
+
+	swm := NewStopWordManager(s.DB)
+	_ = swm.EnsureBucket()
+	_ = swm.LoadAll()
+	swm.SetLangRegistry(s.FTSIndex.langRegistry)
+
+	defaults, custom, lang := swm.ListLang("test", "")
+	if lang != "en" {
+		t.Errorf("expected resolved lang 'en', got %q", lang)
+	}
+	if len(defaults) != len(defaultStopWords) {
+		t.Errorf("expected %d English defaults, got %d", len(defaultStopWords), len(defaults))
+	}
+	if len(custom) != 0 {
+		t.Errorf("expected 0 custom, got %d", len(custom))
+	}
+}
+
+func TestStopWordManager_ListLang_Polish(t *testing.T) {
+	s, cleanup := newTestServerForLang(t)
+	defer cleanup()
+
+	swm := NewStopWordManager(s.DB)
+	_ = swm.EnsureBucket()
+	_ = swm.LoadAll()
+	swm.SetLangRegistry(s.FTSIndex.langRegistry)
+
+	defaults, _, lang := swm.ListLang("test", "pl")
+	if lang != "pl" {
+		t.Errorf("expected resolved lang 'pl', got %q", lang)
+	}
+	if len(defaults) != len(defaultStopWordsPL) {
+		t.Errorf("expected %d Polish defaults, got %d", len(defaultStopWordsPL), len(defaults))
+	}
+	// Verify Polish stop words are present
+	found := map[string]bool{}
+	for _, w := range defaults {
+		found[w] = true
+	}
+	for _, expected := range []string{"ale", "na", "że", "jest", "aby"} {
+		if !found[expected] {
+			t.Errorf("expected Polish stop word %q in defaults", expected)
+		}
+	}
+}
+
+func TestStopWordManager_ListLang_German(t *testing.T) {
+	s, cleanup := newTestServerForLang(t)
+	defer cleanup()
+
+	swm := NewStopWordManager(s.DB)
+	_ = swm.EnsureBucket()
+	_ = swm.LoadAll()
+	swm.SetLangRegistry(s.FTSIndex.langRegistry)
+
+	defaults, _, lang := swm.ListLang("test", "de")
+	if lang != "de" {
+		t.Errorf("expected resolved lang 'de', got %q", lang)
+	}
+	if len(defaults) != len(defaultStopWordsDE) {
+		t.Errorf("expected %d German defaults, got %d", len(defaultStopWordsDE), len(defaults))
+	}
+}
+
+func TestStopWordManager_ListLang_WithCustomWords(t *testing.T) {
+	s, cleanup := newTestServerForLang(t)
+	defer cleanup()
+
+	swm := NewStopWordManager(s.DB)
+	_ = swm.EnsureBucket()
+	_ = swm.LoadAll()
+	swm.SetLangRegistry(s.FTSIndex.langRegistry)
+
+	// Add custom stop words
+	_ = swm.Add("test", []string{"customword1", "customword2"})
+
+	defaults, custom, lang := swm.ListLang("test", "fr")
+	if lang != "fr" {
+		t.Errorf("expected resolved lang 'fr', got %q", lang)
+	}
+	if len(defaults) != len(defaultStopWordsFR) {
+		t.Errorf("expected %d French defaults, got %d", len(defaultStopWordsFR), len(defaults))
+	}
+	if len(custom) != 2 {
+		t.Errorf("expected 2 custom words, got %d", len(custom))
+	}
+}
+
+func TestStopWordManager_ListLang_NormalizesCode(t *testing.T) {
+	s, cleanup := newTestServerForLang(t)
+	defer cleanup()
+
+	swm := NewStopWordManager(s.DB)
+	_ = swm.EnsureBucket()
+	_ = swm.LoadAll()
+	swm.SetLangRegistry(s.FTSIndex.langRegistry)
+
+	// "pl_PL" should resolve to "pl"
+	_, _, lang := swm.ListLang("test", "pl_PL")
+	if lang != "pl" {
+		t.Errorf("expected resolved lang 'pl' for 'pl_PL', got %q", lang)
+	}
+
+	// "de-DE" should resolve to "de"
+	_, _, lang = swm.ListLang("test", "de-DE")
+	if lang != "de" {
+		t.Errorf("expected resolved lang 'de' for 'de-DE', got %q", lang)
+	}
+}
+
+func TestStopWordManager_ListLang_UnknownFallsToDefault(t *testing.T) {
+	s, cleanup := newTestServerForLang(t)
+	defer cleanup()
+
+	swm := NewStopWordManager(s.DB)
+	_ = swm.EnsureBucket()
+	_ = swm.LoadAll()
+	swm.SetLangRegistry(s.FTSIndex.langRegistry)
+
+	_, _, lang := swm.ListLang("test", "xx")
+	if lang != "en" {
+		t.Errorf("expected fallback to 'en' for unknown lang 'xx', got %q", lang)
+	}
+}
+
+func TestStopWordManager_ListLang_NoRegistry(t *testing.T) {
+	s, cleanup := newTestServerForLang(t)
+	defer cleanup()
+
+	swm := NewStopWordManager(s.DB)
+	_ = swm.EnsureBucket()
+	_ = swm.LoadAll()
+	// Intentionally not setting langRegistry
+
+	defaults, _, lang := swm.ListLang("test", "pl")
+	if lang != "en" {
+		t.Errorf("without registry, expected 'en', got %q", lang)
+	}
+	if len(defaults) != len(defaultStopWords) {
+		t.Errorf("without registry, expected English defaults (%d), got %d", len(defaultStopWords), len(defaults))
+	}
+}
+
+func TestStopWordManager_ListLang_DifferentLangsDifferentCounts(t *testing.T) {
+	s, cleanup := newTestServerForLang(t)
+	defer cleanup()
+
+	swm := NewStopWordManager(s.DB)
+	_ = swm.EnsureBucket()
+	_ = swm.LoadAll()
+	swm.SetLangRegistry(s.FTSIndex.langRegistry)
+
+	enDefaults, _, _ := swm.ListLang("test", "en")
+	plDefaults, _, _ := swm.ListLang("test", "pl")
+	deDefaults, _, _ := swm.ListLang("test", "de")
+
+	// Different languages should have different stop word counts
+	if len(enDefaults) == len(plDefaults) && len(enDefaults) == len(deDefaults) {
+		t.Error("expected different stop word counts for different languages")
+	}
+}
+
+// --- HTTP handler test for stopwords?lang= ---
+
+func TestHTTPStopWordsList_WithLang(t *testing.T) {
+	s, cleanup := newTestServerForLang(t)
+	defer cleanup()
+
+	s.StopWordManager = NewStopWordManager(s.DB)
+	_ = s.StopWordManager.EnsureBucket()
+	_ = s.StopWordManager.LoadAll()
+	s.StopWordManager.SetLangRegistry(s.FTSIndex.langRegistry)
+
+	handler := http.HandlerFunc(s.handleStopWords)
+
+	// Test with lang=pl
+	req := httptest.NewRequest("GET", "/v1/stopwords?collection=test&lang=pl", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var resp StopWordListResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+	if resp.Lang != "pl" {
+		t.Errorf("expected lang 'pl', got %q", resp.Lang)
+	}
+	if resp.Defaults != len(defaultStopWordsPL) {
+		t.Errorf("expected %d Polish defaults, got %d", len(defaultStopWordsPL), resp.Defaults)
+	}
+
+	// Test without lang (should default to "en")
+	req2 := httptest.NewRequest("GET", "/v1/stopwords?collection=test", nil)
+	rr2 := httptest.NewRecorder()
+	handler.ServeHTTP(rr2, req2)
+
+	var resp2 StopWordListResponse
+	_ = json.Unmarshal(rr2.Body.Bytes(), &resp2)
+	if resp2.Lang != "en" {
+		t.Errorf("expected default lang 'en', got %q", resp2.Lang)
+	}
+	if resp2.Defaults != len(defaultStopWords) {
+		t.Errorf("expected %d English defaults, got %d", len(defaultStopWords), resp2.Defaults)
 	}
 }
 
