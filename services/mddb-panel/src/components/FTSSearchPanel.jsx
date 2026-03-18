@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { Search, AlertCircle, Tag, ChevronDown, ChevronUp, Plus, X, Terminal, Ban } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Search, AlertCircle, Tag, ChevronDown, ChevronUp, Plus, X, Terminal, Ban, RotateCcw } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
 import CommandModal from './CommandModal';
@@ -12,6 +12,7 @@ export default function FTSSearchPanel() {
     ftsLimit, setFtsLimit,
     ftsAlgorithm, setFtsAlgorithm,
     ftsFuzzy, setFtsFuzzy,
+    ftsLang, setFtsLang,
     ftsMode, setFtsMode,
     ftsDistance, setFtsDistance,
     ftsStemming, setFtsStemming,
@@ -28,7 +29,16 @@ export default function FTSSearchPanel() {
   const [weightsOpen, setWeightsOpen] = useState(true);
   const [newFieldName, setNewFieldName] = useState('');
   const [showCommand, setShowCommand] = useState(false);
+  const [availableLangs, setAvailableLangs] = useState([]);
+  const [reindexing, setReindexing] = useState(false);
+  const [reindexResult, setReindexResult] = useState(null);
   const abortRef = useRef(null);
+
+  useEffect(() => {
+    mddbClient.ftsLanguages().then((data) => {
+      setAvailableLangs(data.languages || []);
+    }).catch(() => {});
+  }, []);
 
   const handleCancel = () => {
     if (abortRef.current) {
@@ -59,6 +69,7 @@ export default function FTSSearchPanel() {
         disableSynonyms: !ftsSynonyms,
         fieldWeights: ftsAlgorithm === 'bm25f' ? ftsFieldWeights : null,
         filterMeta: searchFilterMeta,
+        lang: ftsLang || undefined,
         signal: controller.signal,
       });
       setFtsResults(data.results || []);
@@ -111,6 +122,20 @@ export default function FTSSearchPanel() {
     }
   };
 
+  const handleFtsReindex = async () => {
+    if (!currentCollection) return;
+    setReindexing(true);
+    setReindexResult(null);
+    try {
+      const result = await mddbClient.ftsReindex({ collection: currentCollection });
+      setReindexResult(result);
+    } catch (error) {
+      setReindexResult({ error: error.message });
+    } finally {
+      setReindexing(false);
+    }
+  };
+
   if (!currentCollection) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -143,7 +168,20 @@ export default function FTSSearchPanel() {
           />
         </div>
 
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-5 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Language</label>
+            <select
+              value={ftsLang}
+              onChange={(e) => setFtsLang(e.target.value)}
+              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="">Auto (default)</option>
+              {availableLangs.map((l) => (
+                <option key={l.code} value={l.code}>{l.name} ({l.code})</option>
+              ))}
+            </select>
+          </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Search Mode</label>
             <select
@@ -434,6 +472,32 @@ export default function FTSSearchPanel() {
         )}
       </div>
 
+      {/* FTS Reindex Footer */}
+      <div className="p-3 border-t border-gray-200">
+        {reindexResult && (
+          <div className={`mb-2 p-2 rounded text-xs ${
+            reindexResult.error
+              ? 'bg-red-50 text-red-700'
+              : 'bg-green-50 text-green-700'
+          }`}>
+            {reindexResult.error
+              ? reindexResult.error
+              : `Reindexed: ${reindexResult.reindexed || 0}, Skipped: ${reindexResult.skipped || 0}`
+            }
+          </div>
+        )}
+        <button
+          onClick={handleFtsReindex}
+          disabled={reindexing}
+          className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+        >
+          <RotateCcw className={`w-4 h-4 ${reindexing ? 'animate-spin' : ''}`} />
+          <span className="text-sm font-medium">
+            {reindexing ? 'Reindexing FTS...' : 'Reindex FTS'}
+          </span>
+        </button>
+      </div>
+
       {/* Command Modal */}
       <CommandModal
         isOpen={showCommand}
@@ -450,6 +514,7 @@ export default function FTSSearchPanel() {
           disableStem: !ftsStemming,
           disableSynonyms: !ftsSynonyms,
           fieldWeights: ftsAlgorithm === 'bm25f' ? ftsFieldWeights : null,
+          lang: ftsLang || undefined,
           filterMeta: searchFilterMeta,
         }}
       />

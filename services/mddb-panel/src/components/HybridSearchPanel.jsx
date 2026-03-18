@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Search, AlertCircle, Tag, Terminal, Ban } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
@@ -15,6 +15,7 @@ export default function HybridSearchPanel() {
     hybridRrfK, setHybridRrfK,
     hybridFtsAlgorithm, setHybridFtsAlgorithm,
     hybridVectorAlgorithm, setHybridVectorAlgorithm,
+    hybridLang, setHybridLang,
     hybridDistanceMetric, setHybridDistanceMetric,
     hybridFuzzy, setHybridFuzzy,
     hybridThreshold, setHybridThreshold,
@@ -28,7 +29,14 @@ export default function HybridSearchPanel() {
 
   const [includeContent, setIncludeContent] = useState(false);
   const [showCommand, setShowCommand] = useState(false);
+  const [availableLangs, setAvailableLangs] = useState([]);
   const abortRef = useRef(null);
+
+  useEffect(() => {
+    mddbClient.ftsLanguages().then((data) => {
+      setAvailableLangs(data.languages || []);
+    }).catch(() => {});
+  }, []);
 
   const handleCancel = () => {
     if (abortRef.current) {
@@ -61,6 +69,7 @@ export default function HybridSearchPanel() {
         includeContent,
         distanceMetric: hybridDistanceMetric,
         filterMeta: searchFilterMeta,
+        lang: hybridLang || undefined,
         signal: controller.signal,
       });
       setHybridResults(data.results || []);
@@ -188,7 +197,20 @@ export default function HybridSearchPanel() {
         </div>
 
         {/* Algorithms */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Language</label>
+            <select
+              value={hybridLang}
+              onChange={(e) => setHybridLang(e.target.value)}
+              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="">Auto (default)</option>
+              {availableLangs.map((l) => (
+                <option key={l.code} value={l.code}>{l.name} ({l.code})</option>
+              ))}
+            </select>
+          </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">FTS Algorithm</label>
             <select
@@ -442,6 +464,7 @@ export default function HybridSearchPanel() {
           fuzzy: hybridFuzzy,
           threshold: hybridThreshold,
           distanceMetric: hybridDistanceMetric,
+          lang: hybridLang || undefined,
           includeContent,
           filterMeta: searchFilterMeta,
         }}
