@@ -10,6 +10,7 @@ func TestSIMDProcessorNew(t *testing.T) {
 	sp := NewSIMDProcessor()
 	if sp == nil {
 		t.Fatal("expected non-nil SIMDProcessor")
+		return
 	}
 	if !sp.enabled {
 		t.Error("expected SIMD to be enabled")

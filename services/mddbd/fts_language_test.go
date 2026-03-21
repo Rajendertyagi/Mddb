@@ -506,7 +506,7 @@ func TestIndexFieldsWithLang(t *testing.T) {
 
 func TestResolveLang_NoRegistry(t *testing.T) {
 	db := openTestDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	idx := NewFTSIndex(db)
 	idx.SetStemmer(NewPorterStemmer())
@@ -523,7 +523,7 @@ func TestResolveLang_NoRegistry(t *testing.T) {
 
 func TestResolveLang_WithRegistry(t *testing.T) {
 	db := openTestDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	idx := NewFTSIndex(db)
 	reg := NewLangRegistry("en")

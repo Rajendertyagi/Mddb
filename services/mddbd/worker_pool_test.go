@@ -9,6 +9,7 @@ func TestNewWorkerPool(t *testing.T) {
 	pool := NewWorkerPool(4, nil)
 	if pool == nil {
 		t.Fatal("NewWorkerPool returned nil")
+		return
 	}
 	defer pool.Close()
 

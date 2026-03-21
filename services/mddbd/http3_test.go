@@ -17,6 +17,7 @@ func TestGenerateTLSConfig(t *testing.T) {
 	}
 	if tlsConfig == nil {
 		t.Fatal("expected non-nil TLS config")
+		return
 	}
 	if len(tlsConfig.Certificates) != 1 {
 		t.Errorf("expected 1 certificate, got %d", len(tlsConfig.Certificates))
@@ -41,6 +42,7 @@ func TestNewHTTP3Server(t *testing.T) {
 	}
 	if h3 == nil {
 		t.Fatal("expected non-nil HTTP3Server")
+		return
 	}
 	if h3.server == nil {
 		t.Error("expected non-nil internal server")

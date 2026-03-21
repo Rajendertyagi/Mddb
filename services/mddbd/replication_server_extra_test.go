@@ -71,6 +71,7 @@ func TestNewReplicationServer(t *testing.T) {
 	rs := NewReplicationServer(s)
 	if rs == nil {
 		t.Fatal("expected non-nil ReplicationServer")
+		return
 	}
 	if rs.server != s {
 		t.Error("expected server to match")

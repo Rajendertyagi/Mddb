@@ -156,40 +156,6 @@ func (f *FTSIndex) IndexPositionsWithLang(collection, docID, content, lang strin
 	})
 }
 
-// tokenizeOrderedLang returns terms in order using language-specific processing.
-func (f *FTSIndex) tokenizeOrderedLang(text, lang string) []string {
-	stemmer, stopWords := f.resolveLang(lang)
-	text = strings.ToLower(text)
-	var terms []string
-	var word strings.Builder
-
-	for _, r := range text {
-		if unicode.IsLetter(r) || unicode.IsDigit(r) {
-			word.WriteRune(r)
-		} else {
-			if word.Len() >= 2 {
-				w := word.String()
-				if !stopWords[w] {
-					if stemmer != nil {
-						w = stemmer.Stem(w)
-					}
-					terms = append(terms, w)
-				}
-			}
-			word.Reset()
-		}
-	}
-	if word.Len() >= 2 {
-		w := word.String()
-		if !stopWords[w] {
-			if stemmer != nil {
-				w = stemmer.Stem(w)
-			}
-			terms = append(terms, w)
-		}
-	}
-	return terms
-}
 
 // IndexPositions stores term positions for a document (used for phrase/proximity search).
 func (f *FTSIndex) IndexPositions(collection, docID, content string) error {
@@ -353,12 +319,6 @@ func (f *FTSIndex) SearchProximity(collection string, phrase string, distance in
 		bPos := tx.Bucket(bucketFTSPos)
 		if bPos == nil {
 			return nil
-		}
-
-		// Collect positions for each term per document
-		type termDoc struct {
-			docID     string
-			positions []uint32
 		}
 
 		// Get all docs that contain ALL terms

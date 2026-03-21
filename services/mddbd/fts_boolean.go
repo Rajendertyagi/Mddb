@@ -100,10 +100,8 @@ func (f *FTSIndex) SearchBoolean(collection string, parsed *ParsedQuery, limit i
 	combined := combineResults(parsed, positiveResults)
 
 	// Remove negated documents
-	if negativeDocIDs != nil {
-		for docID := range negativeDocIDs {
-			delete(combined, docID)
-		}
+	for docID := range negativeDocIDs {
+		delete(combined, docID)
 	}
 
 	results := make([]FTSResult, 0, len(combined))

@@ -1006,17 +1006,19 @@ func texToMarkdown(data []byte) string {
 			end := idx + len(cmd)
 			// Skip arguments in [] and {}
 			for end < len(s) && (s[end] == '[' || s[end] == '{') {
+				opener := s[end]
 				closer := byte('}')
-				if s[end] == '[' {
+				if opener == '[' {
 					closer = ']'
 				}
 				depth := 1
 				end++
 				for end < len(s) && depth > 0 {
-					if s[end] == closer {
+					switch s[end] {
+					case closer:
 						depth--
-					} else if s[end] == s[end-end+idx] {
-						// opening bracket of same type
+					case opener:
+						depth++
 					}
 					end++
 				}
@@ -1158,9 +1160,10 @@ func texReplaceCmd(s, cmd, prefix, suffix string) string {
 			depth := 1
 			pos++
 			for pos < len(s) && depth > 0 {
-				if s[pos] == '[' {
+				switch s[pos] {
+				case '[':
 					depth++
-				} else if s[pos] == ']' {
+				case ']':
 					depth--
 				}
 				pos++
@@ -1177,9 +1180,10 @@ func texReplaceCmd(s, cmd, prefix, suffix string) string {
 		start := pos + 1
 		end := start
 		for end < len(s) && depth > 0 {
-			if s[end] == '{' {
+			switch s[end] {
+			case '{':
 				depth++
-			} else if s[end] == '}' {
+			case '}':
 				depth--
 			}
 			if depth > 0 {

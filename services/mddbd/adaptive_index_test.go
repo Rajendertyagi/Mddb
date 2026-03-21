@@ -174,6 +174,7 @@ func TestAdaptiveIndexGetStrategy(t *testing.T) {
 	strategy := aim.GetStrategy("blog")
 	if strategy == nil {
 		t.Fatal("expected non-nil strategy")
+		return
 	}
 	if strategy.Collection != "blog" {
 		t.Errorf("expected collection 'blog', got %q", strategy.Collection)

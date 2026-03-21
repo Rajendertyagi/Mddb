@@ -2018,6 +2018,7 @@ func TestNewGRPCServer(t *testing.T) {
 
 	if gs == nil {
 		t.Fatal("expected non-nil GRPCServer")
+		return
 	}
 	if gs.server == nil {
 		t.Error("expected non-nil server")

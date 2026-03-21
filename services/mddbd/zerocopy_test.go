@@ -13,6 +13,7 @@ func TestZeroCopyManagerNew(t *testing.T) {
 	zcm := NewZeroCopyManager()
 	if zcm == nil {
 		t.Fatal("expected non-nil ZeroCopyManager")
+		return
 	}
 	if !zcm.enabled {
 		t.Error("expected enabled")
@@ -215,6 +216,7 @@ func TestBufferPoolNew(t *testing.T) {
 	bp := NewBufferPool(4096)
 	if bp == nil {
 		t.Fatal("expected non-nil BufferPool")
+		return
 	}
 	if bp.size != 4096 {
 		t.Errorf("expected size 4096, got %d", bp.size)

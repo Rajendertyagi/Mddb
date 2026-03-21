@@ -268,6 +268,7 @@ func TestDocToProtoInternal_AllFields(t *testing.T) {
 	catVals := pb.Meta["cat"]
 	if catVals == nil {
 		t.Fatal("Meta key 'cat' not found")
+		return
 	}
 	if !reflect.DeepEqual(catVals.Values, []string{"a", "b"}) {
 		t.Errorf("Meta 'cat' values mismatch: got %v", catVals.Values)
@@ -275,6 +276,7 @@ func TestDocToProtoInternal_AllFields(t *testing.T) {
 	typeVals := pb.Meta["type"]
 	if typeVals == nil {
 		t.Fatal("Meta key 'type' not found")
+		return
 	}
 	if !reflect.DeepEqual(typeVals.Values, []string{"article"}) {
 		t.Errorf("Meta 'type' values mismatch: got %v", typeVals.Values)

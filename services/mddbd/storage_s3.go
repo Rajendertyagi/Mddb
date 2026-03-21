@@ -88,7 +88,7 @@ func (s *S3Backend) GetDoc(collection, docID string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer obj.Close()
+	defer func() { _ = obj.Close() }()
 	data, err := io.ReadAll(obj)
 	if err != nil {
 		// Check if the error is a "not found" response
@@ -155,7 +155,7 @@ func (s *S3Backend) GetByKey(collection, key, lang string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer obj.Close()
+	defer func() { _ = obj.Close() }()
 	data, err := io.ReadAll(obj)
 	if err != nil {
 		if minio.ToErrorResponse(err).Code == "NoSuchKey" {

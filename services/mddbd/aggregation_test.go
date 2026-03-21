@@ -249,7 +249,7 @@ func TestAggregate_Internal(t *testing.T) {
 
 func TestMemoryBackend_Basic(t *testing.T) {
 	m := NewMemoryBackend()
-	defer m.Close()
+	defer func() { _ = m.Close() }()
 
 	if m.Name() != "memory" {
 		t.Fatalf("expected name 'memory', got %q", m.Name())
@@ -288,7 +288,7 @@ func TestMemoryBackend_Basic(t *testing.T) {
 
 func TestMemoryBackend_ByKey(t *testing.T) {
 	m := NewMemoryBackend()
-	defer m.Close()
+	defer func() { _ = m.Close() }()
 
 	if err := m.PutByKey("col", "mykey", "en", "doc123"); err != nil {
 		t.Fatal(err)
@@ -313,11 +313,11 @@ func TestMemoryBackend_ByKey(t *testing.T) {
 
 func TestMemoryBackend_ListDocs(t *testing.T) {
 	m := NewMemoryBackend()
-	defer m.Close()
+	defer func() { _ = m.Close() }()
 
-	m.PutDoc("col", "d1", []byte("a"))
-	m.PutDoc("col", "d2", []byte("b"))
-	m.PutDoc("other", "d3", []byte("c"))
+	_ = m.PutDoc("col", "d1", []byte("a"))
+	_ = m.PutDoc("col", "d2", []byte("b"))
+	_ = m.PutDoc("other", "d3", []byte("c"))
 
 	var ids []string
 	err := m.ListDocs("col", func(docID string, data []byte) error {
@@ -334,11 +334,11 @@ func TestMemoryBackend_ListDocs(t *testing.T) {
 
 func TestMemoryBackend_DataIsolation(t *testing.T) {
 	m := NewMemoryBackend()
-	defer m.Close()
+	defer func() { _ = m.Close() }()
 
 	// Verify data is copied, not referenced
 	original := []byte("original")
-	m.PutDoc("col", "d1", original)
+	_ = m.PutDoc("col", "d1", original)
 
 	// Modify original
 	original[0] = 'X'

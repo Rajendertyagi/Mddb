@@ -164,6 +164,7 @@ func TestVectorStorePutGetDelete(t *testing.T) {
 	}
 	if rec == nil {
 		t.Fatal("expected record, got nil")
+		return
 	}
 	if rec.Model != "test-model" {
 		t.Errorf("Model: got %q, want %q", rec.Model, "test-model")
