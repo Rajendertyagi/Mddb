@@ -29,14 +29,18 @@ type FTSIndex struct {
 	db              *bolt.DB
 	stopWords       map[string]bool
 	binlog          *Binlog
-	stemmer         *PorterStemmer
+	stemmer         Stemmer
+	langRegistry    *LangRegistry
 	synonymManager  *SynonymManager
 	stopWordManager *StopWordManager
 	pmiData         *PMIData
 }
 
-// SetStemmer sets the Porter Stemmer for term normalization.
-func (f *FTSIndex) SetStemmer(s *PorterStemmer) { f.stemmer = s }
+// SetStemmer sets the stemmer for term normalization.
+func (f *FTSIndex) SetStemmer(s Stemmer) { f.stemmer = s }
+
+// SetLangRegistry sets the language registry for multi-language FTS support.
+func (f *FTSIndex) SetLangRegistry(r *LangRegistry) { f.langRegistry = r }
 
 // SetSynonymManager sets the synonym manager for query expansion.
 func (f *FTSIndex) SetSynonymManager(sm *SynonymManager) { f.synonymManager = sm }
@@ -67,12 +71,17 @@ type FTSSearchRequest struct {
 	Collection      string              `json:"collection"`
 	Query           string              `json:"query"`
 	Limit           int                 `json:"limit"`
-	Algorithm       string              `json:"algorithm"`              // "tfidf", "bm25", or "bm25f"
+	Algorithm       string              `json:"algorithm"`              // "tfidf", "bm25", "bm25f", "pmisparse"
 	Fuzzy           int                 `json:"fuzzy"`                  // typo tolerance: 0 (off), 1 (1 edit), 2 (2 edits)
 	DisableStem     bool                `json:"disableStem"`            // temporarily disable stemming for this query
 	DisableSynonyms bool                `json:"disableSynonyms"`        // temporarily disable synonyms for this query
 	FieldWeights    map[string]float64  `json:"fieldWeights,omitempty"` // BM25F field weights
 	FilterMeta      map[string][]string `json:"filterMeta,omitempty"`   // metadata pre-filter (in-graph filtering)
+	// Advanced search modes
+	Mode      string        `json:"mode,omitempty"`      // "simple" (default), "boolean", "phrase", "wildcard", "proximity", "auto"
+	Distance  int           `json:"distance,omitempty"`  // proximity distance (words) for mode=proximity
+	RangeMeta []RangeFilter `json:"rangeMeta,omitempty"` // range filters on metadata/timestamps
+	Lang      string        `json:"lang,omitempty"`      // language for query tokenization (e.g. "en", "pl", "de")
 }
 
 // FTSSearchResponse is the HTTP response for full-text search.
@@ -80,7 +89,9 @@ type FTSSearchResponse struct {
 	Results        []FTSResultWithDoc `json:"results"`
 	Total          int                `json:"total"`
 	Algorithm      string             `json:"algorithm"`
+	Mode           string             `json:"mode"`
 	Fuzzy          int                `json:"fuzzy"`
+	Lang           string             `json:"lang,omitempty"`
 	StemmingActive bool               `json:"stemmingActive"`
 	SynonymsActive bool               `json:"synonymsActive"`
 	FieldWeights   map[string]float64 `json:"fieldWeights,omitempty"`
@@ -108,6 +119,7 @@ func (f *FTSIndex) EnsureBuckets() error {
 		for _, b := range [][]byte{
 			bucketFTS, bucketFTSRev,
 			bucketFTSF, bucketFTSFMeta, bucketFTSFStat, bucketFTSFRev,
+			bucketFTSPos,
 		} {
 			if _, err := tx.CreateBucketIfNotExists(b); err != nil {
 				return err
@@ -180,6 +192,204 @@ func (f *FTSIndex) TokenizeQuery(collection, text string) map[string]int {
 	return expanded
 }
 
+// resolveLang returns the stemmer and stop words for the given language code.
+// If no lang registry or language is configured, falls back to defaults.
+func (f *FTSIndex) resolveLang(lang string) (Stemmer, map[string]bool) {
+	if f.langRegistry != nil && lang != "" {
+		cfg := f.langRegistry.Resolve(lang)
+		if cfg != nil {
+			return cfg.Stemmer, cfg.StopWords
+		}
+	}
+	return f.stemmer, f.stopWords
+}
+
+// TokenizeLang tokenizes text using the stemmer and stop words for the given language.
+func (f *FTSIndex) TokenizeLang(text, lang string) map[string]int {
+	stemmer, stopWords := f.resolveLang(lang)
+	terms := make(map[string]int)
+	text = strings.ToLower(text)
+
+	var word strings.Builder
+	for _, r := range text {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			word.WriteRune(r)
+		} else {
+			if word.Len() >= 2 {
+				w := word.String()
+				if !stopWords[w] {
+					if stemmer != nil {
+						w = stemmer.Stem(w)
+					}
+					terms[w]++
+				}
+			}
+			word.Reset()
+		}
+	}
+	if word.Len() >= 2 {
+		w := word.String()
+		if !stopWords[w] {
+			if stemmer != nil {
+				w = stemmer.Stem(w)
+			}
+			terms[w]++
+		}
+	}
+	return terms
+}
+
+// TokenizeQueryLang tokenizes query text with synonym expansion, language-aware.
+func (f *FTSIndex) TokenizeQueryLang(collection, text, lang string) map[string]int {
+	terms := f.TokenizeLang(text, lang)
+	if f.synonymManager == nil {
+		return terms
+	}
+	stemmer, _ := f.resolveLang(lang)
+	expanded := make(map[string]int, len(terms)*2)
+	for term, count := range terms {
+		expanded[term] = count
+		synonyms := f.synonymManager.Expand(collection, []string{term})
+		for _, syn := range synonyms {
+			if syn == term {
+				continue
+			}
+			stemmed := syn
+			if stemmer != nil {
+				stemmed = stemmer.Stem(syn)
+			}
+			if _, exists := expanded[stemmed]; !exists {
+				expanded[stemmed] = 1
+			}
+		}
+	}
+	return expanded
+}
+
+// IndexWithLang adds or updates the FTS index for a document using language-specific tokenization.
+func (f *FTSIndex) IndexWithLang(collection, docID, content, lang string) error {
+	terms := f.TokenizeLang(content, lang)
+	if len(terms) == 0 {
+		return nil
+	}
+
+	var bo BinlogOps
+	err := f.db.Update(func(tx *bolt.Tx) error {
+		bFTS := tx.Bucket(bucketFTS)
+		bRev := tx.Bucket(bucketFTSRev)
+
+		// Remove old entries via reverse index
+		revKey := ftsRevKey(collection, docID)
+		if old := bRev.Get(revKey); old != nil {
+			oldTerms := strings.Split(string(old), ",")
+			for _, term := range oldTerms {
+				if term != "" {
+					k := ftsKey(collection, term, docID)
+					_ = bFTS.Delete(k)
+					bo.Delete("fts", k)
+				}
+			}
+		}
+
+		// Store new entries
+		termList := make([]string, 0, len(terms))
+		for term, count := range terms {
+			var buf [4]byte
+			binary.LittleEndian.PutUint32(buf[:], uint32(count)) // #nosec G115 -- value always positive and bounded
+			k := ftsKey(collection, term, docID)
+			if err := bFTS.Put(k, buf[:]); err != nil {
+				return err
+			}
+			bo.Put("fts", k, buf[:])
+			termList = append(termList, term)
+		}
+
+		// Store reverse index
+		revVal := []byte(strings.Join(termList, ","))
+		bo.Put("ftsrev", revKey, revVal)
+		if err := bRev.Put(revKey, revVal); err != nil {
+			return err
+		}
+
+		// Store BM25 metadata
+		var docLength uint32
+		for _, count := range terms {
+			docLength += uint32(count) // #nosec G115 -- value always positive and bounded
+		}
+		return f.IndexBM25Meta(tx, collection, docID, docLength)
+	})
+	if err == nil {
+		bo.FlushTo(f.binlog)
+		f.InvalidatePMI(collection)
+	}
+	return err
+}
+
+// IndexFieldsWithLang indexes a document's fields using language-specific tokenization.
+func (f *FTSIndex) IndexFieldsWithLang(collection, docID string, fields map[string]string, lang string) error {
+	fieldTokens := make(map[string]map[string]int, len(fields))
+	for field, text := range fields {
+		tokens := f.TokenizeLang(text, lang)
+		if len(tokens) > 0 {
+			fieldTokens[field] = tokens
+		}
+	}
+	if len(fieldTokens) == 0 {
+		return nil
+	}
+
+	return f.db.Update(func(tx *bolt.Tx) error {
+		if err := f.removeFieldData(tx, collection, docID); err != nil {
+			return err
+		}
+
+		bF := tx.Bucket(bucketFTSF)
+		bMeta := tx.Bucket(bucketFTSFMeta)
+		bStat := tx.Bucket(bucketFTSFStat)
+		bRev := tx.Bucket(bucketFTSFRev)
+		if bF == nil || bMeta == nil || bStat == nil || bRev == nil {
+			return nil
+		}
+
+		var allEntries []fieldTermEntry
+		for field, tokens := range fieldTokens {
+			var docLength uint32
+			for term, count := range tokens {
+				var buf [4]byte
+				binary.LittleEndian.PutUint32(buf[:], uint32(count)) // #nosec G115 -- value always positive and bounded
+				if err := bF.Put(ftsfKey(collection, field, term, docID), buf[:]); err != nil {
+					return err
+				}
+				allEntries = append(allEntries, fieldTermEntry{Field: field, Term: term})
+				docLength += uint32(count) // #nosec G115 -- value always positive and bounded
+			}
+
+			var buf [4]byte
+			binary.LittleEndian.PutUint32(buf[:], docLength)
+			if err := bMeta.Put(ftsfMetaKey(collection, field, docID), buf[:]); err != nil {
+				return err
+			}
+
+			sk := ftsfStatKey(collection, field)
+			stats := collectionStats{}
+			if sraw := bStat.Get(sk); sraw != nil {
+				stats = decodeCollectionStats(sraw)
+			}
+			stats.TotalDocs++
+			stats.TotalTerms += uint64(docLength)
+			if err := bStat.Put(sk, encodeCollectionStats(stats)); err != nil {
+				return err
+			}
+		}
+
+		revData, err := json.Marshal(allEntries)
+		if err != nil {
+			return err
+		}
+		return bRev.Put(ftsfRevKey(collection, docID), revData)
+	})
+}
+
 // Index adds or updates the FTS index for a document.
 func (f *FTSIndex) Index(collection, docID, content string) error {
 	terms := f.Tokenize(content)
@@ -209,7 +419,7 @@ func (f *FTSIndex) Index(collection, docID, content string) error {
 		termList := make([]string, 0, len(terms))
 		for term, count := range terms {
 			var buf [4]byte
-			binary.LittleEndian.PutUint32(buf[:], uint32(count))
+			binary.LittleEndian.PutUint32(buf[:], uint32(count)) // #nosec G115 -- value always positive and bounded
 			k := ftsKey(collection, term, docID)
 			if err := bFTS.Put(k, buf[:]); err != nil {
 				return err
@@ -228,7 +438,7 @@ func (f *FTSIndex) Index(collection, docID, content string) error {
 		// Store BM25 metadata (document length = sum of term frequencies)
 		var docLength uint32
 		for _, count := range terms {
-			docLength += uint32(count)
+			docLength += uint32(count) // #nosec G115 -- value always positive and bounded
 		}
 		return f.IndexBM25Meta(tx, collection, docID, docLength)
 	})
@@ -265,6 +475,8 @@ func (f *FTSIndex) Remove(collection, docID string) error {
 		if err := f.removeFieldData(tx, collection, docID); err != nil {
 			return err
 		}
+		// Clean up positional index
+		f.removePositionsInTx(tx, collection, docID)
 		bo.Delete("ftsrev", revKey)
 		return bRev.Delete(revKey)
 	})
@@ -472,12 +684,12 @@ func (f *FTSIndex) IndexFields(collection, docID string, fields map[string]strin
 			var docLength uint32
 			for term, count := range tokens {
 				var buf [4]byte
-				binary.LittleEndian.PutUint32(buf[:], uint32(count))
+				binary.LittleEndian.PutUint32(buf[:], uint32(count)) // #nosec G115 -- value always positive and bounded
 				if err := bF.Put(ftsfKey(collection, field, term, docID), buf[:]); err != nil {
 					return err
 				}
 				allEntries = append(allEntries, fieldTermEntry{Field: field, Term: term})
-				docLength += uint32(count)
+				docLength += uint32(count) // #nosec G115 -- value always positive and bounded
 			}
 
 			// Store per-field doc length
@@ -531,7 +743,7 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Per-query stemming/synonym control
+	// Per-query stemming/synonym control (thread-safe: no mutation of shared state)
 	origStemmer := s.FTSIndex.stemmer
 	origSynonyms := s.FTSIndex.synonymManager
 	if req.DisableStem {
@@ -545,6 +757,9 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 		s.FTSIndex.synonymManager = origSynonyms
 	}()
 
+	// Resolve query language
+	queryLang := req.Lang
+
 	algo := req.Algorithm
 	if algo == "" {
 		algo = "tfidf"
@@ -557,6 +772,25 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 		fuzzy = 2
 	}
 
+	// Determine search mode
+	mode := req.Mode
+	if mode == "" || mode == "auto" {
+		parsed := ParseAdvancedQuery(req.Query)
+		if parsed.IsAdvanced() {
+			if parsed.HasPhrase && !parsed.HasBoolean && !parsed.HasWildcard && !parsed.HasProximity {
+				mode = "phrase"
+			} else if parsed.HasProximity && !parsed.HasBoolean && !parsed.HasWildcard {
+				mode = "proximity"
+			} else if parsed.HasWildcard && !parsed.HasBoolean && !parsed.HasPhrase && !parsed.HasProximity {
+				mode = "wildcard"
+			} else {
+				mode = "boolean"
+			}
+		} else {
+			mode = "simple"
+		}
+	}
+
 	// Pre-filter by metadata (in-graph filtering)
 	var allowed map[string]bool
 	if len(req.FilterMeta) > 0 {
@@ -565,45 +799,82 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 			ok(w, FTSSearchResponse{
 				Results:   []FTSResultWithDoc{},
 				Algorithm: algo,
+				Mode:      mode,
 				Fuzzy:     fuzzy,
 			})
 			return
 		}
 	}
 
-	// Tokenize query (needed for bm25f, reused below)
-	tokens := s.FTSIndex.TokenizeQuery(req.Collection, req.Query)
+	// Tokenize query (needed for bm25f, reused below) — language-aware
+	tokens := s.FTSIndex.TokenizeQueryLang(req.Collection, req.Query, queryLang)
 
 	var results []FTSResult
 	var err error
-	switch algo {
-	case "bm25f":
-		if fuzzy > 0 {
-			results, err = s.FTSIndex.SearchBM25FFuzzy(req.Collection, tokens, req.Limit, fuzzy, req.FieldWeights)
-		} else {
-			results, err = s.FTSIndex.SearchBM25F(req.Collection, tokens, req.Limit, req.FieldWeights)
+
+	switch mode {
+	case "boolean":
+		parsed := ParseAdvancedQuery(req.Query)
+		results, err = s.FTSIndex.SearchBoolean(req.Collection, parsed, req.Limit)
+
+	case "phrase":
+		// Extract phrase text (strip quotes if present)
+		phraseText := strings.Trim(req.Query, "\"")
+		results, err = s.FTSIndex.SearchPhrase(req.Collection, phraseText, req.Limit)
+
+	case "proximity":
+		parsed := ParseAdvancedQuery(req.Query)
+		distance := req.Distance
+		if distance <= 0 {
+			distance = 5 // default proximity distance
 		}
-	case "bm25":
-		if fuzzy > 0 {
-			results, err = s.FTSIndex.SearchBM25Fuzzy(req.Collection, req.Query, req.Limit, fuzzy)
-		} else {
-			results, err = s.FTSIndex.SearchBM25(req.Collection, req.Query, req.Limit)
+		// If parsed has proximity clause, use its distance
+		for _, c := range parsed.Clauses {
+			if c.Type == "proximity" {
+				distance = c.Distance
+				results, err = s.FTSIndex.SearchProximity(req.Collection, c.Value, distance, req.Limit)
+				break
+			}
 		}
-	case "tfidf":
-		if fuzzy > 0 {
-			results, err = s.FTSIndex.SearchFuzzy(req.Collection, req.Query, req.Limit, fuzzy)
-		} else {
-			results, err = s.FTSIndex.Search(req.Collection, req.Query, req.Limit)
+		if results == nil && err == nil {
+			phraseText := strings.Trim(req.Query, "\"")
+			results, err = s.FTSIndex.SearchProximity(req.Collection, phraseText, distance, req.Limit)
 		}
-	case "pmisparse":
-		if fuzzy > 0 {
-			results, err = s.FTSIndex.SearchPMISparseFuzzy(req.Collection, req.Query, req.Limit, fuzzy)
-		} else {
-			results, err = s.FTSIndex.SearchPMISparse(req.Collection, req.Query, req.Limit)
+
+	case "wildcard":
+		results, err = s.FTSIndex.SearchWildcard(req.Collection, req.Query, req.Limit)
+
+	default: // "simple"
+		mode = "simple"
+		switch algo {
+		case "bm25f":
+			if fuzzy > 0 {
+				results, err = s.FTSIndex.SearchBM25FFuzzy(req.Collection, tokens, req.Limit, fuzzy, req.FieldWeights)
+			} else {
+				results, err = s.FTSIndex.SearchBM25F(req.Collection, tokens, req.Limit, req.FieldWeights)
+			}
+		case "bm25":
+			if fuzzy > 0 {
+				results, err = s.FTSIndex.SearchBM25Fuzzy(req.Collection, req.Query, req.Limit, fuzzy)
+			} else {
+				results, err = s.FTSIndex.SearchBM25(req.Collection, req.Query, req.Limit)
+			}
+		case "tfidf":
+			if fuzzy > 0 {
+				results, err = s.FTSIndex.SearchFuzzy(req.Collection, req.Query, req.Limit, fuzzy)
+			} else {
+				results, err = s.FTSIndex.Search(req.Collection, req.Query, req.Limit)
+			}
+		case "pmisparse":
+			if fuzzy > 0 {
+				results, err = s.FTSIndex.SearchPMISparseFuzzy(req.Collection, req.Query, req.Limit, fuzzy)
+			} else {
+				results, err = s.FTSIndex.SearchPMISparse(req.Collection, req.Query, req.Limit)
+			}
+		default:
+			bad(w, fmt.Errorf("unknown algorithm: %s, available: tfidf, bm25, bm25f, pmisparse", algo))
+			return
 		}
-	default:
-		bad(w, fmt.Errorf("unknown algorithm: %s, available: tfidf, bm25, bm25f, pmisparse", algo))
-		return
 	}
 	if err != nil {
 		bad(w, err)
@@ -612,7 +883,7 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 
 	// Track FTS search operation
 	if s.Metrics != nil {
-		s.Metrics.IncOp("fts_search", algo)
+		s.Metrics.IncOp("fts_search", mode+"/"+algo)
 	}
 
 	// Apply metadata filter to results
@@ -626,10 +897,21 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 		results = filtered
 	}
 
+	// Apply range filters
+	if len(req.RangeMeta) > 0 && len(results) > 0 {
+		results, err = s.FilterByRange(req.Collection, results, req.RangeMeta)
+		if err != nil {
+			bad(w, err)
+			return
+		}
+	}
+
 	// Load full documents
 	var resp FTSSearchResponse
 	resp.Algorithm = algo
+	resp.Mode = mode
 	resp.Fuzzy = fuzzy
+	resp.Lang = queryLang
 	resp.StemmingActive = origStemmer != nil && !req.DisableStem
 	resp.SynonymsActive = origSynonyms != nil && !req.DisableSynonyms
 	if algo == "bm25f" {
@@ -675,6 +957,115 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ok(w, resp)
+}
+
+// FTSReindexRequest is the HTTP request for FTS reindexing.
+type FTSReindexRequest struct {
+	Collection string `json:"collection"`
+}
+
+// handleFTSReindex re-indexes all documents in a collection using their lang field.
+func (s *Server) handleFTSReindex(w http.ResponseWriter, r *http.Request) {
+	var req FTSReindexRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		bad(w, err)
+		return
+	}
+	if req.Collection == "" {
+		bad(w, fmt.Errorf("missing required field: collection"))
+		return
+	}
+	if s.FTSIndex == nil {
+		bad(w, fmt.Errorf("full-text search not initialized"))
+		return
+	}
+
+	// Collect docs first (read tx), then index outside tx to avoid deadlock
+	type reindexDoc struct {
+		ID        string
+		ContentMD string
+		Lang      string
+		Meta      map[string][]string
+	}
+	var docs []reindexDoc
+	var skipped int
+	_ = s.DB.View(func(tx *bolt.Tx) error {
+		bDocs := tx.Bucket([]byte("docs"))
+		if bDocs == nil {
+			return nil
+		}
+
+		prefix := []byte("doc|" + req.Collection + "|")
+		c := bDocs.Cursor()
+		for k, v := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = c.Next() {
+			docPtr, err := loadDoc(v)
+			if err != nil || docPtr.ContentMD == "" {
+				skipped++
+				continue
+			}
+			if docPtr.ExpiresAt > 0 && docPtr.ExpiresAt < currentUnix() {
+				skipped++
+				continue
+			}
+			docs = append(docs, reindexDoc{
+				ID:        docPtr.ID,
+				ContentMD: docPtr.ContentMD,
+				Lang:      docPtr.Lang,
+				Meta:      docPtr.Meta,
+			})
+		}
+		return nil
+	})
+
+	// Index outside the read tx to avoid BoltDB nested tx deadlock
+	reindexed := 0
+	for _, d := range docs {
+		_ = s.FTSIndex.IndexWithLang(req.Collection, d.ID, d.ContentMD, d.Lang)
+		_ = s.FTSIndex.IndexPositionsWithLang(req.Collection, d.ID, d.ContentMD, d.Lang)
+
+		fields := map[string]string{"content": d.ContentMD}
+		for mk, vals := range d.Meta {
+			if len(vals) > 0 {
+				fields["meta."+mk] = strings.Join(vals, " ")
+			}
+		}
+		_ = s.FTSIndex.IndexFieldsWithLang(req.Collection, d.ID, fields, d.Lang)
+		reindexed++
+	}
+
+	ok(w, map[string]interface{}{
+		"status":    "ok",
+		"reindexed": reindexed,
+		"skipped":   skipped,
+	})
+}
+
+// handleFTSLanguages returns the list of supported FTS languages.
+func (s *Server) handleFTSLanguages(w http.ResponseWriter, _ *http.Request) {
+	if s.FTSIndex == nil || s.FTSIndex.langRegistry == nil {
+		ok(w, map[string]interface{}{"languages": []string{}})
+		return
+	}
+
+	type langInfo struct {
+		Code string `json:"code"`
+		Name string `json:"name"`
+	}
+
+	var langs []langInfo
+	for _, code := range s.FTSIndex.langRegistry.Languages() {
+		cfg := s.FTSIndex.langRegistry.Resolve(code)
+		name := code
+		if cfg != nil {
+			name = cfg.Name
+		}
+		langs = append(langs, langInfo{Code: code, Name: name})
+	}
+
+	ok(w, map[string]interface{}{
+		"languages":   langs,
+		"defaultLang": s.FTSIndex.langRegistry.DefaultLang(),
+	})
 }
 
 func currentUnix() int64 {

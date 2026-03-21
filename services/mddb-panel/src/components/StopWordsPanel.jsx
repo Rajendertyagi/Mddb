@@ -14,6 +14,11 @@ export default function StopWordsPanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Language support
+  const [lang, setLang] = useState('');
+  const [availableLangs, setAvailableLangs] = useState([]);
+  const [resolvedLang, setResolvedLang] = useState('en');
+
   // Add form
   const [newWords, setNewWords] = useState('');
   const [adding, setAdding] = useState(false);
@@ -25,19 +30,26 @@ export default function StopWordsPanel() {
   const [showDefaults, setShowDefaults] = useState(true);
 
   useEffect(() => {
+    mddbClient.ftsLanguages().then((data) => {
+      setAvailableLangs(data.languages || []);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (collection) {
       loadStopWords();
     }
-  }, [collection]);
+  }, [collection, lang]);
 
   const loadStopWords = async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await mddbClient.listStopWords(collection);
+      const data = await mddbClient.listStopWords(collection, lang || undefined);
       setEntries(data.entries || []);
       setDefaultCount(data.defaults || 0);
       setCustomCount(data.custom || 0);
+      setResolvedLang(data.lang || 'en');
     } catch (err) {
       setError(err.message);
       console.error('Failed to load stop words:', err);
@@ -101,23 +113,42 @@ export default function StopWordsPanel() {
 
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-6xl mx-auto space-y-6">
-          {/* Collection Selector */}
+          {/* Collection & Language Selector */}
           <div className="bg-white rounded-lg shadow p-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Collection</label>
-            <select
-              value={collection}
-              onChange={(e) => setCollection(e.target.value)}
-              className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {collections.length === 0 && (
-                <option value="">No collections available</option>
-              )}
-              {collections.map((c) => (
-                <option key={c.name} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Collection</label>
+                <select
+                  value={collection}
+                  onChange={(e) => setCollection(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {collections.length === 0 && (
+                    <option value="">No collections available</option>
+                  )}
+                  {collections.map((c) => (
+                    <option key={c.name} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Language (defaults)</label>
+                <select
+                  value={lang}
+                  onChange={(e) => setLang(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Default</option>
+                  {availableLangs.map((l) => (
+                    <option key={l.code} value={l.code}>
+                      {l.name} ({l.code}) — {l.stopWords} words
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
 
           {/* Error */}
@@ -131,6 +162,9 @@ export default function StopWordsPanel() {
           {!loading && collection && (
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center gap-6">
+                <div className="text-sm text-gray-700">
+                  <span className="font-semibold text-gray-900">{resolvedLang}</span> language
+                </div>
                 <div className="text-sm text-gray-700">
                   <span className="font-semibold text-gray-900">{defaultCount}</span> defaults
                 </div>

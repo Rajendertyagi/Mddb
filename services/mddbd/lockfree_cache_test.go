@@ -11,6 +11,7 @@ func TestNewLockFreeCache(t *testing.T) {
 	cache := NewLockFreeCache(1000, 60)
 	if cache == nil {
 		t.Fatal("NewLockFreeCache returned nil")
+		return
 	}
 	if len(cache.shards) != 16 {
 		t.Errorf("shards = %d, want 16", len(cache.shards))

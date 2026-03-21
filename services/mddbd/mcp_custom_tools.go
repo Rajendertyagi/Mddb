@@ -157,7 +157,7 @@ func mcpBuiltinTools() []MCPTool {
 		},
 		{
 			Name:        "full_text_search",
-			Description: "Search documents by text content using full-text search with term matching and relevance scoring. Supports typo tolerance via fuzzy parameter.",
+			Description: "Search documents by text content using full-text search with term matching and relevance scoring. Supports typo tolerance via fuzzy parameter and multi-language stemming.",
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
@@ -166,8 +166,28 @@ func mcpBuiltinTools() []MCPTool {
 					"limit":      map[string]interface{}{"type": "integer", "description": "Max results (default: 50)"},
 					"algorithm":  map[string]interface{}{"type": "string", "description": "Scoring algorithm: tfidf (default), bm25, bm25f, or pmisparse"},
 					"fuzzy":      map[string]interface{}{"type": "integer", "description": "Typo tolerance: 0 (off, default), 1 (1 char typo), 2 (2 char typos)"},
+					"lang":       map[string]interface{}{"type": "string", "description": "Language for stemming/stop words (e.g. en, pl, de, fr, es). Default: server default language"},
 				},
 				"required": []string{"collection", "query"},
+			},
+		},
+		{
+			Name:        "fts_reindex",
+			Description: "Reindex full-text search for a collection. Re-applies language-aware stemming and stop words using each document's lang field.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection to reindex"},
+				},
+				"required": []string{"collection"},
+			},
+		},
+		{
+			Name:        "fts_languages",
+			Description: "List all supported FTS languages with their codes and names.",
+			InputSchema: map[string]interface{}{
+				"type":       "object",
+				"properties": map[string]interface{}{},
 			},
 		},
 		{
@@ -875,7 +895,7 @@ func validateMCPCustomTools(tools []MCPCustomToolConfig) error {
 		"get_stats": true, "add_documents_batch": true, "delete_documents_batch": true,
 		"export_documents": true, "create_backup": true, "restore_backup": true,
 		"semantic_search": true, "vector_reindex": true, "vector_stats": true,
-		"import_url": true, "set_ttl": true, "full_text_search": true,
+		"import_url": true, "set_ttl": true, "full_text_search": true, "fts_reindex": true, "fts_languages": true,
 		"hybrid_search":    true,
 		"register_webhook": true, "list_webhooks": true, "delete_webhook": true,
 		"set_schema": true, "get_schema": true, "delete_schema": true,
@@ -897,7 +917,7 @@ func validateMCPCustomTools(tools []MCPCustomToolConfig) error {
 		"upload_file":      true,
 	}
 	validActions := map[string]bool{
-		"semantic_search": true, "search_documents": true, "full_text_search": true,
+		"semantic_search": true, "search_documents": true, "full_text_search": true, "fts_languages": true,
 	}
 	validTypes := map[string]bool{
 		"string": true, "integer": true, "number": true, "boolean": true, "object": true,

@@ -254,12 +254,14 @@ func generateWebhookID() string {
 
 // --- HTTP handlers ---
 
+// RegisterWebhookRequest is the HTTP request body for registering a new webhook.
 type RegisterWebhookRequest struct {
 	URL        string   `json:"url"`
 	Events     []string `json:"events"`
 	Collection string   `json:"collection,omitempty"`
 }
 
+// DeleteWebhookRequest is the HTTP request body for deleting a webhook by ID.
 type DeleteWebhookRequest struct {
 	ID string `json:"id"`
 }

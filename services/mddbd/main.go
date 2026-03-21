@@ -23,16 +23,20 @@ import (
 	"google.golang.org/grpc"
 )
 
-const VERSION = "2.7.1"
+// VERSION is the current release version of the MDDB server.
+const VERSION = "2.8.0"
 
+// AccessMode defines the database access mode (read, write, or both).
 type AccessMode string
 
+// Access mode constants.
 const (
 	ModeRead  AccessMode = "read"
 	ModeWrite AccessMode = "write"
 	ModeRW    AccessMode = "wr"
 )
 
+// Server is the main MDDB server instance holding the database and all subsystems.
 type Server struct {
 	DB                  *bolt.DB
 	Path                string
@@ -91,6 +95,7 @@ type BucketNames struct {
 	ByKey   []byte
 }
 
+// Hooks holds optional post-action webhook and exec hooks.
 type Hooks struct {
 	PostAddWebhookURL    string   // e.g. http://localhost:9000/hook/add
 	PostAddExec          []string // e.g. ["/usr/local/bin/on-add"]
@@ -98,6 +103,7 @@ type Hooks struct {
 	PostUpdateExec       []string
 }
 
+// Doc represents a stored markdown document.
 type Doc struct {
 	ID        string              `json:"id"`        // generated
 	Key       string              `json:"key"`       // e.g. "homepage"
@@ -109,6 +115,7 @@ type Doc struct {
 	ExpiresAt int64               `json:"expiresAt,omitempty"` // unix timestamp; 0 = never
 }
 
+// AddRequest is the HTTP request body for adding or updating a document.
 type AddRequest struct {
 	Collection string              `json:"collection"`
 	Key        string              `json:"key"`
@@ -118,6 +125,7 @@ type AddRequest struct {
 	TTL        int64               `json:"ttl,omitempty"` // seconds; 0 = no expiry
 }
 
+// GetRequest is the HTTP request body for retrieving a document.
 type GetRequest struct {
 	Collection string            `json:"collection"`
 	Key        string            `json:"key"`
@@ -125,6 +133,7 @@ type GetRequest struct {
 	Env        map[string]string `json:"env"` // for templating
 }
 
+// SearchRequest is the HTTP request body for searching documents.
 type SearchRequest struct {
 	Collection string              `json:"collection"`
 	FilterMeta map[string][]string `json:"filterMeta"` // AND over keys, OR over values
@@ -134,24 +143,28 @@ type SearchRequest struct {
 	Offset     int                 `json:"offset"`
 }
 
+// ExportRequest is the HTTP request body for exporting documents.
 type ExportRequest struct {
 	Collection string              `json:"collection"`
 	FilterMeta map[string][]string `json:"filterMeta"`
 	Format     string              `json:"format"` // ndjson|zip
 }
 
+// TruncateRequest is the HTTP request body for truncating a collection.
 type TruncateRequest struct {
 	Collection string `json:"collection"`
 	KeepRevs   int    `json:"keepRevs"` // keep last N revisions per doc (0 = drop all history)
 	DropCache  bool   `json:"dropCache"`
 }
 
+// DeleteRequest is the HTTP request body for deleting a single document.
 type DeleteRequest struct {
 	Collection string `json:"collection"`
 	Key        string `json:"key"`
 	Lang       string `json:"lang"`
 }
 
+// DeleteCollectionRequest is the HTTP request body for deleting an entire collection.
 type DeleteCollectionRequest struct {
 	Collection string `json:"collection"`
 }
@@ -325,10 +338,13 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Initialize stemmer
+	// Initialize multi-language FTS support
+	langReg := NewLangRegistry(srvCfg.FTS.DefaultLang)
 	if srvCfg.FTS.StemmingEnabled {
+		RegisterDefaultLanguages(langReg)
 		s.FTSIndex.SetStemmer(NewPorterStemmer())
-		log.Println("FTS stemming enabled (Porter)")
+		s.FTSIndex.SetLangRegistry(langReg)
+		log.Printf("FTS stemming enabled — %d languages (default: %s)", len(langReg.Languages()), srvCfg.FTS.DefaultLang)
 	}
 
 	// Initialize synonym manager
@@ -353,6 +369,7 @@ func main() {
 		log.Fatal(err)
 	}
 	s.FTSIndex.SetStopWordManager(s.StopWordManager)
+	s.StopWordManager.SetLangRegistry(langReg)
 	log.Println("Stop word manager initialized")
 
 	// Initialize PMI data for PMISparse search
@@ -568,6 +585,8 @@ func main() {
 	mux.HandleFunc("/v1/import-url", s.guardWrite(s.handleImportURL))
 	mux.HandleFunc("/v1/set-ttl", s.guardWrite(s.handleSetTTL))
 	mux.HandleFunc("/v1/fts", s.handleFTS)
+	mux.HandleFunc("/v1/fts-reindex", s.guardWrite(s.handleFTSReindex))
+	mux.HandleFunc("/v1/fts-languages", s.handleFTSLanguages)
 	mux.HandleFunc("/v1/meta-keys", s.handleMetaKeys)
 	mux.HandleFunc("/v1/checksum", s.handleChecksum)
 	mux.HandleFunc("/v1/update", s.guardWrite(s.handleUpdate))
@@ -596,6 +615,7 @@ func main() {
 	mux.HandleFunc("/v1/collection-configs", s.handleCollectionConfigList)
 	mux.HandleFunc("/v1/cross-search", s.handleCrossSearch)
 	mux.HandleFunc("/v1/find-duplicates", s.handleFindDuplicates)
+	mux.HandleFunc("/v1/aggregate", s.handleAggregate)
 	mux.HandleFunc("/metrics", s.Metrics.HandleMetrics)
 
 	// Replication status endpoint
@@ -867,11 +887,11 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 
 		existing := Doc{}
 		if v := bDocs.Get(kDoc(collection, docID)); v != nil {
-			if existingPtr, err := loadDoc(v); err != nil {
+			existingPtr, err := loadDoc(v)
+			if err != nil {
 				return err
-			} else {
-				existing = *existingPtr
 			}
+			existing = *existingPtr
 		}
 		added := existing.AddedAt
 		if added == 0 {
@@ -954,9 +974,11 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 		_ = s.TTLManager.Set(collection, saved.ID, saved.ExpiresAt)
 	}
 
-	// FTS indexing
+	// FTS indexing (language-aware)
 	if s.FTSIndex != nil && saved.ContentMD != "" {
-		_ = s.FTSIndex.Index(collection, saved.ID, saved.ContentMD)
+		_ = s.FTSIndex.IndexWithLang(collection, saved.ID, saved.ContentMD, saved.Lang)
+		// Positional index for phrase/proximity search
+		_ = s.FTSIndex.IndexPositionsWithLang(collection, saved.ID, saved.ContentMD, saved.Lang)
 		// Field-level indexing for BM25F
 		fields := map[string]string{"content": saved.ContentMD}
 		for k, vals := range saved.Meta {
@@ -964,7 +986,7 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 				fields["meta."+k] = strings.Join(vals, " ")
 			}
 		}
-		_ = s.FTSIndex.IndexFields(collection, saved.ID, fields)
+		_ = s.FTSIndex.IndexFieldsWithLang(collection, saved.ID, fields, saved.Lang)
 	}
 
 	// Webhooks
@@ -1500,11 +1522,11 @@ func (s *Server) handleTruncate(w http.ResponseWriter, r *http.Request) {
 func ok(w http.ResponseWriter, v any) {
 	b, _ := json.Marshal(v)
 	w.WriteHeader(200)
-	_, _ = w.Write(b)
+	_, _ = w.Write(b) // #nosec G705 -- response write to http.ResponseWriter
 }
 func bad(w http.ResponseWriter, err error) {
 	w.WriteHeader(400)
-	_, _ = fmt.Fprintf(w, `{"error":%q}`, err.Error())
+	_, _ = fmt.Fprintf(w, `{"error":%q}`, err.Error()) // #nosec G705 -- response write to http.ResponseWriter
 }
 
 // handleHealth returns a simple health check response
@@ -1786,14 +1808,15 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if hasContent && s.FTSIndex != nil && saved.ContentMD != "" {
-		_ = s.FTSIndex.Index(collection, saved.ID, saved.ContentMD)
+		_ = s.FTSIndex.IndexWithLang(collection, saved.ID, saved.ContentMD, saved.Lang)
+		_ = s.FTSIndex.IndexPositionsWithLang(collection, saved.ID, saved.ContentMD, saved.Lang)
 		fields := map[string]string{"content": saved.ContentMD}
 		for k, vals := range saved.Meta {
 			if len(vals) > 0 {
 				fields["meta."+k] = strings.Join(vals, " ")
 			}
 		}
-		_ = s.FTSIndex.IndexFields(collection, saved.ID, fields)
+		_ = s.FTSIndex.IndexFieldsWithLang(collection, saved.ID, fields, saved.Lang)
 	}
 
 	if s.WebhookManager != nil {
@@ -2175,7 +2198,7 @@ func copyFile(src, dst string) error {
 	if err = out.Close(); err != nil {
 		return err
 	}
-	return os.Rename(tmp, dst)
+	return os.Rename(tmp, dst) // #nosec G703 -- paths are internally constructed
 }
 func mustJSON(v any) []byte {
 	b, err := json.Marshal(v)

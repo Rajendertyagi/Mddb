@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -73,6 +74,14 @@ func (h *HNSWIndex) Add(collection, docID string, vector []float32) {
 	if exists {
 		g.Delete(docID)
 	}
+
+	// Recover from panics in the hnsw library (known issue with empty/small graphs)
+	defer func() {
+		if r := recover(); r != nil {
+			// Log but don't crash — flat index still works as fallback
+			log.Printf("HNSW Add recovered from panic for %s/%s: %v", collection, docID, r)
+		}
+	}()
 	node := hnsw.MakeNode(docID, vector)
 	g.Add(node)
 }

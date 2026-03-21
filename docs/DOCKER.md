@@ -52,7 +52,7 @@ docker run -d \
 
 ### Production Image
 
-**Base**: Alpine Linux 3.20  
+**Base**: Alpine Linux 3.23  
 **Size**: ~15 MB (compressed)  
 **User**: Non-root (uid: 1000)
 

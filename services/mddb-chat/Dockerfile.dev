@@ -1,0 +1,20 @@
+FROM rust:latest
+
+RUN apt-get update && apt-get install -y protobuf-compiler libprotobuf-dev && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy proto definitions
+COPY proto/ /proto/
+
+# Copy source
+COPY services/mddb-chat/ .
+
+# Update proto path for Docker context
+RUN sed -i 's|../../proto/|/proto/|g' build.rs
+
+RUN cargo build
+
+EXPOSE 11030
+
+CMD ["cargo", "run"]

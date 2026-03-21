@@ -15,10 +15,11 @@ var bucketStopWords = []byte("stopwords")
 
 // StopWordManager manages per-collection custom stop words on top of defaults.
 type StopWordManager struct {
-	db     *bolt.DB
-	mu     sync.RWMutex
-	cache  map[string]map[string]bool // collection -> word -> true (custom only)
-	binlog *Binlog
+	db           *bolt.DB
+	mu           sync.RWMutex
+	cache        map[string]map[string]bool // collection -> word -> true (custom only)
+	binlog       *Binlog
+	langRegistry *LangRegistry
 }
 
 // StopWordRequest is the HTTP request for stop word CRUD.
@@ -36,6 +37,7 @@ type StopWordEntry struct {
 // StopWordListResponse is the HTTP response for listing stop words.
 type StopWordListResponse struct {
 	Collection string          `json:"collection"`
+	Lang       string          `json:"lang"`
 	Entries    []StopWordEntry `json:"entries"`
 	Total      int             `json:"total"`
 	Defaults   int             `json:"defaults"`
@@ -53,6 +55,11 @@ func NewStopWordManager(db *bolt.DB) *StopWordManager {
 // SetBinlog sets the binlog for replication logging.
 func (swm *StopWordManager) SetBinlog(bl *Binlog) {
 	swm.binlog = bl
+}
+
+// SetLangRegistry sets the language registry for multi-language stop word support.
+func (swm *StopWordManager) SetLangRegistry(r *LangRegistry) {
+	swm.langRegistry = r
 }
 
 // EnsureBucket creates the stopwords bucket if it doesn't exist.
@@ -207,6 +214,38 @@ func (swm *StopWordManager) List(collection string) (defaults []string, custom [
 	return
 }
 
+// ListLang returns stop words for a collection using language-specific defaults.
+func (swm *StopWordManager) ListLang(collection, lang string) (defaults []string, custom []string, resolvedLang string) {
+	// Determine default stop words based on language
+	defaultSW := defaultStopWords
+	resolvedLang = "en"
+	if swm.langRegistry != nil && lang != "" {
+		cfg := swm.langRegistry.Resolve(lang)
+		if cfg != nil && cfg.StopWords != nil {
+			defaultSW = cfg.StopWords
+			resolvedLang = cfg.Code
+		}
+	}
+
+	defaults = make([]string, 0, len(defaultSW))
+	for w := range defaultSW {
+		defaults = append(defaults, w)
+	}
+	sort.Strings(defaults)
+
+	// Custom
+	swm.mu.RLock()
+	defer swm.mu.RUnlock()
+	if coll, ok := swm.cache[collection]; ok {
+		custom = make([]string, 0, len(coll))
+		for w := range coll {
+			custom = append(custom, w)
+		}
+		sort.Strings(custom)
+	}
+	return
+}
+
 // swKey builds the stop word BoltDB key.
 func swKey(collection, word string) []byte {
 	return []byte(fmt.Sprintf("sw|%s|%s", collection, word))
@@ -238,8 +277,9 @@ func (s *Server) handleStopWordsList(w http.ResponseWriter, r *http.Request) {
 		bad(w, fmt.Errorf("missing required parameter: collection"))
 		return
 	}
+	lang := r.URL.Query().Get("lang")
 
-	defaults, custom := s.StopWordManager.List(collection)
+	defaults, custom, resolvedLang := s.StopWordManager.ListLang(collection, lang)
 
 	entries := make([]StopWordEntry, 0, len(defaults)+len(custom))
 	for _, w := range custom {
@@ -251,6 +291,7 @@ func (s *Server) handleStopWordsList(w http.ResponseWriter, r *http.Request) {
 
 	resp := StopWordListResponse{
 		Collection: collection,
+		Lang:       resolvedLang,
 		Entries:    entries,
 		Total:      len(entries),
 		Defaults:   len(defaults),

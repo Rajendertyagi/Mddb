@@ -360,13 +360,13 @@ func marshalEmbeddingRecord(rec *EmbeddingRecord) []byte {
 	offset := 0
 
 	// model
-	binary.LittleEndian.PutUint32(buf[offset:], uint32(len(modelBytes)))
+	binary.LittleEndian.PutUint32(buf[offset:], uint32(len(modelBytes))) // #nosec G115 -- model name length always small
 	offset += 4
 	copy(buf[offset:], modelBytes)
 	offset += len(modelBytes)
 
 	// dimensions
-	binary.LittleEndian.PutUint32(buf[offset:], uint32(rec.Dimensions))
+	binary.LittleEndian.PutUint32(buf[offset:], uint32(rec.Dimensions)) // #nosec G115 -- dimensions always positive and bounded
 	offset += 4
 
 	// vectors
@@ -376,17 +376,17 @@ func marshalEmbeddingRecord(rec *EmbeddingRecord) []byte {
 	}
 
 	// created_at
-	binary.LittleEndian.PutUint64(buf[offset:], uint64(rec.CreatedAt))
+	binary.LittleEndian.PutUint64(buf[offset:], uint64(rec.CreatedAt)) // #nosec G115 -- timestamp always non-negative
 	offset += 8
 
 	// content hash
-	binary.LittleEndian.PutUint32(buf[offset:], uint32(len(hashBytes)))
+	binary.LittleEndian.PutUint32(buf[offset:], uint32(len(hashBytes))) // #nosec G115 -- hash length always small
 	offset += 4
 	copy(buf[offset:], hashBytes)
 	offset += len(hashBytes)
 
 	// docID
-	binary.LittleEndian.PutUint32(buf[offset:], uint32(len(docIDBytes)))
+	binary.LittleEndian.PutUint32(buf[offset:], uint32(len(docIDBytes))) // #nosec G115 -- docID length always small
 	offset += 4
 	copy(buf[offset:], docIDBytes)
 
@@ -428,7 +428,7 @@ func unmarshalEmbeddingRecord(data []byte) (*EmbeddingRecord, error) {
 	if offset+8 > len(data) {
 		return nil, fmt.Errorf("invalid created_at")
 	}
-	rec.CreatedAt = int64(binary.LittleEndian.Uint64(data[offset:]))
+	rec.CreatedAt = int64(binary.LittleEndian.Uint64(data[offset:])) // #nosec G115 -- timestamp within int64 range
 	offset += 8
 
 	// content hash

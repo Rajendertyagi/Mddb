@@ -43,6 +43,7 @@ type UserInfo struct {
 	CreatedAt int64
 }
 
+// Resolver is the root GraphQL resolver that delegates to the server.
 type Resolver struct {
 	server ServerInterface
 }

@@ -23,11 +23,15 @@ services:
       - MDDB_AUTH_ADMIN_USERNAME=admin
       - MDDB_AUTH_ADMIN_PASSWORD=admin123
       - MDDB_METRICS=true
+      - MDDB_MCP_ENABLED=true
+      - MDDB_GRPC_ENABLED=true
       - MDDB_EMBEDDING_PROVIDER=ollama
-      - MDDB_EMBEDDING_API_URL=http://ollama:11434
+      - MDDB_EMBEDDING_API_URL=http://host.docker.internal:11434
       - MDDB_EMBEDDING_MODEL=nomic-embed-text
       - MDDB_EMBEDDING_DIMENSIONS=768
       # - MDDB_PANEL_MODE=external  # internal (default, CORS enabled) or external (CORS disabled, panel proxies)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - mddb-network
     restart: unless-stopped
@@ -62,7 +66,43 @@ services:
 
   # MCP is built into mddbd — runs on port 9000 by default
 
-  # Ollama (Optional - for vector embeddings)
+  # MDDB Chat (Rust server)
+  mddb-chat:
+    build:
+      context: .
+      dockerfile: services/mddb-chat/Dockerfile.dev
+    container_name: mddb-chat
+    ports:
+      - "11030:11030"
+    volumes:
+      - ./services/mddb-chat:/app
+      - ./proto:/proto
+    environment:
+      - MDDB_CHAT_CONFIG=/app/config.toml
+      - MDDB_CHAT_LLM_API_KEY=${MDDB_CHAT_LLM_API_KEY}
+      - RUST_LOG=mddb_chat=debug,tower_http=debug
+    networks:
+      - mddb-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      mddbd:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # MDDB Chat Widget (static JS)
+  mddb-chat-widget:
+    build:
+      context: .
+      dockerfile: services/mddb-chat-widget/Dockerfile
+    container_name: mddb-chat-widget
+    ports:
+      - "11032:80"
+    networks:
+      - mddb-network
+    restart: unless-stopped
+
+  # Ollama (Optional - use profile "with-ollama" if no local Ollama)
   ollama:
     image: ollama/ollama:latest
     container_name: mddb-ollama
@@ -75,6 +115,11 @@ services:
     restart: unless-stopped
     profiles:
       - with-ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   mddb-data:

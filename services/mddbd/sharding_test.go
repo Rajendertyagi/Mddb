@@ -12,6 +12,7 @@ func TestNewConsistentHash(t *testing.T) {
 	ch := NewConsistentHash(100)
 	if ch == nil {
 		t.Fatal("NewConsistentHash returned nil")
+		return
 	}
 	if ch.replicas != 100 {
 		t.Errorf("replicas = %d, want 100", ch.replicas)
@@ -188,6 +189,7 @@ func TestShardCluster_GetShard(t *testing.T) {
 	shard := sc.GetShard("my-document")
 	if shard == nil {
 		t.Fatal("GetShard returned nil")
+		return
 	}
 	if shard.ID < 0 || shard.ID >= 4 {
 		t.Errorf("shard.ID = %d, want 0..3", shard.ID)

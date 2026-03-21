@@ -25,8 +25,9 @@ type ServerConfig struct {
 
 // FTSConfig controls full-text search features.
 type FTSConfig struct {
-	StemmingEnabled bool `yaml:"stemmingEnabled" json:"stemmingEnabled"`
-	SynonymsEnabled bool `yaml:"synonymsEnabled" json:"synonymsEnabled"`
+	StemmingEnabled bool   `yaml:"stemmingEnabled" json:"stemmingEnabled"`
+	SynonymsEnabled bool   `yaml:"synonymsEnabled" json:"synonymsEnabled"`
+	DefaultLang     string `yaml:"defaultLang" json:"defaultLang"`
 }
 
 // CompressionConfig controls document compression.
@@ -75,7 +76,7 @@ func defaultServerConfig() ServerConfig {
 		GRPC:        GRPCConfig{Enabled: true, Addr: ":11024"},
 		MCP:         MCPConfig{Enabled: true, Addr: ":9000", Stdio: false},
 		HTTP3:       HTTP3Config{Enabled: false, Addr: ":11443"},
-		FTS:         FTSConfig{StemmingEnabled: true, SynonymsEnabled: true},
+		FTS:         FTSConfig{StemmingEnabled: true, SynonymsEnabled: true, DefaultLang: "en"},
 		Compression: CompressionConfig{Enabled: true, SmallThreshold: 1024, MediumThreshold: 10240},
 		Vector:      VectorExtConfig{DefaultAlgorithm: "flat", BQRerankFactor: 10},
 	}
@@ -138,8 +139,9 @@ type fileConfig struct {
 }
 
 type fileFTS struct {
-	StemmingEnabled *bool `yaml:"stemmingEnabled"`
-	SynonymsEnabled *bool `yaml:"synonymsEnabled"`
+	StemmingEnabled *bool   `yaml:"stemmingEnabled"`
+	SynonymsEnabled *bool   `yaml:"synonymsEnabled"`
+	DefaultLang     *string `yaml:"defaultLang"`
 }
 
 type fileCompression struct {
@@ -237,6 +239,9 @@ func mergeFileConfig(cfg ServerConfig, fc *fileConfig) ServerConfig {
 		if fc.FTS.SynonymsEnabled != nil {
 			cfg.FTS.SynonymsEnabled = *fc.FTS.SynonymsEnabled
 		}
+		if fc.FTS.DefaultLang != nil {
+			cfg.FTS.DefaultLang = *fc.FTS.DefaultLang
+		}
 	}
 	if fc.Compression != nil {
 		if fc.Compression.Enabled != nil {
@@ -325,6 +330,9 @@ func applyEnvConfig(cfg *ServerConfig) {
 	}
 	if v := os.Getenv("MDDB_FTS_SYNONYMS"); v != "" {
 		cfg.FTS.SynonymsEnabled = parseBool(v, cfg.FTS.SynonymsEnabled)
+	}
+	if v := os.Getenv("MDDB_FTS_DEFAULT_LANG"); v != "" {
+		cfg.FTS.DefaultLang = v
 	}
 
 	// Compression

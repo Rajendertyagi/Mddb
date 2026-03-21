@@ -1,0 +1,1468 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="MDDB Chat — embeddable AI chat widget powered by your MDDB knowledge base. RAG-powered responses from your documentation. Supports OpenAI, Claude, Ollama, Bielik, Groq, Mistral, DeepSeek. One script tag to deploy.">
+    <meta name="keywords"
+        content="MDDB chat, AI chatbot, embeddable chat widget, RAG chatbot, documentation chatbot, customer support AI, knowledge base chat, OpenAI chat, Claude chat, Ollama chat, Bielik, WebSocket chat, Shadow DOM widget">
+    <meta name="author" content="MDDB Team">
+    <meta name="robots" content="index, follow">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://tradik.github.io/mddb/chat.html">
+    <meta property="og:title" content="MDDB Chat — AI-Powered Documentation Chat Widget">
+    <meta property="og:description"
+        content="Embed an AI chatbot on any website. RAG-powered answers from your MDDB knowledge base. One script tag, zero framework dependencies.">
+
+    <!-- Google Tag Manager -->
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-K296KCVM');</script>
+    <!-- End Google Tag Manager -->
+
+    <title>MDDB Chat — AI-Powered Documentation Chat Widget</title>
+    <link rel="canonical" href="https://tradik.github.io/mddb/chat.html">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <link rel="icon" type="image/svg+xml"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💬</text></svg>">
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "MDDB Chat",
+      "applicationCategory": "ChatApplication",
+      "operatingSystem": "Web",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "description": "Embeddable AI chat widget powered by MDDB knowledge base with RAG, multi-provider LLM support, and WebSocket streaming",
+      "isPartOf": {
+        "@type": "SoftwareApplication",
+        "name": "MDDB",
+        "url": "https://tradik.github.io/mddb/"
+      }
+    }
+    </script>
+
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --accent: #0ea5e9;
+            --success: #10b981;
+            --warn: #f59e0b;
+            --bg: #ffffff;
+            --bg-alt: #f8fafc;
+            --bg-dark: #0f172a;
+            --bg-card: #ffffff;
+            --text: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            --border: #e2e8f0;
+            --code-bg: #1e293b;
+            --code-text: #e2e8f0;
+            --radius: 12px;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--text);
+            background: var(--bg);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        /* Navigation */
+        .navbar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: 0.75rem 0;
+        }
+
+        .navbar .container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 1.25rem;
+            color: var(--text);
+        }
+
+        .nav-brand .logo {
+            font-size: 1.5rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary);
+        }
+
+        /* Hero */
+        .hero {
+            background: linear-gradient(135deg, rgba(30, 64, 175, 0.35) 0%, rgba(124, 58, 237, 0.85) 50%, rgba(37, 99, 235, 0.85) 100%),
+                url('chat.webp') center/cover no-repeat;
+            color: white;
+            padding: 100px 0 80px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 70% 30%, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
+        }
+
+        .hero .container {
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 1.25rem;
+        }
+
+        .hero-subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+
+        .hero-badges {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
+        }
+
+        .badge {
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            padding: 0.35rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .hero-actions {
+            display: flex;
+            gap: 1rem;
+        }
+
+        /* Chat Preview */
+        .chat-preview {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            max-width: 380px;
+            margin-left: auto;
+        }
+
+        .cp-header {
+            background: var(--primary);
+            color: white;
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .cp-header-left h3 {
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .cp-header-left small {
+            font-size: 12px;
+            opacity: 0.85;
+        }
+
+        .cp-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: default;
+            opacity: 0.8;
+        }
+
+        .cp-messages {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .cp-msg {
+            padding: 10px 14px;
+            border-radius: 16px;
+            font-size: 13px;
+            line-height: 1.5;
+            max-width: 85%;
+            animation: cp-fade 0.5s ease-out both;
+        }
+
+        .cp-msg.user {
+            background: var(--primary);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        .cp-msg.bot {
+            background: #f1f5f9;
+            color: #1e293b;
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+
+        .cp-msg:nth-child(1) {
+            animation-delay: 0.3s;
+        }
+
+        .cp-msg:nth-child(2) {
+            animation-delay: 0.8s;
+        }
+
+        .cp-msg:nth-child(3) {
+            animation-delay: 1.4s;
+        }
+
+        .cp-msg:nth-child(4) {
+            animation-delay: 2s;
+        }
+
+        @keyframes cp-fade {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .cp-input {
+            display: flex;
+            gap: 8px;
+            padding: 12px 16px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .cp-input input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            font-size: 13px;
+            outline: none;
+            color: #94a3b8;
+        }
+
+        .cp-input button {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: default;
+        }
+
+        .cp-powered {
+            padding: 6px;
+            text-align: center;
+            font-size: 10px;
+            color: #94a3b8;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: white;
+            color: var(--primary-dark);
+        }
+
+        .btn-primary:hover {
+            background: #f0f4ff;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .btn-blue {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-blue:hover {
+            background: var(--primary-dark);
+        }
+
+        /* Section */
+        section {
+            padding: 80px 0;
+        }
+
+        section:nth-child(even) {
+            background: var(--bg-alt);
+        }
+
+        h2 {
+            font-size: 2.25rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .section-lead {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 1.15rem;
+            max-width: 650px;
+            margin: 0 auto 3rem;
+        }
+
+        /* Architecture */
+        .arch-diagram {
+            max-width: 800px;
+            margin: 0 auto;
+            background: var(--code-bg);
+            border-radius: var(--radius);
+            padding: 2rem;
+            color: var(--code-text);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            line-height: 1.8;
+            overflow-x: auto;
+            white-space: pre;
+        }
+
+        /* Features Grid */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.75rem;
+            transition: all 0.2s;
+        }
+
+        .feature-card:hover {
+            border-color: var(--primary);
+            box-shadow: var(--shadow);
+            transform: translateY(-2px);
+        }
+
+        .feature-icon {
+            font-size: 2rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .feature-card h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Providers */
+        .providers-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.25rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .provider-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .provider-card:hover {
+            border-color: var(--primary);
+            box-shadow: var(--shadow);
+        }
+
+        .provider-card .provider-name {
+            font-weight: 600;
+            font-size: 1rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .provider-card .provider-type {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .provider-card .provider-config {
+            margin-top: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            background: var(--bg-alt);
+            padding: 0.5rem;
+            border-radius: 6px;
+            text-align: left;
+        }
+
+        /* Terminal */
+        .terminal {
+            background: var(--code-bg);
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: var(--shadow-lg);
+            margin-bottom: 1.5rem;
+        }
+
+        .terminal-header {
+            background: #334155;
+            padding: 0.6rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .terminal-dots {
+            display: flex;
+            gap: 6px;
+        }
+
+        .terminal-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .terminal-dot.red {
+            background: #ef4444;
+        }
+
+        .terminal-dot.yellow {
+            background: #f59e0b;
+        }
+
+        .terminal-dot.green {
+            background: #10b981;
+        }
+
+        .terminal-title {
+            color: #94a3b8;
+            font-size: 0.8rem;
+            margin-left: 0.5rem;
+        }
+
+        .terminal pre {
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 0;
+        }
+
+        .terminal code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--code-text);
+            line-height: 1.7;
+        }
+
+        /* Code tabs */
+        .code-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .code-tab {
+            padding: 0.5rem 1rem;
+            background: var(--bg-alt);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .code-tab.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .code-pane {
+            display: none;
+        }
+
+        .code-pane.active {
+            display: block;
+        }
+
+        /* How it Works */
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 2rem;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .step {
+            text-align: center;
+            position: relative;
+        }
+
+        .step::after {
+            content: '';
+            position: absolute;
+            top: 2rem;
+            right: -1rem;
+            width: 2rem;
+            height: 2px;
+            background: var(--border);
+        }
+
+        .step:last-child::after {
+            display: none;
+        }
+
+        .step-num {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--primary), #7c3aed);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.2rem;
+            margin: 0 auto 1rem;
+        }
+
+        .step h3 {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .step p {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        /* Config Section */
+        .config-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        .config-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .config-card h3 {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Protocol table */
+        .protocol-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2rem 0;
+        }
+
+        .protocol-table th,
+        .protocol-table td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .protocol-table th {
+            background: var(--bg-alt);
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+        }
+
+        .protocol-table td {
+            font-size: 0.9rem;
+        }
+
+        .protocol-table code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            background: var(--bg-alt);
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+        }
+
+        /* CTA */
+        .cta {
+            background: linear-gradient(135deg, #1e40af, #7c3aed);
+            color: white;
+            text-align: center;
+            padding: 80px 0;
+        }
+
+        .cta h2 {
+            color: white;
+            margin-bottom: 1rem;
+        }
+
+        .cta p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+        }
+
+        .cta-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--bg-dark);
+            color: #94a3b8;
+            padding: 3rem 0 1.5rem;
+        }
+
+        .footer-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .footer h4 {
+            color: white;
+            margin-bottom: 0.75rem;
+            font-size: 0.95rem;
+        }
+
+        .footer ul {
+            list-style: none;
+        }
+
+        .footer li {
+            margin-bottom: 0.4rem;
+        }
+
+        .footer a {
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .footer a:hover {
+            color: white;
+        }
+
+        .footer-bottom {
+            border-top: 1px solid #1e293b;
+            padding-top: 1.5rem;
+            text-align: center;
+            font-size: 0.85rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero-grid {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .chat-preview {
+                margin: 0 auto;
+                max-width: 100%;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .providers-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .steps {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .step::after {
+                display: none;
+            }
+
+            .config-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .footer-content {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .hero-actions {
+                flex-direction: column;
+            }
+
+            .cta-actions {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-K296KCVM" height="0" width="0"
+            style="display:none;visibility:hidden"></iframe></noscript>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="index.html" class="nav-brand">
+                <span class="logo">💬</span>
+                <span>MDDB Chat</span>
+            </a>
+            <div class="nav-links">
+                <a href="#architecture">Architecture</a>
+                <a href="#features">Features</a>
+                <a href="#providers">Providers</a>
+                <a href="#setup">Setup</a>
+                <a href="#config">Configuration</a>
+                <a href="index.html">MDDB Home</a>
+                <a href="https://github.com/tradik/mddb" target="_blank" rel="noopener">GitHub</a>
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        <!-- Hero -->
+        <header class="hero">
+            <div class="container">
+                <div class="hero-grid">
+                    <div>
+                        <h1>AI Chat for<br>Your Knowledge Base</h1>
+                        <p class="hero-subtitle">
+                            Embed an AI-powered chatbot on any website with one script tag.
+                            RAG-powered answers from your MDDB documentation.
+                            Supports OpenAI, Claude, Ollama, Bielik, Groq, Mistral, and more.
+                        </p>
+                        <div class="hero-badges">
+                            <span class="badge">RAG-Powered</span>
+                            <span class="badge">10+ LLM Providers</span>
+                            <span class="badge">Shadow DOM</span>
+                            <span class="badge">WebSocket Streaming</span>
+                            <span class="badge">&lt; 30KB gzipped</span>
+                        </div>
+                        <div class="hero-actions">
+                            <a href="#setup" class="btn btn-primary">Get Started</a>
+                            <a href="https://github.com/tradik/mddb/tree/main/services/mddb-chat"
+                                class="btn btn-secondary" target="_blank" rel="noopener">View Source</a>
+                        </div>
+                    </div>
+                    <div class="chat-preview">
+                        <div class="cp-header">
+                            <div class="cp-header-left">
+                                <h3>Documentation Assistant</h3>
+                                <small>Powered by MDDB</small>
+                            </div>
+                            <span class="cp-close">&times;</span>
+                        </div>
+                        <div class="cp-messages">
+                            <div class="cp-msg user">Does MDDB support PDF upload?</div>
+                            <div class="cp-msg bot">Yes! MDDB supports uploading PDF, DOCX, ODT, RTF, LaTeX, YAML, HTML,
+                                TXT, and Markdown files. All formats are auto-converted to Markdown on ingest.</div>
+                            <div class="cp-msg user">How do I set up vector search?</div>
+                            <div class="cp-msg bot">Set the MDDB_EMBEDDING_PROVIDER env variable (e.g. "openai" or
+                                "ollama"), provide your API key, and MDDB will auto-embed documents on ingest. Then use
+                                POST /v1/vector-search to query.</div>
+                        </div>
+                        <div class="cp-input">
+                            <input type="text" value="Ask about your docs..." disabled>
+                            <button disabled>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="cp-powered">Powered by <strong>MDDB</strong></div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Architecture -->
+        <section id="architecture">
+            <div class="container">
+                <h2>Architecture</h2>
+                <p class="section-lead">Three components work together: the widget (client-side), the chat server
+                    (Rust), and MDDB (knowledge base).</p>
+                <div class="arch-diagram">
+                    [Your Website] [MDDB Infrastructure]
+                    | |
+                    &lt;script&gt; |
+                    mddb-chat.min.js +----------+
+                    | | mddbd |
+                    | WebSocket | :11024 |
+                    v | gRPC |
+                    +-----------+ gRPC +----^-----+
+                    | mddb-chat |--------------------+
+                    | :11030 |
+                    | (Rust) |---- HTTP ---&gt; LLM Provider
+                    +-----------+ (OpenAI / Claude / Ollama / Bielik / ...)</div>
+
+                <div class="features-grid" style="margin-top: 2.5rem;">
+                    <div class="feature-card">
+                        <div class="feature-icon">🎨</div>
+                        <h3>mddb-chat-widget</h3>
+                        <p>TypeScript IIFE bundle. Shadow DOM isolation, localStorage session persistence, markdown
+                            rendering, feedback ratings. One script tag to deploy.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🦀</div>
+                        <h3>mddb-chat</h3>
+                        <p>Rust/Axum WebSocket server. Agentic tool-calling loop (max 5 rounds), session management,
+                            rate limiting, webhook dispatch. Connects to MDDB via gRPC.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📝</div>
+                        <h3>mddbd</h3>
+                        <p>MDDB knowledge base. Hybrid search (BM25 + vector), full-text search, document storage. The
+                            chat server queries it for RAG context.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- How It Works -->
+        <section id="how-it-works" style="background: var(--bg-alt);">
+            <div class="container">
+                <h2>How It Works</h2>
+                <p class="section-lead">User asks a question, the server searches your docs, then the LLM answers based
+                    on what it found.</p>
+                <div class="steps">
+                    <div class="step">
+                        <div class="step-num">1</div>
+                        <h3>User Message</h3>
+                        <p>User types a question in the chat widget. Sent via WebSocket to mddb-chat server.</p>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">2</div>
+                        <h3>RAG Search</h3>
+                        <p>LLM calls search_docs tool. Server queries MDDB via gRPC (hybrid/vector/FTS search).</p>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">3</div>
+                        <h3>LLM Response</h3>
+                        <p>Search results + conversation history sent to LLM. Response is streamed back in real-time.
+                        </p>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">4</div>
+                        <h3>Streaming</h3>
+                        <p>Chunks arrive via WebSocket. Widget renders markdown in real-time with typing animation.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features -->
+        <section id="features">
+            <div class="container">
+                <h2>Features</h2>
+                <p class="section-lead">Everything you need for a production AI chatbot, built-in.</p>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">🔍</div>
+                        <h3>RAG-Powered Answers</h3>
+                        <p>Agentic tool-calling loop. LLM searches your MDDB docs before answering. Up to 5 search
+                            rounds per question.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">⚡</div>
+                        <h3>WebSocket Streaming</h3>
+                        <p>Real-time token streaming. Responses appear character-by-character with typing indicator
+                            animation.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🎯</div>
+                        <h3>Scenarios</h3>
+                        <p>Define multiple chat personas with custom system prompts, allowed collections, temperature,
+                            and max turns.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔒</div>
+                        <h3>Session Management</h3>
+                        <p>Concurrent user limits with queue. Session TTL (configurable, default 24h). localStorage
+                            persistence across reloads.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🛡️</div>
+                        <h3>Rate Limiting</h3>
+                        <p>Per-IP token bucket rate limiting. Input sanitization, max message length, response length
+                            caps.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">👍</div>
+                        <h3>Feedback Ratings</h3>
+                        <p>Thumbs up/down on every response. Negative feedback logs full Q&A pairs for analysis and
+                            improvement.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔔</div>
+                        <h3>Webhooks</h3>
+                        <p>Events: session.start, session.end, queue.full. Async dispatch with retry. HMAC-SHA256
+                            signatures.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🎨</div>
+                        <h3>Shadow DOM Widget</h3>
+                        <p>Fully isolated from host page styles. Configurable via data-* attributes. Mobile-responsive.
+                            &lt; 30KB gzipped.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📝</div>
+                        <h3>Markdown Rendering</h3>
+                        <p>Bot responses render bold, italic, code blocks, links, and lists. Clean text from stripped
+                            markdown search results.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- LLM Providers -->
+        <section id="providers" style="background: var(--bg-alt);">
+            <div class="container">
+                <h2>LLM Providers</h2>
+                <p class="section-lead">
+                    Two native providers: OpenAI-compatible (covers 8+ services) and Anthropic (Claude).
+                    Switch by changing one line in config.
+                </p>
+                <div class="providers-grid">
+                    <div class="provider-card">
+                        <div class="provider-name">OpenAI</div>
+                        <div class="provider-type">Native</div>
+                        <div class="provider-config">provider = "openai"<br>model = "gpt-4o-mini"</div>
+                    </div>
+                    <div class="provider-card">
+                        <div class="provider-name">Claude</div>
+                        <div class="provider-type">Native (Anthropic API)</div>
+                        <div class="provider-config">provider = "anthropic"<br>model = "claude-sonnet-4-20250514"</div>
+                    </div>
+                    <div class="provider-card">
+                        <div class="provider-name">Ollama</div>
+                        <div class="provider-type">OpenAI-compatible</div>
+                        <div class="provider-config">provider = "openai"<br>api_url =
+                            "http://localhost:11434/v1"<br>model = "qwen3:8b"</div>
+                    </div>
+                    <div class="provider-card">
+                        <div class="provider-name">Bielik</div>
+                        <div class="provider-type">OpenAI-compatible</div>
+                        <div class="provider-config">provider = "openai"<br>api_url =
+                            "https://api.bielik.ai/v1"<br>model = "Bielik-11B-v2.3"</div>
+                    </div>
+                    <div class="provider-card">
+                        <div class="provider-name">Groq</div>
+                        <div class="provider-type">OpenAI-compatible</div>
+                        <div class="provider-config">provider = "openai"<br>api_url =
+                            "https://api.groq.com/openai/v1"<br>model = "llama-3.3-70b"</div>
+                    </div>
+                    <div class="provider-card">
+                        <div class="provider-name">Mistral</div>
+                        <div class="provider-type">OpenAI-compatible</div>
+                        <div class="provider-config">provider = "openai"<br>api_url =
+                            "https://api.mistral.ai/v1"<br>model = "mistral-large"</div>
+                    </div>
+                    <div class="provider-card">
+                        <div class="provider-name">DeepSeek</div>
+                        <div class="provider-type">OpenAI-compatible</div>
+                        <div class="provider-config">provider = "openai"<br>api_url =
+                            "https://api.deepseek.com/v1"<br>model = "deepseek-chat"</div>
+                    </div>
+                    <div class="provider-card">
+                        <div class="provider-name">OpenRouter</div>
+                        <div class="provider-type">Any model via proxy</div>
+                        <div class="provider-config">provider = "openai"<br>api_url =
+                            "https://openrouter.ai/api/v1"<br>model = "anthropic/claude-sonnet-4"</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Setup -->
+        <section id="setup">
+            <div class="container">
+                <h2>Quick Setup</h2>
+                <p class="section-lead">Three steps to deploy AI chat on your website.</p>
+
+                <h3 style="margin-bottom: 1rem;">1. Start the services</h3>
+                <div class="terminal">
+                    <div class="terminal-header">
+                        <div class="terminal-dots">
+                            <span class="terminal-dot red"></span>
+                            <span class="terminal-dot yellow"></span>
+                            <span class="terminal-dot green"></span>
+                        </div>
+                        <span class="terminal-title">bash — docker compose</span>
+                    </div>
+                    <pre><code># Clone and start all services
+git clone https://github.com/tradik/mddb.git && cd mddb
+
+# Set your LLM API key
+export MDDB_CHAT_LLM_API_KEY="sk-your-key-here"
+
+# Start MDDB + Chat Server + Widget
+docker compose -f docker-compose.dev.yml up -d mddbd mddb-chat mddb-chat-widget
+
+# Services available:
+#   mddbd:              http://localhost:11023 (HTTP), localhost:11024 (gRPC)
+#   mddb-chat:          ws://localhost:11030/ws (WebSocket)
+#   mddb-chat-widget:   http://localhost:11032 (static JS bundle)</code></pre>
+                </div>
+
+                <h3 style="margin: 2rem 0 1rem;">2. Load your docs into MDDB</h3>
+                <div class="terminal">
+                    <div class="terminal-header">
+                        <div class="terminal-dots">
+                            <span class="terminal-dot red"></span>
+                            <span class="terminal-dot yellow"></span>
+                            <span class="terminal-dot green"></span>
+                        </div>
+                        <span class="terminal-title">bash — load documents</span>
+                    </div>
+                    <pre><code># Add documents to your "docs" collection
+curl -X POST http://localhost:11023/v1/add \
+  -H "Content-Type: application/json" \
+  -d '{"collection":"docs","key":"getting-started","lang":"en",
+       "contentMd":"# Getting Started\n\nWelcome to our product..."}'
+
+# Or upload files directly (PDF, DOCX, ODT, etc.)
+curl -X POST http://localhost:11023/v1/upload \
+  -F "file=@documentation.pdf" \
+  -F "collection=docs" -F "key=docs-pdf" -F "lang=en"
+
+# Reindex vectors for semantic search
+curl -X POST http://localhost:11023/v1/vector-reindex \
+  -d '{"collection":"docs"}'</code></pre>
+                </div>
+
+                <h3 style="margin: 2rem 0 1rem;">3. Embed the widget</h3>
+                <div class="terminal">
+                    <div class="terminal-header">
+                        <div class="terminal-dots">
+                            <span class="terminal-dot red"></span>
+                            <span class="terminal-dot yellow"></span>
+                            <span class="terminal-dot green"></span>
+                        </div>
+                        <span class="terminal-title">html — your website</span>
+                    </div>
+                    <pre><code>&lt;!-- Add this single script tag before &lt;/body&gt; --&gt;
+&lt;script src="https://your-cdn.com/mddb-chat.min.js"
+  data-server="wss://chat.example.com"
+  data-scenario="assistant"
+  data-theme="light"
+  data-accent="#3B82F6"
+  data-position="bottom-right"
+  data-session-ttl="24"&gt;
+&lt;/script&gt;</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- Configuration -->
+        <section id="config" style="background: var(--bg-alt);">
+            <div class="container">
+                <h2>Configuration</h2>
+                <p class="section-lead">Server config via TOML. Widget config via HTML attributes.</p>
+
+                <div class="config-grid">
+                    <div class="config-card">
+                        <h3>🦀 Server — config.toml</h3>
+                        <div class="terminal" style="margin: 0; border-radius: 0; box-shadow: none;">
+                            <pre><code>[server]
+host = "0.0.0.0"
+port = 11030
+cors_origins = ["*"]
+
+[mddb]
+grpc_addr = "http://mddbd:11024"
+default_collection = "docs"
+search_top_k = 3
+search_type = "hybrid"  # hybrid, vector, fts
+
+[llm]
+provider = "anthropic"  # or "openai"
+api_url = "https://api.anthropic.com/v1"
+api_key = ""  # or env MDDB_CHAT_LLM_API_KEY
+model = "claude-sonnet-4-20250514"
+max_tokens = 1024
+temperature = 0.7
+
+[session]
+max_concurrent = 2
+queue_size = 10
+session_ttl_minutes = 1440  # 24h
+max_history_length = 50
+max_response_length = 4096
+
+[security]
+rate_limit_per_minute = 30
+max_message_length = 2000
+
+[scenarios.assistant]
+name = "Documentation Assistant"
+system_prompt = """You are a helpful assistant.
+Answer based on the provided context."""
+allowed_collections = ["docs"]</code></pre>
+                        </div>
+                    </div>
+
+                    <div class="config-card">
+                        <h3>🎨 Widget — data-* attributes</h3>
+                        <div style="padding: 0;">
+                            <table class="protocol-table" style="margin: 0;">
+                                <thead>
+                                    <tr>
+                                        <th>Attribute</th>
+                                        <th>Default</th>
+                                        <th>Description</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>data-server</code></td>
+                                        <td>required</td>
+                                        <td>WebSocket URL</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>data-scenario</code></td>
+                                        <td><code>assistant</code></td>
+                                        <td>Chat scenario name</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>data-theme</code></td>
+                                        <td><code>light</code></td>
+                                        <td>Color theme</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>data-accent</code></td>
+                                        <td><code>#3B82F6</code></td>
+                                        <td>Primary accent color</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>data-position</code></td>
+                                        <td><code>bottom-right</code></td>
+                                        <td>Widget position</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>data-session-ttl</code></td>
+                                        <td><code>24</code></td>
+                                        <td>Session TTL (hours)</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>data-title</code></td>
+                                        <td><code>Chat</code></td>
+                                        <td>Header title</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 style="margin: 3rem 0 1rem; text-align: center;">WebSocket Protocol</h3>
+                <div class="config-grid">
+                    <div class="config-card">
+                        <h3>📤 Client → Server</h3>
+                        <div class="terminal" style="margin: 0; border-radius: 0; box-shadow: none;">
+                            <pre><code>// Join session
+{"type":"join","name":"Jan","scenario":"assistant"}
+
+// Send message
+{"type":"message","content":"How do I upload PDFs?"}
+
+// Resume existing session
+{"type":"resume","session_id":"uuid-here"}
+
+// Rate a response
+{"type":"feedback","rating":"down",
+ "question":"...","answer":"..."}
+
+// End session
+{"type":"end"}
+
+// Keep-alive
+{"type":"ping"}</code></pre>
+                        </div>
+                    </div>
+                    <div class="config-card">
+                        <h3>📥 Server → Client</h3>
+                        <div class="terminal" style="margin: 0; border-radius: 0; box-shadow: none;">
+                            <pre><code>// Session started
+{"type":"session","id":"uuid","scenario":"assistant"}
+
+// In queue
+{"type":"queued","position":3}
+
+// Streaming response (many of these)
+{"type":"chunk","content":"MDDB supports..."}
+
+// Response complete
+{"type":"done"}
+
+// Session ended
+{"type":"ended"}
+
+// Error
+{"type":"error","message":"rate limited"}
+
+// Keep-alive reply
+{"type":"pong"}</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Port Allocation -->
+        <section>
+            <div class="container">
+                <h2>Port Allocation</h2>
+                <p class="section-lead">Default ports for all MDDB services in Docker.</p>
+                <table class="protocol-table" style="max-width: 700px; margin: 0 auto;">
+                    <thead>
+                        <tr>
+                            <th>Service</th>
+                            <th>Port</th>
+                            <th>Protocol</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>mddbd</strong></td>
+                            <td><code>11023</code></td>
+                            <td>HTTP</td>
+                            <td>REST API, health checks</td>
+                        </tr>
+                        <tr>
+                            <td><strong>mddbd</strong></td>
+                            <td><code>11024</code></td>
+                            <td>gRPC</td>
+                            <td>Protobuf API, replication</td>
+                        </tr>
+                        <tr>
+                            <td><strong>mddb-chat</strong></td>
+                            <td><code>11030</code></td>
+                            <td>HTTP + WS</td>
+                            <td>Chat server, WebSocket</td>
+                        </tr>
+                        <tr>
+                            <td><strong>mddb-chat-widget</strong></td>
+                            <td><code>11032</code></td>
+                            <td>HTTP</td>
+                            <td>Static JS bundle (nginx)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>mddb-panel</strong></td>
+                            <td><code>3000</code></td>
+                            <td>HTTP</td>
+                            <td>Web admin panel (React)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- CTA -->
+        <div class="cta">
+            <div class="container">
+                <h2>Ready to Add AI Chat?</h2>
+                <p>One script tag. Your docs. Any LLM provider.</p>
+                <div class="cta-actions">
+                    <a href="#setup" class="btn btn-primary">Get Started</a>
+                    <a href="https://github.com/tradik/mddb" class="btn btn-secondary" target="_blank"
+                        rel="noopener">View on GitHub</a>
+                    <a href="index.html" class="btn btn-secondary">Back to MDDB</a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div>
+                    <h4>MDDB Chat</h4>
+                    <p>AI-powered documentation chatbot</p>
+                    <p style="margin-top: 0.5rem;">Part of the <a href="index.html">MDDB</a> ecosystem</p>
+                </div>
+                <div>
+                    <h4>Documentation</h4>
+                    <ul>
+                        <li><a href="index.html">MDDB Home</a></li>
+                        <li><a href="swagger.html">API Docs</a></li>
+                        <li><a href="md-viewer.html?doc=QUICKSTART.md">Quick Start</a></li>
+                        <li><a href="md-viewer.html?doc=LLM_CONNECTIONS.md">LLM Connections</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="https://github.com/tradik/mddb" target="_blank" rel="noopener">GitHub</a></li>
+                        <li><a href="https://hub.docker.com/r/tradik/mddb" target="_blank" rel="noopener">Docker Hub</a>
+                        </li>
+                        <li><a href="https://github.com/tradik/mddb/releases" target="_blank"
+                                rel="noopener">Releases</a></li>
+                        <li><a href="https://github.com/tradik/mddb/blob/main/CHANGELOG.md" target="_blank"
+                                rel="noopener">Changelog</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4>Legal</h4>
+                    <ul>
+                        <li><a href="https://github.com/tradik/mddb/blob/main/LICENSE" target="_blank"
+                                rel="noopener">BSD-3-Clause</a></li>
+                        <li><a href="https://github.com/tradik/mddb/blob/main/CONTRIBUTING.md" target="_blank"
+                                rel="noopener">Contributing</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 MDDB Team. Licensed under BSD-3-Clause.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+
+</html>

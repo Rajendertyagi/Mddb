@@ -30,7 +30,7 @@ func (zcm *ZeroCopyManager) CopyFile(dst, src *os.File, size int64) (int64, erro
 	n, err := io.Copy(dst, src)
 
 	if err == nil {
-		zcm.bytesCopy.Add(uint64(n))
+		zcm.bytesCopy.Add(uint64(n)) // #nosec G115 -- mmap offset always non-negative
 	}
 
 	return n, err
@@ -52,7 +52,7 @@ func (zcm *ZeroCopyManager) CopyFileRange(dst, src *os.File, srcOffset, dstOffse
 	n, err := io.CopyN(dst, src, length)
 
 	if err == nil || err == io.EOF {
-		zcm.bytesCopy.Add(uint64(n))
+		zcm.bytesCopy.Add(uint64(n)) // #nosec G115 -- mmap offset always non-negative
 		return n, nil
 	}
 
@@ -67,7 +67,7 @@ func (zcm *ZeroCopyManager) StreamCopy(dst io.Writer, src io.Reader) (int64, err
 	n, err := io.Copy(dst, src)
 
 	if err == nil {
-		zcm.bytesCopy.Add(uint64(n))
+		zcm.bytesCopy.Add(uint64(n)) // #nosec G115 -- mmap offset always non-negative
 	}
 
 	return n, err

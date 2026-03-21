@@ -10,7 +10,7 @@ info:
     - Multi-language support
     - Fast metadata-based search
     - **Vector search** with embedding providers (OpenAI, Cohere, Voyage AI, Ollama)
-    - **Full-text search** with TF-IDF, BM25, and BM25F field-weighted scoring
+    - **Full-text search** with TF-IDF, BM25, BM25F, PMISparse scoring, 7 search modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), and multi-language stemming (18 languages)
     - **Hybrid search** combining FTS + vector search with alpha blending or RRF fusion
     - **Webhooks** for real-time event notifications
     - **TTL** (time-to-live) support for automatic document expiration
@@ -61,7 +61,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: "2.7.1"
+  version: "2.8.0"
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -314,11 +314,13 @@ paths:
         - Documents
       summary: Upload files with auto-conversion to Markdown
       description: |
-        Upload files (PDF, DOCX, HTML, TXT, Markdown) via multipart/form-data. Files are auto-converted
+        Upload files via multipart/form-data. Files are auto-converted
         to Markdown and stored as documents. Supports single and batch upload.
 
-        Supported formats: `.md`, `.txt`, `.html`, `.pdf`, `.docx`.
+        Supported formats: `.md`, `.txt`, `.html`, `.htm`, `.pdf`, `.docx`, `.odt`, `.rtf`, `.yaml`, `.yml`, `.log`, `.lex`, `.tex`, `.latex`.
         Default (md/txt) is stored as-is with frontmatter extraction; others are converted.
+        ODT and DOCX are ZIP-based with XML extraction. RTF is parsed to plain text.
+        LaTeX/TeX is converted (sections, formatting, environments). YAML/LOG/LEX are wrapped in code blocks.
       operationId: uploadFile
       requestBody:
         required: true
@@ -845,14 +847,23 @@ paths:
         - Full-Text Search
       summary: Full-text search
       description: |
-        Perform keyword-based full-text search across documents in a collection using TF-IDF, BM25, or BM25F scoring.
+        Perform full-text search across documents in a collection. Supports 7 search modes with auto-detection and multi-language stemming (18 languages).
 
-        The query is tokenized and matched against document content. Results include matched terms and relevance scores.
+        **Search modes** (`mode` parameter, default `auto`):
+        - `simple`: Classic keyword search scored by algorithm (TF-IDF, BM25, BM25F, PMISparse)
+        - `boolean`: AND/OR/NOT operators, `+required`, `-excluded` terms
+        - `phrase`: Exact word sequence matching using `"quoted phrases"`
+        - `wildcard`: Pattern matching with `*` (any chars) and `?` (single char)
+        - `proximity`: Terms within N words — `"term1 term2"~5`
+        - `auto` (default): Auto-detects mode from query syntax (quotes → phrase, operators → boolean, etc.)
 
-        **Algorithms:**
+        **Algorithms** (for simple/boolean modes):
         - `tfidf` (default): Classic TF-IDF scoring
         - `bm25`: Okapi BM25 with document length normalization (k1=1.2, b=0.75)
         - `bm25f`: BM25F field-weighted scoring — applies different weights to title, metadata, and content fields
+        - `pmisparse`: PMISparse — BM25 + PMI query expansion
+
+        **Range filtering:** Use `rangeMeta` to filter by numeric, date, or string ranges on metadata fields.
 
         **In-graph filtering:** Use `filterMeta` to narrow results by metadata before scoring, same as vector search.
       operationId: fullTextSearch
@@ -875,6 +886,72 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/fts-reindex:
+    post:
+      tags:
+        - Full-Text Search
+      summary: Reindex FTS for a collection
+      description: |
+        Re-indexes all documents in a collection using their stored `lang` field for language-aware stemming and stop words.
+        Use this after enabling multi-language support to update existing documents indexed with the default English pipeline.
+      operationId: ftsReindex
+      parameters:
+        - name: collection
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Collection name to reindex
+      responses:
+        "200":
+          description: Reindex completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reindexed:
+                    type: integer
+                    description: Number of documents reindexed
+                  collection:
+                    type: string
+        "400":
+          description: Missing collection parameter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/fts-languages:
+    get:
+      tags:
+        - Full-Text Search
+      summary: List supported FTS languages
+      description: Returns all supported languages for multi-language FTS with their codes, names, and the configured default language.
+      operationId: ftsLanguages
+      responses:
+        "200":
+          description: Supported languages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  languages:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        code:
+                          type: string
+                          example: en
+                        name:
+                          type: string
+                          example: English
+                  defaultLang:
+                    type: string
+                    example: en
 
   /v1/hybrid-search:
     post:
@@ -3175,6 +3252,13 @@ paths:
                   type: object
                   additionalProperties: true
                   description: Custom key-value metadata for the collection
+                storageBackend:
+                  type: string
+                  enum: [boltdb, memory, s3]
+                  description: "Storage backend for this collection. Default: boltdb"
+                  example: boltdb
+                storageConfig:
+                  $ref: "#/components/schemas/StorageConfigDef"
       responses:
         "200":
           description: Collection configuration set successfully
@@ -3259,6 +3343,35 @@ paths:
                     type: integer
                     description: Total number of configured collections
                     example: 3
+
+  /v1/aggregate:
+    post:
+      tags:
+        - Aggregations
+      summary: Aggregate metadata facets and date histograms
+      description: |
+        Compute metadata value counts (facets) and date histograms for a collection.
+        Supports optional metadata pre-filtering to scope the aggregation.
+      operationId: aggregate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AggregateRequest"
+      responses:
+        "200":
+          description: Aggregation results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AggregateResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /v1/cross-search:
     post:
@@ -4057,6 +4170,57 @@ components:
           type: boolean
           description: Disable synonym expansion for this query
           default: false
+        mode:
+          type: string
+          enum: [auto, simple, boolean, phrase, wildcard, proximity]
+          description: |
+            Search mode (default "auto"). Auto-detect parses the query to determine the appropriate mode.
+            - **auto**: Auto-detect from query syntax
+            - **simple**: Classic keyword search
+            - **boolean**: AND/OR/NOT operators, +required, -excluded
+            - **phrase**: Exact word sequence (`"quoted phrases"`)
+            - **wildcard**: Pattern matching (`*` any chars, `?` single char)
+            - **proximity**: Terms within N words (`"term1 term2"~5`)
+          default: auto
+          example: auto
+        distance:
+          type: integer
+          description: Maximum word distance for proximity search (default 5)
+          default: 5
+          example: 5
+        lang:
+          type: string
+          description: |
+            Language code for query tokenization (e.g., "en", "pl", "de"). Uses language-specific stemmer and stop words.
+            Language codes are normalized: "en_US" → "en", "pl_PL" → "pl". Falls back to server default if omitted.
+          example: en
+        rangeMeta:
+          type: array
+          description: Range filters on metadata or timestamp fields
+          items:
+            $ref: "#/components/schemas/RangeFilter"
+
+    RangeFilter:
+      type: object
+      properties:
+        field:
+          type: string
+          description: Field name — metadata key, or built-in "addedAt" / "updatedAt"
+          example: price
+        gte:
+          type: string
+          description: Greater than or equal (numeric, date string, or unix timestamp)
+          example: "10"
+        lte:
+          type: string
+          description: Less than or equal
+          example: "100"
+        gt:
+          type: string
+          description: Greater than
+        lt:
+          type: string
+          description: Less than
 
     FTSSearchResponse:
       type: object
@@ -4073,6 +4237,14 @@ components:
           type: string
           description: Algorithm used for this search
           example: tfidf
+        mode:
+          type: string
+          description: Search mode used (simple, boolean, phrase, wildcard, proximity)
+          example: simple
+        lang:
+          type: string
+          description: Language used for query tokenization
+          example: en
         fuzzy:
           type: integer
           description: Typo tolerance level used
@@ -4559,7 +4731,7 @@ components:
           description: Document key
         format:
           type: string
-          description: Detected file format (md, txt, html, pdf, docx)
+          description: Detected file format (md, txt, html, pdf, docx, odt, rtf, yaml, tex, log, lex)
         converted:
           type: boolean
           description: Whether the file was converted to markdown
@@ -4721,11 +4893,11 @@ components:
         goVersion:
           type: string
           description: Go runtime version
-          example: go1.22.0
+          example: go1.26.0
         version:
           type: string
           description: MDDB server version
-          example: 2.7.1
+          example: 2.8.0
         uptimeSeconds:
           type: integer
           format: int64
@@ -4789,7 +4961,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.7.1
+          example: 2.8.0
         databasePath:
           type: string
           description: Path to the database file
@@ -5469,6 +5641,145 @@ components:
           type: object
           additionalProperties: true
           description: Custom key-value metadata for the collection
+        storageBackend:
+          type: string
+          enum: [boltdb, memory, s3]
+          description: "Storage backend for this collection (default: boltdb). Use 'memory' for ephemeral data or 's3' for S3-compatible object storage."
+          example: boltdb
+        storageConfig:
+          $ref: "#/components/schemas/StorageConfigDef"
+
+    StorageConfigDef:
+      type: object
+      description: Backend-specific configuration for non-default storage backends (required when storageBackend is 's3').
+      properties:
+        endpoint:
+          type: string
+          description: S3-compatible endpoint URL
+          example: s3.amazonaws.com
+        bucket:
+          type: string
+          description: S3 bucket name
+          example: my-mddb-bucket
+        region:
+          type: string
+          description: AWS region
+          example: us-east-1
+        accessKey:
+          type: string
+          description: Access key for authentication
+          example: AKIAIOSFODNN7EXAMPLE
+        secretKey:
+          type: string
+          description: Secret key for authentication
+          example: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+        prefix:
+          type: string
+          description: Key prefix within the bucket
+          example: mddb/
+        useTLS:
+          type: boolean
+          description: Use HTTPS for S3 connections
+          example: true
+
+    AggregateRequest:
+      type: object
+      required:
+        - collection
+      properties:
+        collection:
+          type: string
+          description: Collection name
+          example: blog
+        filterMeta:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Optional metadata pre-filter (AND over keys, OR over values)
+        facets:
+          type: array
+          items:
+            type: object
+            required:
+              - field
+            properties:
+              field:
+                type: string
+                description: Metadata key to aggregate
+                example: category
+              orderBy:
+                type: string
+                enum: [count, value]
+                description: Sort order for facet buckets (default count descending)
+                example: count
+        histograms:
+          type: array
+          items:
+            type: object
+            required:
+              - field
+            properties:
+              field:
+                type: string
+                description: Time field to histogram (addedAt or updatedAt)
+                example: addedAt
+              interval:
+                type: string
+                enum: [day, week, month, year]
+                description: Histogram bucket interval (default month)
+                example: month
+        maxFacetSize:
+          type: integer
+          description: Maximum number of values per facet (default 50)
+          example: 50
+
+    AggregateResponse:
+      type: object
+      properties:
+        collection:
+          type: string
+          example: blog
+        totalDocs:
+          type: integer
+          description: Total documents matching the filter (or all docs if no filter)
+          example: 42
+        facets:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: object
+              properties:
+                value:
+                  type: string
+                count:
+                  type: integer
+          description: Facet results keyed by metadata field name
+        histograms:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: object
+              properties:
+                key:
+                  type: string
+                  description: Formatted date label
+                from:
+                  type: integer
+                  description: Unix timestamp start
+                to:
+                  type: integer
+                  description: Unix timestamp end (exclusive)
+                count:
+                  type: integer
+          description: Histogram results keyed by field name
+        durationMs:
+          type: integer
+          description: Query execution time in milliseconds
+          example: 3
 
     CrossSearchRequest:
       type: object

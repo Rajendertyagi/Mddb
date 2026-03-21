@@ -31,7 +31,10 @@ func NewOllamaEmbeddingProvider(apiURL, model string, dimensions int) *OllamaEmb
 	}
 }
 
-func (p *OllamaEmbeddingProvider) Model() string   { return p.model }
+// Model returns the model name used by this provider.
+func (p *OllamaEmbeddingProvider) Model() string { return p.model }
+
+// Dimensions returns the embedding dimensionality.
 func (p *OllamaEmbeddingProvider) Dimensions() int { return p.dimensions }
 
 // Embed generates an embedding for a single text.
@@ -46,13 +49,13 @@ func (p *OllamaEmbeddingProvider) Embed(ctx context.Context, text string) ([]flo
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", p.apiURL+"/api/embed", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", p.apiURL+"/api/embed", bytes.NewReader(body)) // #nosec G704 -- URL from server config
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := p.client.Do(req)
+	resp, err := p.client.Do(req) // #nosec G704 -- URL from server config
 	if err != nil {
 		return nil, fmt.Errorf("ollama API request: %w", err)
 	}

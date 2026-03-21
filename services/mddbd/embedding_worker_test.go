@@ -123,6 +123,7 @@ func TestEmbeddingWorker_Enqueue(t *testing.T) {
 	}
 	if rec == nil {
 		t.Fatal("expected embedding record, got nil")
+		return
 	}
 	if rec.Model != "test-model" {
 		t.Errorf("Model = %q, want %q", rec.Model, "test-model")
@@ -232,6 +233,7 @@ func TestEmbeddingWorker_ReembedOnContentChange(t *testing.T) {
 	rec, _ := vs.Get("col", "doc-1")
 	if rec == nil {
 		t.Fatal("expected updated embedding")
+		return
 	}
 	if rec.Vector[0] != 0.4 {
 		t.Errorf("Vector[0] = %f, want 0.4", rec.Vector[0])

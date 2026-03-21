@@ -12,6 +12,7 @@ func TestAsyncIONew(t *testing.T) {
 	aio := NewAsyncIO()
 	if aio == nil {
 		t.Fatal("expected non-nil AsyncIO")
+		return
 	}
 	if !aio.enabled {
 		t.Error("expected enabled (fallback mode)")

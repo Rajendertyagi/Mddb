@@ -70,7 +70,7 @@ func (de *DeltaEncoder) calculateDelta(oldData, newData []byte) []byte {
 	var buf bytes.Buffer
 
 	// Write new data length
-	_ = binary.Write(&buf, binary.BigEndian, uint32(len(newData)))
+	_ = binary.Write(&buf, binary.BigEndian, uint32(len(newData))) // #nosec G115 -- length always positive and bounded
 
 	// Simple byte-level delta
 	// Format: [commonPrefixLen:4][commonSuffixLen:4][middleData]

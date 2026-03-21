@@ -254,19 +254,48 @@ class MDDBClient {
   /**
    * Full-text search
    */
-  async ftsSearch({ collection, query, limit = 50, algorithm = 'tfidf', fuzzy = 0, disableStem = false, disableSynonyms = false, fieldWeights = null, filterMeta = {}, signal }) {
+  async ftsSearch({ collection, query, limit = 50, algorithm = 'tfidf', fuzzy = 0, mode = 'auto', distance, disableStem = false, disableSynonyms = false, fieldWeights = null, filterMeta = {}, rangeMeta, lang, signal }) {
     const body = { collection, query, limit, algorithm, fuzzy, disableStem, disableSynonyms };
+    if (mode && mode !== 'auto') {
+      body.mode = mode;
+    }
+    if (mode === 'proximity' && distance) {
+      body.distance = distance;
+    }
     if (filterMeta && Object.keys(filterMeta).length > 0) {
       body.filterMeta = filterMeta;
     }
+    if (rangeMeta && rangeMeta.length > 0) {
+      body.rangeMeta = rangeMeta;
+    }
     if (algorithm === 'bm25f' && fieldWeights) {
       body.fieldWeights = fieldWeights;
+    }
+    if (lang) {
+      body.lang = lang;
     }
     return this.request('/fts', {
       method: 'POST',
       body: JSON.stringify(body),
       signal,
     });
+  }
+
+  /**
+   * Reindex FTS for a collection (re-applies language-aware stemming)
+   */
+  async ftsReindex({ collection }) {
+    return this.request('/fts-reindex', {
+      method: 'POST',
+      body: JSON.stringify({ collection }),
+    });
+  }
+
+  /**
+   * List supported FTS languages
+   */
+  async ftsLanguages() {
+    return this.request('/fts-languages', { method: 'GET' });
   }
 
   /**
@@ -279,24 +308,28 @@ class MDDBClient {
   /**
    * Hybrid search (sparse + dense)
    */
-  async hybridSearch({ collection, query, topK = 10, algorithm = 'bm25', vectorAlgorithm = 'flat', alpha = 0.5, strategy = 'alpha', rrfK = 60, fuzzy = 0, threshold = 0.0, filterMeta = {}, includeContent = false, distanceMetric = 'cosine', signal }) {
+  async hybridSearch({ collection, query, topK = 10, algorithm = 'bm25', vectorAlgorithm = 'flat', alpha = 0.5, strategy = 'alpha', rrfK = 60, fuzzy = 0, threshold = 0.0, filterMeta = {}, includeContent = false, distanceMetric = 'cosine', lang, signal }) {
+    const body = {
+      collection,
+      query,
+      topK,
+      algorithm,
+      vectorAlgorithm,
+      alpha,
+      strategy,
+      rrfK,
+      fuzzy,
+      threshold,
+      filterMeta,
+      includeContent,
+      distanceMetric,
+    };
+    if (lang) {
+      body.lang = lang;
+    }
     return this.request('/hybrid-search', {
       method: 'POST',
-      body: JSON.stringify({
-        collection,
-        query,
-        topK,
-        algorithm,
-        vectorAlgorithm,
-        alpha,
-        strategy,
-        rrfK,
-        fuzzy,
-        threshold,
-        filterMeta,
-        includeContent,
-        distanceMetric,
-      }),
+      body: JSON.stringify(body),
       signal,
     });
   }
@@ -325,8 +358,10 @@ class MDDBClient {
   /**
    * Stop Words CRUD
    */
-  async listStopWords(collection) {
-    return this.request(`/stopwords?collection=${encodeURIComponent(collection)}`, { method: 'GET' });
+  async listStopWords(collection, lang) {
+    let url = `/stopwords?collection=${encodeURIComponent(collection)}`;
+    if (lang) url += `&lang=${encodeURIComponent(lang)}`;
+    return this.request(url, { method: 'GET' });
   }
 
   async addStopWords({ collection, words }) {

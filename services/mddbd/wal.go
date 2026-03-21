@@ -28,6 +28,7 @@ type WAL struct {
 // SyncPolicy determines when to fsync
 type SyncPolicy int
 
+// SyncPolicy constants define when the WAL is fsynced to disk.
 const (
 	SyncAlways   SyncPolicy = iota // Fsync after every write (safest, slowest)
 	SyncPeriodic                   // Fsync every N ms (balanced)
@@ -46,6 +47,7 @@ type WALEntry struct {
 // EntryType defines the type of WAL entry
 type EntryType byte
 
+// EntryType constants define the kinds of operations recorded in the WAL.
 const (
 	EntryTypeAdd    EntryType = 1
 	EntryTypeUpdate EntryType = 2
@@ -100,8 +102,8 @@ func (w *WAL) Write(entry *WALEntry) error {
 
 	// Header: [type:1][timestamp:8][dataLen:4][checksum:4]
 	buf = append(buf, byte(entry.Type))
-	buf = binary.BigEndian.AppendUint64(buf, uint64(entry.Timestamp))
-	buf = binary.BigEndian.AppendUint32(buf, uint32(len(entry.Data)))
+	buf = binary.BigEndian.AppendUint64(buf, uint64(entry.Timestamp)) // #nosec G115 -- timestamp always non-negative
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(entry.Data))) // #nosec G115 -- data length always bounded
 	buf = binary.BigEndian.AppendUint32(buf, entry.Checksum)
 
 	// Data
@@ -207,7 +209,7 @@ func (w *WAL) readEntry(reader *bufio.Reader) (*WALEntry, error) {
 	}
 
 	entryType := EntryType(header[0])
-	timestamp := int64(binary.BigEndian.Uint64(header[1:9]))
+	timestamp := int64(binary.BigEndian.Uint64(header[1:9])) // #nosec G115 -- timestamp within int64 range
 	dataLen := binary.BigEndian.Uint32(header[9:13])
 	checksum := binary.BigEndian.Uint32(header[13:17])
 

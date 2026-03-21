@@ -35,9 +35,14 @@ func NewBQIndex(rerankFactor int) *BQIndex {
 	}
 }
 
-func (b *BQIndex) Name() string  { return "bq" }
+// Name implements the VectorSearcher interface.
+func (b *BQIndex) Name() string { return "bq" }
+
+// IsReady implements the VectorSearcher interface.
 func (b *BQIndex) IsReady() bool { return b.ready.Load() }
-func (b *BQIndex) SetReady()     { b.ready.Store(true) }
+
+// SetReady implements the VectorSearcher interface.
+func (b *BQIndex) SetReady() { b.ready.Store(true) }
 
 func (b *BQIndex) getOrCreate(collection string) *bqCollection {
 	c, ok := b.data[collection]
@@ -51,6 +56,7 @@ func (b *BQIndex) getOrCreate(collection string) *bqCollection {
 	return c
 }
 
+// Add implements the VectorSearcher interface.
 func (b *BQIndex) Add(collection, docID string, vector []float32) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -65,6 +71,7 @@ func (b *BQIndex) Add(collection, docID string, vector []float32) {
 	c.codes[docID] = encodeBQ(vector)
 }
 
+// Remove implements the VectorSearcher interface.
 func (b *BQIndex) Remove(collection, docID string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -144,6 +151,7 @@ func hammingDistance(a, b []uint64) int {
 	return dist
 }
 
+// Search implements the VectorSearcher interface.
 func (b *BQIndex) Search(collection string, query []float32, topK int, threshold float64, metric SimilarityFunc) []VectorResult {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
@@ -159,6 +167,7 @@ func (b *BQIndex) Search(collection string, query []float32, topK int, threshold
 	return b.hammingSearch(c, query, topK, threshold, nil, metric)
 }
 
+// SearchWithFilter implements the VectorSearcher interface.
 func (b *BQIndex) SearchWithFilter(collection string, query []float32, topK int, threshold float64, allowed map[string]bool, metric SimilarityFunc) []VectorResult {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
@@ -227,6 +236,7 @@ func (b *BQIndex) hammingSearch(c *bqCollection, query []float32, topK int, thre
 	return results
 }
 
+// CollectionSize implements the VectorSearcher interface.
 func (b *BQIndex) CollectionSize(collection string) int {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
@@ -237,6 +247,7 @@ func (b *BQIndex) CollectionSize(collection string) int {
 	return len(c.origVecs)
 }
 
+// Collections implements the VectorSearcher interface.
 func (b *BQIndex) Collections() []string {
 	b.mu.RLock()
 	defer b.mu.RUnlock()

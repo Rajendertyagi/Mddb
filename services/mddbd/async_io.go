@@ -36,6 +36,7 @@ type AsyncOperation struct {
 // OperationType defines the type of I/O operation
 type OperationType int
 
+// I/O operation type constants.
 const (
 	OpRead OperationType = iota
 	OpWrite

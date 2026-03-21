@@ -492,7 +492,7 @@ func (g *GRPCServer) Search(ctx context.Context, req *proto.SearchRequest) (*pro
 
 	return &proto.SearchResponse{
 		Documents: protoDocs,
-		Total:     int32(total),
+		Total:     safeInt32(total),
 	}, nil
 }
 
@@ -813,12 +813,12 @@ func (g *GRPCServer) VectorSearch(ctx context.Context, req *proto.VectorSearchRe
 
 	resp := &proto.VectorSearchResponse{
 		Results:   protoResults,
-		Total:     int32(len(protoResults)),
+		Total:     safeInt32(len(protoResults)),
 		Algorithm: algo,
 	}
 	if g.server.Embedding != nil {
 		resp.Model = g.server.Embedding.Model()
-		resp.Dimensions = int32(g.server.Embedding.Dimensions())
+		resp.Dimensions = safeInt32(g.server.Embedding.Dimensions())
 	}
 
 	return resp, nil
@@ -925,7 +925,7 @@ func (g *GRPCServer) VectorStats(ctx context.Context, req *proto.VectorStatsRequ
 	if g.server.Embedding != nil {
 		resp.Provider = g.server.Embedding.Model()
 		resp.Model = g.server.Embedding.Model()
-		resp.Dimensions = int32(g.server.Embedding.Dimensions())
+		resp.Dimensions = safeInt32(g.server.Embedding.Dimensions())
 	}
 
 	vectorCounts, _ := g.server.VectorStore.CountByCollection()
@@ -956,8 +956,8 @@ func (g *GRPCServer) VectorStats(ctx context.Context, req *proto.VectorStatsRequ
 
 	for coll := range allColls {
 		resp.Collections[coll] = &proto.VectorCollectionStats{
-			TotalDocuments:    int32(docCounts[coll]),
-			EmbeddedDocuments: int32(vectorCounts[coll]),
+			TotalDocuments:    safeInt32(docCounts[coll]),
+			EmbeddedDocuments: safeInt32(vectorCounts[coll]),
 		}
 	}
 
@@ -1193,11 +1193,14 @@ func (g *GRPCServer) FTS(ctx context.Context, req *proto.FTSRequest) (*proto.FTS
 		}
 	}
 
+	// Language-aware tokenization
+	queryLang := req.Lang
+	tokens := g.server.FTSIndex.TokenizeQueryLang(req.Collection, req.Query, queryLang)
+
 	var results []FTSResult
 	var err error
 	switch algo {
 	case "bm25f":
-		tokens := g.server.FTSIndex.TokenizeQuery(req.Collection, req.Query)
 		if fuzzy > 0 {
 			results, err = g.server.FTSIndex.SearchBM25FFuzzy(req.Collection, tokens, limit, fuzzy, nil)
 		} else {
@@ -1265,9 +1268,96 @@ func (g *GRPCServer) FTS(ctx context.Context, req *proto.FTSRequest) (*proto.FTS
 
 	return &proto.FTSResponse{
 		Results:   protoResults,
-		Total:     int32(len(protoResults)),
+		Total:     safeInt32(len(protoResults)),
 		Algorithm: algo,
 		Fuzzy:     int32(fuzzy),
+		Lang:      queryLang,
+	}, nil
+}
+
+// FTSReindex implements the FTSReindex RPC — re-indexes all documents using their lang field.
+func (g *GRPCServer) FTSReindex(ctx context.Context, req *proto.FTSReindexRequest) (*proto.FTSReindexResponse, error) {
+	if g.server.AuthManager != nil {
+		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermWrite); err != nil {
+			return nil, status.Error(codes.PermissionDenied, err.Error())
+		}
+	}
+	if req.Collection == "" {
+		return nil, status.Error(codes.InvalidArgument, "missing required field: collection")
+	}
+	if g.server.FTSIndex == nil {
+		return nil, status.Error(codes.FailedPrecondition, "full-text search not initialized")
+	}
+
+	// Collect docs first (read tx), then index outside to avoid deadlock
+	type reindexDoc struct {
+		ID, ContentMD, Lang string
+		Meta                map[string][]string
+	}
+	var docs []reindexDoc
+	var skipped int
+	_ = g.server.DB.View(func(tx *bolt.Tx) error {
+		bDocs := tx.Bucket([]byte("docs"))
+		if bDocs == nil {
+			return nil
+		}
+		prefix := []byte("doc|" + req.Collection + "|")
+		c := bDocs.Cursor()
+		for k, v := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = c.Next() {
+			docPtr, err := loadDoc(v)
+			if err != nil || docPtr.ContentMD == "" {
+				skipped++
+				continue
+			}
+			if docPtr.ExpiresAt > 0 && docPtr.ExpiresAt < time.Now().Unix() {
+				skipped++
+				continue
+			}
+			docs = append(docs, reindexDoc{docPtr.ID, docPtr.ContentMD, docPtr.Lang, docPtr.Meta})
+		}
+		return nil
+	})
+
+	reindexed := 0
+	for _, d := range docs {
+		_ = g.server.FTSIndex.IndexWithLang(req.Collection, d.ID, d.ContentMD, d.Lang)
+		_ = g.server.FTSIndex.IndexPositionsWithLang(req.Collection, d.ID, d.ContentMD, d.Lang)
+		fields := map[string]string{"content": d.ContentMD}
+		for mk, vals := range d.Meta {
+			if len(vals) > 0 {
+				fields["meta."+mk] = strings.Join(vals, " ")
+			}
+		}
+		_ = g.server.FTSIndex.IndexFieldsWithLang(req.Collection, d.ID, fields, d.Lang)
+		reindexed++
+	}
+
+	return &proto.FTSReindexResponse{
+		Status:    "ok",
+		Reindexed: safeInt32(reindexed),
+		Skipped:   safeInt32(skipped),
+	}, nil
+}
+
+// FTSLanguages implements the FTSLanguages RPC — returns supported languages.
+func (g *GRPCServer) FTSLanguages(ctx context.Context, _ *proto.FTSLanguagesRequest) (*proto.FTSLanguagesResponse, error) {
+	if g.server.FTSIndex == nil || g.server.FTSIndex.langRegistry == nil {
+		return &proto.FTSLanguagesResponse{}, nil
+	}
+
+	var langs []*proto.FTSLanguageInfo
+	for _, code := range g.server.FTSIndex.langRegistry.Languages() {
+		cfg := g.server.FTSIndex.langRegistry.Resolve(code)
+		name := code
+		if cfg != nil {
+			name = cfg.Name
+		}
+		langs = append(langs, &proto.FTSLanguageInfo{Code: code, Name: name})
+	}
+
+	return &proto.FTSLanguagesResponse{
+		Languages:   langs,
+		DefaultLang: g.server.FTSIndex.langRegistry.DefaultLang(),
 	}, nil
 }
 
@@ -1349,6 +1439,7 @@ func (g *GRPCServer) HybridSearch(ctx context.Context, req *proto.HybridSearchRe
 		FilterMeta:      filterMeta,
 		IncludeContent:  req.IncludeContent,
 		FieldWeights:    fieldWeights,
+		Lang:            req.Lang,
 	}
 
 	// Step 1: Run FTS search
@@ -1384,13 +1475,13 @@ func (g *GRPCServer) HybridSearch(ctx context.Context, req *proto.HybridSearchRe
 			FtsScore:      item.FTSScore,
 			VectorScore:   item.VectorScore,
 			MatchedTerms:  item.MatchedTerms,
-			Rank:          int32(item.Rank),
+			Rank:          safeInt32(item.Rank),
 		}
 	}
 
 	return &proto.HybridSearchResponse{
 		Results:         protoResults,
-		Total:           int32(len(protoResults)),
+		Total:           safeInt32(len(protoResults)),
 		Strategy:        strategy,
 		FtsAlgorithm:    algo,
 		VectorAlgorithm: vectorAlgo,
@@ -1842,7 +1933,7 @@ func (g *GRPCServer) Classify(ctx context.Context, req *proto.ClassifyRequest) (
 	return &proto.ClassifyResponse{
 		Results:    protoResults,
 		Model:      resp.Model,
-		Dimensions: int32(resp.Dimensions),
+		Dimensions: safeInt32(resp.Dimensions),
 	}, nil
 }
 
@@ -1949,7 +2040,7 @@ func (g *GRPCServer) DeleteCollection(ctx context.Context, req *proto.DeleteColl
 	return &proto.DeleteCollectionResponse{
 		Status:       "deleted",
 		Collection:   req.Collection,
-		DeletedCount: int32(deletedCount),
+		DeletedCount: safeInt32(deletedCount),
 	}, nil
 }
 
@@ -1974,7 +2065,7 @@ func (g *GRPCServer) ListSynonyms(ctx context.Context, req *proto.ListSynonymsRe
 	return &proto.ListSynonymsResponse{
 		Collection: req.Collection,
 		Entries:    entries,
-		Total:      int32(len(entries)),
+		Total:      safeInt32(len(entries)),
 	}, nil
 }
 
@@ -2033,9 +2124,9 @@ func (g *GRPCServer) ListStopwords(ctx context.Context, req *proto.ListStopwords
 	return &proto.ListStopwordsResponse{
 		Collection: req.Collection,
 		Entries:    entries,
-		Total:      int32(len(entries)),
-		Defaults:   int32(len(defaults)),
-		Custom:     int32(len(custom)),
+		Total:      safeInt32(len(entries)),
+		Defaults:   safeInt32(len(defaults)),
+		Custom:     safeInt32(len(custom)),
 	}, nil
 }
 
@@ -2053,7 +2144,7 @@ func (g *GRPCServer) AddStopwords(ctx context.Context, req *proto.AddStopwordsRe
 	if err := g.server.StopWordManager.Add(req.Collection, req.Words); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return &proto.AddStopwordsResponse{Status: "ok", Added: int32(len(req.Words))}, nil
+	return &proto.AddStopwordsResponse{Status: "ok", Added: safeInt32(len(req.Words))}, nil
 }
 
 // DeleteStopwords implements the DeleteStopwords RPC.
@@ -2139,7 +2230,7 @@ func (g *GRPCServer) GetChecksum(ctx context.Context, req *proto.GetChecksumRequ
 	return &proto.GetChecksumResponse{
 		Collection:    req.Collection,
 		Checksum:      checksum,
-		DocumentCount: int32(count),
+		DocumentCount: safeInt32(count),
 	}, nil
 }
 
@@ -2229,7 +2320,7 @@ func (g *GRPCServer) ListAutomation(ctx context.Context, req *proto.ListAutomati
 	for i := range rules {
 		protoRules[i] = automationRuleToProto(&rules[i])
 	}
-	return &proto.ListAutomationResponse{Rules: protoRules, Total: int32(len(protoRules))}, nil
+	return &proto.ListAutomationResponse{Rules: protoRules, Total: safeInt32(len(protoRules))}, nil
 }
 
 // CreateAutomation implements the CreateAutomation RPC.
@@ -2383,7 +2474,7 @@ func (g *GRPCServer) TestAutomation(ctx context.Context, req *proto.TestAutomati
 	return &proto.TestAutomationResponse{
 		Trigger: automationRuleToProto(rule),
 		Matches: protoDocs,
-		Total:   int32(len(protoDocs)),
+		Total:   safeInt32(len(protoDocs)),
 	}, nil
 }
 
@@ -2421,16 +2512,16 @@ func (g *GRPCServer) GetAutomationLogs(ctx context.Context, req *proto.GetAutoma
 			WebhookId:  l.WebhookID,
 			WebhookUrl: l.WebhookURL,
 			Status:     l.Status,
-			HttpStatus: int32(l.HTTPStatus),
+			HttpStatus: safeInt32(l.HTTPStatus),
 			DurationMs: l.DurationMs,
 			Error:      l.Error,
-			Attempt:    int32(l.Attempt),
+			Attempt:    safeInt32(l.Attempt),
 		}
 	}
 
 	return &proto.GetAutomationLogsResponse{
 		Logs:       protoLogs,
-		Total:      int32(total),
+		Total:      safeInt32(total),
 		NextCursor: nextCursor,
 		HasMore:    nextCursor != "",
 	}, nil
@@ -2519,7 +2610,7 @@ func (g *GRPCServer) ListCollectionConfigs(ctx context.Context, req *proto.ListC
 			},
 		})
 	}
-	return &proto.ListCollectionConfigsResponse{Configs: entries, Total: int32(len(entries))}, nil
+	return &proto.ListCollectionConfigsResponse{Configs: entries, Total: safeInt32(len(entries))}, nil
 }
 
 // CrossSearch implements the CrossSearch RPC — cross-collection vector search.
@@ -2668,7 +2759,7 @@ func (g *GRPCServer) CrossSearch(ctx context.Context, req *proto.CrossSearchRequ
 
 	return &proto.CrossSearchResponse{
 		Results:           protoResults,
-		Total:             int32(len(protoResults)),
+		Total:             safeInt32(len(protoResults)),
 		SourceCollection:  req.SourceCollection,
 		SourceDocId:       req.SourceDocId,
 		TargetCollections: req.TargetCollections,
@@ -2732,7 +2823,7 @@ func (g *GRPCServer) FindDuplicates(ctx context.Context, req *proto.FindDuplicat
 				}
 			}
 			result[i] = &proto.DuplicateGroupProto{
-				GroupId:   int32(g.GroupID),
+				GroupId:   safeInt32(g.GroupID),
 				Type:      g.Type,
 				Documents: docs,
 				Score:     g.Score,
@@ -2746,12 +2837,12 @@ func (g *GRPCServer) FindDuplicates(ctx context.Context, req *proto.FindDuplicat
 		Mode:            resp.Mode,
 		Threshold:       resp.Threshold,
 		DistanceMetric:  resp.DistanceMetric,
-		TotalDocuments:  int32(resp.TotalDocuments),
-		TotalEmbedded:   int32(resp.TotalEmbedded),
+		TotalDocuments:  safeInt32(resp.TotalDocuments),
+		TotalEmbedded:   safeInt32(resp.TotalEmbedded),
 		ExactGroups:     convertGroup(resp.ExactGroups),
 		SimilarGroups:   convertGroup(resp.SimilarGroups),
-		ExactDuplicates: int32(resp.ExactDuplicates),
-		SimilarPairs:    int32(resp.SimilarPairs),
+		ExactDuplicates: safeInt32(resp.ExactDuplicates),
+		SimilarPairs:    safeInt32(resp.SimilarPairs),
 	}, nil
 }
 
@@ -2817,7 +2908,7 @@ func (g *GRPCServer) ListRevisions(ctx context.Context, req *proto.ListRevisions
 		Key:        req.Key,
 		Lang:       req.Lang,
 		Revisions:  revisions,
-		Total:      int32(len(revisions)),
+		Total:      safeInt32(len(revisions)),
 	}, nil
 }
 

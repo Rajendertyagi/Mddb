@@ -1500,6 +1500,7 @@ func TestMainGetOptimizedBoltOptions(t *testing.T) {
 	opts := getOptimizedBoltOptions()
 	if opts == nil {
 		t.Fatal("expected non-nil options")
+		return
 	}
 	if opts.Timeout != 2*time.Second {
 		t.Errorf("expected 2s timeout, got %v", opts.Timeout)

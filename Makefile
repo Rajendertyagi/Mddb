@@ -1,4 +1,4 @@
-.PHONY: help dev-start dev-stop dev-logs dev-build dev-clean test lint fmt vet sec test-graphql lint-all test-all ci
+.PHONY: help dev-start dev-stop dev-logs dev-build dev-clean test lint fmt vet sec test-graphql lint-all test-all ci chat-build chat-dev chat-test widget-build widget-dev dev-logs-chat
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -16,6 +16,8 @@ dev-start: ## Start all services in development mode
 	@echo "   - MDDB Panel:   http://localhost:3000"
 	@echo "   - MCP Server:   http://localhost:9000"
 	@echo "   - gRPC:         localhost:11024"
+	@echo "   - Chat Server:  http://localhost:11030"
+	@echo "   - Chat Widget:  http://localhost:11032"
 	@echo ""
 	@echo "🔑 Default credentials: admin / admin123"
 	@echo ""
@@ -110,7 +112,25 @@ test-all: test test-graphql ## Run all tests
 ci: lint-all test-all ## Run full CI pipeline (lint + test)
 	@echo "✅ CI pipeline complete!"
 
+dev-logs-chat: ## Show logs from chat server only
+	docker-compose -f docker-compose.dev.yml logs -f mddb-chat
+
+chat-build: ## Build chat server (requires Rust)
+	cd services/mddb-chat && cargo build --release
+
+chat-dev: ## Run chat server in dev mode
+	cd services/mddb-chat && cargo watch -x run
+
+chat-test: ## Run chat server tests
+	cd services/mddb-chat && cargo test
+
+widget-build: ## Build chat widget
+	cd services/mddb-chat-widget && npm run build
+
+widget-dev: ## Run widget dev server
+	cd services/mddb-chat-widget && npm run dev
+
 version: ## Show current version
-	@echo "MDDB Version: 2.7.1"
+	@echo "MDDB Version: 2.8.0"
 
 .DEFAULT_GOAL := help

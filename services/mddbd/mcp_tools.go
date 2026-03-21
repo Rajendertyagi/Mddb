@@ -48,6 +48,10 @@ func (s *MCPToolServer) mcpCallTool(ctx context.Context, name string, args map[s
 		return s.toolSetTTL(ctx, args)
 	case "full_text_search":
 		return s.toolFTSSearch(ctx, args)
+	case "fts_reindex":
+		return s.toolFTSReindex(ctx, args)
+	case "fts_languages":
+		return s.toolFTSLanguages(ctx, args)
 	case "hybrid_search":
 		return s.toolHybridSearch(ctx, args)
 	case "register_webhook":
@@ -120,6 +124,8 @@ func (s *MCPToolServer) mcpCallTool(ctx context.Context, name string, args map[s
 		return s.toolCrossSearch(ctx, args)
 	case "find_duplicates":
 		return s.toolFindDuplicates(ctx, args)
+	case "aggregate":
+		return s.toolAggregate(ctx, args)
 	case "ingest_documents":
 		return s.toolIngest(ctx, args)
 	case "upload_file":
@@ -397,6 +403,7 @@ func (s *MCPToolServer) toolFTSSearch(ctx context.Context, args map[string]inter
 		Limit:      mcpGetInt(args, "limit"),
 		Algorithm:  mcpGetString(args, "algorithm"),
 		Fuzzy:      mcpGetInt(args, "fuzzy"),
+		Lang:       mcpGetString(args, "lang"),
 	}
 
 	resp, err := s.client.FTSSearch(ctx, req)
@@ -404,6 +411,27 @@ func (s *MCPToolServer) toolFTSSearch(ctx context.Context, args map[string]inter
 		return "", err
 	}
 
+	data, _ := json.MarshalIndent(resp, "", "  ")
+	return string(data), nil
+}
+
+func (s *MCPToolServer) toolFTSReindex(ctx context.Context, args map[string]interface{}) (string, error) {
+	req := &MCPFTSReindexRequest{
+		Collection: mcpGetString(args, "collection"),
+	}
+	resp, err := s.client.FTSReindex(ctx, req)
+	if err != nil {
+		return "", err
+	}
+	data, _ := json.MarshalIndent(resp, "", "  ")
+	return string(data), nil
+}
+
+func (s *MCPToolServer) toolFTSLanguages(ctx context.Context, args map[string]interface{}) (string, error) {
+	resp, err := s.client.FTSLanguages(ctx)
+	if err != nil {
+		return "", err
+	}
 	data, _ := json.MarshalIndent(resp, "", "  ")
 	return string(data), nil
 }
@@ -1032,6 +1060,46 @@ func (s *MCPToolServer) toolCrossSearch(ctx context.Context, args map[string]int
 	return string(data), nil
 }
 
+func (s *MCPToolServer) toolAggregate(ctx context.Context, args map[string]interface{}) (string, error) {
+	req := &AggregateRequest{
+		Collection:   mcpGetString(args, "collection"),
+		FilterMeta:   mcpGetMetaMap(args, "filter_meta"),
+		MaxFacetSize: mcpGetInt(args, "max_facet_size"),
+	}
+	// Parse facets array
+	if facetsRaw, ok := args["facets"].([]interface{}); ok {
+		for _, f := range facetsRaw {
+			if fm, ok := f.(map[string]interface{}); ok {
+				req.Facets = append(req.Facets, FacetRequest{
+					Field:   mcpGetString(fm, "field"),
+					OrderBy: mcpGetString(fm, "order_by"),
+				})
+			} else if fs, ok := f.(string); ok {
+				req.Facets = append(req.Facets, FacetRequest{Field: fs})
+			}
+		}
+	}
+	// Parse histograms array
+	if histRaw, ok := args["histograms"].([]interface{}); ok {
+		for _, h := range histRaw {
+			if hm, ok := h.(map[string]interface{}); ok {
+				req.Histograms = append(req.Histograms, HistogramRequest{
+					Field:    mcpGetString(hm, "field"),
+					Interval: mcpGetString(hm, "interval"),
+				})
+			} else if hs, ok := h.(string); ok {
+				req.Histograms = append(req.Histograms, HistogramRequest{Field: hs})
+			}
+		}
+	}
+	resp, err := s.client.Aggregate(ctx, req)
+	if err != nil {
+		return "", err
+	}
+	data, _ := json.MarshalIndent(resp, "", "  ")
+	return string(data), nil
+}
+
 func (s *MCPToolServer) toolFindDuplicates(ctx context.Context, args map[string]interface{}) (string, error) {
 	req := &MCPFindDuplicatesRequest{
 		Collection:     mcpGetString(args, "collection"),
@@ -1155,6 +1223,12 @@ func (s *MCPToolServer) toolUploadFile(ctx context.Context, args map[string]inte
 	switch format {
 	case "md", "markdown", "txt", "text", "":
 		contentMD = string(data)
+	case "yaml", "yml", "log", "lex":
+		contentMD = "```" + format + "\n" + string(data) + "\n```"
+		converted = true
+	case "tex", "latex":
+		contentMD = texToMarkdown(data)
+		converted = true
 	case "html":
 		contentMD = htmlToMarkdown(data)
 		converted = true
@@ -1170,8 +1244,17 @@ func (s *MCPToolServer) toolUploadFile(ctx context.Context, args map[string]inte
 			return "", fmt.Errorf("docx conversion: %w", err)
 		}
 		converted = true
+	case "odt":
+		contentMD, err = odtToMarkdown(data)
+		if err != nil {
+			return "", fmt.Errorf("odt conversion: %w", err)
+		}
+		converted = true
+	case "rtf":
+		contentMD = rtfToMarkdown(data)
+		converted = true
 	default:
-		return "", fmt.Errorf("unsupported format: %s (supported: md, txt, html, pdf, docx)", format)
+		return "", fmt.Errorf("unsupported format: %s (supported: md, txt, html, pdf, docx, odt, rtf, yaml, log, lex, tex)", format)
 	}
 
 	// Extract frontmatter for md/txt

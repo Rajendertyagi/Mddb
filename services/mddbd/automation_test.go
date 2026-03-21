@@ -115,6 +115,7 @@ func TestAutomationCRUD(t *testing.T) {
 	got := am.Get(wh.ID)
 	if got == nil {
 		t.Fatal("expected to find webhook by ID")
+		return
 	}
 	if got.Name != "My Webhook" {
 		t.Errorf("expected name 'My Webhook', got %q", got.Name)
@@ -604,6 +605,7 @@ func TestAutomationUpdate(t *testing.T) {
 	got := am.Get(wh.ID)
 	if got == nil {
 		t.Fatal("expected to find updated rule")
+		return
 	}
 	if got.Name != "New Name" {
 		t.Errorf("expected Get to return updated name, got %q", got.Name)
@@ -687,6 +689,7 @@ func TestAutomationEnableDisable(t *testing.T) {
 	got := am.Get(wh.ID)
 	if got == nil {
 		t.Fatal("expected to find rule after disable")
+		return
 	}
 	if got.Enabled {
 		t.Error("expected Get to return disabled webhook")
@@ -717,6 +720,7 @@ func TestAutomationGetWebhookAndGetTrigger(t *testing.T) {
 	got := am.GetWebhook(wh.ID)
 	if got == nil {
 		t.Fatal("expected GetWebhook to find webhook")
+		return
 	}
 	if got.Type != "webhook" {
 		t.Errorf("expected type webhook, got %s", got.Type)
@@ -732,6 +736,7 @@ func TestAutomationGetWebhookAndGetTrigger(t *testing.T) {
 	gotTr := am.GetTrigger(tr.ID)
 	if gotTr == nil {
 		t.Fatal("expected GetTrigger to find trigger")
+		return
 	}
 	if gotTr.Type != "trigger" {
 		t.Errorf("expected type trigger, got %s", gotTr.Type)
@@ -940,6 +945,7 @@ func TestAutomationUpdateLastRun(t *testing.T) {
 	got := am.Get(cr.ID)
 	if got == nil {
 		t.Fatal("expected to find cron after UpdateLastRun")
+		return
 	}
 	if got.LastRun != ts {
 		t.Errorf("expected lastRun=%d, got %d", ts, got.LastRun)

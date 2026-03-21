@@ -8,12 +8,14 @@ import (
 
 // ---- Request/Response types ----
 
+// EndpointsResponse contains all available HTTP, gRPC, and MCP endpoints.
 type EndpointsResponse struct {
 	HTTP []HTTPEndpoint `json:"http"`
 	GRPC []GRPCMethod   `json:"grpc"`
 	MCP  []MCPTool      `json:"mcp"`
 }
 
+// HTTPEndpoint describes a single HTTP endpoint with its method and path.
 type HTTPEndpoint struct {
 	Method       string `json:"method"`
 	Path         string `json:"path"`
@@ -21,11 +23,13 @@ type HTTPEndpoint struct {
 	RequiresAuth bool   `json:"requiresAuth"`
 }
 
+// GRPCMethod describes a single gRPC method.
 type GRPCMethod struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 }
 
+// MCPTool describes a single MCP tool with its input schema.
 type MCPTool struct {
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
@@ -71,7 +75,7 @@ func (s *Server) handleEndpoints(w http.ResponseWriter, r *http.Request) {
 		{Method: "GET", Path: "/v1/vector-stats", Description: "Vector/embedding statistics", RequiresAuth: authEnabled},
 
 		// Search features
-		{Method: "POST", Path: "/v1/upload", Description: "Upload files (md/txt/html/pdf/docx) with auto-conversion to markdown", RequiresAuth: authEnabled},
+		{Method: "POST", Path: "/v1/upload", Description: "Upload files (md/txt/html/pdf/docx/odt/rtf/yaml/tex/log) with auto-conversion to markdown", RequiresAuth: authEnabled},
 		{Method: "POST", Path: "/v1/import-url", Description: "Import markdown from URL", RequiresAuth: authEnabled},
 		{Method: "POST", Path: "/v1/set-ttl", Description: "Set document time-to-live", RequiresAuth: authEnabled},
 		{Method: "POST", Path: "/v1/fts", Description: "Full-text search (with in-graph metadata filtering)", RequiresAuth: authEnabled},
@@ -122,6 +126,9 @@ func (s *Server) handleEndpoints(w http.ResponseWriter, r *http.Request) {
 
 		// Duplicate detection
 		{Method: "POST", Path: "/v1/find-duplicates", Description: "Find duplicate and similar documents in a collection", RequiresAuth: authEnabled},
+
+		// Aggregations
+		{Method: "POST", Path: "/v1/aggregate", Description: "Aggregate metadata facets and date histograms", RequiresAuth: authEnabled},
 
 		// Embedding configuration
 		{Method: "GET", Path: "/v1/embedding-configs", Description: "List embedding configurations", RequiresAuth: authEnabled},
@@ -261,7 +268,9 @@ func (s *Server) handleEndpoints(w http.ResponseWriter, r *http.Request) {
 		{Name: "vector_stats", Description: "Vector statistics"},
 		{Name: "import_url", Description: "Import from URL"},
 		{Name: "set_ttl", Description: "Set document TTL"},
-		{Name: "full_text_search", Description: "Full-text search (with in-graph filtering)"},
+		{Name: "full_text_search", Description: "Full-text search (with in-graph filtering, multi-language stemming)"},
+		{Name: "fts_reindex", Description: "Reindex FTS for a collection"},
+		{Name: "fts_languages", Description: "List supported FTS languages"},
 		{Name: "register_webhook", Description: "Register webhook"},
 		{Name: "list_webhooks", Description: "List webhooks"},
 		{Name: "delete_webhook", Description: "Delete webhook"},
@@ -297,8 +306,9 @@ func (s *Server) handleEndpoints(w http.ResponseWriter, r *http.Request) {
 		{Name: "list_collection_configs", Description: "List all collection configurations"},
 		{Name: "cross_search", Description: "Cross-collection vector search"},
 		{Name: "find_duplicates", Description: "Find duplicate and similar documents"},
+		{Name: "aggregate", Description: "Aggregate metadata facets and date histograms for a collection"},
 		{Name: "ingest_documents", Description: "Bulk ingest with URL key derivation, dedup, and auto-metadata"},
-		{Name: "upload_file", Description: "Upload file (PDF, DOCX, HTML, TXT, MD) with auto-conversion"},
+		{Name: "upload_file", Description: "Upload file (PDF, DOCX, HTML, TXT, MD, ODT, RTF, YAML, TEX, LOG) with auto-conversion"},
 	}
 
 	response := EndpointsResponse{

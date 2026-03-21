@@ -31,6 +31,7 @@ func TestNewWAL(t *testing.T) {
 	wal := newTestWAL(t, SyncNever)
 	if wal == nil {
 		t.Fatal("NewWAL returned nil")
+		return
 	}
 	if wal.file == nil {
 		t.Error("WAL file is nil")

@@ -24,9 +24,10 @@ var (
 	ErrUnauthorized       = errors.New("unauthorized")
 )
 
-// Permission types
+// PermissionType represents a level of access control.
 type PermissionType int
 
+// Permission level constants.
 const (
 	PermRead PermissionType = iota
 	PermWrite

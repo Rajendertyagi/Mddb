@@ -9,6 +9,7 @@ import (
 // BinlogEntryType defines the type of binlog entry
 type BinlogEntryType byte
 
+// Binlog entry type constants.
 const (
 	BinlogPut          BinlogEntryType = 1
 	BinlogDelete       BinlogEntryType = 2
@@ -43,15 +44,15 @@ func MarshalBinlogEntry(e *BinlogEntry) []byte {
 	// Type
 	buf = append(buf, byte(e.Type))
 	// Timestamp
-	buf = binary.BigEndian.AppendUint64(buf, uint64(e.Timestamp))
+	buf = binary.BigEndian.AppendUint64(buf, uint64(e.Timestamp)) // #nosec G115 -- timestamp always non-negative
 	// BucketName
-	buf = binary.BigEndian.AppendUint16(buf, uint16(len(bucketName)))
+	buf = binary.BigEndian.AppendUint16(buf, uint16(len(bucketName))) // #nosec G115 -- bucket name length always small
 	buf = append(buf, bucketName...)
 	// Key
-	buf = binary.BigEndian.AppendUint32(buf, uint32(len(e.Key)))
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(e.Key))) // #nosec G115 -- key length always bounded
 	buf = append(buf, e.Key...)
 	// Value
-	buf = binary.BigEndian.AppendUint32(buf, uint32(len(e.Value)))
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(e.Value))) // #nosec G115 -- value length always bounded
 	buf = append(buf, e.Value...)
 	// Checksum over everything before checksum field
 	checksum := crc32.ChecksumIEEE(buf)
@@ -78,7 +79,7 @@ func UnmarshalBinlogEntry(data []byte) (*BinlogEntry, int, error) {
 	pos++
 
 	// Timestamp
-	timestamp := int64(binary.BigEndian.Uint64(data[pos:]))
+	timestamp := int64(binary.BigEndian.Uint64(data[pos:])) // #nosec G115 -- timestamp within int64 range
 	pos += 8
 
 	// BucketName

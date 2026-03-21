@@ -71,7 +71,7 @@ func NewEmbeddingProvider() EmbeddingProvider {
 		return NewCohereEmbeddingProvider(apiKey, apiURL, model, dims)
 
 	default:
-		log.Printf("WARNING: unknown MDDB_EMBEDDING_PROVIDER=%q, embedding disabled", provider)
+		log.Printf("WARNING: unknown MDDB_EMBEDDING_PROVIDER=%q, embedding disabled", provider) // #nosec G706 -- internal log
 		return nil
 	}
 }

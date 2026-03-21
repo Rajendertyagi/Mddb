@@ -52,9 +52,14 @@ func NewPQIndex(nSubspaces, codebookSize, maxIter int) *PQIndex {
 	}
 }
 
-func (p *PQIndex) Name() string  { return "pq" }
+// Name implements the VectorSearcher interface.
+func (p *PQIndex) Name() string { return "pq" }
+
+// IsReady implements the VectorSearcher interface.
 func (p *PQIndex) IsReady() bool { return p.ready.Load() }
-func (p *PQIndex) SetReady()     { p.ready.Store(true) }
+
+// SetReady implements the VectorSearcher interface.
+func (p *PQIndex) SetReady() { p.ready.Store(true) }
 
 func (p *PQIndex) getOrCreate(collection string) *pqCollection {
 	c, ok := p.data[collection]
@@ -68,6 +73,7 @@ func (p *PQIndex) getOrCreate(collection string) *pqCollection {
 	return c
 }
 
+// Add implements the VectorSearcher interface.
 func (p *PQIndex) Add(collection, docID string, vector []float32) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -81,6 +87,7 @@ func (p *PQIndex) Add(collection, docID string, vector []float32) {
 	}
 }
 
+// Remove implements the VectorSearcher interface.
 func (p *PQIndex) Remove(collection, docID string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -169,7 +176,7 @@ func (p *PQIndex) Train(collection string, vectors map[string][]float32) {
 			if s == nSub-1 {
 				end = dim
 			}
-			code[s] = uint8(nearestCentroidPQ(v[start:end], codebooks[s]))
+			code[s] = uint8(nearestCentroidPQ(v[start:end], codebooks[s])) // #nosec G115 -- subvector index always < 256
 		}
 		codes[allIDs[i]] = code
 	}
@@ -197,7 +204,7 @@ func (p *PQIndex) encode(c *pqCollection, vector []float32) []uint8 {
 		if s == nSub-1 {
 			end = c.dim
 		}
-		code[s] = uint8(nearestCentroidPQ(vector[start:end], c.codebooks[s]))
+		code[s] = uint8(nearestCentroidPQ(vector[start:end], c.codebooks[s])) // #nosec G115 -- subvector index always < 256
 	}
 	return code
 }
@@ -220,6 +227,7 @@ func (p *PQIndex) Search(collection string, query []float32, topK int, threshold
 	return p.adcSearch(c, query, topK, threshold, nil, metric)
 }
 
+// SearchWithFilter implements the VectorSearcher interface.
 func (p *PQIndex) SearchWithFilter(collection string, query []float32, topK int, threshold float64, allowed map[string]bool, metric SimilarityFunc) []VectorResult {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -316,6 +324,7 @@ func (p *PQIndex) adcSearch(c *pqCollection, query []float32, topK int, threshol
 	return results
 }
 
+// CollectionSize implements the VectorSearcher interface.
 func (p *PQIndex) CollectionSize(collection string) int {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -326,6 +335,7 @@ func (p *PQIndex) CollectionSize(collection string) int {
 	return len(c.origVecs)
 }
 
+// Collections implements the VectorSearcher interface.
 func (p *PQIndex) Collections() []string {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -344,7 +354,7 @@ func kmeansInitPQ(vecs [][]float32, k int) [][]float32 {
 	}
 	dim := len(vecs[0])
 	centroids := make([][]float32, 0, k)
-	centroids = append(centroids, copyVecPQ(vecs[rand.Intn(len(vecs))]))
+	centroids = append(centroids, copyVecPQ(vecs[rand.Intn(len(vecs))])) // #nosec G404 -- not security-sensitive
 
 	for len(centroids) < k {
 		dists := make([]float64, len(vecs))
@@ -364,7 +374,7 @@ func kmeansInitPQ(vecs [][]float32, k int) [][]float32 {
 			centroids = append(centroids, make([]float32, dim))
 			continue
 		}
-		r := rand.Float64() * total
+		r := rand.Float64() * total // #nosec G404 -- not security-sensitive
 		cumulative := 0.0
 		selected := 0
 		for i, d := range dists {

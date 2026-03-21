@@ -7,20 +7,43 @@ MDDB provides four search methods: **Metadata Search**, **Full-Text Search**, **
 | Method | Algorithms | Best For |
 |--------|-----------|----------|
 | Metadata Search | Indexed filters | Exact tag/category matching |
-| Full-Text Search | TF-IDF, BM25, BM25F | Keyword-based document retrieval |
-| Vector Search | Flat, HNSW, IVF, PQ, SQ | Semantic similarity by meaning |
+| Full-Text Search | TF-IDF, BM25, BM25F, PMISparse | Keyword-based document retrieval |
+| Vector Search | Flat, HNSW, IVF, PQ, SQ, BQ | Semantic similarity by meaning |
 | Hybrid Search | Alpha Blending, RRF | Combined keyword + semantic relevance |
+| Aggregation | Facets, Histograms | Analytics and filtering UI |
 
 ## Full-Text Search
 
 Full-text search uses an inverted index built from document content. Queries are tokenized, stop words are removed, and documents are scored by relevance.
 
+### Multi-Language Support (v2.8.0+)
+
+FTS supports language-aware stemming and stop word filtering for 18 languages. Each document's `lang` field determines which stemmer and stop word list is used during indexing and querying.
+
+**Supported languages:** English, Polish, German, French, Spanish, Italian, Portuguese, Dutch, Russian, Swedish, Norwegian, Danish, Finnish, Hungarian, Romanian, Turkish, Arabic, Tamil.
+
+Language codes are normalized: `en_US` → `en`, `pl_PL` → `pl`. Unknown languages fall back to the configured default (English by default).
+
+```bash
+# Index a Polish document
+curl -X POST http://localhost:11023/v1/add \
+  -d '{"collection":"articles","key":"post-pl","lang":"pl","contentMd":"Programowanie w Go jest wydajne."}'
+
+# Search with Polish query tokenization
+curl -X POST http://localhost:11023/v1/fts \
+  -d '{"collection":"articles","query":"programowanie wydajne","lang":"pl","algorithm":"bm25"}'
+```
+
+Configure default language: `MDDB_FTS_DEFAULT_LANG=en` (default). Query supported languages: `GET /v1/fts-languages`. Reindex existing documents: `POST /v1/fts-reindex?collection=X`.
+
+**Protocol parity:** The `lang` parameter, FTS reindex, and FTS languages endpoints are available across all protocols: REST API, gRPC (`FTS`, `FTSReindex`, `FTSLanguages` RPCs), and MCP tools (`full_text_search` with `lang`, `fts_reindex`, `fts_languages`).
+
 ### Text Processing Pipeline
 
 1. **Lowercasing** - All text converted to lowercase
 2. **Tokenization** - Split on non-alphanumeric characters, minimum 2 characters
-3. **Stop Word Removal** - ~90 common English words filtered out
-4. **Stemming** (v2.6.4+) - Porter Stemmer reduces words to their root form (e.g., "running" -> "run", "organization" -> "organ"). Enabled by default, configurable via `MDDB_FTS_STEMMING`.
+3. **Stop Word Removal** - Language-specific stop words filtered (e.g., ~79 English, ~297 Polish, ~232 German). Configurable via per-collection custom stop words.
+4. **Stemming** (v2.6.4+) - Language-specific stemmer reduces words to their root form (e.g., English "running" → "run", Polish "domów" → "dom", German "Häuser" → "haus"). Enabled by default, configurable via `MDDB_FTS_STEMMING`.
 5. **Synonym Expansion** (v2.6.4+, query-time only) - Query terms are expanded with configured synonyms. Bidirectional: if "big" has synonym "large", searching "large" also finds "big". Configurable via `MDDB_FTS_SYNONYMS`.
 
 #### Per-Query Control
@@ -50,6 +73,136 @@ curl http://localhost:11023/v1/synonyms?collection=docs
 curl -X DELETE http://localhost:11023/v1/synonyms \
   -d '{"collection":"docs","term":"big"}'
 ```
+
+### Stop Word Management
+
+MDDB ships with language-specific stop words for 18 languages (e.g., ~79 English, ~297 Polish, ~232 German). You can add custom stop words per collection on top of language defaults.
+
+```bash
+# Add custom stop words
+curl -X POST http://localhost:11023/v1/stopwords \
+  -d '{"collection":"docs","words":["foo","bar","baz"]}'
+
+# List stop words
+curl http://localhost:11023/v1/stopwords?collection=docs
+
+# Delete custom stop words
+curl -X DELETE http://localhost:11023/v1/stopwords \
+  -d '{"collection":"docs","words":["foo"]}'
+```
+
+### Search Modes
+
+FTS supports 7 search modes. The mode can be set via the `mode` parameter, or left as `"auto"` (default) for automatic detection.
+
+| Mode | Syntax Example | Description |
+|------|---------------|-------------|
+| `simple` | `markdown database` | Basic keyword search |
+| `boolean` | `markdown AND database NOT sql` | Boolean operators (AND, OR, NOT, +, -) |
+| `phrase` | `"markdown database"` | Exact phrase matching (consecutive terms) |
+| `proximity` | `"markdown database"~5` | Terms within N words of each other |
+| `wildcard` | `mark* dat?base` | Pattern matching with `*` and `?` |
+| `range` | via `rangeMeta` parameter | Numeric/date range filtering |
+| `fuzzy` | `fuzzy: 1` or `fuzzy: 2` | Typo-tolerant matching (any mode) |
+| `auto` | _(default)_ | Auto-detects the appropriate mode |
+
+#### Auto Mode Detection
+
+When `mode` is omitted or set to `"auto"`, the query parser inspects the query string:
+
+1. Contains `"..."` only → **phrase** mode
+2. Contains `"..."~N` → **proximity** mode
+3. Contains `*` or `?` → **wildcard** mode
+4. Contains `AND`, `OR`, `NOT`, `+`, `-` → **boolean** mode
+5. Otherwise → **simple** mode
+
+#### Boolean Search
+
+Supports full boolean logic with AND, OR, NOT operators and required/excluded term prefixes.
+
+```bash
+# AND (implicit between terms)
+curl -X POST http://localhost:11023/v1/fts \
+  -d '{"collection":"docs","query":"markdown AND database","mode":"boolean"}'
+
+# OR
+curl -X POST http://localhost:11023/v1/fts \
+  -d '{"collection":"docs","query":"markdown OR asciidoc","mode":"boolean"}'
+
+# NOT / exclusion
+curl -X POST http://localhost:11023/v1/fts \
+  -d '{"collection":"docs","query":"database NOT sql","mode":"boolean"}'
+
+# Required term (+) and excluded term (-)
+curl -X POST http://localhost:11023/v1/fts \
+  -d '{"collection":"docs","query":"+markdown -html database","mode":"boolean"}'
+```
+
+#### Phrase Search
+
+Matches exact sequences of consecutive terms using the positional index.
+
+```bash
+curl -X POST http://localhost:11023/v1/fts \
+  -d '{"collection":"docs","query":"\"markdown database\"","mode":"phrase"}'
+```
+
+#### Proximity Search
+
+Finds documents where terms appear within N words of each other.
+
+```bash
+# "markdown" and "database" within 5 words of each other
+curl -X POST http://localhost:11023/v1/fts \
+  -d '{"collection":"docs","query":"\"markdown database\"~5","mode":"proximity"}'
+```
+
+**Scoring:** Based on the minimum span between matched terms — closer matches score higher.
+
+#### Wildcard Search
+
+Pattern matching against indexed terms. `*` matches any number of characters, `?` matches exactly one.
+
+```bash
+# Prefix match
+curl -X POST http://localhost:11023/v1/fts \
+  -d '{"collection":"docs","query":"mark*","mode":"wildcard"}'
+
+# Single character wildcard
+curl -X POST http://localhost:11023/v1/fts \
+  -d '{"collection":"docs","query":"te?t","mode":"wildcard"}'
+```
+
+Matched terms are scored with BM25.
+
+#### Range Filtering
+
+Filter FTS results by numeric or date ranges on metadata fields and built-in fields (`addedAt`, `updatedAt`).
+
+```bash
+curl -X POST http://localhost:11023/v1/fts \
+  -d '{
+    "collection": "blog",
+    "query": "tutorial",
+    "rangeMeta": {
+      "addedAt": {"gte": "2026-01-01", "lte": "2026-12-31"},
+      "meta.price": {"gte": 10, "lt": 100}
+    }
+  }'
+```
+
+| Operator | Description |
+|----------|-------------|
+| `gte` | Greater than or equal |
+| `gt` | Greater than |
+| `lte` | Less than or equal |
+| `lt` | Less than |
+
+Supports numeric values, date strings, and string lexicographic comparison.
+
+### Scoring Algorithms
+
+All search modes support the `algorithm` parameter to select the scoring function.
 
 ### TF-IDF (default)
 
@@ -111,6 +264,44 @@ where:
 Custom weights can be passed per-query via `fieldWeights`. Fields not in the weights map are ignored.
 
 **When to use:** When documents have structured metadata (title, tags, etc.) and you want title matches to rank higher than body-only matches. Best for content management, documentation, and knowledge bases.
+
+### PMISparse (Query Expansion)
+
+PMISparse combines BM25 scoring with automatic query expansion using Pointwise Mutual Information (PMI). It discovers related terms from the corpus and adds them to the query, improving recall without manual synonym lists.
+
+**How it works:**
+
+1. **Phase 1** — Standard BM25 scoring for direct query terms
+2. **Phase 2** — PMI expansion: finds statistically related terms from the index and scores documents against them
+3. **Combined** — Final score = BM25 score + (alpha × expansion score)
+
+**Parameters:**
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `k1` | 1.5 | Term frequency saturation (tuned for expansion) |
+| `b` | 0.75 | Document length normalization |
+| `alpha` | 0.35 | Expansion weight multiplier |
+| `expansionK` | 5 | Expansion terms per query term |
+| `windowSize` | 5 | Co-occurrence sliding window |
+| `minCount` | 2 | Minimum term frequency for PMI |
+
+The PPMI (Positive PMI) matrix is trained lazily on first use and automatically invalidated when the index changes.
+
+**When to use:** When recall matters more than precision — e.g., exploratory search, knowledge discovery, or queries where users might not know the exact terminology used in documents.
+
+```bash
+curl -X POST http://localhost:11023/v1/fts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "kb",
+    "query": "machine learning",
+    "algorithm": "pmisparse",
+    "limit": 10
+  }'
+```
+
+See [PMISPARSE.md](PMISPARSE.md) for detailed algorithm description.
 
 ### Typo Tolerance (Fuzzy Search)
 
@@ -281,6 +472,20 @@ Compresses vectors by quantizing each float32 dimension to uint8 (8-bit). Simple
 
 **When to use:** Medium to large collections where you need memory savings with better accuracy than PQ. Good middle ground between flat and PQ.
 
+### BQ (Binary Quantization)
+
+Extreme compression by converting each float32 dimension to a single bit (1 if positive, 0 if negative). Uses Hamming distance for fast comparison.
+
+| Property | Value |
+|----------|-------|
+| Accuracy | ~80-90% recall |
+| Speed | Very fast (bitwise operations) |
+| Memory | ~128x compression (1 bit per dimension vs 32 bits for flat) |
+| Build time | O(n) - just sign extraction |
+| Parameters | Automatic |
+
+**When to use:** Very large collections where speed and memory are critical and some accuracy loss is acceptable. Best for initial candidate retrieval followed by re-ranking.
+
 ### Comparison Table
 
 | Algorithm | Accuracy | Speed | Memory | Best For |
@@ -290,6 +495,7 @@ Compresses vectors by quantizing each float32 dimension to uint8 (8-bit). Simple
 | IVF | ~94% | Medium | ~1.1x | 100K+ docs |
 | PQ | ~90% | Fast | ~0.03x | 500K+ docs, low memory |
 | SQ | ~95% | Fast | ~0.25x | 50K+ docs, balanced |
+| BQ | ~85% | Very fast | ~0.008x | 1M+ docs, speed-first |
 
 ### Algorithm Selection Guide
 
@@ -898,6 +1104,122 @@ Results are returned as **groups** of duplicate documents. Each group contains 2
 The response includes summary counts:
 - `exactDuplicates` — total documents that are exact duplicates
 - `similarPairs` — total pairs of similar documents found
+
+## Aggregation (Facets & Histograms)
+
+MDDB supports faceted aggregation and time-based histograms for building search UIs, dashboards, and analytics.
+
+**Endpoint:** `POST /v1/aggregate`
+
+### Facets
+
+Count distinct values for metadata fields. Useful for building filter sidebars (e.g., "Show 42 results in category 'tutorial'").
+
+```bash
+curl -X POST http://localhost:11023/v1/aggregate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "blog",
+    "facets": [
+      {"field": "category", "orderBy": "count"},
+      {"field": "author", "orderBy": "value", "maxFacetSize": 20}
+    ]
+  }'
+```
+
+**Response:**
+```json
+{
+  "facets": {
+    "category": [
+      {"value": "tutorial", "count": 42},
+      {"value": "guide", "count": 18},
+      {"value": "reference", "count": 7}
+    ],
+    "author": [
+      {"value": "alice", "count": 30},
+      {"value": "bob", "count": 25}
+    ]
+  }
+}
+```
+
+#### Facet Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `field` | required | Metadata key to aggregate |
+| `orderBy` | `"count"` | Sort by `"count"` (descending) or `"value"` (alphabetical) |
+| `maxFacetSize` | `50` | Maximum number of distinct values returned |
+
+### Histograms
+
+Group documents by time intervals on `addedAt` or `updatedAt` fields.
+
+```bash
+curl -X POST http://localhost:11023/v1/aggregate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "blog",
+    "histograms": [
+      {"field": "addedAt", "interval": "month"}
+    ]
+  }'
+```
+
+**Response:**
+```json
+{
+  "histograms": {
+    "addedAt": [
+      {"bucket": "2026-01", "count": 15},
+      {"bucket": "2026-02", "count": 23},
+      {"bucket": "2026-03", "count": 8}
+    ]
+  }
+}
+```
+
+#### Histogram Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `field` | required | `"addedAt"` or `"updatedAt"` |
+| `interval` | `"month"` | `"day"`, `"week"`, `"month"`, or `"year"` |
+
+### Combined Request
+
+Facets, histograms, and metadata filters can be combined in a single request:
+
+```bash
+curl -X POST http://localhost:11023/v1/aggregate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "blog",
+    "facets": [
+      {"field": "category"},
+      {"field": "tags"}
+    ],
+    "histograms": [
+      {"field": "addedAt", "interval": "month"},
+      {"field": "updatedAt", "interval": "week"}
+    ],
+    "filterMeta": {"status": ["published"]}
+  }'
+```
+
+### MCP Tool
+
+```json
+{
+  "tool": "aggregate",
+  "arguments": {
+    "collection": "blog",
+    "facets": [{"field": "category"}],
+    "histograms": [{"field": "addedAt", "interval": "month"}]
+  }
+}
+```
 
 ## Zero-Shot Classification
 

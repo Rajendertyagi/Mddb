@@ -23,7 +23,7 @@ func loadMCPCustomTools() []MCPCustomToolConfig {
 
 	cfg, err := loadMCPConfig(path)
 	if err != nil {
-		log.Printf("WARNING: failed to load MCP config from %s: %v", path, err)
+		log.Printf("WARNING: failed to load MCP config from %s: %v", path, err) // #nosec G706 -- internal log
 		return nil
 	}
 
@@ -33,7 +33,7 @@ func loadMCPCustomTools() []MCPCustomToolConfig {
 	}
 
 	if len(cfg.CustomTools) > 0 {
-		log.Printf("MCP: loaded %d custom tools from %s", len(cfg.CustomTools), path)
+		log.Printf("MCP: loaded %d custom tools from %s", len(cfg.CustomTools), path) // #nosec G706 -- internal log
 	}
 
 	return cfg.CustomTools

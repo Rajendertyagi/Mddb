@@ -28,6 +28,7 @@ func NewDirectClient(s *Server) *DirectClient {
 	return &DirectClient{server: s}
 }
 
+// Health checks if the database is healthy via the direct client.
 func (c *DirectClient) Health(ctx context.Context) (*MCPHealth, error) {
 	err := c.server.DB.View(func(tx *bolt.Tx) error { return nil })
 	if err != nil {
@@ -36,13 +37,14 @@ func (c *DirectClient) Health(ctx context.Context) (*MCPHealth, error) {
 	return &MCPHealth{Status: "healthy", Mode: string(c.server.Mode)}, nil
 }
 
+// Stats returns database statistics via the direct client.
 func (c *DirectClient) Stats(ctx context.Context) (*MCPStats, error) {
 	stats := &MCPStats{
 		DatabasePath: c.server.Path,
 		Mode:         string(c.server.Mode),
 	}
 
-	if info, err := os.Stat(c.server.Path); err == nil {
+	if info, err := os.Stat(c.server.Path); err == nil { // #nosec G703 -- path from server config
 		stats.DatabaseSize = info.Size()
 	}
 
@@ -113,6 +115,7 @@ func (c *DirectClient) Stats(ctx context.Context) (*MCPStats, error) {
 	return stats, nil
 }
 
+// Add creates a new document via the direct client.
 func (c *DirectClient) Add(ctx context.Context, req *MCPAddRequest) (*MCPDocument, error) {
 	saved, _, err := c.server.addDocument(req.Collection, req.Key, req.Lang, req.Meta, req.ContentMD, 0)
 	if err != nil {
@@ -122,6 +125,7 @@ func (c *DirectClient) Add(ctx context.Context, req *MCPAddRequest) (*MCPDocumen
 	return &doc, nil
 }
 
+// AddBatch creates multiple documents in a single operation via the direct client.
 func (c *DirectClient) AddBatch(ctx context.Context, req *MCPAddBatchRequest) (*MCPAddBatchResponse, error) {
 	protoDocs := make([]*proto.BatchDocument, len(req.Documents))
 	for i, d := range req.Documents {
@@ -155,6 +159,7 @@ func (c *DirectClient) AddBatch(ctx context.Context, req *MCPAddBatchRequest) (*
 	}, nil
 }
 
+// UpdateBatch updates multiple documents in a single operation via the direct client.
 func (c *DirectClient) UpdateBatch(ctx context.Context, req *MCPUpdateBatchRequest) (*MCPUpdateBatchResponse, error) {
 	protoDocs := make([]*proto.UpdateDocument, len(req.Documents))
 	for i, d := range req.Documents {
@@ -181,6 +186,7 @@ func (c *DirectClient) UpdateBatch(ctx context.Context, req *MCPUpdateBatchReque
 	}, nil
 }
 
+// DeleteBatch removes multiple documents in a single operation via the direct client.
 func (c *DirectClient) DeleteBatch(ctx context.Context, req *MCPDeleteBatchRequest) (*MCPDeleteBatchResponse, error) {
 	protoDocs := make([]*proto.DeleteDocument, len(req.Documents))
 	for i, d := range req.Documents {
@@ -204,6 +210,7 @@ func (c *DirectClient) DeleteBatch(ctx context.Context, req *MCPDeleteBatchReque
 	}, nil
 }
 
+// Get retrieves a document via the direct client.
 func (c *DirectClient) Get(ctx context.Context, req *MCPGetRequest) (*MCPDocument, error) {
 	var doc Doc
 	err := c.server.DB.View(func(tx *bolt.Tx) error {
@@ -240,6 +247,7 @@ func (c *DirectClient) Get(ctx context.Context, req *MCPGetRequest) (*MCPDocumen
 	return &result, nil
 }
 
+// Search queries documents via the direct client.
 func (c *DirectClient) Search(ctx context.Context, req *MCPSearchRequest) (*MCPSearchResponse, error) {
 	if req.Limit <= 0 {
 		req.Limit = 50
@@ -354,10 +362,12 @@ func (c *DirectClient) Search(ctx context.Context, req *MCPSearchRequest) (*MCPS
 	}, nil
 }
 
+// Delete removes a document via the direct client.
 func (c *DirectClient) Delete(ctx context.Context, req *MCPDeleteRequest) error {
 	return c.server.deleteDocumentInternal(req.Collection, req.Key, req.Lang)
 }
 
+// DeleteCollection removes an entire collection via the direct client.
 func (c *DirectClient) DeleteCollection(ctx context.Context, req *MCPDeleteCollectionRequest) (*MCPDeleteCollectionResponse, error) {
 	var deletedCount int
 
@@ -410,6 +420,7 @@ func (c *DirectClient) DeleteCollection(ctx context.Context, req *MCPDeleteColle
 	return &MCPDeleteCollectionResponse{Deleted: deletedCount}, nil
 }
 
+// Export exports documents from a collection via the direct client.
 func (c *DirectClient) Export(ctx context.Context, req *MCPExportRequest) (io.ReadCloser, error) {
 	// Collect matching documents
 	var docs []Doc
@@ -472,6 +483,7 @@ func (c *DirectClient) Export(ctx context.Context, req *MCPExportRequest) (io.Re
 	return io.NopCloser(&buf), nil
 }
 
+// Backup creates a database backup via the direct client.
 func (c *DirectClient) Backup(ctx context.Context, req *MCPBackupRequest) (*MCPBackupResponse, error) {
 	dst := req.To
 	if dst == "" {
@@ -483,6 +495,7 @@ func (c *DirectClient) Backup(ctx context.Context, req *MCPBackupRequest) (*MCPB
 	return &MCPBackupResponse{Backup: dst}, nil
 }
 
+// Restore restores documents from a backup via the direct client.
 func (c *DirectClient) Restore(ctx context.Context, req *MCPRestoreRequest) (*MCPRestoreResponse, error) {
 	if req.From == "" {
 		return nil, errors.New("missing from")
@@ -499,6 +512,7 @@ func (c *DirectClient) Restore(ctx context.Context, req *MCPRestoreRequest) (*MC
 	return &MCPRestoreResponse{Restored: req.From}, nil
 }
 
+// Truncate removes all documents from a collection via the direct client.
 func (c *DirectClient) Truncate(ctx context.Context, req *MCPTruncateRequest) (*MCPTruncateResponse, error) {
 	err := c.server.DB.Update(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket([]byte("rev"))
@@ -535,6 +549,7 @@ func (c *DirectClient) Truncate(ctx context.Context, req *MCPTruncateRequest) (*
 	return &MCPTruncateResponse{Status: "truncated"}, nil
 }
 
+// VectorSearch performs a vector similarity search via the direct client.
 func (c *DirectClient) VectorSearch(ctx context.Context, req *MCPVectorSearchRequest) (*MCPVectorSearchResponse, error) {
 	s := c.server
 
@@ -660,6 +675,7 @@ func (c *DirectClient) VectorSearch(ctx context.Context, req *MCPVectorSearchReq
 	return resp, nil
 }
 
+// VectorReindex rebuilds the vector index via the direct client.
 func (c *DirectClient) VectorReindex(ctx context.Context, req *MCPVectorReindexRequest) (*MCPVectorReindexResponse, error) {
 	s := c.server
 
@@ -787,6 +803,7 @@ func (c *DirectClient) VectorReindex(ctx context.Context, req *MCPVectorReindexR
 	}, nil
 }
 
+// VectorStats returns vector index statistics via the direct client.
 func (c *DirectClient) VectorStats(ctx context.Context) (*MCPVectorStatsResponse, error) {
 	s := c.server
 	resp := &MCPVectorStatsResponse{
@@ -836,6 +853,7 @@ func (c *DirectClient) VectorStats(ctx context.Context) (*MCPVectorStatsResponse
 	return resp, nil
 }
 
+// ImportURL imports a document from a URL via the direct client.
 func (c *DirectClient) ImportURL(ctx context.Context, req *MCPImportURLRequest) (*MCPDocument, error) {
 	if req.Collection == "" || req.URL == "" || req.Lang == "" {
 		return nil, errors.New("missing required fields: collection, url, lang")
@@ -872,6 +890,7 @@ func (c *DirectClient) ImportURL(ctx context.Context, req *MCPImportURLRequest) 
 	return &doc, nil
 }
 
+// SetTTL sets a time-to-live on a document via the direct client.
 func (c *DirectClient) SetTTL(ctx context.Context, req *MCPSetTTLRequest) (*MCPDocument, error) {
 	if req.Collection == "" || req.Key == "" || req.Lang == "" {
 		return nil, errors.New("missing required fields")
@@ -921,6 +940,7 @@ func (c *DirectClient) SetTTL(ctx context.Context, req *MCPSetTTLRequest) (*MCPD
 	return &doc, nil
 }
 
+// FTSSearch performs a full-text search via the direct client.
 func (c *DirectClient) FTSSearch(ctx context.Context, req *MCPFTSSearchRequest) (*MCPFTSSearchResponse, error) {
 	if req.Collection == "" || req.Query == "" {
 		return nil, errors.New("missing required fields: collection, query")
@@ -976,6 +996,7 @@ func (c *DirectClient) FTSSearch(ctx context.Context, req *MCPFTSSearchRequest) 
 	resp := &MCPFTSSearchResponse{
 		Algorithm: algo,
 		Fuzzy:     fuzzy,
+		Lang:      req.Lang,
 		Results:   make([]MCPFTSResult, 0, len(results)),
 	}
 
@@ -1006,6 +1027,88 @@ func (c *DirectClient) FTSSearch(ctx context.Context, req *MCPFTSSearchRequest) 
 	return resp, nil
 }
 
+// FTSReindex re-indexes all documents in a collection using their lang field.
+func (c *DirectClient) FTSReindex(ctx context.Context, req *MCPFTSReindexRequest) (*MCPFTSReindexResponse, error) {
+	if req.Collection == "" {
+		return nil, errors.New("missing required field: collection")
+	}
+	if c.server.FTSIndex == nil {
+		return nil, errors.New("full-text search not initialized")
+	}
+
+	// Collect docs first (read tx), then index outside to avoid deadlock
+	type reindexDoc struct {
+		ID, ContentMD, Lang string
+		Meta                map[string][]string
+	}
+	var docs []reindexDoc
+	var skipped int
+	_ = c.server.DB.View(func(tx *bolt.Tx) error {
+		bDocs := tx.Bucket([]byte("docs"))
+		if bDocs == nil {
+			return nil
+		}
+		prefix := []byte("doc|" + req.Collection + "|")
+		cur := bDocs.Cursor()
+		for k, v := cur.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = cur.Next() {
+			docPtr, err := loadDoc(v)
+			if err != nil || docPtr.ContentMD == "" {
+				skipped++
+				continue
+			}
+			if docPtr.ExpiresAt > 0 && docPtr.ExpiresAt < time.Now().Unix() {
+				skipped++
+				continue
+			}
+			docs = append(docs, reindexDoc{docPtr.ID, docPtr.ContentMD, docPtr.Lang, docPtr.Meta})
+		}
+		return nil
+	})
+
+	reindexed := 0
+	for _, d := range docs {
+		_ = c.server.FTSIndex.IndexWithLang(req.Collection, d.ID, d.ContentMD, d.Lang)
+		_ = c.server.FTSIndex.IndexPositionsWithLang(req.Collection, d.ID, d.ContentMD, d.Lang)
+		fields := map[string]string{"content": d.ContentMD}
+		for mk, vals := range d.Meta {
+			if len(vals) > 0 {
+				fields["meta."+mk] = strings.Join(vals, " ")
+			}
+		}
+		_ = c.server.FTSIndex.IndexFieldsWithLang(req.Collection, d.ID, fields, d.Lang)
+		reindexed++
+	}
+
+	return &MCPFTSReindexResponse{
+		Status:    "ok",
+		Reindexed: reindexed,
+		Skipped:   skipped,
+	}, nil
+}
+
+// FTSLanguages returns the list of supported FTS languages.
+func (c *DirectClient) FTSLanguages(ctx context.Context) (*MCPFTSLanguagesResponse, error) {
+	if c.server.FTSIndex == nil || c.server.FTSIndex.langRegistry == nil {
+		return &MCPFTSLanguagesResponse{Languages: []MCPFTSLanguageInfo{}}, nil
+	}
+
+	var langs []MCPFTSLanguageInfo
+	for _, code := range c.server.FTSIndex.langRegistry.Languages() {
+		cfg := c.server.FTSIndex.langRegistry.Resolve(code)
+		name := code
+		if cfg != nil {
+			name = cfg.Name
+		}
+		langs = append(langs, MCPFTSLanguageInfo{Code: code, Name: name})
+	}
+
+	return &MCPFTSLanguagesResponse{
+		Languages:   langs,
+		DefaultLang: c.server.FTSIndex.langRegistry.DefaultLang(),
+	}, nil
+}
+
+// HybridSearch performs a combined full-text and vector search via the direct client.
 func (c *DirectClient) HybridSearch(ctx context.Context, req *MCPHybridSearchRequest) (*MCPHybridSearchResponse, error) {
 	if req.Collection == "" || req.Query == "" {
 		return nil, errors.New("missing required fields: collection, query")
@@ -1089,6 +1192,7 @@ func (c *DirectClient) HybridSearch(ctx context.Context, req *MCPHybridSearchReq
 	return resp, nil
 }
 
+// RegisterWebhook registers a new webhook via the direct client.
 func (c *DirectClient) RegisterWebhook(ctx context.Context, req *MCPRegisterWebhookRequest) (*MCPWebhook, error) {
 	if c.server.WebhookManager == nil {
 		return nil, errors.New("webhooks not initialized")
@@ -1106,6 +1210,7 @@ func (c *DirectClient) RegisterWebhook(ctx context.Context, req *MCPRegisterWebh
 	}, nil
 }
 
+// ListWebhooks returns all registered webhooks via the direct client.
 func (c *DirectClient) ListWebhooks(ctx context.Context) ([]MCPWebhook, error) {
 	if c.server.WebhookManager == nil {
 		return nil, errors.New("webhooks not initialized")
@@ -1118,6 +1223,7 @@ func (c *DirectClient) ListWebhooks(ctx context.Context) ([]MCPWebhook, error) {
 	return result, nil
 }
 
+// DeleteWebhook removes a webhook via the direct client.
 func (c *DirectClient) DeleteWebhook(ctx context.Context, req *MCPDeleteWebhookRequest) error {
 	if c.server.WebhookManager == nil {
 		return errors.New("webhooks not initialized")
@@ -1125,6 +1231,7 @@ func (c *DirectClient) DeleteWebhook(ctx context.Context, req *MCPDeleteWebhookR
 	return c.server.WebhookManager.Delete(req.ID)
 }
 
+// SetSchema sets a JSON schema for a collection via the direct client.
 func (c *DirectClient) SetSchema(ctx context.Context, req *MCPSetSchemaRequest) error {
 	if c.server.SchemaManager == nil {
 		return errors.New("schema manager not initialized")
@@ -1132,6 +1239,7 @@ func (c *DirectClient) SetSchema(ctx context.Context, req *MCPSetSchemaRequest) 
 	return c.server.SchemaManager.Set(req.Collection, req.Schema)
 }
 
+// GetSchema retrieves the JSON schema for a collection via the direct client.
 func (c *DirectClient) GetSchema(ctx context.Context, collection string) (*MCPSchemaResponse, error) {
 	if c.server.SchemaManager == nil {
 		return nil, errors.New("schema manager not initialized")
@@ -1144,6 +1252,7 @@ func (c *DirectClient) GetSchema(ctx context.Context, collection string) (*MCPSc
 	}, nil
 }
 
+// DeleteSchema removes the JSON schema for a collection via the direct client.
 func (c *DirectClient) DeleteSchema(ctx context.Context, collection string) error {
 	if c.server.SchemaManager == nil {
 		return errors.New("schema manager not initialized")
@@ -1151,6 +1260,7 @@ func (c *DirectClient) DeleteSchema(ctx context.Context, collection string) erro
 	return c.server.SchemaManager.Delete(collection)
 }
 
+// ListSchemas returns all registered schemas via the direct client.
 func (c *DirectClient) ListSchemas(ctx context.Context) (*MCPListSchemasResponse, error) {
 	if c.server.SchemaManager == nil {
 		return nil, errors.New("schema manager not initialized")
@@ -1168,6 +1278,7 @@ func (c *DirectClient) ListSchemas(ctx context.Context) (*MCPListSchemasResponse
 	return result, nil
 }
 
+// ValidateDocument validates a document against its collection schema via the direct client.
 func (c *DirectClient) ValidateDocument(ctx context.Context, req *MCPValidateRequest) (*MCPValidateResponse, error) {
 	if c.server.SchemaManager == nil {
 		return &MCPValidateResponse{Valid: true, Errors: []string{}}, nil
@@ -1180,6 +1291,7 @@ func (c *DirectClient) ValidateDocument(ctx context.Context, req *MCPValidateReq
 	return &MCPValidateResponse{Valid: true, Errors: []string{}}, nil
 }
 
+// UpdateDocument updates an existing document via the direct client.
 func (c *DirectClient) UpdateDocument(ctx context.Context, req *MCPUpdateDocumentRequest) (*MCPDocument, error) {
 	if req.Collection == "" || req.Key == "" || req.Lang == "" {
 		return nil, errors.New("missing required fields: collection, key, lang")
@@ -1249,6 +1361,7 @@ func (c *DirectClient) UpdateDocument(ctx context.Context, req *MCPUpdateDocumen
 	return &result, nil
 }
 
+// GetDocumentMeta retrieves document metadata via the direct client.
 func (c *DirectClient) GetDocumentMeta(ctx context.Context, req *MCPGetDocMetaRequest) (*MCPDocMetaResponse, error) {
 	if req.Collection == "" || req.Key == "" || req.Lang == "" {
 		return nil, errors.New("missing required fields: collection, key, lang")
@@ -1287,6 +1400,7 @@ func (c *DirectClient) GetDocumentMeta(ctx context.Context, req *MCPGetDocMetaRe
 	}, nil
 }
 
+// Classify classifies a document via the direct client.
 func (c *DirectClient) Classify(ctx context.Context, req *MCPClassifyRequest) (*MCPClassifyResponse, error) {
 	resp, err := c.server.classifyDocument(ctx, req.Collection, req.Key, req.Lang, req.Text, req.Labels, req.TopK, req.Multi, req.Threshold)
 	if err != nil {
@@ -1307,6 +1421,7 @@ func (c *DirectClient) Classify(ctx context.Context, req *MCPClassifyRequest) (*
 
 // --- Synonyms ---
 
+// ListSynonyms returns synonyms for a collection via the direct client.
 func (c *DirectClient) ListSynonyms(ctx context.Context, collection string) (*MCPSynonymListResponse, error) {
 	if c.server.SynonymManager == nil {
 		return nil, errors.New("synonym manager not initialized")
@@ -1323,6 +1438,7 @@ func (c *DirectClient) ListSynonyms(ctx context.Context, collection string) (*MC
 	}, nil
 }
 
+// SetSynonym sets a synonym mapping via the direct client.
 func (c *DirectClient) SetSynonym(ctx context.Context, collection, term string, synonyms []string) error {
 	if c.server.SynonymManager == nil {
 		return errors.New("synonym manager not initialized")
@@ -1330,6 +1446,7 @@ func (c *DirectClient) SetSynonym(ctx context.Context, collection, term string, 
 	return c.server.SynonymManager.Set(collection, term, synonyms)
 }
 
+// DeleteSynonym removes a synonym mapping via the direct client.
 func (c *DirectClient) DeleteSynonym(ctx context.Context, collection, term string) error {
 	if c.server.SynonymManager == nil {
 		return errors.New("synonym manager not initialized")
@@ -1339,6 +1456,7 @@ func (c *DirectClient) DeleteSynonym(ctx context.Context, collection, term strin
 
 // --- Stop Words ---
 
+// ListStopWords returns stop words for a collection via the direct client.
 func (c *DirectClient) ListStopWords(ctx context.Context, collection string) (*MCPStopWordListResponse, error) {
 	if c.server.StopWordManager == nil {
 		return nil, errors.New("stop word manager not initialized")
@@ -1360,6 +1478,7 @@ func (c *DirectClient) ListStopWords(ctx context.Context, collection string) (*M
 	}, nil
 }
 
+// AddStopWords adds stop words for a collection via the direct client.
 func (c *DirectClient) AddStopWords(ctx context.Context, collection string, words []string) error {
 	if c.server.StopWordManager == nil {
 		return errors.New("stop word manager not initialized")
@@ -1367,6 +1486,7 @@ func (c *DirectClient) AddStopWords(ctx context.Context, collection string, word
 	return c.server.StopWordManager.Add(collection, words)
 }
 
+// DeleteStopWords removes stop words from a collection via the direct client.
 func (c *DirectClient) DeleteStopWords(ctx context.Context, collection string, words []string) error {
 	if c.server.StopWordManager == nil {
 		return errors.New("stop word manager not initialized")
@@ -1385,6 +1505,7 @@ func (c *DirectClient) DeleteStopWords(ctx context.Context, collection string, w
 
 // --- Meta Keys / Checksum ---
 
+// GetMetaKeys returns all metadata keys for a collection via the direct client.
 func (c *DirectClient) GetMetaKeys(ctx context.Context, collection string) (*MCPMetaKeysResponse, error) {
 	meta := make(map[string][]string)
 	_ = c.server.DB.View(func(tx *bolt.Tx) error {
@@ -1415,6 +1536,7 @@ func (c *DirectClient) GetMetaKeys(ctx context.Context, collection string) (*MCP
 	return &MCPMetaKeysResponse{Meta: meta}, nil
 }
 
+// GetChecksum returns a checksum for a collection via the direct client.
 func (c *DirectClient) GetChecksum(ctx context.Context, collection string) (*MCPChecksumResponse, error) {
 	checksum, count := c.server.collectionChecksum(collection)
 	return &MCPChecksumResponse{
@@ -1426,6 +1548,7 @@ func (c *DirectClient) GetChecksum(ctx context.Context, collection string) (*MCP
 
 // --- Automation ---
 
+// ListAutomation returns automation rules via the direct client.
 func (c *DirectClient) ListAutomation(ctx context.Context, filterType string) (*MCPAutomationListResponse, error) {
 	if c.server.AutomationManager == nil {
 		return nil, errors.New("automation not initialized")
@@ -1434,6 +1557,7 @@ func (c *DirectClient) ListAutomation(ctx context.Context, filterType string) (*
 	return &MCPAutomationListResponse{Rules: rules, Total: len(rules)}, nil
 }
 
+// CreateAutomation creates a new automation rule via the direct client.
 func (c *DirectClient) CreateAutomation(ctx context.Context, rule AutomationRule) (*AutomationRule, error) {
 	if c.server.AutomationManager == nil {
 		return nil, errors.New("automation not initialized")
@@ -1441,6 +1565,7 @@ func (c *DirectClient) CreateAutomation(ctx context.Context, rule AutomationRule
 	return c.server.AutomationManager.Create(rule)
 }
 
+// GetAutomation retrieves an automation rule by ID via the direct client.
 func (c *DirectClient) GetAutomation(ctx context.Context, id string) (*AutomationRule, error) {
 	if c.server.AutomationManager == nil {
 		return nil, errors.New("automation not initialized")
@@ -1452,6 +1577,7 @@ func (c *DirectClient) GetAutomation(ctx context.Context, id string) (*Automatio
 	return rule, nil
 }
 
+// UpdateAutomation updates an automation rule via the direct client.
 func (c *DirectClient) UpdateAutomation(ctx context.Context, id string, rule AutomationRule) (*AutomationRule, error) {
 	if c.server.AutomationManager == nil {
 		return nil, errors.New("automation not initialized")
@@ -1459,6 +1585,7 @@ func (c *DirectClient) UpdateAutomation(ctx context.Context, id string, rule Aut
 	return c.server.AutomationManager.Update(id, rule)
 }
 
+// DeleteAutomation removes an automation rule via the direct client.
 func (c *DirectClient) DeleteAutomation(ctx context.Context, id string) error {
 	if c.server.AutomationManager == nil {
 		return errors.New("automation not initialized")
@@ -1466,6 +1593,7 @@ func (c *DirectClient) DeleteAutomation(ctx context.Context, id string) error {
 	return c.server.AutomationManager.Delete(id)
 }
 
+// TestAutomation runs an automation rule in test mode via the direct client.
 func (c *DirectClient) TestAutomation(ctx context.Context, id string) (string, error) {
 	if c.server.AutomationManager == nil {
 		return "", errors.New("automation not initialized")
@@ -1496,6 +1624,7 @@ func (c *DirectClient) TestAutomation(ctx context.Context, id string) (string, e
 	return string(data), nil
 }
 
+// ListAutomationLogs returns automation execution logs via the direct client.
 func (c *DirectClient) ListAutomationLogs(ctx context.Context, limit int, cursor, ruleID, status string) (*MCPAutomationLogListResponse, error) {
 	if c.server.AutomationLogStore == nil {
 		return nil, errors.New("automation logs not initialized")
@@ -1516,6 +1645,7 @@ func (c *DirectClient) ListAutomationLogs(ctx context.Context, limit int, cursor
 	}, nil
 }
 
+// ListRevisions returns document revision history via the direct client.
 func (c *DirectClient) ListRevisions(ctx context.Context, collection, key, lang string) (*RevisionListResponse, error) {
 	docID := genID(collection, key, lang)
 	var revisions []RevisionEntry
@@ -1563,6 +1693,7 @@ func (c *DirectClient) ListRevisions(ctx context.Context, collection, key, lang 
 	}, nil
 }
 
+// RestoreRevision restores a document to a previous revision via the direct client.
 func (c *DirectClient) RestoreRevision(ctx context.Context, collection, key, lang string, timestamp int64) (*MCPDocument, error) {
 	docID := genID(collection, key, lang)
 	tsKey := fmt.Sprintf("%020d", timestamp)
@@ -1596,6 +1727,7 @@ func (c *DirectClient) RestoreRevision(ctx context.Context, collection, key, lan
 
 // --- Collection Config ---
 
+// GetCollectionConfig retrieves configuration for a collection via the direct client.
 func (c *DirectClient) GetCollectionConfig(ctx context.Context, collection string) (*MCPCollectionConfigResponse, error) {
 	cfg, found := c.server.CollectionManager.Get(collection)
 	if !found {
@@ -1608,6 +1740,7 @@ func (c *DirectClient) GetCollectionConfig(ctx context.Context, collection strin
 	}, nil
 }
 
+// SetCollectionConfig updates configuration for a collection via the direct client.
 func (c *DirectClient) SetCollectionConfig(ctx context.Context, req *MCPSetCollectionConfigRequest) error {
 	cfg := &CollectionConfig{
 		Type:        req.Type,
@@ -1619,6 +1752,7 @@ func (c *DirectClient) SetCollectionConfig(ctx context.Context, req *MCPSetColle
 	return c.server.CollectionManager.Set(req.Collection, cfg)
 }
 
+// ListCollectionConfigs returns all collection configurations via the direct client.
 func (c *DirectClient) ListCollectionConfigs(ctx context.Context) (*MCPCollectionConfigListResponse, error) {
 	all := c.server.CollectionManager.ListAll()
 	return &MCPCollectionConfigListResponse{
@@ -1629,6 +1763,7 @@ func (c *DirectClient) ListCollectionConfigs(ctx context.Context) (*MCPCollectio
 
 // --- Cross-Collection Search ---
 
+// CrossSearch searches across multiple collections via the direct client.
 func (c *DirectClient) CrossSearch(ctx context.Context, req *MCPCrossSearchRequest) (*MCPCrossSearchResponse, error) {
 	s := c.server
 
@@ -1761,6 +1896,7 @@ func (c *DirectClient) CrossSearch(ctx context.Context, req *MCPCrossSearchReque
 
 // --- Find Duplicates ---
 
+// FindDuplicates finds duplicate documents via the direct client.
 func (c *DirectClient) FindDuplicates(ctx context.Context, req *MCPFindDuplicatesRequest) (*MCPFindDuplicatesResponse, error) {
 	httpReq := FindDuplicatesRequest{
 		Collection:     req.Collection,
@@ -1773,6 +1909,7 @@ func (c *DirectClient) FindDuplicates(ctx context.Context, req *MCPFindDuplicate
 	return c.server.findDuplicates(httpReq)
 }
 
+// Ingest bulk-imports documents via the direct client.
 func (c *DirectClient) Ingest(ctx context.Context, req *MCPIngestRequest) (*MCPIngestResponse, error) {
 	docs := make([]IngestDocumentHTTP, len(req.Documents))
 	for i, d := range req.Documents {
@@ -1804,6 +1941,12 @@ func (c *DirectClient) Ingest(ctx context.Context, req *MCPIngestRequest) (*MCPI
 	}, nil
 }
 
+// Aggregate performs aggregation queries via the direct client.
+func (c *DirectClient) Aggregate(ctx context.Context, req *AggregateRequest) (*AggregateResponse, error) {
+	return c.server.aggregate(req)
+}
+
+// Close is a no-op for the direct client since the server manages its own lifecycle.
 func (c *DirectClient) Close() error {
 	// No-op — Server owns all resources.
 	return nil

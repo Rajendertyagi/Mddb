@@ -135,7 +135,7 @@ func (p *WorkerPool) Close() {
 	close(p.results)
 }
 
-// Errors
+// Worker pool sentinel errors.
 var (
 	ErrUnknownJobType = &JobError{Message: "unknown job type"}
 	ErrJobQueueFull   = &JobError{Message: "job queue full"}
@@ -143,6 +143,7 @@ var (
 	ErrResultTimeout  = &JobError{Message: "result timeout"}
 )
 
+// JobError represents an error returned by the worker pool.
 type JobError struct {
 	Message string
 }

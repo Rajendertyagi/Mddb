@@ -7,22 +7,22 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/tradik/mddb)](https://hub.docker.com/r/tradik/mddb)
 [![Tests](https://github.com/tradik/mddb/workflows/Tests/badge.svg)](https://github.com/tradik/mddb/actions)
 
-**AI-native document database with built-in MCP server, file upload (PDF/DOCX/HTML→Markdown), vector search, RAG pipelines, and 53 MCP tools. Plugs directly into Claude, ChatGPT, Cursor, Windsurf, and any MCP-compatible agent.**
+**AI-native document database with built-in MCP server, file upload (PDF/DOCX/HTML/ODT/RTF/TEX/YAML→Markdown), vector search, RAG pipelines, and 54 MCP tools. Plugs directly into Claude, ChatGPT, Cursor, Windsurf, and any MCP-compatible agent.**
 
-MDDB is a document database purpose-built for AI agents and LLM workflows. Upload files (PDF, DOCX, HTML, TXT) — they're auto-converted to Markdown and embedded for semantic search. Expose everything to AI agents via 53 built-in MCP tools. Integrates with [Docling](docs/INTEGRATIONS.md#1-docling--mddb-document-ingestion), [Langflow](docs/INTEGRATIONS.md#2-langflow--mddb-visual-rag-orchestration), [OpenSearch](docs/INTEGRATIONS.md#3-opensearch--mddb-scalable-search), [SSG](docs/INTEGRATIONS.md#4-ssg--static-site-generator-from-mddb), and [wpexporter](docs/INTEGRATIONS.md#5-wpexporter--wordpress-to-mddb-migration) for production pipelines. Single ~29MB binary, zero configuration, BoltDB embedded storage, triple-protocol APIs (HTTP + gRPC + GraphQL).
+MDDB is a document database purpose-built for AI agents and LLM workflows. Upload files (PDF, DOCX, HTML, ODT, RTF, TEX, YAML, TXT) — they're auto-converted to Markdown and embedded for semantic search. Expose everything to AI agents via 54 built-in MCP tools. Integrates with [Docling](docs/INTEGRATIONS.md#1-docling--mddb-document-ingestion), [Langflow](docs/INTEGRATIONS.md#2-langflow--mddb-visual-rag-orchestration), [OpenSearch](docs/INTEGRATIONS.md#3-opensearch--mddb-scalable-search), [SSG](docs/INTEGRATIONS.md#4-ssg--static-site-generator-from-mddb), and [wpexporter](docs/INTEGRATIONS.md#5-wpexporter--wordpress-to-mddb-migration) for production pipelines. Single ~29MB binary, zero configuration, BoltDB embedded storage, triple-protocol APIs (HTTP + gRPC + GraphQL).
 
 ## 🎯 What is MDDB?
 
 MDDB gives your AI agents a persistent, searchable knowledge base:
 
-- **File Upload** - Upload PDF, DOCX, HTML, TXT files — auto-converted to Markdown and indexed
-- **Built-in MCP Server** - 53 tools for Claude Desktop, Cursor, Windsurf, or any MCP client
+- **File Upload** - Upload PDF, DOCX, HTML, ODT, RTF, TEX, YAML, TXT files — auto-converted to Markdown and indexed
+- **Built-in MCP Server** - 54 tools for Claude Desktop, Cursor, Windsurf, or any MCP client
 - **Vector Search** - Auto-embed documents, semantic similarity with 6 index algorithms (Flat, HNSW, IVF, PQ, SQ, BQ)
 - **RAG-Ready** - Hybrid search (BM25 + vector) for retrieval-augmented generation
 - **Integrations** - [Docling](docs/INTEGRATIONS.md), [Langflow](docs/INTEGRATIONS.md), [OpenSearch](docs/INTEGRATIONS.md), [SSG](docs/INTEGRATIONS.md), [wpexporter](docs/INTEGRATIONS.md) for production pipelines
 - **Zero-Shot Classification** — Classify documents against candidate labels using embeddings, no training data
 - **Custom AI Tools** - Define YAML-based MCP tools for domain-specific workflows
-- **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, BM25F, PMISparse, typo tolerance, stemming, synonyms
+- **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, BM25F, PMISparse, 7 search modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), typo tolerance, multi-language stemming (18 languages), synonyms
 - **Full Revision History** - Every update creates a new revision with complete snapshots
 - **Triple Protocol APIs** - HTTP/JSON (easy), gRPC (fast), or GraphQL (flexible)
 - **Automation** - Triggers, crons, webhooks with template variables and sentiment analysis
@@ -77,7 +77,7 @@ MDDB has a built-in MCP server — no extra service needed. Add to your MCP conf
 }
 ```
 
-That's it — your AI agent now has full access to your knowledge base with 53 built-in tools (add, search, vector search, classify, and more).
+That's it — your AI agent now has full access to your knowledge base with 54 built-in tools (add, search, vector search, classify, and more).
 
 **[→ Full MCP setup guide](docs/LLM_CONNECTIONS.md)** | **[→ Custom MCP tools](docs/CUSTOM-TOOLS.md)**
 
@@ -160,6 +160,8 @@ MDDB ships as a monorepo with multiple packages:
 | **mddbd** | Go | `services/mddbd/` | Database server (HTTP + gRPC + GraphQL + MCP) |
 | **mddb-panel** | React/JS | `services/mddb-panel/` | Web admin panel |
 | **mddb-cli** | Go | `services/mddb-cli/` | Command-line client with GraphQL support |
+| **mddb-chat** | Rust | `services/mddb-chat/` | WebSocket chat server with LLM integration |
+| **mddb-chat-widget** | JS/TS | `services/mddb-chat-widget/` | Embeddable JS chat widget |
 
 ### Client Libraries (REST)
 
@@ -217,11 +219,12 @@ Proto definitions at `proto/mddb.proto` - generate clients for any language supp
 ## 💡 Key Features
 
 ### AI & Search
-- ✅ **MCP Server** - 53 built-in tools via Model Context Protocol (stdio + HTTP) for Claude, Cursor, Windsurf, and any MCP client
-- ✅ **File Upload** - Upload PDF, DOCX, HTML, TXT — auto-converted to Markdown (single and batch, configurable size limit)
+- ✅ **MCP Server** - 54 built-in tools via Model Context Protocol (stdio + HTTP) for Claude, Cursor, Windsurf, and any MCP client
+- ✅ **File Upload** - Upload PDF, DOCX, HTML, ODT, RTF, TEX, YAML, TXT — auto-converted to Markdown (single and batch, configurable size limit)
 - ✅ **Vector Search** - Semantic similarity with auto-embeddings (OpenAI, Ollama, Cohere, Voyage)
-- ✅ **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, BM25F, and PMISparse scoring, typo tolerance, metadata pre-filtering
+- ✅ **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, BM25F, PMISparse scoring, 7 search modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), typo tolerance, metadata pre-filtering, multi-language stemming and stop words (18 languages)
 - ✅ **Hybrid Search** - Sparse (BM25) + dense (vector) fusion with alpha blending or RRF
+- ✅ **Aggregations** - Metadata facets (value counts) and date histograms with optional pre-filtering
 - ✅ **Zero-Shot Classification** - Classify documents against candidate labels using embedding similarity
 - ✅ **Custom MCP Tools** - Define YAML-based AI tools for domain-specific workflows
 - ✅ **RAG Pipeline** - Built-in support for retrieval-augmented generation workflows
@@ -237,6 +240,7 @@ Proto definitions at `proto/mddb.proto` - generate clients for any language supp
 - ✅ **Automation** - Triggers, crons, webhooks with template variables, sentiment analysis, execution logs
 - ✅ **Multi-language** - Same key, multiple languages
 - ✅ **Schema Validation** - JSON Schema validation per collection
+- ✅ **Per-Collection Storage Backends** - Choose BoltDB (default), in-memory (ephemeral), or S3/MinIO per collection
 
 ### APIs & Protocols
 - ✅ **HTTP/JSON REST** - Easy debugging, extensive docs
@@ -289,7 +293,7 @@ Modern React-based UI for managing documents, users, and search with REST/GraphQ
 
 ## 📖 Quick Examples
 
-### Upload Files (PDF, DOCX, HTML, TXT)
+### Upload Files (PDF, DOCX, HTML, ODT, RTF, TEX, YAML, TXT)
 
 ```bash
 # Upload a PDF — auto-converted to Markdown
@@ -374,11 +378,12 @@ curl -X POST http://localhost:11023/v1/hybrid-search \
   }'
 ```
 
-### Full-Text Search with Metadata Filtering
+### Full-Text Search (7 Modes)
 
-FTS now supports the `filterMeta` parameter for metadata pre-filtering, so results are scoped before scoring:
+FTS supports simple, boolean, phrase, wildcard, proximity, range, and fuzzy modes with auto-detection:
 
 ```bash
+# Simple search with metadata pre-filtering
 curl -X POST http://localhost:11023/v1/fts \
   -H "Content-Type: application/json" \
   -d '{
@@ -386,7 +391,35 @@ curl -X POST http://localhost:11023/v1/fts \
     "query": "getting started",
     "limit": 10,
     "algorithm": "bm25",
-    "filterMeta": {"category": ["tutorial"], "status": ["published"]}
+    "filterMeta": {"category": ["tutorial"]}
+  }'
+
+# Boolean search (AND, OR, NOT, +required, -excluded)
+curl -X POST http://localhost:11023/v1/fts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "blog",
+    "query": "rust AND performance NOT garbage",
+    "mode": "boolean"
+  }'
+
+# Phrase search (exact sequence)
+curl -X POST http://localhost:11023/v1/fts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "blog",
+    "query": "\"machine learning\"",
+    "mode": "phrase"
+  }'
+
+# Proximity search (terms within N words)
+curl -X POST http://localhost:11023/v1/fts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "blog",
+    "query": "\"database performance\"~5",
+    "mode": "proximity",
+    "distance": 5
   }'
 ```
 
@@ -444,7 +477,7 @@ mddb-cli stats
 - **[Vector Search](docs/EMBEDDING_PROVIDERS.md)** - Semantic search setup (OpenAI, Cohere, Voyage, Ollama)
 - **[RAG Pipeline](docs/RAG-PIPELINE.md)** - Complete RAG implementation guide
 - **[Search Algorithms](docs/SEARCH.md)** - TF-IDF, BM25, BM25F, PMISparse, Flat, HNSW, IVF, PQ, SQ, BQ
-- **[Full-Text Search](docs/FTS.md)** - Built-in inverted index
+- **[Full-Text Search](docs/FTS.md)** - Built-in inverted index with multi-language support
 - **[Zero-Shot Classification](docs/ZERO-SHOT-CLASSIFICATION.md)** - Classify documents against labels using embeddings
 - **[PMISparse](docs/PMISPARSE.md)** - Two-phase BM25 + PPMI query expansion (invented by Tradik Limited)
 - **[Webhooks](docs/WEBHOOKS.md)** - Event-driven integration
