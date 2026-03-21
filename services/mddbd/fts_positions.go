@@ -156,7 +156,6 @@ func (f *FTSIndex) IndexPositionsWithLang(collection, docID, content, lang strin
 	})
 }
 
-
 // IndexPositions stores term positions for a document (used for phrase/proximity search).
 func (f *FTSIndex) IndexPositions(collection, docID, content string) error {
 	positions := f.TokenizePositions(content)

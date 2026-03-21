@@ -113,17 +113,17 @@ func TestEndsCVC(t *testing.T) {
 		word string
 		want bool
 	}{
-		{"hop", true},   // h-o-p, CVC, p not w/x/y
-		{"lov", true},   // l-o-v, CVC
-		{"bow", false},  // ends with w
-		{"box", false},  // ends with x
-		{"boy", false},  // ends with y
-		{"ab", false},   // too short
-		{"a", false},    // too short
-		{"", false},     // empty
-		{"oat", false},  // o is vowel at position 0, a is vowel at 1 => not CVC
-		{"bat", true},   // b-a-t CVC
-		{"pet", true},   // p-e-t CVC
+		{"hop", true},  // h-o-p, CVC, p not w/x/y
+		{"lov", true},  // l-o-v, CVC
+		{"bow", false}, // ends with w
+		{"box", false}, // ends with x
+		{"boy", false}, // ends with y
+		{"ab", false},  // too short
+		{"a", false},   // too short
+		{"", false},    // empty
+		{"oat", false}, // o is vowel at position 0, a is vowel at 1 => not CVC
+		{"bat", true},  // b-a-t CVC
+		{"pet", true},  // p-e-t CVC
 	}
 	for _, tt := range tests {
 		t.Run(tt.word, func(t *testing.T) {
@@ -184,11 +184,11 @@ func TestStep1a(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"caresses", "caress"},  // SSES -> SS
-		{"ponies", "poni"},      // IES -> I
-		{"caress", "caress"},    // SS -> SS
-		{"cats", "cat"},         // S -> (remove)
-		{"cat", "cat"},          // no suffix
+		{"caresses", "caress"}, // SSES -> SS
+		{"ponies", "poni"},     // IES -> I
+		{"caress", "caress"},   // SS -> SS
+		{"cats", "cat"},        // S -> (remove)
+		{"cat", "cat"},         // no suffix
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
@@ -205,16 +205,16 @@ func TestStep1b(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"feed", "feed"},       // EED with m=0 -> unchanged
-		{"agreed", "agree"},    // EED with m>0 -> EE
-		{"plastered", "plaster"}, // ED with vowel in stem
-		{"bled", "bled"},       // ED without vowel in stem
-		{"motoring", "motor"},  // ING with vowel in stem
-		{"sing", "sing"},       // ING without vowel in stem
+		{"feed", "feed"},          // EED with m=0 -> unchanged
+		{"agreed", "agree"},       // EED with m>0 -> EE
+		{"plastered", "plaster"},  // ED with vowel in stem
+		{"bled", "bled"},          // ED without vowel in stem
+		{"motoring", "motor"},     // ING with vowel in stem
+		{"sing", "sing"},          // ING without vowel in stem
 		{"conflated", "conflate"}, // ED -> stem ends "at" -> add e
 		{"troubled", "trouble"},   // ED -> stem ends with double (ll) but l is exempt
-		{"hopping", "hop"},     // ING -> stem ends with double (pp) -> remove last
-		{"filing", "file"},     // ING -> m=1, CVC -> add e
+		{"hopping", "hop"},        // ING -> stem ends with double (pp) -> remove last
+		{"filing", "file"},        // ING -> m=1, CVC -> add e
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
@@ -231,9 +231,9 @@ func TestStep1c(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"happy", "happi"},  // Y with vowel in stem -> I
-		{"sky", "sky"},      // Y without vowel in stem -> unchanged
-		{"cat", "cat"},      // no Y suffix
+		{"happy", "happi"}, // Y with vowel in stem -> I
+		{"sky", "sky"},     // Y without vowel in stem -> unchanged
+		{"cat", "cat"},     // no Y suffix
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
@@ -250,13 +250,13 @@ func TestStep2(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"relational", "relate"},   // ational -> ate
+		{"relational", "relate"},     // ational -> ate
 		{"conditional", "condition"}, // tional -> tion
-		{"valenci", "valence"},     // enci -> ence
-		{"hesitanci", "hesitance"}, // anci -> ance
-		{"digitizer", "digitize"}, // izer -> ize
-		{"formalli", "formal"},    // alli -> al
-		{"cat", "cat"},            // no matching suffix
+		{"valenci", "valence"},       // enci -> ence
+		{"hesitanci", "hesitance"},   // anci -> ance
+		{"digitizer", "digitize"},    // izer -> ize
+		{"formalli", "formal"},       // alli -> al
+		{"cat", "cat"},               // no matching suffix
 		// m=0 stem should not apply
 		{"ational", "ational"}, // stem "at" has m=0
 	}
@@ -275,14 +275,14 @@ func TestStep3(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"triplicate", "triplic"}, // icate -> ic
-		{"formative", "form"},     // ative -> ""
-		{"formalize", "formal"},   // alize -> al
+		{"triplicate", "triplic"},   // icate -> ic
+		{"formative", "form"},       // ative -> ""
+		{"formalize", "formal"},     // alize -> al
 		{"electriciti", "electric"}, // iciti -> ic
 		{"electrical", "electric"},  // ical -> ic
-		{"hopeful", "hope"},       // ful -> ""
-		{"goodness", "good"},      // ness -> ""
-		{"cat", "cat"},            // no matching suffix
+		{"hopeful", "hope"},         // ful -> ""
+		{"goodness", "good"},        // ness -> ""
+		{"cat", "cat"},              // no matching suffix
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
@@ -617,11 +617,11 @@ func TestValidateMeta(t *testing.T) {
 
 func TestValidateType(t *testing.T) {
 	tests := []struct {
-		name     string
-		key      string
-		value    string
-		typ      string
-		wantErr  bool
+		name    string
+		key     string
+		value   string
+		typ     string
+		wantErr bool
 	}{
 		{"string_always_valid", "f", "hello", "string", false},
 		{"number_valid_int", "f", "42", "number", false},
@@ -769,11 +769,11 @@ func TestWeekNumber(t *testing.T) {
 		time time.Time
 		want string
 	}{
-		{"single_digit_week", time.Date(2026, 1, 5, 0, 0, 0, 0, time.UTC), "02"},     // week 2
-		{"double_digit_week", time.Date(2026, 3, 19, 0, 0, 0, 0, time.UTC), "12"},     // week 12
-		{"week_1", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), "01"},                 // week 1
-		{"week_52", time.Date(2025, 12, 29, 0, 0, 0, 0, time.UTC), "01"},              // ISO week 1 of 2026
-		{"last_week_of_year", time.Date(2025, 12, 22, 0, 0, 0, 0, time.UTC), "52"},    // week 52
+		{"single_digit_week", time.Date(2026, 1, 5, 0, 0, 0, 0, time.UTC), "02"},   // week 2
+		{"double_digit_week", time.Date(2026, 3, 19, 0, 0, 0, 0, time.UTC), "12"},  // week 12
+		{"week_1", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), "01"},              // week 1
+		{"week_52", time.Date(2025, 12, 29, 0, 0, 0, 0, time.UTC), "01"},           // ISO week 1 of 2026
+		{"last_week_of_year", time.Date(2025, 12, 22, 0, 0, 0, 0, time.UTC), "52"}, // week 52
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

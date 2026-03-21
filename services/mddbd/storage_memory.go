@@ -146,4 +146,3 @@ func (m *MemoryBackend) Stats(collection string) (docCount int) {
 
 // Ensure MemoryBackend implements StorageBackend at compile time.
 var _ StorageBackend = (*MemoryBackend)(nil)
-

@@ -1334,8 +1334,8 @@ func (g *GRPCServer) FTSReindex(ctx context.Context, req *proto.FTSReindexReques
 
 	return &proto.FTSReindexResponse{
 		Status:    "ok",
-		Reindexed: int32(reindexed),
-		Skipped:   int32(skipped),
+		Reindexed: safeInt32(reindexed),
+		Skipped:   safeInt32(skipped),
 	}, nil
 }
 

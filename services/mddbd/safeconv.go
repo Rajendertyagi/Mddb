@@ -12,4 +12,3 @@ func safeInt32(v int) int32 {
 	}
 	return int32(v) // #nosec G115 -- bounds checked above
 }
-
