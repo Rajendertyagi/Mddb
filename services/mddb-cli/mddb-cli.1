@@ -1,4 +1,4 @@
-.TH MDDB-CLI 1 "March 2026" "mddb-cli 2.8.0" "User Commands"
+.TH MDDB-CLI 1 "March 2026" "mddb-cli 2.9.0" "User Commands"
 .SH NAME
 mddb-cli \- command-line client for MDDB (Markdown Database)
 .SH SYNOPSIS
@@ -657,6 +657,34 @@ curl -X PUT http://localhost:11023/v1/collection-config \\
 .fi
 .PP
 Storage backend can also be configured from the web panel under Collection Settings.
+.SH VECTOR QUANTIZATION
+MDDB supports per-collection vector quantization (v2.9+). Each collection can
+store embedding vectors in compressed format to reduce disk and memory usage.
+.SS Available Quantization Levels
+.TP
+.B float32
+Default. Full precision, no compression.
+.TP
+.B int8
+4x compression with ~1% recall drop. Recommended for most use cases.
+.TP
+.B int4
+8x compression with ~2-3% recall drop. Best for very large collections.
+.SS Configuring via API
+.nf
+# Enable int8 quantization
+curl -X PUT http://localhost:11023/v1/collection-config \\
+  -H "Content-Type: application/json" \\
+  -d '{"collection":"archive","quantization":"int8"}'
+
+# Reindex to apply quantization to existing vectors
+curl -X POST http://localhost:11023/v1/vector-reindex \\
+  -H "Content-Type: application/json" \\
+  -d '{"collection":"archive","force":true}'
+.fi
+.PP
+Quantization can also be configured from the web panel under Collection Settings.
+For full documentation, see \fBdocs/QUANTIZATION.md\fR.
 .SH ENVIRONMENT
 .TP
 .B MDDB_SERVER

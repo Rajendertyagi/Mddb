@@ -14,6 +14,7 @@ type LockFreeCache struct {
 	ttl       int64
 	hits      atomic.Uint64
 	misses    atomic.Uint64
+	done      chan struct{}
 }
 
 // CacheShard represents a single cache shard
@@ -53,6 +54,7 @@ func NewLockFreeCache(maxSize int, ttlSeconds int64) *LockFreeCache {
 		shardMask: uint64(numShards - 1),
 		maxSize:   maxSize,
 		ttl:       ttlSeconds,
+		done:      make(chan struct{}),
 	}
 
 	// Start cleanup goroutine
@@ -106,18 +108,24 @@ func (lfc *LockFreeCache) Set(key string, data []byte) {
 		newMap[k] = v
 	}
 
-	// Evict if shard is full
-	shardMaxSize := lfc.maxSize / len(lfc.shards)
-	if len(newMap) >= shardMaxSize {
-		// Simple FIFO eviction - remove first entry
-		for k := range newMap {
-			delete(newMap, k)
-			shard.size.Add(-1)
-			break
+	_, existed := newMap[key]
+
+	// Evict if shard is full and we're inserting a new key
+	if !existed {
+		shardMaxSize := lfc.maxSize / len(lfc.shards)
+		if len(newMap) >= shardMaxSize {
+			// Random eviction - remove an arbitrary entry (map iteration order is random)
+			for k := range newMap {
+				if k != key {
+					delete(newMap, k)
+					shard.size.Add(-1)
+					break
+				}
+			}
 		}
 	}
 
-	// Add new entry
+	// Add or update entry
 	newMap[key] = &LockFreeCacheEntry{
 		Data:      data,
 		ExpiresAt: time.Now().Unix() + lfc.ttl,
@@ -125,7 +133,9 @@ func (lfc *LockFreeCache) Set(key string, data []byte) {
 
 	// Atomic swap
 	shard.data.Store(newMap)
-	shard.size.Add(1)
+	if !existed {
+		shard.size.Add(1)
+	}
 }
 
 // Delete removes a value from cache
@@ -179,12 +189,23 @@ func (lfc *LockFreeCache) Stats() (hits, misses uint64, size int) {
 	return hits, misses, totalSize
 }
 
+// Close stops the cleanup goroutine and releases resources.
+func (lfc *LockFreeCache) Close() {
+	close(lfc.done)
+}
+
 // cleanup periodically removes expired entries
 func (lfc *LockFreeCache) cleanup() {
 	ticker := time.NewTicker(60 * time.Second)
 	defer ticker.Stop()
 
-	for range ticker.C {
+	for {
+		select {
+		case <-lfc.done:
+			return
+		case <-ticker.C:
+		}
+
 		now := time.Now().Unix()
 
 		for _, shard := range lfc.shards {

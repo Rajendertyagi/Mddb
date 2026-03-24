@@ -61,7 +61,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: "2.8.0"
+  version: "2.9.0"
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -3259,6 +3259,11 @@ paths:
                   example: boltdb
                 storageConfig:
                   $ref: "#/components/schemas/StorageConfigDef"
+                quantization:
+                  type: string
+                  enum: [float32, int8, int4]
+                  description: "Vector quantization level for this collection. int8 gives 4x compression (~1% recall drop), int4 gives 8x compression (~2-3% recall drop). Default: float32 (no quantization). Requires vector-reindex after changing."
+                  example: int8
       responses:
         "200":
           description: Collection configuration set successfully
@@ -4897,7 +4902,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.8.0
+          example: 2.9.0
         uptimeSeconds:
           type: integer
           format: int64
@@ -4961,7 +4966,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.8.0
+          example: 2.9.0
         databasePath:
           type: string
           description: Path to the database file
@@ -5648,6 +5653,11 @@ components:
           example: boltdb
         storageConfig:
           $ref: "#/components/schemas/StorageConfigDef"
+        quantization:
+          type: string
+          enum: [float32, int8, int4]
+          description: "Vector quantization level. int8 = 4x compression, int4 = 8x compression. Default: float32."
+          example: float32
 
     StorageConfigDef:
       type: object

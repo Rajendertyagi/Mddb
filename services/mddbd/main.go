@@ -24,7 +24,7 @@ import (
 )
 
 // VERSION is the current release version of the MDDB server.
-const VERSION = "2.8.0"
+const VERSION = "2.9.0"
 
 // AccessMode defines the database access mode (read, write, or both).
 type AccessMode string
@@ -59,11 +59,12 @@ type Server struct {
 	finalBatchProcessor *FinalBatchProcessor  // Final optimized batch processor
 	UseExtreme          bool                  // Enable extreme performance features
 	// Vector search
-	VectorStore     *VectorStore              // Persistent vector storage in BoltDB
-	VectorIndex     *VectorIndex              // In-memory flat vector index
-	VectorSearchers map[string]VectorSearcher // algorithm name -> searcher (flat, hnsw, ivf, pq, sq, bq)
-	EmbeddingWorker *EmbeddingWorker          // Background embedding processor
-	Embedding       EmbeddingProvider         // Embedding generation provider
+	VectorStore       *VectorStore              // Persistent vector storage in BoltDB
+	VectorIndex       *VectorIndex              // In-memory flat vector index
+	VectorSearchers   map[string]VectorSearcher // algorithm name -> searcher (flat, hnsw, ivf, pq, sq, bq)
+	QuantizedVecIndex *QuantizedVectorIndex     // In-memory quantized vector index (int8/int4)
+	EmbeddingWorker   *EmbeddingWorker          // Background embedding processor
+	Embedding         EmbeddingProvider         // Embedding generation provider
 	// New features
 	TTLManager         *TTLManager         // Document TTL / auto-expiry
 	FTSIndex           *FTSIndex           // Full-text search index
@@ -286,13 +287,24 @@ func main() {
 	if bqRerank <= 0 {
 		bqRerank = 10
 	}
+	s.QuantizedVecIndex = NewQuantizedVectorIndex(func(collection string) QuantizationType {
+		if s.CollectionManager == nil {
+			return QuantNone
+		}
+		cfg, ok := s.CollectionManager.Get(collection)
+		if !ok || cfg.Quantization == "" {
+			return QuantNone
+		}
+		return ParseQuantization(cfg.Quantization)
+	})
 	s.VectorSearchers = map[string]VectorSearcher{
-		"flat": s.VectorIndex,
-		"hnsw": NewHNSWIndex(16, 200, 100),
-		"ivf":  NewIVFIndex(10, 20),
-		"pq":   NewPQIndex(8, 256, 20),
-		"sq":   NewSQIndex(),
-		"bq":   NewBQIndex(bqRerank),
+		"flat":      s.VectorIndex,
+		"hnsw":      NewHNSWIndex(16, 200, 100),
+		"ivf":       NewIVFIndex(10, 20),
+		"pq":        NewPQIndex(8, 256, 20),
+		"sq":        NewSQIndex(),
+		"bq":        NewBQIndex(bqRerank),
+		"quantized": s.QuantizedVecIndex,
 	}
 
 	// Try to load embedding config from database first
@@ -811,6 +823,10 @@ func main() {
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-sigCh
 	log.Printf("Received %s, shutting down...", sig)
+
+	if s.LockFreeCache != nil {
+		s.LockFreeCache.Close()
+	}
 }
 
 // --- helpers / buckets

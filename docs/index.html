@@ -63,10 +63,10 @@
         "priceCurrency": "USD"
       },
       "description": "AI-native knowledge base with built-in MCP server, vector search, RAG support, and semantic retrieval for AI agents and LLM workflows",
-      "softwareVersion": "2.8.0",
+      "softwareVersion": "2.9.0",
       "featureList": [
         "Built-in MCP server with 54 tools (stdio + HTTP) for Claude, Cursor, Windsurf, ChatGPT, Ollama, DeepSeek",
-        "Vector/semantic search with 6 index algorithms: Flat, HNSW, IVF, PQ, SQ, BQ (OpenAI, Ollama, Cohere, Voyage AI)",
+        "Vector/semantic search with 6 index algorithms: Flat, HNSW, IVF, PQ, SQ, BQ + per-collection int8/int4 quantization (OpenAI, Ollama, Cohere, Voyage AI)",
         "Hybrid search combining sparse BM25 + dense vector with alpha blending and Reciprocal Rank Fusion",
         "Full-text search with TF-IDF, BM25, BM25F, PMISparse scoring, 7 search modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), multi-language stemming (18 languages), and typo tolerance",
         "Zero-shot document classification using embedding cosine similarity",
@@ -116,6 +116,7 @@
                 <a href="#features">Features</a>
                 <a href="#download">Download</a>
                 <a href="#docs">Documentation</a>
+                <a href="#use-cases">Use Cases</a>
                 <a href="#examples">Examples</a>
                 <a href="chat.html">Chat Widget</a>
                 <a href="https://github.com/tradik/mddb" target="_blank" rel="noopener">GitHub</a>
@@ -186,8 +187,11 @@
                         <li>Built-in MCP server with 54 tools — connects to Claude, Cursor, Windsurf, ChatGPT, Ollama,
                             DeepSeek, Manus via stdio and HTTP transport</li>
                         <li>Vector/semantic search with 6 index algorithms: Flat (exact), HNSW, IVF, PQ, SQ, BQ —
-                            supports OpenAI, Ollama, Cohere, Voyage AI embeddings</li>
-                        <li>Full-text search with 7 modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), TF-IDF, BM25, BM25F, PMISparse scoring, multi-language stemming (18 languages), typo tolerance, metadata
+                            supports OpenAI, Ollama, Cohere, Voyage AI embeddings + per-collection int8/int4
+                            quantization (4-8x compression)</li>
+                        <li>Full-text search with 7 modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy),
+                            TF-IDF, BM25, BM25F, PMISparse scoring, multi-language stemming (18 languages), typo
+                            tolerance, metadata
                             pre-filtering</li>
                         <li>Hybrid search combining sparse (BM25) and dense (vector) with alpha blending or Reciprocal
                             Rank Fusion</li>
@@ -207,7 +211,8 @@
                         <li>Prometheus metrics and Grafana dashboard support</li>
                         <li>~29MB single binary, embedded BoltDB, zero external dependencies</li>
                         <li>Docker image: ~29MB Alpine-based with health checks</li>
-                        <li>Aggregations: metadata facets (value counts) and date histograms with optional pre-filtering</li>
+                        <li>Aggregations: metadata facets (value counts) and date histograms with optional pre-filtering
+                        </li>
                         <li>Per-collection storage backends: BoltDB (default), in-memory (ephemeral), S3/MinIO —
                             configurable via API and web panel</li>
                         <li>Web admin panel (React-based) with REST/GraphQL API toggle</li>
@@ -245,10 +250,12 @@
                         <div class="feat-visual">
                             <div class="feat-stack">
                                 <div class="feat-stack-layer l1">
-                                    <span>BM25</span><span>TF-IDF</span><span>PMISparse</span></div>
+                                    <span>BM25</span><span>TF-IDF</span><span>PMISparse</span>
+                                </div>
                                 <div class="feat-stack-plus">+</div>
                                 <div class="feat-stack-layer l2">
-                                    <span>Flat</span><span>HNSW</span><span>IVF</span><span>PQ</span></div>
+                                    <span>Flat</span><span>HNSW</span><span>IVF</span><span>PQ</span>
+                                </div>
                                 <div class="feat-stack-eq">=</div>
                                 <div class="feat-stack-layer l3"><span>Hybrid RAG</span></div>
                             </div>
@@ -256,7 +263,9 @@
                         <div class="feat-text">
                             <span class="feat-label">Search</span>
                             <h3>Hybrid Search Engine</h3>
-                            <p>Full-text with 7 search modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy) + vector search with 6 index types. Multi-language stemming for 18 languages. Combine with
+                            <p>Full-text with 7 search modes (simple, boolean, phrase, wildcard, proximity, range,
+                                fuzzy) + vector search with 6 index types. Multi-language stemming for 18 languages.
+                                Combine with
                                 alpha blending or Reciprocal Rank Fusion. Metadata pre-filtering, typo tolerance.</p>
                             <ul class="feat-tags">
                                 <li>Vector Search</li>
@@ -458,7 +467,7 @@ make docker-up
                                 <span class="terminal-title">bash — binary</span>
                             </div>
                             <pre><code id="binary-download-code" data-terminal="bash"># Download binary
-wget https://github.com/tradik/mddb/releases/download/v2.8.0/mddbd-linux-amd64
+wget https://github.com/tradik/mddb/releases/download/v2.9.0/mddbd-linux-amd64
 chmod +x mddbd-linux-amd64
 
 # Run server
@@ -551,20 +560,21 @@ make build
                         <div class="version" data-v>tradik/mddb:{v}</div>
                         <p class="release-date">Alpine-based (~29MB)</p>
                         <pre><code id="docker-pull-code">docker pull tradik/mddb:latest
-docker pull tradik/mddb:2.8.0</code></pre>
+docker pull tradik/mddb:2.9.0</code></pre>
                         <a href="https://hub.docker.com/r/tradik/mddb" class="btn btn-secondary" target="_blank"
                             rel="noopener">View on Docker Hub</a>
                     </div>
                 </div>
                 <div class="release-notes">
-                    <h3 id="whats-new-header">What's New in v2.8.0</h3>
+                    <h3 id="whats-new-header">What's New in v2.9.0</h3>
                     <ul>
                         <li>✏️ <strong>Partial Document Update</strong> - <code>PATCH /v1/update</code> to update
                             metadata and/or content independently without re-sending entire document</li>
                         <li>📋 <strong>Document Metadata Read</strong> - <code>GET /v1/doc-meta</code> lightweight
                             endpoint returning only metadata (no content transfer)</li>
                         <li>🔌 <strong>gRPC + MCP Support</strong> - <code>UpdateDocument</code> and
-                            <code>GetDocumentMeta</code> RPCs, plus MCP tools</li>
+                            <code>GetDocumentMeta</code> RPCs, plus MCP tools
+                        </li>
                         <li>🧪 <strong>Zero-Shot Classification</strong> - <code>POST /v1/classify</code> classifies
                             documents against candidate labels using embedding similarity, no training data needed</li>
                     </ul>
@@ -961,6 +971,29 @@ $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
                         <p>Store and manage content in multiple languages with the same document key</p>
                     </div>
                 </div>
+                <h3 style="text-align:center; margin-top:48px; margin-bottom:24px;">Step-by-Step Guides</h3>
+                <div class="use-cases-grid">
+                    <div class="use-case">
+                        <h3>💬 Website Chat</h3>
+                        <p>Add an AI chatbot to any website — runs locally with Docker and Ollama, no cloud API fees</p>
+                        <a href="md-viewer.html?doc=uses/website-chat.md" class="btn btn-secondary"
+                            style="margin-top:12px;">Read Guide →</a>
+                    </div>
+                    <div class="use-case">
+                        <h3>📰 WordPress Analyzer</h3>
+                        <p>Export WordPress content into MDDB, then analyze it with Claude CLI — find broken links,
+                            missing meta, duplicates</p>
+                        <a href="md-viewer.html?doc=uses/wordpress-analyzer.md" class="btn btn-secondary"
+                            style="margin-top:12px;">Read Guide →</a>
+                    </div>
+                    <div class="use-case">
+                        <h3>🎬 YouTube Transcriber</h3>
+                        <p>Scan transcripts from a YouTube channel, load them into MDDB, then ask questions with Claude
+                            CLI</p>
+                        <a href="md-viewer.html?doc=uses/youtube-transcribe.md" class="btn btn-secondary"
+                            style="margin-top:12px;">Read Guide →</a>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -1039,7 +1072,7 @@ graph LR
                 <div class="footer-section">
                     <h4>MDDB</h4>
                     <p>AI-native knowledge base</p>
-                    <p class="footer-version" id="footer-version">Version 2.8.0</p>
+                    <p class="footer-version" id="footer-version">Version 2.9.0</p>
                 </div>
                 <div class="footer-section">
                     <h4>Documentation</h4>
@@ -1080,7 +1113,7 @@ graph LR
 
     <script defer>
         // Single source of truth for version — change here to update everywhere
-        const MDDB_VERSION = '2.8.0';
+        const MDDB_VERSION = '2.9.0';
         const MDDB_RELEASE_DATE = 'March 10, 2026';
 
         // Replace all version references in the page

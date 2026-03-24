@@ -10,6 +10,12 @@ const COLLECTION_TYPES = [
   { value: 'documents', label: 'Documents', icon: '\uD83D\uDCC4' },
 ];
 
+const QUANTIZATION_LEVELS = [
+  { value: 'float32', label: 'float32 (no compression)', description: 'Full precision, highest accuracy' },
+  { value: 'int8', label: 'int8 (4x compression)', description: '~1% recall drop, recommended for most use cases' },
+  { value: 'int4', label: 'int4 (8x compression)', description: '~2-3% recall drop, best for large collections' },
+];
+
 const STORAGE_BACKENDS = [
   { value: 'boltdb', label: 'BoltDB (default)', icon: '\uD83D\uDDC4\uFE0F', description: 'Embedded key-value store, persisted to disk' },
   { value: 'memory', label: 'In-Memory (ephemeral)', icon: '\u26A1', description: 'Fast but data is lost on restart' },
@@ -22,6 +28,7 @@ export default function CollectionConfigModal({ collection, onClose, onSave }) {
   const [icon, setIcon] = useState('');
   const [color, setColor] = useState('#3b82f6');
   const [customMeta, setCustomMeta] = useState([]);
+  const [quantization, setQuantization] = useState('float32');
   const [storageBackend, setStorageBackend] = useState('boltdb');
   const [storageConfig, setStorageConfig] = useState({ endpoint: '', bucket: '', region: '', accessKey: '', secretKey: '', prefix: '', useTLS: false });
   const [loading, setLoading] = useState(false);
@@ -47,6 +54,7 @@ export default function CollectionConfigModal({ collection, onClose, onSave }) {
           ? Object.entries(cfg.customMeta).map(([k, v]) => ({ key: k, value: v }))
           : [];
         setCustomMeta(metaEntries);
+        setQuantization(cfg.quantization || 'float32');
         setStorageBackend(cfg.storageBackend || 'boltdb');
         if (cfg.storageConfig) {
           setStorageConfig({ endpoint: '', bucket: '', region: '', accessKey: '', secretKey: '', prefix: '', useTLS: false, ...cfg.storageConfig });
@@ -76,6 +84,7 @@ export default function CollectionConfigModal({ collection, onClose, onSave }) {
         icon,
         color,
         customMeta: Object.keys(metaObj).length > 0 ? metaObj : undefined,
+        quantization: quantization !== 'float32' ? quantization : undefined,
         storageBackend: storageBackend !== 'boltdb' ? storageBackend : undefined,
       };
       if (storageBackend === 's3') {
@@ -304,6 +313,32 @@ export default function CollectionConfigModal({ collection, onClose, onSave }) {
               {storageBackend === 'memory' && (
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                   <p className="text-sm text-amber-800">Data in this collection will be lost when the server restarts. Use for temporary/scratch data only.</p>
+                </div>
+              )}
+
+              {/* Vector Quantization */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Vector Quantization</label>
+                <select
+                  value={quantization}
+                  onChange={(e) => setQuantization(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                >
+                  {QUANTIZATION_LEVELS.map((q) => (
+                    <option key={q.value} value={q.value}>
+                      {q.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-400 mt-1">
+                  {QUANTIZATION_LEVELS.find(q => q.value === quantization)?.description}
+                </p>
+              </div>
+
+              {/* Quantization Warning */}
+              {quantization !== 'float32' && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800">After changing quantization, run <span className="font-mono text-xs bg-blue-100 px-1 rounded">vector-reindex --force</span> to re-encode existing vectors.</p>
                 </div>
               )}
 
