@@ -80,6 +80,7 @@ type Server struct {
 	CollectionManager  *CollectionManager  // Per-collection attributes (type, description, icon, etc.)
 	SSEHub             *SSEHub             // Server-Sent Events for real-time document change notifications
 	MCPInfo            MCPServerInfo       // Customizable MCP server profile
+	MCPInstructions    string              // System prompt for LLM — how to use this server
 	// Replication
 	Binlog          *Binlog            // Binary replication log
 	ReplicationRole string             // "leader", "follower", or "" (standalone)
@@ -462,6 +463,7 @@ func main() {
 
 	// Store MCP server info for handlers
 	s.MCPInfo = srvCfg.MCP.ServerInfo
+	s.MCPInstructions = srvCfg.MCP.Instructions
 
 	// Initialize metrics (enabled by default, set MDDB_METRICS=false to disable)
 	metricsEnabled := env("MDDB_METRICS", "true") != "false"
@@ -764,7 +766,7 @@ func main() {
 			mcpMux.HandleFunc("/events", s.handleSSE)
 
 			// MCP-over-SSE transport (spec-compliant)
-			mcpSSEHandler := NewMCPHandlerWithInfo(NewDirectClient(s), loadMCPCustomTools(), srvCfg.MCP.ServerInfo)
+			mcpSSEHandler := NewMCPHandlerWithConfig(NewDirectClient(s), loadMCPCustomTools(), srvCfg.MCP.ServerInfo, srvCfg.MCP.Instructions)
 			mcpSSE := NewMCPSSETransport(mcpSSEHandler)
 			mcpMux.HandleFunc("/sse", mcpSSE.HandleSSE)
 			mcpMux.HandleFunc("/message", mcpSSE.HandleMessage)

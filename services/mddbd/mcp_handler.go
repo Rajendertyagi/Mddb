@@ -10,9 +10,10 @@ import (
 
 // MCPHandler handles MCP JSON-RPC requests via stdio.
 type MCPHandler struct {
-	client      MCPClient
-	customTools []MCPCustomToolConfig
-	serverInfo  MCPServerInfo
+	client       MCPClient
+	customTools  []MCPCustomToolConfig
+	serverInfo   MCPServerInfo
+	instructions string // system prompt for LLM — how to use this server
 }
 
 // NewMCPHandler creates a new MCP handler.
@@ -24,15 +25,16 @@ func NewMCPHandler(client MCPClient, customTools []MCPCustomToolConfig) *MCPHand
 	}
 }
 
-// NewMCPHandlerWithInfo creates a new MCP handler with custom server info.
-func NewMCPHandlerWithInfo(client MCPClient, customTools []MCPCustomToolConfig, info MCPServerInfo) *MCPHandler {
+// NewMCPHandlerWithConfig creates a new MCP handler with custom server info and instructions.
+func NewMCPHandlerWithConfig(client MCPClient, customTools []MCPCustomToolConfig, info MCPServerInfo, instructions string) *MCPHandler {
 	if info.Name == "" {
 		info.Name = "mddbd"
 	}
 	return &MCPHandler{
-		client:      client,
-		customTools: customTools,
-		serverInfo:  info,
+		client:       client,
+		customTools:  customTools,
+		serverInfo:   info,
+		instructions: instructions,
 	}
 }
 
@@ -82,22 +84,27 @@ func (h *MCPHandler) Handle(req map[string]interface{}) map[string]interface{} {
 func (h *MCPHandler) handleInitialize(req map[string]interface{}) map[string]interface{} {
 	id := req["id"]
 
+	result := map[string]interface{}{
+		"protocolVersion": "2024-11-05",
+		"capabilities": map[string]interface{}{
+			"resources": map[string]interface{}{
+				"subscribe":   false,
+				"listChanged": false,
+			},
+			"tools": map[string]interface{}{
+				"listChanged": false,
+			},
+		},
+		"serverInfo": h.buildServerInfo(),
+	}
+	if h.instructions != "" {
+		result["instructions"] = h.instructions
+	}
+
 	return map[string]interface{}{
 		"jsonrpc": "2.0",
 		"id":      id,
-		"result": map[string]interface{}{
-			"protocolVersion": "2024-11-05",
-			"capabilities": map[string]interface{}{
-				"resources": map[string]interface{}{
-					"subscribe":   false,
-					"listChanged": false,
-				},
-				"tools": map[string]interface{}{
-					"listChanged": false,
-				},
-			},
-			"serverInfo": h.buildServerInfo(),
-		},
+		"result":  result,
 	}
 }
 
@@ -227,7 +234,7 @@ func (s *Server) runMCPStdio() {
 
 	customTools := loadMCPCustomTools()
 	client := NewDirectClient(s)
-	handler := NewMCPHandlerWithInfo(client, customTools, s.MCPInfo)
+	handler := NewMCPHandlerWithConfig(client, customTools, s.MCPInfo, s.MCPInstructions)
 
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Buffer(make([]byte, 0, 4*1024*1024), 4*1024*1024) // 4MB buffer

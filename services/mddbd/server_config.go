@@ -73,11 +73,12 @@ type MCPServerInfo struct {
 
 // MCPConfig controls the MCP protocol server.
 type MCPConfig struct {
-	Enabled    bool          `yaml:"enabled" json:"enabled"`
-	Addr       string        `yaml:"addr" json:"addr"`
-	Stdio      bool          `yaml:"stdio" json:"stdio"`
-	Domain     string        `yaml:"domain" json:"domain"`
-	ServerInfo MCPServerInfo `yaml:"serverInfo" json:"serverInfo"`
+	Enabled      bool          `yaml:"enabled" json:"enabled"`
+	Addr         string        `yaml:"addr" json:"addr"`
+	Stdio        bool          `yaml:"stdio" json:"stdio"`
+	Domain       string        `yaml:"domain" json:"domain"`
+	ServerInfo   MCPServerInfo `yaml:"serverInfo" json:"serverInfo"`
+	Instructions string        `yaml:"instructions" json:"instructions,omitempty"` // System prompt for LLM — how to use this server
 }
 
 // HTTP3Config controls the HTTP/3 (QUIC) server (extreme mode).
@@ -198,10 +199,11 @@ type fileMCPServerInfo struct {
 }
 
 type fileMCP struct {
-	Enabled    *bool              `yaml:"enabled"`
-	Addr       *string            `yaml:"addr"`
-	Stdio      *bool              `yaml:"stdio"`
-	ServerInfo *fileMCPServerInfo `yaml:"serverInfo"`
+	Enabled      *bool              `yaml:"enabled"`
+	Addr         *string            `yaml:"addr"`
+	Stdio        *bool              `yaml:"stdio"`
+	ServerInfo   *fileMCPServerInfo `yaml:"serverInfo"`
+	Instructions *string            `yaml:"instructions"`
 }
 
 type fileHTTP3 struct {
@@ -269,6 +271,9 @@ func mergeFileConfig(cfg ServerConfig, fc *fileConfig) ServerConfig {
 			if fc.MCP.ServerInfo.Homepage != nil {
 				cfg.MCP.ServerInfo.Homepage = *fc.MCP.ServerInfo.Homepage
 			}
+		}
+		if fc.MCP.Instructions != nil {
+			cfg.MCP.Instructions = *fc.MCP.Instructions
 		}
 	}
 	if fc.HTTP3 != nil {
@@ -377,6 +382,9 @@ func applyEnvConfig(cfg *ServerConfig) {
 	}
 	if v := os.Getenv("MDDB_MCP_SERVER_HOMEPAGE"); v != "" {
 		cfg.MCP.ServerInfo.Homepage = v
+	}
+	if v := os.Getenv("MDDB_MCP_INSTRUCTIONS"); v != "" {
+		cfg.MCP.Instructions = v
 	}
 
 	// TLS

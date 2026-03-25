@@ -137,6 +137,7 @@ Customize the MCP server profile returned in the `initialize` response. Useful f
 | `MDDB_MCP_SERVER_DESCRIPTION` | `""` | string | Human-readable server description |
 | `MDDB_MCP_SERVER_VENDOR` | `""` | string | Organization / vendor name |
 | `MDDB_MCP_SERVER_HOMEPAGE` | `""` | string | URL to server documentation or homepage |
+| `MDDB_MCP_INSTRUCTIONS` | `""` | string | System prompt for LLM — tells the AI how to use this server |
 
 Or via YAML config:
 
@@ -147,6 +148,11 @@ mcp:
     description: "Company internal documentation"
     vendor: "Acme Corp"
     homepage: "https://docs.acme.com"
+  instructions: |
+    This is the company knowledge base. Use search_documents to find
+    relevant articles before answering questions. Always cite document
+    keys in your responses. Prefer the 'docs' collection for technical
+    questions and 'blog' for product updates.
 ```
 
 ---
