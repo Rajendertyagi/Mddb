@@ -79,6 +79,7 @@ type Server struct {
 	CronScheduler      *CronScheduler      // Cron scheduler for automation
 	CollectionManager  *CollectionManager  // Per-collection attributes (type, description, icon, etc.)
 	SSEHub             *SSEHub             // Server-Sent Events for real-time document change notifications
+	MCPInfo            MCPServerInfo       // Customizable MCP server profile
 	// Replication
 	Binlog          *Binlog            // Binary replication log
 	ReplicationRole string             // "leader", "follower", or "" (standalone)
@@ -459,6 +460,9 @@ func main() {
 		log.Printf("SSE event stream enabled (max clients: %d, max per IP: %d)", sseMaxClients, sseMaxPerIP)
 	}
 
+	// Store MCP server info for handlers
+	s.MCPInfo = srvCfg.MCP.ServerInfo
+
 	// Initialize metrics (enabled by default, set MDDB_METRICS=false to disable)
 	metricsEnabled := env("MDDB_METRICS", "true") != "false"
 	s.Metrics = NewMetrics(s, metricsEnabled)
@@ -760,7 +764,7 @@ func main() {
 			mcpMux.HandleFunc("/events", s.handleSSE)
 
 			// MCP-over-SSE transport (spec-compliant)
-			mcpSSEHandler := NewMCPHandler(NewDirectClient(s), loadMCPCustomTools())
+			mcpSSEHandler := NewMCPHandlerWithInfo(NewDirectClient(s), loadMCPCustomTools(), srvCfg.MCP.ServerInfo)
 			mcpSSE := NewMCPSSETransport(mcpSSEHandler)
 			mcpMux.HandleFunc("/sse", mcpSSE.HandleSSE)
 			mcpMux.HandleFunc("/message", mcpSSE.HandleMessage)

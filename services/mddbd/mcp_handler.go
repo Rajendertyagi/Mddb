@@ -12,6 +12,7 @@ import (
 type MCPHandler struct {
 	client      MCPClient
 	customTools []MCPCustomToolConfig
+	serverInfo  MCPServerInfo
 }
 
 // NewMCPHandler creates a new MCP handler.
@@ -19,6 +20,19 @@ func NewMCPHandler(client MCPClient, customTools []MCPCustomToolConfig) *MCPHand
 	return &MCPHandler{
 		client:      client,
 		customTools: customTools,
+		serverInfo:  MCPServerInfo{Name: "mddbd"},
+	}
+}
+
+// NewMCPHandlerWithInfo creates a new MCP handler with custom server info.
+func NewMCPHandlerWithInfo(client MCPClient, customTools []MCPCustomToolConfig, info MCPServerInfo) *MCPHandler {
+	if info.Name == "" {
+		info.Name = "mddbd"
+	}
+	return &MCPHandler{
+		client:      client,
+		customTools: customTools,
+		serverInfo:  info,
 	}
 }
 
@@ -82,12 +96,27 @@ func (h *MCPHandler) handleInitialize(req map[string]interface{}) map[string]int
 					"listChanged": false,
 				},
 			},
-			"serverInfo": map[string]interface{}{
-				"name":    "mddbd",
-				"version": VERSION,
-			},
+			"serverInfo": h.buildServerInfo(),
 		},
 	}
+}
+
+// buildServerInfo constructs the serverInfo object for MCP initialize response.
+func (h *MCPHandler) buildServerInfo() map[string]interface{} {
+	info := map[string]interface{}{
+		"name":    h.serverInfo.Name,
+		"version": VERSION,
+	}
+	if h.serverInfo.Description != "" {
+		info["description"] = h.serverInfo.Description
+	}
+	if h.serverInfo.Vendor != "" {
+		info["vendor"] = h.serverInfo.Vendor
+	}
+	if h.serverInfo.Homepage != "" {
+		info["homepage"] = h.serverInfo.Homepage
+	}
+	return info
 }
 
 func (h *MCPHandler) handleResourcesList() map[string]interface{} {
@@ -198,7 +227,7 @@ func (s *Server) runMCPStdio() {
 
 	customTools := loadMCPCustomTools()
 	client := NewDirectClient(s)
-	handler := NewMCPHandler(client, customTools)
+	handler := NewMCPHandlerWithInfo(client, customTools, s.MCPInfo)
 
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Buffer(make([]byte, 0, 4*1024*1024), 4*1024*1024) // 4MB buffer
