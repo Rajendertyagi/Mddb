@@ -59,6 +59,13 @@ func NewGRPCServer(s *Server) *GRPCServer {
 	return gs
 }
 
+// isReadOnly returns true if the gRPC server is in read-only mode,
+// considering both the global server mode and the per-protocol gRPC mode override.
+func (g *GRPCServer) isReadOnly() bool {
+	mode := effectiveMode(g.server.Mode, g.server.Config.GRPC.Mode)
+	return mode == ModeRead
+}
+
 // startGRPCServer starts the gRPC server on the specified address
 func startGRPCServer(s *Server, addr string, opts ...grpc.ServerOption) error {
 	lis, err := net.Listen("tcp", addr)
@@ -94,7 +101,7 @@ func startGRPCServer(s *Server, addr string, opts ...grpc.ServerOption) error {
 
 // Add implements the Add RPC
 func (g *GRPCServer) Add(ctx context.Context, req *proto.AddRequest) (*proto.Document, error) {
-	if g.server.Mode == ModeRead {
+	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 
@@ -234,7 +241,7 @@ func (g *GRPCServer) Add(ctx context.Context, req *proto.AddRequest) (*proto.Doc
 // AddBatch implements the AddBatch RPC - adds multiple documents in a single transaction
 // Uses parallel processing for preparation, then single transaction for commit
 func (g *GRPCServer) AddBatch(ctx context.Context, req *proto.AddBatchRequest) (*proto.AddBatchResponse, error) {
-	if g.server.Mode == ModeRead {
+	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 
@@ -272,7 +279,7 @@ func (g *GRPCServer) AddBatch(ctx context.Context, req *proto.AddBatchRequest) (
 
 // Ingest implements the Ingest RPC — bulk ingest with URL key derivation, dedup, and auto-metadata.
 func (g *GRPCServer) Ingest(ctx context.Context, req *proto.IngestRequest) (*proto.IngestResponse, error) {
-	if g.server.Mode == ModeRead {
+	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 
@@ -536,7 +543,7 @@ func (g *GRPCServer) Backup(ctx context.Context, req *proto.BackupRequest) (*pro
 
 // Restore implements the Restore RPC
 func (g *GRPCServer) Restore(ctx context.Context, req *proto.RestoreRequest) (*proto.RestoreResponse, error) {
-	if g.server.Mode == ModeRead {
+	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 
@@ -560,7 +567,7 @@ func (g *GRPCServer) Restore(ctx context.Context, req *proto.RestoreRequest) (*p
 
 // Truncate implements the Truncate RPC
 func (g *GRPCServer) Truncate(ctx context.Context, req *proto.TruncateRequest) (*proto.TruncateResponse, error) {
-	if g.server.Mode == ModeRead {
+	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 
@@ -826,7 +833,7 @@ func (g *GRPCServer) VectorSearch(ctx context.Context, req *proto.VectorSearchRe
 
 // VectorReindex implements the VectorReindex RPC
 func (g *GRPCServer) VectorReindex(ctx context.Context, req *proto.VectorReindexRequest) (*proto.VectorReindexResponse, error) {
-	if g.server.Mode == ModeRead {
+	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 
@@ -985,7 +992,7 @@ func docToProto(doc *Doc) *proto.Document {
 
 // DeleteBatch implements the DeleteBatch RPC - deletes multiple documents in a single transaction
 func (g *GRPCServer) DeleteBatch(ctx context.Context, req *proto.DeleteBatchRequest) (*proto.DeleteBatchResponse, error) {
-	if g.server.Mode == ModeRead {
+	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 
@@ -1010,7 +1017,7 @@ func (g *GRPCServer) DeleteBatch(ctx context.Context, req *proto.DeleteBatchRequ
 
 // UpdateBatch implements the UpdateBatch RPC - updates multiple documents in a single transaction
 func (g *GRPCServer) UpdateBatch(ctx context.Context, req *proto.UpdateBatchRequest) (*proto.UpdateBatchResponse, error) {
-	if g.server.Mode == ModeRead {
+	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 
@@ -1035,7 +1042,7 @@ func (g *GRPCServer) UpdateBatch(ctx context.Context, req *proto.UpdateBatchRequ
 
 // ImportURL implements the ImportURL RPC
 func (g *GRPCServer) ImportURL(ctx context.Context, req *proto.ImportURLRequest) (*proto.Document, error) {
-	if g.server.Mode == ModeRead {
+	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 
@@ -1082,7 +1089,7 @@ func (g *GRPCServer) ImportURL(ctx context.Context, req *proto.ImportURLRequest)
 
 // SetTTL implements the SetTTL RPC
 func (g *GRPCServer) SetTTL(ctx context.Context, req *proto.SetTTLRequest) (*proto.Document, error) {
-	if g.server.Mode == ModeRead {
+	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 
@@ -1490,7 +1497,7 @@ func (g *GRPCServer) HybridSearch(ctx context.Context, req *proto.HybridSearchRe
 
 // RegisterWebhook implements the RegisterWebhook RPC
 func (g *GRPCServer) RegisterWebhook(ctx context.Context, req *proto.RegisterWebhookRequest) (*proto.WebhookProto, error) {
-	if g.server.Mode == ModeRead {
+	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 
@@ -1549,7 +1556,7 @@ func (g *GRPCServer) ListWebhooks(ctx context.Context, req *proto.ListWebhooksRe
 
 // DeleteWebhook implements the DeleteWebhook RPC
 func (g *GRPCServer) DeleteWebhook(ctx context.Context, req *proto.DeleteWebhookRequest) (*proto.DeleteWebhookResponse, error) {
-	if g.server.Mode == ModeRead {
+	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 
@@ -1576,7 +1583,7 @@ func (g *GRPCServer) DeleteWebhook(ctx context.Context, req *proto.DeleteWebhook
 
 // SetSchema implements the SetSchema RPC
 func (g *GRPCServer) SetSchema(ctx context.Context, req *proto.SetSchemaRequest) (*proto.SetSchemaResponse, error) {
-	if g.server.Mode == ModeRead {
+	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 
@@ -1621,7 +1628,7 @@ func (g *GRPCServer) GetSchema(ctx context.Context, req *proto.GetSchemaRequest)
 
 // DeleteSchema implements the DeleteSchema RPC
 func (g *GRPCServer) DeleteSchema(ctx context.Context, req *proto.DeleteSchemaRequest) (*proto.DeleteSchemaResponse, error) {
-	if g.server.Mode == ModeRead {
+	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 
@@ -1693,7 +1700,7 @@ func (g *GRPCServer) ValidateDocument(ctx context.Context, req *proto.ValidateDo
 
 // UpdateDocument implements the UpdateDocument RPC - partial document update
 func (g *GRPCServer) UpdateDocument(ctx context.Context, req *proto.UpdateDocumentRequest) (*proto.Document, error) {
-	if g.server.Mode == ModeRead {
+	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 
@@ -1939,7 +1946,7 @@ func (g *GRPCServer) Classify(ctx context.Context, req *proto.ClassifyRequest) (
 
 // DeleteDocument implements the DeleteDocument RPC — deletes a single document.
 func (g *GRPCServer) DeleteDocument(ctx context.Context, req *proto.DeleteDocumentRequest) (*proto.DeleteDocumentResponse, error) {
-	if g.server.Mode == ModeRead {
+	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 	if g.server.AuthManager != nil {
@@ -1963,7 +1970,7 @@ func (g *GRPCServer) DeleteDocument(ctx context.Context, req *proto.DeleteDocume
 
 // DeleteCollection implements the DeleteCollection RPC — deletes all documents in a collection.
 func (g *GRPCServer) DeleteCollection(ctx context.Context, req *proto.DeleteCollectionRequest) (*proto.DeleteCollectionResponse, error) {
-	if g.server.Mode == ModeRead {
+	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 	if g.server.AuthManager != nil {
@@ -2071,7 +2078,7 @@ func (g *GRPCServer) ListSynonyms(ctx context.Context, req *proto.ListSynonymsRe
 
 // AddSynonym implements the AddSynonym RPC.
 func (g *GRPCServer) AddSynonym(ctx context.Context, req *proto.AddSynonymRequest) (*proto.AddSynonymResponse, error) {
-	if g.server.Mode == ModeRead {
+	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 	if req.Collection == "" || req.Term == "" || len(req.Synonyms) == 0 {
@@ -2088,7 +2095,7 @@ func (g *GRPCServer) AddSynonym(ctx context.Context, req *proto.AddSynonymReques
 
 // DeleteSynonym implements the DeleteSynonym RPC.
 func (g *GRPCServer) DeleteSynonym(ctx context.Context, req *proto.DeleteSynonymRequest) (*proto.DeleteSynonymResponse, error) {
-	if g.server.Mode == ModeRead {
+	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 	if req.Collection == "" || req.Term == "" {
@@ -2132,7 +2139,7 @@ func (g *GRPCServer) ListStopwords(ctx context.Context, req *proto.ListStopwords
 
 // AddStopwords implements the AddStopwords RPC.
 func (g *GRPCServer) AddStopwords(ctx context.Context, req *proto.AddStopwordsRequest) (*proto.AddStopwordsResponse, error) {
-	if g.server.Mode == ModeRead {
+	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 	if req.Collection == "" || len(req.Words) == 0 {
@@ -2149,7 +2156,7 @@ func (g *GRPCServer) AddStopwords(ctx context.Context, req *proto.AddStopwordsRe
 
 // DeleteStopwords implements the DeleteStopwords RPC.
 func (g *GRPCServer) DeleteStopwords(ctx context.Context, req *proto.DeleteStopwordsRequest) (*proto.DeleteStopwordsResponse, error) {
-	if g.server.Mode == ModeRead {
+	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 	if req.Collection == "" || len(req.Words) == 0 {
@@ -2325,7 +2332,7 @@ func (g *GRPCServer) ListAutomation(ctx context.Context, req *proto.ListAutomati
 
 // CreateAutomation implements the CreateAutomation RPC.
 func (g *GRPCServer) CreateAutomation(ctx context.Context, req *proto.CreateAutomationRequest) (*proto.AutomationRuleProto, error) {
-	if g.server.Mode == ModeRead {
+	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 	if g.server.AuthManager != nil {
@@ -2372,7 +2379,7 @@ func (g *GRPCServer) GetAutomation(ctx context.Context, req *proto.GetAutomation
 
 // UpdateAutomation implements the UpdateAutomation RPC.
 func (g *GRPCServer) UpdateAutomation(ctx context.Context, req *proto.UpdateAutomationRequest) (*proto.AutomationRuleProto, error) {
-	if g.server.Mode == ModeRead {
+	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 	if g.server.AuthManager != nil {
@@ -2399,7 +2406,7 @@ func (g *GRPCServer) UpdateAutomation(ctx context.Context, req *proto.UpdateAuto
 
 // DeleteAutomation implements the DeleteAutomation RPC.
 func (g *GRPCServer) DeleteAutomation(ctx context.Context, req *proto.DeleteAutomationRequest) (*proto.DeleteAutomationResponse, error) {
-	if g.server.Mode == ModeRead {
+	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 	if g.server.AuthManager != nil {
@@ -2559,7 +2566,7 @@ func (g *GRPCServer) GetCollectionConfig(ctx context.Context, req *proto.GetColl
 
 // SetCollectionConfig implements the SetCollectionConfig RPC.
 func (g *GRPCServer) SetCollectionConfig(ctx context.Context, req *proto.SetCollectionConfigRequest) (*proto.SetCollectionConfigResponse, error) {
-	if g.server.Mode == ModeRead {
+	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 	if req.Collection == "" {
@@ -2914,7 +2921,7 @@ func (g *GRPCServer) ListRevisions(ctx context.Context, req *proto.ListRevisions
 
 // RestoreRevision implements the RestoreRevision RPC — restore a document from a specific revision.
 func (g *GRPCServer) RestoreRevision(ctx context.Context, req *proto.RestoreRevisionRequest) (*proto.Document, error) {
-	if g.server.Mode == ModeRead {
+	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
 	}
 	if req.Collection == "" || req.Key == "" || req.Lang == "" || req.Timestamp == 0 {

@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.3] - 2026-03-25
+
+### Added
+- **MCP Protocol 2025-11-25** — Upgraded from 2024-11-05 to the latest MCP specification
+- **Streamable HTTP transport** (`/mcp`) — New standard transport supporting POST (JSON-RPC), GET (SSE stream), DELETE (session termination), `MCP-Session-Id` header. Legacy SSE transport (`/sse` + `/message`) preserved for backward compatibility
+- **Tool annotations** — All 52+ tools annotated with `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint` hints per MCP spec. Enables AI clients (Claude, Cursor) to auto-approve safe tools
+- **Structured output schemas** — `outputSchema` on 9 key tools: `get_stats`, `search_documents`, `semantic_search`, `full_text_search`, `hybrid_search`, `vector_stats`, `get_checksum`, `classify_document`, `aggregate`
+- **5 MCP Prompts** — Built-in prompt templates: `analyze-collection`, `search-help`, `summarize-collection`, `import-guide`, `rag-pipeline`
+- **Completion/autocomplete** — `completion/complete` for collection names and prompt arguments (source, model, algorithm)
+- **MCP Logging** — `logging/setLevel` method + `notifications/message` support with RFC 5424 severity levels (debug through emergency)
+- **Notification handling** — Server accepts `notifications/initialized`, `notifications/cancelled`, `notifications/roots/list_changed` without error
+- **Progress token infrastructure** — `notifications/progress` support for long-running tools (vector_reindex, ingest_documents, fts_reindex, create_backup, etc.)
+- **Cursor-based pagination** — `tools/list` and `resources/list` support cursor parameter per spec
+- **29 new MCP protocol tests** — Covers all new features: protocol version, prompts, completion, logging, annotations, output schemas, Streamable HTTP transport, notifications, progress
+
+### Changed
+- Tool call errors now return `isError: true` in result content (per spec) instead of JSON-RPC error codes
+- `ping` response is now an empty object `{}` per MCP spec (was `{"result":"pong"}`)
+- Resource read errors use code `-32002` (resource not found) instead of generic `-32000`
+- Capabilities now advertise `prompts`, `logging`, `completions`, and `listChanged: true` for tools and resources
+
 ## [2.9.2] - 2026-03-25
 
 ### Added

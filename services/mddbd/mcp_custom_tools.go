@@ -813,12 +813,14 @@ func mcpCustomToolToMCPTool(ct MCPCustomToolConfig) MCPTool {
 	}
 }
 
-// mcpAllTools returns built-in tools plus custom tools from config.
+// mcpAllTools returns built-in tools plus custom tools from config, with annotations and output schemas.
 func mcpAllTools(customDefs []MCPCustomToolConfig) []MCPTool {
 	tools := mcpBuiltinTools()
 	for _, ct := range customDefs {
 		tools = append(tools, mcpCustomToolToMCPTool(ct))
 	}
+	tools = annotateTools(tools)
+	tools = applyOutputSchemas(tools)
 	return tools
 }
 

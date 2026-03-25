@@ -29,11 +29,22 @@ type GRPCMethod struct {
 	Description string `json:"description"`
 }
 
-// MCPTool describes a single MCP tool with its input schema.
+// MCPToolAnnotations holds MCP spec tool annotation hints (2025-11-25).
+type MCPToolAnnotations struct {
+	Title           string `json:"title,omitempty"`
+	ReadOnlyHint    *bool  `json:"readOnlyHint,omitempty"`
+	DestructiveHint *bool  `json:"destructiveHint,omitempty"`
+	IdempotentHint  *bool  `json:"idempotentHint,omitempty"`
+	OpenWorldHint   *bool  `json:"openWorldHint,omitempty"`
+}
+
+// MCPTool describes a single MCP tool with its input and output schemas.
 type MCPTool struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	InputSchema map[string]interface{} `json:"inputSchema,omitempty"`
+	Name         string                 `json:"name"`
+	Description  string                 `json:"description"`
+	InputSchema  map[string]interface{} `json:"inputSchema,omitempty"`
+	OutputSchema map[string]interface{} `json:"outputSchema,omitempty"`
+	Annotations  *MCPToolAnnotations    `json:"annotations,omitempty"`
 }
 
 // ---- Handlers ----

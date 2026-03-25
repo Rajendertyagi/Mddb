@@ -16,6 +16,7 @@ func mockMCPHandler() *MCPHandler {
 	return &MCPHandler{
 		client:      nil, // not needed for initialize/ping
 		customTools: nil,
+		logLevel:    MCPLogWarning,
 	}
 }
 
@@ -124,12 +125,9 @@ func TestMCPSSEMessageFlow(t *testing.T) {
 			if resp["jsonrpc"] != "2.0" {
 				t.Errorf("expected jsonrpc 2.0, got %v", resp["jsonrpc"])
 			}
-			result, ok := resp["result"].(map[string]interface{})
+			_, ok := resp["result"].(map[string]interface{})
 			if !ok {
 				t.Fatal("expected result object")
-			}
-			if result["result"] != "pong" {
-				t.Errorf("expected pong, got %v", result["result"])
 			}
 			break
 		}

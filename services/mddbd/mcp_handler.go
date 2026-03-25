@@ -6,14 +6,22 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"sync"
 )
+
+// MCPProtocolVersion is the MCP spec version this server implements.
+const MCPProtocolVersion = "2025-11-25"
 
 // MCPHandler handles MCP JSON-RPC requests via stdio.
 type MCPHandler struct {
 	client       MCPClient
 	customTools  []MCPCustomToolConfig
 	serverInfo   MCPServerInfo
-	instructions string // system prompt for LLM — how to use this server
+	instructions string     // system prompt for LLM — how to use this server
+	mode         AccessMode // per-protocol mode override ("read", "write", "wr", "" = global)
+
+	mu       sync.RWMutex
+	logLevel MCPLogLevel // minimum log level from client
 }
 
 // NewMCPHandler creates a new MCP handler.
@@ -22,11 +30,12 @@ func NewMCPHandler(client MCPClient, customTools []MCPCustomToolConfig) *MCPHand
 		client:      client,
 		customTools: customTools,
 		serverInfo:  MCPServerInfo{Name: "mddbd"},
+		logLevel:    MCPLogWarning,
 	}
 }
 
-// NewMCPHandlerWithConfig creates a new MCP handler with custom server info and instructions.
-func NewMCPHandlerWithConfig(client MCPClient, customTools []MCPCustomToolConfig, info MCPServerInfo, instructions string) *MCPHandler {
+// NewMCPHandlerWithConfig creates a new MCP handler with custom server info, instructions, and access mode.
+func NewMCPHandlerWithConfig(client MCPClient, customTools []MCPCustomToolConfig, info MCPServerInfo, instructions string, mode AccessMode) *MCPHandler {
 	if info.Name == "" {
 		info.Name = "mddbd"
 	}
@@ -35,6 +44,8 @@ func NewMCPHandlerWithConfig(client MCPClient, customTools []MCPCustomToolConfig
 		customTools:  customTools,
 		serverInfo:   info,
 		instructions: instructions,
+		mode:         mode,
+		logLevel:     MCPLogWarning,
 	}
 }
 
@@ -44,22 +55,54 @@ func (h *MCPHandler) Handle(req map[string]interface{}) map[string]interface{} {
 	id := req["id"]
 	ctx := context.Background()
 
+	// Handle notifications (no response expected)
+	if id == nil {
+		switch method {
+		case "notifications/initialized",
+			"notifications/cancelled",
+			"notifications/roots/list_changed":
+			// Accept silently — no response per spec
+			return nil
+		}
+	}
+
 	var result map[string]interface{}
 	var errObj map[string]interface{}
 
 	switch method {
 	case "initialize":
 		return h.handleInitialize(req)
+
+	// Resources
 	case "resources/list":
-		result = h.handleResourcesList()
+		result = h.handleResourcesList(req)
 	case "resources/read":
 		result = h.handleResourcesRead(ctx, req)
+
+	// Tools
 	case "tools/list":
-		result = h.handleToolsList()
+		result = h.handleToolsList(req)
 	case "tools/call":
 		result = h.handleToolsCall(ctx, req)
+
+	// Prompts
+	case "prompts/list":
+		result = h.handlePromptsList(req)
+	case "prompts/get":
+		result = h.handlePromptsGet(ctx, req)
+
+	// Completion
+	case "completion/complete":
+		result = h.handleComplete(ctx, req)
+
+	// Logging
+	case "logging/setLevel":
+		result = h.handleSetLogLevel(req)
+
+	// Ping
 	case "ping":
-		result = map[string]interface{}{"result": "pong"}
+		result = map[string]interface{}{}
+
 	default:
 		errObj = map[string]interface{}{
 			"code":    -32601,
@@ -85,15 +128,20 @@ func (h *MCPHandler) handleInitialize(req map[string]interface{}) map[string]int
 	id := req["id"]
 
 	result := map[string]interface{}{
-		"protocolVersion": "2024-11-05",
+		"protocolVersion": MCPProtocolVersion,
 		"capabilities": map[string]interface{}{
 			"resources": map[string]interface{}{
 				"subscribe":   false,
-				"listChanged": false,
+				"listChanged": true,
 			},
 			"tools": map[string]interface{}{
+				"listChanged": true,
+			},
+			"prompts": map[string]interface{}{
 				"listChanged": false,
 			},
+			"logging":     map[string]interface{}{},
+			"completions": map[string]interface{}{},
 		},
 		"serverInfo": h.buildServerInfo(),
 	}
@@ -126,7 +174,9 @@ func (h *MCPHandler) buildServerInfo() map[string]interface{} {
 	return info
 }
 
-func (h *MCPHandler) handleResourcesList() map[string]interface{} {
+// ---- Resources with cursor pagination ----
+
+func (h *MCPHandler) handleResourcesList(req map[string]interface{}) map[string]interface{} {
 	resources := []MCPResource{
 		{
 			URI:         "mddb://health",
@@ -154,6 +204,7 @@ func (h *MCPHandler) handleResourcesList() map[string]interface{} {
 		},
 	}
 
+	// Cursor pagination — since we have few resources, return all in one page
 	return map[string]interface{}{
 		"resources": resources,
 	}
@@ -163,12 +214,12 @@ func (h *MCPHandler) handleResourcesRead(ctx context.Context, req map[string]int
 	params, _ := req["params"].(map[string]interface{})
 	uri, _ := params["uri"].(string)
 
-	ts := &MCPToolServer{client: h.client, customTools: h.customTools}
+	ts := &MCPToolServer{client: h.client, customTools: h.customTools, mode: h.mode}
 	content, err := ts.readResource(ctx, uri)
 	if err != nil {
 		return map[string]interface{}{
 			"error": map[string]interface{}{
-				"code":    -32000,
+				"code":    -32002,
 				"message": err.Error(),
 			},
 		}
@@ -185,10 +236,31 @@ func (h *MCPHandler) handleResourcesRead(ctx context.Context, req map[string]int
 	}
 }
 
-func (h *MCPHandler) handleToolsList() map[string]interface{} {
-	return map[string]interface{}{
-		"tools": mcpAllTools(h.customTools),
+// ---- Tools with cursor pagination ----
+
+func (h *MCPHandler) handleToolsList(req map[string]interface{}) map[string]interface{} {
+	tools := mcpAllTools(h.customTools)
+
+	// Cursor-based pagination
+	params, _ := req["params"].(map[string]interface{})
+	cursor, _ := params["cursor"].(string)
+
+	if cursor != "" {
+		// Find cursor position and return remaining tools
+		for i, t := range tools {
+			if t.Name == cursor {
+				tools = tools[i+1:]
+				break
+			}
+		}
 	}
+
+	result := map[string]interface{}{
+		"tools": tools,
+	}
+
+	// All tools fit in one page — no nextCursor needed
+	return result
 }
 
 func (h *MCPHandler) handleToolsCall(ctx context.Context, req map[string]interface{}) map[string]interface{} {
@@ -196,14 +268,17 @@ func (h *MCPHandler) handleToolsCall(ctx context.Context, req map[string]interfa
 	name, _ := params["name"].(string)
 	args, _ := params["arguments"].(map[string]interface{})
 
-	ts := &MCPToolServer{client: h.client, customTools: h.customTools}
+	ts := &MCPToolServer{client: h.client, customTools: h.customTools, mode: h.mode}
 	result, err := ts.mcpCallTool(ctx, name, args)
 	if err != nil {
 		return map[string]interface{}{
-			"error": map[string]interface{}{
-				"code":    -32000,
-				"message": err.Error(),
+			"content": []map[string]interface{}{
+				{
+					"type": "text",
+					"text": err.Error(),
+				},
 			},
+			"isError": true,
 		}
 	}
 
@@ -217,6 +292,82 @@ func (h *MCPHandler) handleToolsCall(ctx context.Context, req map[string]interfa
 	}
 }
 
+// ---- Prompts ----
+
+func (h *MCPHandler) handlePromptsList(req map[string]interface{}) map[string]interface{} {
+	return map[string]interface{}{
+		"prompts": mcpBuiltinPrompts(),
+	}
+}
+
+func (h *MCPHandler) handlePromptsGet(ctx context.Context, req map[string]interface{}) map[string]interface{} {
+	params, _ := req["params"].(map[string]interface{})
+	name, _ := params["name"].(string)
+	args, _ := params["arguments"].(map[string]interface{})
+
+	messages, description, err := mcpGetPrompt(ctx, h.client, name, args)
+	if err != nil {
+		return map[string]interface{}{
+			"error": map[string]interface{}{
+				"code":    -32602,
+				"message": err.Error(),
+			},
+		}
+	}
+
+	return map[string]interface{}{
+		"description": description,
+		"messages":    messages,
+	}
+}
+
+// ---- Completion ----
+
+func (h *MCPHandler) handleComplete(ctx context.Context, req map[string]interface{}) map[string]interface{} {
+	params, _ := req["params"].(map[string]interface{})
+	ref, _ := params["ref"].(map[string]interface{})
+	argument, _ := params["argument"].(map[string]interface{})
+
+	values, total, hasMore := mcpComplete(ctx, h.client, ref, argument)
+
+	return map[string]interface{}{
+		"completion": map[string]interface{}{
+			"values":  values,
+			"total":   total,
+			"hasMore": hasMore,
+		},
+	}
+}
+
+// ---- Logging ----
+
+func (h *MCPHandler) handleSetLogLevel(req map[string]interface{}) map[string]interface{} {
+	params, _ := req["params"].(map[string]interface{})
+	level, _ := params["level"].(string)
+
+	if _, ok := mcpLogLevelOrder[MCPLogLevel(level)]; !ok {
+		return map[string]interface{}{
+			"error": map[string]interface{}{
+				"code":    -32602,
+				"message": "invalid log level: " + level,
+			},
+		}
+	}
+
+	h.mu.Lock()
+	h.logLevel = MCPLogLevel(level)
+	h.mu.Unlock()
+
+	return map[string]interface{}{}
+}
+
+// GetLogLevel returns the current minimum log level.
+func (h *MCPHandler) GetLogLevel() MCPLogLevel {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.logLevel
+}
+
 // HandleJSON processes JSON request and returns JSON response.
 func (h *MCPHandler) HandleJSON(reqJSON []byte) ([]byte, error) {
 	var req map[string]interface{}
@@ -225,6 +376,10 @@ func (h *MCPHandler) HandleJSON(reqJSON []byte) ([]byte, error) {
 	}
 
 	resp := h.Handle(req)
+	if resp == nil {
+		// Notification — no response
+		return nil, nil
+	}
 	return json.Marshal(resp)
 }
 
@@ -234,7 +389,7 @@ func (s *Server) runMCPStdio() {
 
 	customTools := loadMCPCustomTools()
 	client := NewDirectClient(s)
-	handler := NewMCPHandlerWithConfig(client, customTools, s.MCPInfo, s.MCPInstructions)
+	handler := NewMCPHandlerWithConfig(client, customTools, s.MCPInfo, s.MCPInstructions, s.Config.MCP.Mode)
 
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Buffer(make([]byte, 0, 4*1024*1024), 4*1024*1024) // 4MB buffer
@@ -248,6 +403,11 @@ func (s *Server) runMCPStdio() {
 		resp, err := handler.HandleJSON(line)
 		if err != nil {
 			log.Printf("MCP handler error: %v", err)
+			continue
+		}
+
+		if resp == nil {
+			// Notification — no response to send
 			continue
 		}
 

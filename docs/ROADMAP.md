@@ -47,11 +47,34 @@ Detailed roadmap showing implemented features and future plans.
 - HTTP connection pooling (shared transport)
 - Built-in TLS/HTTPS support
 
+### v2.9.3 — MCP 2025-11-25 Compliance
+- **Protocol version**: `2025-11-25` (upgraded from 2024-11-05)
+- **Streamable HTTP transport** (`POST/GET /mcp`) — new standard, alongside legacy SSE
+- **Tool annotations**: `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint` on all 52+ tools
+- **Structured output schemas** (`outputSchema`) on key tools (stats, search, classification, aggregation)
+- **Prompts**: 5 built-in prompts (analyze-collection, search-help, summarize-collection, import-guide, rag-pipeline)
+- **Completion/autocomplete**: collection names, prompt arguments, search algorithms
+- **MCP logging**: `logging/setLevel` + `notifications/message` (RFC 5424 levels)
+- **Notifications**: `notifications/initialized`, `notifications/cancelled`, `tools/list_changed`, `resources/list_changed`
+- **Progress tokens**: `notifications/progress` infrastructure for long-running tools (reindex, ingest, backup)
+- **Cursor-based pagination** in `tools/list` and `resources/list`
+- **Error handling**: tool errors return `isError: true` instead of JSON-RPC error (per spec)
+
 ---
 
 ## Planned Features
 
-### v2.10 — Observability & Security (Q2 2026)
+### v2.10 — MCP Advanced & Observability (Q2 2026)
+
+**MCP Advanced Features**
+- ⏳ OAuth 2.1 authorization for HTTP transport (PKCE, resource indicators)
+- ⏳ Sampling — server-initiated LLM requests (auto-classification, content summarization)
+- ⏳ Elicitation — server prompts user for input (form and URL modes)
+- ⏳ Resource subscriptions (`resources/subscribe`, `notifications/resources/updated`)
+- ⏳ Tasks — durable state machines for long-running operations (experimental spec)
+- ⏳ Icons on tools, resources, prompts, and serverInfo
+- ⏳ Roots support (client workspace awareness)
+- ⏳ JSON-RPC batch requests
 
 **Observability**
 - ⏳ OpenTelemetry / distributed tracing

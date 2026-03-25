@@ -2,7 +2,7 @@
 
 MDDB provides a real-time event stream for document changes via Server-Sent Events (SSE).
 
-Available since **v2.9.2**. Auth enforcement and per-IP rate limiting since **v2.9.2**.
+Available since **v2.9.3**. Auth enforcement and per-IP rate limiting since **v2.9.3**.
 
 ## Quick Start
 

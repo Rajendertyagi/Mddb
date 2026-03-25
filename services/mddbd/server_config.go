@@ -53,14 +53,16 @@ type TLSConfig struct {
 
 // HTTPConfig controls the HTTP/JSON API server.
 type HTTPConfig struct {
-	Enabled bool   `yaml:"enabled" json:"enabled"`
-	Addr    string `yaml:"addr" json:"addr"`
+	Enabled bool       `yaml:"enabled" json:"enabled"`
+	Addr    string     `yaml:"addr" json:"addr"`
+	Mode    AccessMode `yaml:"mode" json:"mode"` // "read", "write", or "wr" (default: follows MDDB_MODE)
 }
 
 // GRPCConfig controls the gRPC server.
 type GRPCConfig struct {
-	Enabled bool   `yaml:"enabled" json:"enabled"`
-	Addr    string `yaml:"addr" json:"addr"`
+	Enabled bool       `yaml:"enabled" json:"enabled"`
+	Addr    string     `yaml:"addr" json:"addr"`
+	Mode    AccessMode `yaml:"mode" json:"mode"` // "read", "write", or "wr" (default: follows MDDB_MODE)
 }
 
 // MCPServerInfo holds customizable server profile returned in MCP initialize response.
@@ -77,14 +79,16 @@ type MCPConfig struct {
 	Addr         string        `yaml:"addr" json:"addr"`
 	Stdio        bool          `yaml:"stdio" json:"stdio"`
 	Domain       string        `yaml:"domain" json:"domain"`
+	Mode         AccessMode    `yaml:"mode" json:"mode"` // "read", "write", or "wr" (default: follows MDDB_MODE)
 	ServerInfo   MCPServerInfo `yaml:"serverInfo" json:"serverInfo"`
 	Instructions string        `yaml:"instructions" json:"instructions,omitempty"` // System prompt for LLM — how to use this server
 }
 
 // HTTP3Config controls the HTTP/3 (QUIC) server (extreme mode).
 type HTTP3Config struct {
-	Enabled bool   `yaml:"enabled" json:"enabled"`
-	Addr    string `yaml:"addr" json:"addr"`
+	Enabled bool       `yaml:"enabled" json:"enabled"`
+	Addr    string     `yaml:"addr" json:"addr"`
+	Mode    AccessMode `yaml:"mode" json:"mode"` // "read", "write", or "wr" (default: follows MDDB_MODE)
 }
 
 // defaultServerConfig returns the default configuration.
@@ -343,6 +347,9 @@ func applyEnvConfig(cfg *ServerConfig) {
 	if v := os.Getenv("MDDB_HTTP_PORT"); v != "" {
 		cfg.HTTP.Addr = portToAddr(v)
 	}
+	if v := os.Getenv("MDDB_API_MODE"); v != "" {
+		cfg.HTTP.Mode = AccessMode(v)
+	}
 
 	// gRPC
 	if v := os.Getenv("MDDB_GRPC_ENABLED"); v != "" {
@@ -353,6 +360,9 @@ func applyEnvConfig(cfg *ServerConfig) {
 	}
 	if v := os.Getenv("MDDB_GRPC_PORT"); v != "" {
 		cfg.GRPC.Addr = portToAddr(v)
+	}
+	if v := os.Getenv("MDDB_GRPC_MODE"); v != "" {
+		cfg.GRPC.Mode = AccessMode(v)
 	}
 
 	// MCP
@@ -386,6 +396,9 @@ func applyEnvConfig(cfg *ServerConfig) {
 	if v := os.Getenv("MDDB_MCP_INSTRUCTIONS"); v != "" {
 		cfg.MCP.Instructions = v
 	}
+	if v := os.Getenv("MDDB_MCP_MODE"); v != "" {
+		cfg.MCP.Mode = AccessMode(v)
+	}
 
 	// TLS
 	if v := os.Getenv("MDDB_TLS_ENABLED"); v != "" {
@@ -411,6 +424,9 @@ func applyEnvConfig(cfg *ServerConfig) {
 	}
 	if v := os.Getenv("MDDB_HTTP3_PORT"); v != "" {
 		cfg.HTTP3.Addr = portToAddr(v)
+	}
+	if v := os.Getenv("MDDB_HTTP3_MODE"); v != "" {
+		cfg.HTTP3.Mode = AccessMode(v)
 	}
 
 	// FTS

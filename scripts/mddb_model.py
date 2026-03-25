@@ -1,7 +1,7 @@
 """
 title: MDDB RAG Model
 author: MDDB
-version: 2.9.2
+version: 2.9.3
 license: MIT
 description: RAG model using MDDB for document retrieval with multi-LLM support (Ollama, OpenAI, DeepSeek)
 """

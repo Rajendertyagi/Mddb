@@ -61,7 +61,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: "2.9.2"
+  version: "2.9.3"
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -116,6 +116,8 @@ tags:
     description: FTS synonym dictionary management
   - name: System
     description: System information and endpoint discovery
+  - name: MCP
+    description: Model Context Protocol 2025-11-25 — Streamable HTTP transport, tools, resources, prompts, completion, logging
   - name: Configuration
     description: Server and MCP configuration
   - name: GraphQL
@@ -3175,6 +3177,94 @@ paths:
         "404":
           description: Document or revision not found
 
+  /mcp:
+    post:
+      tags:
+        - MCP
+      summary: MCP Streamable HTTP endpoint (2025-11-25)
+      description: |
+        Streamable HTTP transport for MCP protocol 2025-11-25. Accepts JSON-RPC requests.
+        Supported methods: initialize, tools/list, tools/call, resources/list, resources/read,
+        prompts/list, prompts/get, completion/complete, logging/setLevel, ping.
+        Notifications (no id) return 202 Accepted.
+        Session management via MCP-Session-Id header.
+        Available on MCP port (default 9000).
+      operationId: mcpStreamableHTTP
+      parameters:
+        - name: MCP-Session-Id
+          in: header
+          description: Session identifier (assigned by server at initialize)
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                jsonrpc:
+                  type: string
+                  example: "2.0"
+                id:
+                  type: integer
+                  example: 1
+                method:
+                  type: string
+                  example: "tools/list"
+                params:
+                  type: object
+      responses:
+        "200":
+          description: JSON-RPC response
+          headers:
+            MCP-Session-Id:
+              description: Session identifier (present on initialize response)
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+        "202":
+          description: Notification accepted (no response body)
+    get:
+      tags:
+        - MCP
+      summary: MCP SSE stream for server-initiated messages
+      description: |
+        Open an SSE stream for receiving server-initiated messages (notifications, progress).
+        Requires MCP-Session-Id header from a previous initialize call.
+      operationId: mcpStreamableSSE
+      parameters:
+        - name: MCP-Session-Id
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: SSE event stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+    delete:
+      tags:
+        - MCP
+      summary: Terminate MCP session
+      description: Close an active MCP Streamable HTTP session.
+      operationId: mcpTerminateSession
+      parameters:
+        - name: MCP-Session-Id
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Session terminated
+
   /v1/events:
     get:
       tags:
@@ -4926,7 +5016,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.9.2
+          example: 2.9.3
         uptimeSeconds:
           type: integer
           format: int64
@@ -4990,7 +5080,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.9.2
+          example: 2.9.3
         databasePath:
           type: string
           description: Path to the database file
