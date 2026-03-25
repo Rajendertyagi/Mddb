@@ -59,8 +59,8 @@ func (p *MCPProgressSender) Send(progress, total int, message string) {
 	p.writer(notification)
 }
 
-// longRunningTools lists tools that support progress tokens.
-var longRunningTools = map[string]bool{
+// LongRunningTools lists tools that support progress tokens.
+var LongRunningTools = map[string]bool{
 	"vector_reindex":         true,
 	"fts_reindex":            true,
 	"ingest_documents":       true,
@@ -73,8 +73,8 @@ var longRunningTools = map[string]bool{
 	"cross_search":           true,
 }
 
-// extractProgressToken extracts _meta.progressToken from request params.
-func extractProgressToken(req map[string]interface{}) interface{} {
+// ExtractProgressToken extracts _meta.progressToken from request params.
+func ExtractProgressToken(req map[string]interface{}) interface{} {
 	params, _ := req["params"].(map[string]interface{})
 	if params == nil {
 		return nil

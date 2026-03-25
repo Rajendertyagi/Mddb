@@ -942,19 +942,6 @@ func (s *Server) guardWrite(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// guardWriteMode creates a write guard using a per-protocol mode override.
-// If protocolMode is set, it takes precedence over the global server mode.
-func (s *Server) guardWriteMode(protocolMode AccessMode, next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		mode := effectiveMode(s.Mode, protocolMode)
-		if mode == ModeRead {
-			http.Error(w, `{"error":"read-only mode"}`, http.StatusForbidden)
-			return
-		}
-		next(w, r)
-	}
-}
-
 // effectiveMode returns the per-protocol mode if set, otherwise falls back to the global mode.
 func effectiveMode(global, perProtocol AccessMode) AccessMode {
 	if perProtocol != "" {

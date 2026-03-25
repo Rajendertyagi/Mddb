@@ -72,7 +72,7 @@ func (t *MCPStreamableTransport) handlePost(w http.ResponseWriter, r *http.Reque
 	if err := json.Unmarshal(body, &req); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error"}}`)
+		_, _ = fmt.Fprintf(w, `{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error"}}`)
 		return
 	}
 
@@ -101,7 +101,7 @@ func (t *MCPStreamableTransport) handlePost(w http.ResponseWriter, r *http.Reque
 
 	w.Header().Set("Content-Type", "application/json")
 	respJSON, _ := json.Marshal(resp)
-	w.Write(respJSON)
+	_, _ = w.Write(respJSON)
 }
 
 func (t *MCPStreamableTransport) handleGet(w http.ResponseWriter, r *http.Request) {
@@ -139,19 +139,19 @@ func (t *MCPStreamableTransport) handleGet(w http.ResponseWriter, r *http.Reques
 	w.Header().Set("X-Accel-Buffering", "no")
 	flusher.Flush()
 
-	log.Printf("MCP Streamable HTTP client connected (session=%s)", sessionID)
+	log.Printf("MCP Streamable HTTP client connected (session=%s)", sessionID) // #nosec G706 -- sessionID is hex-encoded random bytes
 
 	ctx := r.Context()
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("MCP Streamable HTTP client disconnected (session=%s)", sessionID)
+			log.Printf("MCP Streamable HTTP client disconnected (session=%s)", sessionID) // #nosec G706
 			return
 		case msg, ok := <-session.ch:
 			if !ok {
 				return
 			}
-			fmt.Fprintf(w, "event: message\ndata: %s\n\n", msg)
+			_, _ = fmt.Fprintf(w, "event: message\ndata: %s\n\n", msg)
 			flusher.Flush()
 		}
 	}
@@ -172,7 +172,7 @@ func (t *MCPStreamableTransport) handleDelete(w http.ResponseWriter, r *http.Req
 	}
 	t.mu.Unlock()
 
-	log.Printf("MCP Streamable HTTP session terminated (session=%s)", sessionID)
+	log.Printf("MCP Streamable HTTP session terminated (session=%s)", sessionID) // #nosec G706
 	w.WriteHeader(http.StatusNoContent)
 }
 
