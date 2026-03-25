@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 )
 
 // MCPCustomToolConfig defines a single custom YAML tool.
@@ -814,8 +815,12 @@ func mcpCustomToolToMCPTool(ct MCPCustomToolConfig) MCPTool {
 }
 
 // mcpAllTools returns built-in tools plus custom tools from config, with annotations and output schemas.
+// Set MDDB_MCP_BUILTIN_TOOLS=false to expose only custom tools (no built-in tools).
 func mcpAllTools(customDefs []MCPCustomToolConfig) []MCPTool {
-	tools := mcpBuiltinTools()
+	var tools []MCPTool
+	if os.Getenv("MDDB_MCP_BUILTIN_TOOLS") != "false" {
+		tools = mcpBuiltinTools()
+	}
 	for _, ct := range customDefs {
 		tools = append(tools, mcpCustomToolToMCPTool(ct))
 	}

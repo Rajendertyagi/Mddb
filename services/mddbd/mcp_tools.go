@@ -13,13 +13,15 @@ import (
 type MCPToolServer struct {
 	client      MCPClient
 	customTools []MCPCustomToolConfig
-	mode        AccessMode // per-protocol mode ("read", "write", "wr", or "" = inherit global)
+	globalMode  AccessMode // server-wide mode (from MDDB_MODE / follower)
+	mode        AccessMode // per-protocol override (from MDDB_MCP_MODE, "" = inherit global)
 }
 
 // mcpCallTool invokes an MCP tool by name.
 func (s *MCPToolServer) mcpCallTool(ctx context.Context, name string, args map[string]interface{}) (string, error) {
-	// Enforce per-protocol read-only mode using tool annotations
-	if s.mode == ModeRead {
+	// Enforce read-only mode: per-protocol override takes precedence, then global mode.
+	em := effectiveMode(s.globalMode, s.mode)
+	if em == ModeRead {
 		ann := mcpToolAnnotations[name]
 		if ann == nil || ann.ReadOnlyHint == nil || !*ann.ReadOnlyHint {
 			return "", fmt.Errorf("tool %q is not available in read-only mode", name)

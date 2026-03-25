@@ -779,14 +779,14 @@ func main() {
 			mcpMux.HandleFunc("/events", s.handleSSE)
 
 			// MCP-over-SSE transport (legacy, 2024-11-05 spec)
-			mcpSSEHandler := NewMCPHandlerWithConfig(NewDirectClient(s), loadMCPCustomTools(), srvCfg.MCP.ServerInfo, srvCfg.MCP.Instructions, srvCfg.MCP.Mode)
+			mcpSSEHandler := NewMCPHandlerWithConfig(NewDirectClient(s), loadMCPCustomTools(), srvCfg.MCP.ServerInfo, srvCfg.MCP.Instructions, s.Mode, srvCfg.MCP.Mode)
 			mcpSSE := NewMCPSSETransport(mcpSSEHandler)
 			mcpMux.HandleFunc("/sse", mcpSSE.HandleSSE)
 			mcpMux.HandleFunc("/message", mcpSSE.HandleMessage)
 			log.Println("MCP-over-SSE transport enabled at /sse + /message (legacy)")
 
 			// Streamable HTTP transport (2025-11-25 spec)
-			mcpStreamableHandler := NewMCPHandlerWithConfig(NewDirectClient(s), loadMCPCustomTools(), srvCfg.MCP.ServerInfo, srvCfg.MCP.Instructions, srvCfg.MCP.Mode)
+			mcpStreamableHandler := NewMCPHandlerWithConfig(NewDirectClient(s), loadMCPCustomTools(), srvCfg.MCP.ServerInfo, srvCfg.MCP.Instructions, s.Mode, srvCfg.MCP.Mode)
 			mcpStreamable := NewMCPStreamableTransport(mcpStreamableHandler)
 			mcpMux.HandleFunc("/mcp", mcpStreamable.Handle)
 			log.Println("MCP Streamable HTTP transport enabled at /mcp")
