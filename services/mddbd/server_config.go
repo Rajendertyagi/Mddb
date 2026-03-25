@@ -63,12 +63,21 @@ type GRPCConfig struct {
 	Addr    string `yaml:"addr" json:"addr"`
 }
 
+// MCPServerInfo holds customizable server profile returned in MCP initialize response.
+type MCPServerInfo struct {
+	Name        string `yaml:"name" json:"name"`
+	Description string `yaml:"description" json:"description,omitempty"`
+	Vendor      string `yaml:"vendor" json:"vendor,omitempty"`
+	Homepage    string `yaml:"homepage" json:"homepage,omitempty"`
+}
+
 // MCPConfig controls the MCP protocol server.
 type MCPConfig struct {
-	Enabled bool   `yaml:"enabled" json:"enabled"`
-	Addr    string `yaml:"addr" json:"addr"`
-	Stdio   bool   `yaml:"stdio" json:"stdio"`
-	Domain  string `yaml:"domain" json:"domain"`
+	Enabled    bool          `yaml:"enabled" json:"enabled"`
+	Addr       string        `yaml:"addr" json:"addr"`
+	Stdio      bool          `yaml:"stdio" json:"stdio"`
+	Domain     string        `yaml:"domain" json:"domain"`
+	ServerInfo MCPServerInfo `yaml:"serverInfo" json:"serverInfo"`
 }
 
 // HTTP3Config controls the HTTP/3 (QUIC) server (extreme mode).
@@ -82,7 +91,7 @@ func defaultServerConfig() ServerConfig {
 	return ServerConfig{
 		HTTP:        HTTPConfig{Enabled: true, Addr: ":11023"},
 		GRPC:        GRPCConfig{Enabled: true, Addr: ":11024"},
-		MCP:         MCPConfig{Enabled: true, Addr: ":9000", Stdio: false},
+		MCP:         MCPConfig{Enabled: true, Addr: ":9000", Stdio: false, ServerInfo: MCPServerInfo{Name: "mddbd"}},
 		HTTP3:       HTTP3Config{Enabled: false, Addr: ":11443"},
 		TLS:         TLSConfig{Enabled: false},
 		FTS:         FTSConfig{StemmingEnabled: true, SynonymsEnabled: true, DefaultLang: "en"},
@@ -181,10 +190,18 @@ type fileGRPC struct {
 	Addr    *string `yaml:"addr"`
 }
 
+type fileMCPServerInfo struct {
+	Name        *string `yaml:"name"`
+	Description *string `yaml:"description"`
+	Vendor      *string `yaml:"vendor"`
+	Homepage    *string `yaml:"homepage"`
+}
+
 type fileMCP struct {
-	Enabled *bool   `yaml:"enabled"`
-	Addr    *string `yaml:"addr"`
-	Stdio   *bool   `yaml:"stdio"`
+	Enabled    *bool              `yaml:"enabled"`
+	Addr       *string            `yaml:"addr"`
+	Stdio      *bool              `yaml:"stdio"`
+	ServerInfo *fileMCPServerInfo `yaml:"serverInfo"`
 }
 
 type fileHTTP3 struct {
@@ -238,6 +255,20 @@ func mergeFileConfig(cfg ServerConfig, fc *fileConfig) ServerConfig {
 		}
 		if fc.MCP.Stdio != nil {
 			cfg.MCP.Stdio = *fc.MCP.Stdio
+		}
+		if fc.MCP.ServerInfo != nil {
+			if fc.MCP.ServerInfo.Name != nil {
+				cfg.MCP.ServerInfo.Name = *fc.MCP.ServerInfo.Name
+			}
+			if fc.MCP.ServerInfo.Description != nil {
+				cfg.MCP.ServerInfo.Description = *fc.MCP.ServerInfo.Description
+			}
+			if fc.MCP.ServerInfo.Vendor != nil {
+				cfg.MCP.ServerInfo.Vendor = *fc.MCP.ServerInfo.Vendor
+			}
+			if fc.MCP.ServerInfo.Homepage != nil {
+				cfg.MCP.ServerInfo.Homepage = *fc.MCP.ServerInfo.Homepage
+			}
 		}
 	}
 	if fc.HTTP3 != nil {
@@ -334,6 +365,18 @@ func applyEnvConfig(cfg *ServerConfig) {
 	}
 	if v := os.Getenv("MDDB_MCP_DOMAIN"); v != "" {
 		cfg.MCP.Domain = v
+	}
+	if v := os.Getenv("MDDB_MCP_SERVER_NAME"); v != "" {
+		cfg.MCP.ServerInfo.Name = v
+	}
+	if v := os.Getenv("MDDB_MCP_SERVER_DESCRIPTION"); v != "" {
+		cfg.MCP.ServerInfo.Description = v
+	}
+	if v := os.Getenv("MDDB_MCP_SERVER_VENDOR"); v != "" {
+		cfg.MCP.ServerInfo.Vendor = v
+	}
+	if v := os.Getenv("MDDB_MCP_SERVER_HOMEPAGE"); v != "" {
+		cfg.MCP.ServerInfo.Homepage = v
 	}
 
 	// TLS

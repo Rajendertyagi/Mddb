@@ -127,6 +127,30 @@ Complete reference for all MDDB configuration parameters.
 
 ---
 
+## MCP Server Info
+
+Customize the MCP server profile returned in the `initialize` response. Useful for identifying your server to LLM clients.
+
+| Env Var | Default | Type | Description |
+|---------|---------|------|-------------|
+| `MDDB_MCP_SERVER_NAME` | `"mddbd"` | string | Server name shown to MCP clients |
+| `MDDB_MCP_SERVER_DESCRIPTION` | `""` | string | Human-readable server description |
+| `MDDB_MCP_SERVER_VENDOR` | `""` | string | Organization / vendor name |
+| `MDDB_MCP_SERVER_HOMEPAGE` | `""` | string | URL to server documentation or homepage |
+
+Or via YAML config:
+
+```yaml
+mcp:
+  serverInfo:
+    name: "my-knowledge-base"
+    description: "Company internal documentation"
+    vendor: "Acme Corp"
+    homepage: "https://docs.acme.com"
+```
+
+---
+
 ## Server-Sent Events (SSE)
 
 | Env Var | Default | Type | Description |
