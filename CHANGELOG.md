@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.2] - 2026-03-25
+
+### Added
+- **MCP-over-SSE transport** — Spec-compliant MCP transport over Server-Sent Events at `/sse` + `/message` on MCP port (9000). Enables remote MCP connections without stdio for web-based agents and remote servers.
+- **Panel SSE integration** — Real-time toast notifications for document changes, auto-refresh document list, Live/Offline connection indicator with auto-reconnect and exponential backoff
+- **7 new MCP-over-SSE tests** — endpoint, full message flow, session validation, error handling
+
+### Changed
+- Version bump to 2.9.2 across all files
+
 ## [2.9.1] - 2026-03-25
 
 ### Fixed
