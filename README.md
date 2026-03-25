@@ -26,7 +26,8 @@ MDDB gives your AI agents a persistent, searchable knowledge base:
 - **Full Revision History** - Every update creates a new revision with complete snapshots
 - **Triple Protocol APIs** - HTTP/JSON (easy), gRPC (fast), or GraphQL (flexible)
 - **Automation** - Triggers, crons, webhooks with template variables and sentiment analysis
-- **Real-Time Events** - Server-Sent Events (SSE) for live document change notifications + MCP-over-SSE transport
+- **Real-Time Events** - Server-Sent Events (SSE) for live document change notifications
+- **MCP Transports** - Streamable HTTP (`/mcp`, 2025-11-25), legacy SSE (`/sse`), and stdio
 - **Built-in TLS** - Native HTTPS support, connection pooling, pprof profiling
 - **Zero Configuration** - Single ~29MB binary, embedded database, no dependencies
 
@@ -221,7 +222,7 @@ Proto definitions at `proto/mddb.proto` - generate clients for any language supp
 ## 💡 Key Features
 
 ### AI & Search
-- ✅ **MCP Server** - 54 built-in tools via Model Context Protocol (stdio + HTTP) for Claude, Cursor, Windsurf, and any MCP client
+- ✅ **MCP Server** - 54 built-in tools via Model Context Protocol 2025-11-25 (stdio + Streamable HTTP + SSE) with tool annotations, prompts, completion, and structured output
 - ✅ **File Upload** - Upload PDF, DOCX, HTML, ODT, RTF, TEX, YAML, TXT — auto-converted to Markdown (single and batch, configurable size limit)
 - ✅ **Vector Search** - Semantic similarity with auto-embeddings (OpenAI, Ollama, Cohere, Voyage)
 - ✅ **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, BM25F, PMISparse scoring, 7 search modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), typo tolerance, metadata pre-filtering, multi-language stemming and stop words (18 languages)

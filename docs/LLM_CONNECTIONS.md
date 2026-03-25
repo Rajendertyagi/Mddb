@@ -8,8 +8,9 @@ MDDB provides multiple integration paths:
 
 | Method | Best For | Protocol |
 |--------|----------|----------|
-| **MCP Server** | Claude Desktop, Windsurf, IDE agents | MCP (stdio/HTTP) |
-| **MCP-over-SSE** | Remote MCP clients, web-based agents | MCP via SSE transport |
+| **MCP Server (stdio)** | Claude Desktop, Windsurf, IDE agents | MCP stdio |
+| **MCP Streamable HTTP** | Remote MCP clients, web agents (2025-11-25) | `POST/GET /mcp` |
+| **MCP-over-SSE (legacy)** | Older MCP clients (2024-11-05) | `GET /sse` + `POST /message` |
 | **REST API** | ChatGPT, custom agents, any HTTP client | HTTP/JSON |
 | **gRPC API** | High-performance integrations | gRPC/Protobuf |
 
@@ -33,9 +34,72 @@ MDDB_MCP_DOMAIN=myserver.com ./mddbd
 
 You can also change the domain directly in the Panel — the input field is above the config tabs on the LLM Connections page.
 
-## MCP-over-SSE Transport
+## MCP Streamable HTTP Transport (Recommended)
 
-MDDB supports the [MCP-over-SSE transport](https://modelcontextprotocol.io/docs/concepts/transports#server-sent-events-sse) for remote MCP connections over HTTP. This enables MCP clients to connect without stdio — useful for web-based agents, remote servers, and environments where pipe-based communication isn't available.
+MDDB implements the [Streamable HTTP transport](https://spec.modelcontextprotocol.io/specification/2025-11-25/transport/streamable-http/) from MCP spec 2025-11-25. A single `/mcp` endpoint handles all communication — simpler than the legacy SSE transport.
+
+### How It Works
+
+1. Client sends `POST /mcp` with JSON-RPC request
+2. Server responds with JSON (or SSE stream for server-initiated messages via `GET /mcp`)
+3. Session management via `MCP-Session-Id` header (assigned at initialize)
+4. Client can `DELETE /mcp` to terminate the session
+
+### Example
+
+```bash
+# 1. Initialize (server assigns session ID in response header)
+curl -X POST http://localhost:9000/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' \
+  -D -
+# Response header: MCP-Session-Id: a9f9de82af6938bc...
+# Body: {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-11-25","capabilities":{...}}}
+
+# 2. Send initialized notification
+curl -X POST http://localhost:9000/mcp \
+  -H "Content-Type: application/json" \
+  -H "MCP-Session-Id: a9f9de82af6938bc..." \
+  -d '{"jsonrpc":"2.0","method":"notifications/initialized"}'
+# Returns: 202 Accepted
+
+# 3. List tools
+curl -X POST http://localhost:9000/mcp \
+  -H "Content-Type: application/json" \
+  -H "MCP-Session-Id: a9f9de82af6938bc..." \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+
+# 4. Call a tool
+curl -X POST http://localhost:9000/mcp \
+  -H "Content-Type: application/json" \
+  -H "MCP-Session-Id: a9f9de82af6938bc..." \
+  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"search_documents","arguments":{"collection":"blog"}}}'
+
+# 5. List prompts
+curl -X POST http://localhost:9000/mcp \
+  -H "Content-Type: application/json" \
+  -H "MCP-Session-Id: a9f9de82af6938bc..." \
+  -d '{"jsonrpc":"2.0","id":4,"method":"prompts/list"}'
+```
+
+### Client Configuration
+
+For MCP clients that support Streamable HTTP transport:
+
+```json
+{
+  "mcpServers": {
+    "mddb": {
+      "transport": "streamable-http",
+      "url": "http://localhost:9000/mcp"
+    }
+  }
+}
+```
+
+## MCP-over-SSE Transport (Legacy)
+
+The legacy [MCP-over-SSE transport](https://modelcontextprotocol.io/docs/concepts/transports#server-sent-events-sse) (2024-11-05 spec) is still supported for backward compatibility.
 
 ### How It Works
 
@@ -44,45 +108,7 @@ MDDB supports the [MCP-over-SSE transport](https://modelcontextprotocol.io/docs/
 3. Client POSTs JSON-RPC requests to `http://localhost:9000/message?sessionId=<id>`
 4. Server sends JSON-RPC responses back via the SSE stream as `message` events
 
-### Example
-
-```bash
-# 1. Connect to SSE (in terminal 1)
-curl -N http://localhost:9000/sse
-# Output:
-# event: endpoint
-# data: /message?sessionId=a9f9de82af6938bc...
-
-# 2. Send initialize request (in terminal 2)
-curl -X POST "http://localhost:9000/message?sessionId=a9f9de82af6938bc..." \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}'
-
-# 3. Response appears in terminal 1 SSE stream:
-# event: message
-# data: {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","capabilities":{"resources":{"subscribe":false},"tools":{"listChanged":false}},"serverInfo":{"name":"mddbd","version":"2.9.2"}}}
-
-# 4. List tools
-curl -X POST "http://localhost:9000/message?sessionId=a9f9de82af6938bc..." \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
-
-# 5. Call a tool
-curl -X POST "http://localhost:9000/message?sessionId=a9f9de82af6938bc..." \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"search_documents","arguments":{"collection":"blog"}}}'
-```
-
-### Endpoints
-
-| Port | Path | Method | Description |
-|------|------|--------|-------------|
-| MCP (9000) | `/sse` | GET | SSE connection — returns `endpoint` event |
-| MCP (9000) | `/message?sessionId=X` | POST | Send JSON-RPC request to a session |
-
 ### Client Configuration
-
-For MCP clients that support SSE transport (e.g. some web-based MCP implementations):
 
 ```json
 {
@@ -94,6 +120,40 @@ For MCP clients that support SSE transport (e.g. some web-based MCP implementati
   }
 }
 ```
+
+### Endpoints
+
+| Port | Path | Method | Description |
+|------|------|--------|-------------|
+| MCP (9000) | `/mcp` | POST/GET/DELETE | **Streamable HTTP** (2025-11-25) — recommended |
+| MCP (9000) | `/sse` | GET | **Legacy SSE** — SSE connection, returns `endpoint` event |
+| MCP (9000) | `/message?sessionId=X` | POST | **Legacy SSE** — send JSON-RPC request to a session |
+```
+
+## MCP Protocol Features (2025-11-25)
+
+MDDB implements the full MCP 2025-11-25 specification:
+
+| Feature | Description |
+|---------|-------------|
+| **Tool Annotations** | All 52+ tools have `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint` — enables AI clients to auto-approve safe tools |
+| **Structured Output** | `outputSchema` on key tools (stats, search, classification, aggregation) for client-side validation |
+| **5 Built-in Prompts** | `analyze-collection`, `search-help`, `summarize-collection`, `import-guide`, `rag-pipeline` |
+| **Completion** | Autocomplete for collection names and prompt arguments |
+| **MCP Logging** | `logging/setLevel` with RFC 5424 levels (debug → emergency) |
+| **Progress Tokens** | `notifications/progress` for long-running tools (reindex, ingest, backup) |
+| **Cursor Pagination** | `tools/list` and `resources/list` support cursor-based pagination |
+| **Notifications** | Accepts `notifications/initialized`, `notifications/cancelled`, `notifications/roots/list_changed` |
+
+### Built-in Prompts
+
+| Prompt | Description |
+|--------|-------------|
+| `analyze-collection` | Document count, metadata keys, content patterns, improvement suggestions |
+| `search-help` | Guidance on which search method to use for your use case |
+| `summarize-collection` | Topic overview, key themes, document distribution |
+| `import-guide` | Step-by-step import instructions (WordPress, URL, file, API, scraping) |
+| `rag-pipeline` | Design a RAG pipeline with embedding and search strategy |
 
 ## Claude Desktop / Claude Code
 
@@ -143,9 +203,9 @@ Use the `mddbd` binary directly:
 }
 ```
 
-### Available MCP Tools (53)
+### Available MCP Tools (54+)
 
-Once connected, your LLM agent has access to all 54 built-in tools:
+Once connected, your LLM agent has access to all built-in tools (with annotations for auto-approve):
 
 **Document Management**
 `add_document` `update_document` `delete_document` `search_documents` `get_document_meta` `add_documents_batch` `delete_documents_batch`
@@ -198,7 +258,7 @@ Create a Custom GPT that connects to MDDB via its REST API.
 ```json
 {
   "openapi": "3.1.0",
-  "info": { "title": "MDDB API", "version": "2.9.1" },
+  "info": { "title": "MDDB API", "version": "2.9.3" },
   "servers": [{ "url": "https://your-domain:11023" }],
   "paths": {
     "/v1/search": {

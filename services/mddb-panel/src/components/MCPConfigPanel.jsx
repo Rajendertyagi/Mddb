@@ -64,6 +64,8 @@ custom_tools:
           'Custom tools are optional — save this file and set MDDB_MCP_CONFIG env var',
           'For stdio mode (Claude Desktop): set MDDB_MCP_STDIO=true',
           'For HTTP mode: MCP server runs on port 9000 by default (MDDB_MCP_ADDR)',
+          'Streamable HTTP (2025-11-25): POST/GET /mcp — new standard transport',
+          'Legacy SSE (2024-11-05): GET /sse + POST /message — still supported',
         ],
       };
 
@@ -113,7 +115,7 @@ custom_tools:
         filename: 'openai_actions.json',
         content: JSON.stringify({
           openapi: '3.1.0',
-          info: { title: 'MDDB API', version: '2.9.2', description: 'AI-Native Document Database API' },
+          info: { title: 'MDDB API', version: '2.9.3', description: 'AI-Native Document Database API' },
           servers: [{ url: httpBase }],
           paths: {
             '/v1/search': {

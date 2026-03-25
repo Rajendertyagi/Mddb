@@ -24,7 +24,7 @@ import (
 )
 
 // VERSION is the current release version of the MDDB server.
-const VERSION = "2.9.2"
+const VERSION = "2.9.3"
 
 // AccessMode defines the database access mode (read, write, or both).
 type AccessMode string
@@ -765,12 +765,18 @@ func main() {
 			mcpMux.HandleFunc("/tools/call", s.guardWrite(mcpSrv.handleToolCall))
 			mcpMux.HandleFunc("/events", s.handleSSE)
 
-			// MCP-over-SSE transport (spec-compliant)
+			// MCP-over-SSE transport (legacy, 2024-11-05 spec)
 			mcpSSEHandler := NewMCPHandlerWithConfig(NewDirectClient(s), loadMCPCustomTools(), srvCfg.MCP.ServerInfo, srvCfg.MCP.Instructions)
 			mcpSSE := NewMCPSSETransport(mcpSSEHandler)
 			mcpMux.HandleFunc("/sse", mcpSSE.HandleSSE)
 			mcpMux.HandleFunc("/message", mcpSSE.HandleMessage)
-			log.Println("MCP-over-SSE transport enabled at /sse + /message")
+			log.Println("MCP-over-SSE transport enabled at /sse + /message (legacy)")
+
+			// Streamable HTTP transport (2025-11-25 spec)
+			mcpStreamableHandler := NewMCPHandlerWithConfig(NewDirectClient(s), loadMCPCustomTools(), srvCfg.MCP.ServerInfo, srvCfg.MCP.Instructions)
+			mcpStreamable := NewMCPStreamableTransport(mcpStreamableHandler)
+			mcpMux.HandleFunc("/mcp", mcpStreamable.Handle)
+			log.Println("MCP Streamable HTTP transport enabled at /mcp")
 
 			mcpHandler := withJSON(mcpMux)
 			if panelMode != "external" {
