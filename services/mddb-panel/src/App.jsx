@@ -24,6 +24,8 @@ import SynonymsPanel from './components/SynonymsPanel';
 import StopWordsPanel from './components/StopWordsPanel';
 import AutomationPanel from './components/AutomationPanel';
 import CrossSearchPanel from './components/CrossSearchPanel';
+import SSEToast from './components/SSEToast';
+import { useSSE } from './lib/useSSE';
 
 function App() {
   const {
@@ -45,6 +47,16 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(authManager.isAuthenticated());
   const [needsAuth, setNeedsAuth] = useState(false);
   const isResizing = useRef(false);
+  const [sseRefreshKey, setSSERefreshKey] = useState(0);
+
+  // SSE: real-time document change notifications
+  const { connected: sseConnected, lastEvent: sseLastEvent } = useSSE({
+    enabled: isAuthenticated || !needsAuth,
+    onEvent: (event) => {
+      // Trigger auto-refresh of document list
+      setSSERefreshKey((k) => k + 1);
+    },
+  });
 
   useEffect(() => {
     checkAuthAndLoadStats();
@@ -284,7 +296,7 @@ function App() {
               ) : (
                 <>
                   <div className="flex-1 border-l border-gray-200">
-                    <DocumentList />
+                    <DocumentList sseRefreshKey={sseRefreshKey} />
                   </div>
                   {currentDocument && (
                     <div className="flex-1 border-l border-gray-200">
@@ -297,6 +309,7 @@ function App() {
           )}
         </div>
       </div>
+      <SSEToast connected={sseConnected} lastEvent={sseLastEvent} />
     </div>
   );
 }

@@ -6,7 +6,7 @@ import mddbClient from '../lib/mddb-client';
 import UploadModal from './UploadModal';
 import CommandModal from './CommandModal';
 
-export default function DocumentList() {
+export default function DocumentList({ sseRefreshKey } = {}) {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showCommand, setShowCommand] = useState(false);
@@ -40,7 +40,7 @@ export default function DocumentList() {
     if (currentCollection) {
       loadDocuments();
     }
-  }, [currentCollection, filters, sortBy, sortAsc, limit, offset]);
+  }, [currentCollection, filters, sortBy, sortAsc, limit, offset, sseRefreshKey]);
 
   const loadDocuments = async () => {
     setDocumentsLoading(true);
