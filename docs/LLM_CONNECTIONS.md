@@ -156,6 +156,19 @@ docker run -d \
 
 In read-only mode, MCP tools with `readOnlyHint=false` (write, delete, destructive tools) return an error. Read-only tools (search, stats, list, export) work normally.
 
+### Disabling Built-in Tools
+
+Set `MDDB_MCP_BUILTIN_TOOLS=false` to hide all 54 built-in tools, exposing only custom YAML tools:
+
+```bash
+docker run -d \
+  -e MDDB_MCP_BUILTIN_TOOLS=false \
+  -e MDDB_MCP_CONFIG=/app/mcp_config.yaml \
+  tradik/mddb:latest
+```
+
+This restricts AI agents to domain-specific tools only — no direct access to `add_document`, `delete_collection`, etc.
+
 ## MCP Protocol Features (2025-11-25)
 
 MDDB implements the full MCP 2025-11-25 specification:

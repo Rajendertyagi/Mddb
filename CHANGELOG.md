@@ -20,7 +20,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Notification handling** — Server accepts `notifications/initialized`, `notifications/cancelled`, `notifications/roots/list_changed` without error
 - **Progress token infrastructure** — `notifications/progress` support for long-running tools (vector_reindex, ingest_documents, fts_reindex, create_backup, etc.)
 - **Cursor-based pagination** — `tools/list` and `resources/list` support cursor parameter per spec
-- **29 new MCP protocol tests** — Covers all new features: protocol version, prompts, completion, logging, annotations, output schemas, Streamable HTTP transport, notifications, progress
+- **Per-protocol access modes** — Independent read/write control per protocol via `MDDB_API_MODE`, `MDDB_GRPC_MODE`, `MDDB_MCP_MODE`, `MDDB_HTTP3_MODE`. Each overrides the global `MDDB_MODE` for its protocol. Example: `MDDB_MCP_MODE=read` makes MCP read-only while API remains read-write.
+- **`MDDB_MCP_BUILTIN_TOOLS=false`** — Disable all 54 built-in MCP tools, exposing only custom YAML tools. Useful for restricting AI agents to domain-specific tools only.
+- **39 new tests** — MCP protocol (29), per-protocol mode enforcement (10) including follower/global mode scenarios
+
+### Security
+- **MCP now respects global read-only mode** — `MDDB_MODE=read` and follower replication role correctly block MCP write tools. Previously MCP DirectClient bypassed the mode check entirely.
+- **globalMode propagation** — Server's access mode (including follower-forced read-only) flows through the full MCP chain: Server → MCPHandler → MCPToolServer → write guard
 
 ### Changed
 - Tool call errors now return `isError: true` in result content (per spec) instead of JSON-RPC error codes
