@@ -480,6 +480,7 @@ mddb-cli stats
 - **[RAG Pipeline](docs/RAG-PIPELINE.md)** - Complete RAG implementation guide
 - **[Search Algorithms](docs/SEARCH.md)** - TF-IDF, BM25, BM25F, PMISparse, Flat, HNSW, IVF, PQ, SQ, BQ
 - **[Vector Quantization](docs/QUANTIZATION.md)** - Per-collection int8/int4 scalar quantization (4-8x compression)
+- **[Server-Sent Events](docs/SSE.md)** - Real-time document change notifications with auth and rate limiting
 - **[Full-Text Search](docs/FTS.md)** - Built-in inverted index with multi-language support
 - **[Zero-Shot Classification](docs/ZERO-SHOT-CLASSIFICATION.md)** - Classify documents against labels using embeddings
 - **[PMISparse](docs/PMISPARSE.md)** - Two-phase BM25 + PPMI query expansion (invented by Tradik Limited)
