@@ -729,6 +729,18 @@ MDDB_TLS_CERT=./server.crt \\
 MDDB_TLS_KEY=./server.key \\
 ./mddbd
 .fi
+.SH MCP-OVER-SSE TRANSPORT
+MDDB supports the MCP-over-SSE transport (v2.9.2+) for remote MCP connections
+without stdio. Useful for web-based agents and remote servers.
+.SS Endpoints (MCP port 9000)
+.TP
+.B GET /sse
+SSE connection. Returns an \fBendpoint\fR event with a URL for posting JSON-RPC.
+.TP
+.B POST /message?sessionId=X
+Send JSON-RPC request to an active SSE session.
+.PP
+For full documentation, see \fBdocs/LLM_CONNECTIONS.md\fR.
 .SH PROFILING
 MDDB provides Go pprof profiling endpoints for runtime diagnostics (v2.9+).
 Disabled by default. Enable via \fBMDDB_PPROF_ENABLED=true\fR.

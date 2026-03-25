@@ -759,6 +759,13 @@ func main() {
 			mcpMux.HandleFunc("/tools/call", s.guardWrite(mcpSrv.handleToolCall))
 			mcpMux.HandleFunc("/events", s.handleSSE)
 
+			// MCP-over-SSE transport (spec-compliant)
+			mcpSSEHandler := NewMCPHandler(NewDirectClient(s), loadMCPCustomTools())
+			mcpSSE := NewMCPSSETransport(mcpSSEHandler)
+			mcpMux.HandleFunc("/sse", mcpSSE.HandleSSE)
+			mcpMux.HandleFunc("/message", mcpSSE.HandleMessage)
+			log.Println("MCP-over-SSE transport enabled at /sse + /message")
+
 			mcpHandler := withJSON(mcpMux)
 			if panelMode != "external" {
 				mcpHandler = withCORS(mcpHandler)
