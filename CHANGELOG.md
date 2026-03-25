@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.1] - 2026-03-25
+
+### Fixed
+- **SSE auth enforcement** — when auth is enabled, SSE now requires JWT/API key (returns 401 without token). Previously SSE was open to unauthenticated users.
+- **SSE RBAC filtering** — events are only sent to clients with `PermRead` on the collection. `readOnly` field in each event indicates if client has `PermWrite`.
+
+### Added
+- **SSE per-IP rate limiting** — max concurrent SSE connections per IP address (default: 5). Prevents resource exhaustion. Configurable via `MDDB_SSE_MAX_PER_IP`.
+- **SSE on MCP port** — `/events` endpoint available on MCP HTTP server (port 9000)
+- **SSE connected event** includes `mode` ("read" or "readwrite") and `user` fields
+
 ## [2.9.0] - 2026-03-24
 
 ### Added

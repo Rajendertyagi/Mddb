@@ -453,9 +453,10 @@ func main() {
 	// Initialize SSE hub (enabled by default, set MDDB_SSE_ENABLED=false to disable)
 	sseEnabled := env("MDDB_SSE_ENABLED", "true") != "false"
 	sseMaxClients := envDefaultInt("MDDB_SSE_MAX_CLIENTS", 1000)
-	s.SSEHub = NewSSEHub(sseEnabled, sseMaxClients)
+	sseMaxPerIP := envDefaultInt("MDDB_SSE_MAX_PER_IP", 5)
+	s.SSEHub = NewSSEHub(sseEnabled, sseMaxClients, sseMaxPerIP)
 	if sseEnabled {
-		log.Printf("SSE event stream enabled (max clients: %d)", sseMaxClients)
+		log.Printf("SSE event stream enabled (max clients: %d, max per IP: %d)", sseMaxClients, sseMaxPerIP)
 	}
 
 	// Initialize metrics (enabled by default, set MDDB_METRICS=false to disable)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -22,13 +23,16 @@ type SSEHub struct {
 	mu         sync.RWMutex
 	clients    map[*sseClient]bool
 	maxClients int
+	maxPerIP   int // max concurrent SSE connections per IP (default 5)
 	enabled    bool
 	keepAlive  time.Duration
+	ipCount    map[string]int // IP -> active connection count
 }
 
 type sseClient struct {
 	ch         chan []byte
 	collection string // "" = all collections, otherwise filter
+	ip         string // client IP for rate limiting
 	// Auth: nil = no auth / public (read-only), non-nil = authenticated
 	claims *JWTClaims
 	mode   string // "read" or "readwrite"
@@ -45,16 +49,80 @@ type SSEEvent struct {
 }
 
 // NewSSEHub creates a new SSE hub.
-func NewSSEHub(enabled bool, maxClients int) *SSEHub {
+// maxPerIP limits concurrent SSE connections per IP address (0 = use default 5).
+func NewSSEHub(enabled bool, maxClients, maxPerIP int) *SSEHub {
 	if maxClients <= 0 {
 		maxClients = 1000
+	}
+	if maxPerIP <= 0 {
+		maxPerIP = 5
 	}
 	return &SSEHub{
 		clients:    make(map[*sseClient]bool),
 		maxClients: maxClients,
+		maxPerIP:   maxPerIP,
 		enabled:    enabled,
 		keepAlive:  30 * time.Second,
+		ipCount:    make(map[string]int),
 	}
+}
+
+// addClient registers a client and increments the per-IP counter. Returns false if IP limit reached.
+func (h *SSEHub) addClient(client *sseClient) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if len(h.clients) >= h.maxClients {
+		return false
+	}
+	if client.ip != "" && h.ipCount[client.ip] >= h.maxPerIP {
+		return false
+	}
+
+	h.clients[client] = true
+	if client.ip != "" {
+		h.ipCount[client.ip]++
+	}
+	return true
+}
+
+// removeClient unregisters a client and decrements the per-IP counter.
+func (h *SSEHub) removeClient(client *sseClient) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	delete(h.clients, client)
+	if client.ip != "" {
+		h.ipCount[client.ip]--
+		if h.ipCount[client.ip] <= 0 {
+			delete(h.ipCount, client.ip)
+		}
+	}
+	close(client.ch)
+}
+
+// clientIP extracts the client IP from the request (X-Forwarded-For, X-Real-IP, or RemoteAddr).
+func clientIP(r *http.Request) string {
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		// First IP in chain is the original client
+		if idx := len(xff); idx > 0 {
+			for i, c := range xff {
+				if c == ',' {
+					return xff[:i]
+				}
+				_ = i // use i
+			}
+			return xff
+		}
+	}
+	if xri := r.Header.Get("X-Real-IP"); xri != "" {
+		return xri
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
 }
 
 // BroadcastWithAuth sends an event to all connected SSE clients, respecting auth permissions.
@@ -139,16 +207,8 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check max clients
-	h.mu.RLock()
-	count := len(h.clients)
-	h.mu.RUnlock()
-	if count >= h.maxClients {
-		http.Error(w, `{"error":"too many SSE connections"}`, http.StatusServiceUnavailable)
-		return
-	}
-
 	collection := r.URL.Query().Get("collection")
+	ip := clientIP(r)
 
 	// Resolve auth: extract claims from context (injected by auth middleware).
 	// When auth is enabled, the middleware already rejects unauthenticated requests (401).
@@ -187,20 +247,17 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 	client := &sseClient{
 		ch:         make(chan []byte, 64),
 		collection: collection,
+		ip:         ip,
 		claims:     claims,
 		mode:       mode,
 	}
 
-	h.mu.Lock()
-	h.clients[client] = true
-	h.mu.Unlock()
+	if !h.addClient(client) {
+		http.Error(w, `{"error":"too many SSE connections from this IP"}`, http.StatusTooManyRequests)
+		return
+	}
 
-	defer func() {
-		h.mu.Lock()
-		delete(h.clients, client)
-		h.mu.Unlock()
-		close(client.ch)
-	}()
+	defer h.removeClient(client)
 
 	// SSE headers
 	w.Header().Set("Content-Type", "text/event-stream")

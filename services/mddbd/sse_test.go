@@ -10,7 +10,7 @@ import (
 )
 
 func TestSSEHubBroadcast(t *testing.T) {
-	hub := NewSSEHub(true, 100)
+	hub := NewSSEHub(true, 100, 5)
 
 	client := &sseClient{
 		ch:         make(chan []byte, 10),
@@ -44,7 +44,7 @@ func TestSSEHubBroadcast(t *testing.T) {
 }
 
 func TestSSEHubBroadcastWithAuthReadWrite(t *testing.T) {
-	hub := NewSSEHub(true, 100)
+	hub := NewSSEHub(true, 100, 5)
 
 	// Client with readwrite mode
 	client := &sseClient{
@@ -71,7 +71,7 @@ func TestSSEHubBroadcastWithAuthReadWrite(t *testing.T) {
 }
 
 func TestSSEHubCollectionFilter(t *testing.T) {
-	hub := NewSSEHub(true, 100)
+	hub := NewSSEHub(true, 100, 5)
 
 	blogClient := &sseClient{ch: make(chan []byte, 10), collection: "blog", mode: "read"}
 	allClient := &sseClient{ch: make(chan []byte, 10), collection: "", mode: "read"}
@@ -103,7 +103,7 @@ func TestSSEHubCollectionFilter(t *testing.T) {
 }
 
 func TestSSEHubDisabled(t *testing.T) {
-	hub := NewSSEHub(false, 100)
+	hub := NewSSEHub(false, 100, 5)
 
 	// Broadcast should be no-op
 	hub.Broadcast("doc.added", "blog", "post1", "en")
@@ -119,7 +119,7 @@ func TestSSEHubDisabled(t *testing.T) {
 }
 
 func TestSSEHubMaxClients(t *testing.T) {
-	hub := NewSSEHub(true, 2)
+	hub := NewSSEHub(true, 2, 5)
 
 	for i := 0; i < 2; i++ {
 		c := &sseClient{ch: make(chan []byte, 1), collection: "", mode: "read"}
@@ -135,7 +135,7 @@ func TestSSEHubMaxClients(t *testing.T) {
 }
 
 func TestSSEHubClientCount(t *testing.T) {
-	hub := NewSSEHub(true, 100)
+	hub := NewSSEHub(true, 100, 5)
 
 	if hub.ClientCount() != 0 {
 		t.Errorf("expected 0 clients, got %d", hub.ClientCount())
@@ -154,7 +154,7 @@ func TestSSEHubClientCount(t *testing.T) {
 func TestSSEHandleNoAuthServer(t *testing.T) {
 	// Server without auth — SSE should work for everyone
 	s := &Server{
-		SSEHub: NewSSEHub(true, 100),
+		SSEHub: NewSSEHub(true, 100, 5),
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(s.handleSSE))
@@ -178,7 +178,7 @@ func TestSSEHandleAuthRequiresToken(t *testing.T) {
 	// Server with auth enabled — no token → 401
 	am := &AuthManager{enabled: true}
 	s := &Server{
-		SSEHub:      NewSSEHub(true, 100),
+		SSEHub:      NewSSEHub(true, 100, 5),
 		AuthManager: am,
 	}
 
@@ -188,5 +188,82 @@ func TestSSEHandleAuthRequiresToken(t *testing.T) {
 
 	if w.Code != http.StatusUnauthorized {
 		t.Errorf("expected 401 when auth enabled but no token, got %d", w.Code)
+	}
+}
+
+func TestSSEIPRateLimit(t *testing.T) {
+	hub := NewSSEHub(true, 100, 2) // max 2 per IP
+
+	// Add 2 clients from same IP
+	for i := 0; i < 2; i++ {
+		c := &sseClient{ch: make(chan []byte, 1), collection: "", ip: "10.0.0.1", mode: "read"}
+		if !hub.addClient(c) {
+			t.Fatalf("client %d should have been accepted", i)
+		}
+	}
+
+	// 3rd from same IP should be rejected
+	c3 := &sseClient{ch: make(chan []byte, 1), collection: "", ip: "10.0.0.1", mode: "read"}
+	if hub.addClient(c3) {
+		t.Error("3rd client from same IP should be rejected")
+	}
+
+	// Different IP should still work
+	c4 := &sseClient{ch: make(chan []byte, 1), collection: "", ip: "10.0.0.2", mode: "read"}
+	if !hub.addClient(c4) {
+		t.Error("client from different IP should be accepted")
+	}
+}
+
+func TestSSEIPCountCleanup(t *testing.T) {
+	hub := NewSSEHub(true, 100, 2)
+
+	c := &sseClient{ch: make(chan []byte, 1), collection: "", ip: "10.0.0.1", mode: "read"}
+	hub.addClient(c)
+
+	if hub.ipCount["10.0.0.1"] != 1 {
+		t.Errorf("expected IP count 1, got %d", hub.ipCount["10.0.0.1"])
+	}
+
+	hub.removeClient(c)
+
+	hub.mu.RLock()
+	count := hub.ipCount["10.0.0.1"]
+	hub.mu.RUnlock()
+	if count != 0 {
+		t.Errorf("expected IP count 0 after disconnect, got %d", count)
+	}
+}
+
+func TestClientIP(t *testing.T) {
+	tests := []struct {
+		name       string
+		remoteAddr string
+		xff        string
+		xri        string
+		want       string
+	}{
+		{"plain RemoteAddr", "192.168.1.1:1234", "", "", "192.168.1.1"},
+		{"X-Forwarded-For single", "10.0.0.1:1234", "203.0.113.5", "", "203.0.113.5"},
+		{"X-Forwarded-For chain", "10.0.0.1:1234", "203.0.113.5, 70.41.3.18", "", "203.0.113.5"},
+		{"X-Real-IP", "10.0.0.1:1234", "", "198.51.100.1", "198.51.100.1"},
+		{"XFF takes priority", "10.0.0.1:1234", "203.0.113.5", "198.51.100.1", "203.0.113.5"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", "/", nil)
+			req.RemoteAddr = tt.remoteAddr
+			if tt.xff != "" {
+				req.Header.Set("X-Forwarded-For", tt.xff)
+			}
+			if tt.xri != "" {
+				req.Header.Set("X-Real-IP", tt.xri)
+			}
+			got := clientIP(req)
+			if got != tt.want {
+				t.Errorf("clientIP() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }

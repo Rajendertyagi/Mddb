@@ -697,6 +697,11 @@ Add \fB?collection=NAME\fR to receive events for a specific collection only.
 .SS Configuration
 Enabled by default. Set \fBMDDB_SSE_ENABLED=false\fR to disable.
 Set \fBMDDB_SSE_MAX_CLIENTS=N\fR to limit concurrent connections (default: 1000).
+Set \fBMDDB_SSE_MAX_PER_IP=N\fR to limit connections per IP (default: 5).
+.PP
+When authentication is enabled, SSE requires a valid JWT or API key.
+Events are filtered by \fBPermRead\fR per collection. Each event includes
+a \fBreadOnly\fR field (\fBtrue\fR unless user has \fBPermWrite\fR).
 .SS Example
 .nf
 # Subscribe to all events
