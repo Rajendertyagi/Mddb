@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **New documentation** — `docs/QUANTIZATION.md` with full guide, examples, storage savings table, and technical details
 - **17 new tests** — Round-trip quantization, similarity accuracy, storage integration, compression ratio verification
 
+- **Server-Sent Events (SSE)** — Real-time document change notifications via `GET /v1/events`. Broadcasts `doc.added`, `doc.updated`, `doc.deleted` events. Per-collection filtering via `?collection=X`. Default enabled, configurable via `MDDB_SSE_ENABLED=false`. Keep-alive heartbeat every 30s.
+- **pprof profiling endpoints** — Runtime CPU/memory profiling at `/debug/pprof/` (heap, goroutine, CPU profile, trace, allocs, block, mutex). Disabled by default, enable via `MDDB_PPROF_ENABLED=true`.
+- **HTTP connection pooling** — Shared `http.Transport` with keep-alive for all outbound requests (webhooks, triggers, crons, import-url). Configurable via `MDDB_HTTP_POOL_MAX_IDLE`, `MDDB_HTTP_POOL_MAX_PER_HOST`, `MDDB_HTTP_POOL_IDLE_TIMEOUT`.
+- **Built-in TLS/HTTPS** — Native TLS support without reverse proxy. Configure via `MDDB_TLS_ENABLED=true`, `MDDB_TLS_CERT`, `MDDB_TLS_KEY` or YAML config. Works for HTTP API server.
+
 ### Fixed
 - **quantization.go**: Add bounds validation in `dequantizeInt8`/`dequantizeInt4` — prevents panic on corrupted or truncated quantized vector data
 - **vector_store.go**: Return error instead of nil vector when dequantization fails due to data length mismatch

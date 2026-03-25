@@ -3175,6 +3175,30 @@ paths:
         "404":
           description: Document or revision not found
 
+  /v1/events:
+    get:
+      tags:
+        - Real-Time
+      summary: Server-Sent Events stream
+      description: |
+        Subscribe to real-time document change events via SSE.
+        Events: doc.added, doc.updated, doc.deleted.
+        Default enabled (MDDB_SSE_ENABLED=false to disable).
+      operationId: sseEvents
+      parameters:
+        - name: collection
+          in: query
+          description: Filter events to a specific collection (optional)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: SSE event stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
   /v1/collection-config:
     get:
       tags:

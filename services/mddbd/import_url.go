@@ -73,8 +73,7 @@ func (s *Server) handleImportURL(w http.ResponseWriter, r *http.Request) {
 
 // fetchURL downloads content from a URL with safety limits.
 func fetchURL(rawURL string) (string, error) {
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Get(rawURL)
+	resp, err := NewPooledClientWithTimeout(10 * time.Second).Get(rawURL) // #nosec G107 -- URL from user input, validated above
 	if err != nil {
 		return "", err
 	}

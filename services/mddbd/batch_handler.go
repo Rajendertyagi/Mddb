@@ -158,13 +158,18 @@ func (s *Server) firePostBatchHooks(collection string, processed []*ProcessedDoc
 			_ = s.FTSIndex.IndexFieldsWithLang(collection, p.DocID, fields, p.Doc.Lang)
 		}
 
-		// Webhooks
-		if !opts.SkipWebhooks && s.WebhookManager != nil {
+		// Webhooks + SSE
+		if !opts.SkipWebhooks {
 			event := "doc.updated"
 			if !p.IsUpdate {
 				event = "doc.added"
 			}
-			s.WebhookManager.Fire(event, collection, p.Doc.Key, p.Doc.Lang, &p.Doc)
+			if s.WebhookManager != nil {
+				s.WebhookManager.Fire(event, collection, p.Doc.Key, p.Doc.Lang, &p.Doc)
+			}
+			if s.SSEHub != nil {
+				s.SSEHub.Broadcast(event, collection, p.Doc.Key, p.Doc.Lang)
+			}
 		}
 
 		// Automation triggers

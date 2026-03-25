@@ -491,8 +491,7 @@ func fireCronWebhook(webhook *AutomationRule, cronID, cronName string, logStore 
 			req.Header.Set(k, v)
 		}
 
-		client := &http.Client{Timeout: 10 * time.Second}
-		resp, err := client.Do(req)
+		resp, err := NewPooledClientWithTimeout(10 * time.Second).Do(req)
 		if err != nil {
 			log.Printf("cron %s → webhook %s: attempt %d failed: %v", cronID, webhook.ID, attempt+1, err)
 			lastError = err.Error()
@@ -596,8 +595,7 @@ func fireAutomationWebhook(webhook *AutomationRule, trigger *AutomationRule, doc
 			req.Header.Set(k, v)
 		}
 
-		client := &http.Client{Timeout: 10 * time.Second}
-		resp, err := client.Do(req) // #nosec G704 -- URL from internal webhook config
+		resp, err := NewPooledClientWithTimeout(10 * time.Second).Do(req) // #nosec G704 -- URL from internal webhook config
 		if err != nil {
 			log.Printf("trigger %s → webhook %s: attempt %d failed: %v", trigger.ID, webhook.ID, attempt+1, err) // #nosec G706 -- internal log
 			lastError = err.Error()

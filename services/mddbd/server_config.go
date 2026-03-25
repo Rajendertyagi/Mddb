@@ -18,6 +18,7 @@ type ServerConfig struct {
 	GRPC        GRPCConfig        `yaml:"grpc" json:"grpc"`
 	MCP         MCPConfig         `yaml:"mcp" json:"mcp"`
 	HTTP3       HTTP3Config       `yaml:"http3" json:"http3"`
+	TLS         TLSConfig         `yaml:"tls" json:"tls"`
 	FTS         FTSConfig         `yaml:"fts" json:"fts"`
 	Compression CompressionConfig `yaml:"compression" json:"compression"`
 	Vector      VectorExtConfig   `yaml:"vector" json:"vector"`
@@ -41,6 +42,13 @@ type CompressionConfig struct {
 type VectorExtConfig struct {
 	DefaultAlgorithm string `yaml:"defaultAlgorithm" json:"defaultAlgorithm"`
 	BQRerankFactor   int    `yaml:"bqRerankFactor" json:"bqRerankFactor"`
+}
+
+// TLSConfig controls built-in TLS/HTTPS support.
+type TLSConfig struct {
+	Enabled  bool   `yaml:"enabled" json:"enabled"`
+	CertFile string `yaml:"certFile" json:"certFile"` // Path to TLS certificate file (PEM)
+	KeyFile  string `yaml:"keyFile" json:"keyFile"`   // Path to TLS private key file (PEM)
 }
 
 // HTTPConfig controls the HTTP/JSON API server.
@@ -76,6 +84,7 @@ func defaultServerConfig() ServerConfig {
 		GRPC:        GRPCConfig{Enabled: true, Addr: ":11024"},
 		MCP:         MCPConfig{Enabled: true, Addr: ":9000", Stdio: false},
 		HTTP3:       HTTP3Config{Enabled: false, Addr: ":11443"},
+		TLS:         TLSConfig{Enabled: false},
 		FTS:         FTSConfig{StemmingEnabled: true, SynonymsEnabled: true, DefaultLang: "en"},
 		Compression: CompressionConfig{Enabled: true, SmallThreshold: 1024, MediumThreshold: 10240},
 		Vector:      VectorExtConfig{DefaultAlgorithm: "flat", BQRerankFactor: 10},
@@ -133,9 +142,16 @@ type fileConfig struct {
 	GRPC        *fileGRPC        `yaml:"grpc"`
 	MCP         *fileMCP         `yaml:"mcp"`
 	HTTP3       *fileHTTP3       `yaml:"http3"`
+	TLS         *fileTLS         `yaml:"tls"`
 	FTS         *fileFTS         `yaml:"fts"`
 	Compression *fileCompression `yaml:"compression"`
 	Vector      *fileVector      `yaml:"vector"`
+}
+
+type fileTLS struct {
+	Enabled  *bool   `yaml:"enabled"`
+	CertFile *string `yaml:"certFile"`
+	KeyFile  *string `yaml:"keyFile"`
 }
 
 type fileFTS struct {
@@ -232,6 +248,17 @@ func mergeFileConfig(cfg ServerConfig, fc *fileConfig) ServerConfig {
 			cfg.HTTP3.Addr = *fc.HTTP3.Addr
 		}
 	}
+	if fc.TLS != nil {
+		if fc.TLS.Enabled != nil {
+			cfg.TLS.Enabled = *fc.TLS.Enabled
+		}
+		if fc.TLS.CertFile != nil {
+			cfg.TLS.CertFile = *fc.TLS.CertFile
+		}
+		if fc.TLS.KeyFile != nil {
+			cfg.TLS.KeyFile = *fc.TLS.KeyFile
+		}
+	}
 	if fc.FTS != nil {
 		if fc.FTS.StemmingEnabled != nil {
 			cfg.FTS.StemmingEnabled = *fc.FTS.StemmingEnabled
@@ -307,6 +334,17 @@ func applyEnvConfig(cfg *ServerConfig) {
 	}
 	if v := os.Getenv("MDDB_MCP_DOMAIN"); v != "" {
 		cfg.MCP.Domain = v
+	}
+
+	// TLS
+	if v := os.Getenv("MDDB_TLS_ENABLED"); v != "" {
+		cfg.TLS.Enabled = parseBool(v, cfg.TLS.Enabled)
+	}
+	if v := os.Getenv("MDDB_TLS_CERT"); v != "" {
+		cfg.TLS.CertFile = v
+	}
+	if v := os.Getenv("MDDB_TLS_KEY"); v != "" {
+		cfg.TLS.KeyFile = v
 	}
 
 	// HTTP/3

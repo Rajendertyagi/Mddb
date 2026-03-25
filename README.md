@@ -26,6 +26,8 @@ MDDB gives your AI agents a persistent, searchable knowledge base:
 - **Full Revision History** - Every update creates a new revision with complete snapshots
 - **Triple Protocol APIs** - HTTP/JSON (easy), gRPC (fast), or GraphQL (flexible)
 - **Automation** - Triggers, crons, webhooks with template variables and sentiment analysis
+- **Real-Time Events** - Server-Sent Events (SSE) for live document change notifications
+- **Built-in TLS** - Native HTTPS support, connection pooling, pprof profiling
 - **Zero Configuration** - Single ~29MB binary, embedded database, no dependencies
 
 **Perfect for:** AI agent memory, RAG pipelines, knowledge bases for LLMs, documentation chatbots, semantic search APIs, document processing (PDF/DOCX→Markdown), static site generation, WordPress migration

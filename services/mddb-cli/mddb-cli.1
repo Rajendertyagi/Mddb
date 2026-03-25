@@ -685,6 +685,56 @@ curl -X POST http://localhost:11023/v1/vector-reindex \\
 .PP
 Quantization can also be configured from the web panel under Collection Settings.
 For full documentation, see \fBdocs/QUANTIZATION.md\fR.
+.SH SERVER-SENT EVENTS
+MDDB provides a real-time event stream for document changes (v2.9+).
+.SS Endpoint
+.TP
+.B GET /v1/events
+Server-Sent Events (SSE) stream. Broadcasts \fBdoc.added\fR, \fBdoc.updated\fR,
+\fBdoc.deleted\fR events with collection, key, lang, and timestamp.
+.SS Filtering
+Add \fB?collection=NAME\fR to receive events for a specific collection only.
+.SS Configuration
+Enabled by default. Set \fBMDDB_SSE_ENABLED=false\fR to disable.
+Set \fBMDDB_SSE_MAX_CLIENTS=N\fR to limit concurrent connections (default: 1000).
+.SS Example
+.nf
+# Subscribe to all events
+curl -N http://localhost:11023/v1/events
+
+# Subscribe to events for "blog" collection only
+curl -N http://localhost:11023/v1/events?collection=blog
+.fi
+.SH TLS SUPPORT
+MDDB supports built-in TLS/HTTPS without a reverse proxy (v2.9+).
+.SS Configuration
+.TP
+.B MDDB_TLS_ENABLED=true
+Enable TLS mode.
+.TP
+.B MDDB_TLS_CERT=/path/to/cert.pem
+TLS certificate file (PEM format).
+.TP
+.B MDDB_TLS_KEY=/path/to/key.pem
+TLS private key file (PEM format).
+.SS Example
+.nf
+MDDB_TLS_ENABLED=true \\
+MDDB_TLS_CERT=./server.crt \\
+MDDB_TLS_KEY=./server.key \\
+./mddbd
+.fi
+.SH PROFILING
+MDDB provides Go pprof profiling endpoints for runtime diagnostics (v2.9+).
+Disabled by default. Enable via \fBMDDB_PPROF_ENABLED=true\fR.
+.SS Endpoints
+.nf
+/debug/pprof/          - Index page
+/debug/pprof/profile   - CPU profile (?seconds=30)
+/debug/pprof/heap      - Heap memory
+/debug/pprof/goroutine - Goroutine stacks
+/debug/pprof/trace     - Execution trace
+.fi
 .SH ENVIRONMENT
 .TP
 .B MDDB_SERVER

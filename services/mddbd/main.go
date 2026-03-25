@@ -78,6 +78,7 @@ type Server struct {
 	AutomationLogStore *AutomationLogStore // Automation execution logs
 	CronScheduler      *CronScheduler      // Cron scheduler for automation
 	CollectionManager  *CollectionManager  // Per-collection attributes (type, description, icon, etc.)
+	SSEHub             *SSEHub             // Server-Sent Events for real-time document change notifications
 	// Replication
 	Binlog          *Binlog            // Binary replication log
 	ReplicationRole string             // "leader", "follower", or "" (standalone)
@@ -449,6 +450,14 @@ func main() {
 	}
 	log.Printf("Collection manager initialized (%d collections configured)", len(s.CollectionManager.ListAll()))
 
+	// Initialize SSE hub (enabled by default, set MDDB_SSE_ENABLED=false to disable)
+	sseEnabled := env("MDDB_SSE_ENABLED", "true") != "false"
+	sseMaxClients := envDefaultInt("MDDB_SSE_MAX_CLIENTS", 1000)
+	s.SSEHub = NewSSEHub(sseEnabled, sseMaxClients)
+	if sseEnabled {
+		log.Printf("SSE event stream enabled (max clients: %d)", sseMaxClients)
+	}
+
 	// Initialize metrics (enabled by default, set MDDB_METRICS=false to disable)
 	metricsEnabled := env("MDDB_METRICS", "true") != "false"
 	s.Metrics = NewMetrics(s, metricsEnabled)
@@ -625,10 +634,17 @@ func main() {
 	mux.HandleFunc("/v1/validate", s.handleValidate)
 	mux.HandleFunc("/v1/collection-config", s.handleCollectionConfig)
 	mux.HandleFunc("/v1/collection-configs", s.handleCollectionConfigList)
+	mux.HandleFunc("/v1/events", s.SSEHub.ServeHTTP)
 	mux.HandleFunc("/v1/cross-search", s.handleCrossSearch)
 	mux.HandleFunc("/v1/find-duplicates", s.handleFindDuplicates)
 	mux.HandleFunc("/v1/aggregate", s.handleAggregate)
 	mux.HandleFunc("/metrics", s.Metrics.HandleMetrics)
+
+	// pprof profiling endpoints (disabled by default, set MDDB_PPROF_ENABLED=true)
+	if env("MDDB_PPROF_ENABLED", "false") == "true" {
+		registerPprof(mux)
+		log.Println("pprof profiling endpoints enabled at /debug/pprof/")
+	}
 
 	// Replication status endpoint
 	mux.HandleFunc("/v1/replication/status", s.handleReplicationStatus)
@@ -704,10 +720,9 @@ func main() {
 	s.Ready = true
 	log.Println("Server initialization complete — ready to serve")
 
-	// Start HTTP server
+	// Start HTTP server (with optional TLS)
 	if srvCfg.HTTP.Enabled {
 		go func() {
-			log.Printf("mddb HTTP listening on %s (mode=%s, db=%s)", httpAddr, s.Mode, dbPath)
 			server := &http.Server{
 				Addr:              httpAddr,
 				Handler:           handler,
@@ -716,8 +731,16 @@ func main() {
 				WriteTimeout:      30 * time.Second,
 				IdleTimeout:       120 * time.Second,
 			}
-			if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				log.Fatal(err)
+			if srvCfg.TLS.Enabled && srvCfg.TLS.CertFile != "" && srvCfg.TLS.KeyFile != "" {
+				log.Printf("mddb HTTPS listening on %s (mode=%s, db=%s, tls=on)", httpAddr, s.Mode, dbPath)
+				if err := server.ListenAndServeTLS(srvCfg.TLS.CertFile, srvCfg.TLS.KeyFile); err != nil && err != http.ErrServerClosed {
+					log.Fatal(err)
+				}
+			} else {
+				log.Printf("mddb HTTP listening on %s (mode=%s, db=%s)", httpAddr, s.Mode, dbPath)
+				if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+					log.Fatal(err)
+				}
 			}
 		}()
 	} else {
@@ -1005,13 +1028,16 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 		_ = s.FTSIndex.IndexFieldsWithLang(collection, saved.ID, fields, saved.Lang)
 	}
 
-	// Webhooks
+	// Webhooks + SSE
+	event := "doc.updated"
+	if isNew {
+		event = "doc.added"
+	}
 	if s.WebhookManager != nil {
-		event := "doc.updated"
-		if isNew {
-			event = "doc.added"
-		}
 		s.WebhookManager.Fire(event, collection, key, lang, &saved)
+	}
+	if s.SSEHub != nil {
+		s.SSEHub.Broadcast(event, collection, key, lang)
 	}
 
 	// Automation triggers
@@ -1120,9 +1146,12 @@ func (s *Server) deleteDocumentInternal(collection, key, lang string) error {
 		_ = s.FTSIndex.Remove(collection, docID)
 	}
 
-	// Fire webhook
+	// Fire webhook + SSE
 	if s.WebhookManager != nil {
 		s.WebhookManager.Fire("doc.deleted", collection, key, lang, nil)
+	}
+	if s.SSEHub != nil {
+		s.SSEHub.Broadcast("doc.deleted", collection, key, lang)
 	}
 
 	return nil
