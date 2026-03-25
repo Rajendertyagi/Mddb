@@ -31,7 +31,13 @@ info:
     - **HTTP/JSON** - Port 11023 (documented here)
     - **gRPC/Protobuf** - Port 11024 (see gRPC documentation)
     - **GraphQL** - Port 11023/graphql (enable with MDDB_GRAPHQL_ENABLED=true)
+    - **MCP** - Port 9000 (Streamable HTTP at `/mcp`, legacy SSE at `/sse`)
     - **HTTP/3 + QUIC** - Port 11443 (extreme mode only)
+
+    ## Per-Protocol Access Modes
+    Each protocol can have its own read/write mode: `MDDB_API_MODE`, `MDDB_GRPC_MODE`, `MDDB_MCP_MODE`, `MDDB_HTTP3_MODE`.
+    Values: `read`, `write`, `wr`. Default: inherits from `MDDB_MODE`.
+    Set `MDDB_MCP_BUILTIN_TOOLS=false` to hide built-in MCP tools.
 
     ## Authentication
     MDDB supports JWT tokens and API keys for authentication with collection-level RBAC authorization.

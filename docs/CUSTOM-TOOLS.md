@@ -8,6 +8,8 @@ By default, `mddbd` exposes 54+ built-in MCP tools (add_document, search_documen
 
 Custom tools are defined in a YAML file under the `custom_tools:` key. Point `mddbd` to the file via `MDDB_MCP_CONFIG=/path/to/config.yaml`. They are registered alongside built-in tools and work on all transports (stdio, Streamable HTTP, and legacy SSE).
 
+> **Tip:** Set `MDDB_MCP_BUILTIN_TOOLS=false` to hide all built-in tools and expose **only** your custom tools. Combined with `MDDB_MCP_MODE=read`, this gives AI agents a locked-down, domain-specific read-only interface.
+
 ## Quick Example
 
 ```yaml

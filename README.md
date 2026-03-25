@@ -255,6 +255,8 @@ Proto definitions at `proto/mddb.proto` - generate clients for any language supp
 ### Security & Access
 - ✅ **Authentication** - JWT tokens and API keys
 - ✅ **Authorization** - Collection-level RBAC (Read/Write/Admin)
+- ✅ **Per-Protocol Access Modes** - `MDDB_MCP_MODE=read` (MCP read-only), `MDDB_API_MODE`, `MDDB_GRPC_MODE`, `MDDB_HTTP3_MODE`
+- ✅ **MCP Tool Control** - `MDDB_MCP_BUILTIN_TOOLS=false` to expose only custom YAML tools
 - ✅ **User Management** - Multi-user with admin roles
 - ✅ **Group Permissions** - Organize users into groups
 
