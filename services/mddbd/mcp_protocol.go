@@ -11,9 +11,9 @@ import (
 
 // MCPPrompt represents a server-provided prompt template.
 type MCPPrompt struct {
-	Name        string            `json:"name"`
-	Description string            `json:"description,omitempty"`
-	Arguments   []MCPPromptArg    `json:"arguments,omitempty"`
+	Name        string         `json:"name"`
+	Description string         `json:"description,omitempty"`
+	Arguments   []MCPPromptArg `json:"arguments,omitempty"`
 }
 
 // MCPPromptArg describes a prompt argument.

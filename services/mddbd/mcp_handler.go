@@ -17,7 +17,8 @@ type MCPHandler struct {
 	client       MCPClient
 	customTools  []MCPCustomToolConfig
 	serverInfo   MCPServerInfo
-	instructions string // system prompt for LLM — how to use this server
+	instructions string     // system prompt for LLM — how to use this server
+	mode         AccessMode // per-protocol mode override ("read", "write", "wr", "" = global)
 
 	mu       sync.RWMutex
 	logLevel MCPLogLevel // minimum log level from client
@@ -33,8 +34,8 @@ func NewMCPHandler(client MCPClient, customTools []MCPCustomToolConfig) *MCPHand
 	}
 }
 
-// NewMCPHandlerWithConfig creates a new MCP handler with custom server info and instructions.
-func NewMCPHandlerWithConfig(client MCPClient, customTools []MCPCustomToolConfig, info MCPServerInfo, instructions string) *MCPHandler {
+// NewMCPHandlerWithConfig creates a new MCP handler with custom server info, instructions, and access mode.
+func NewMCPHandlerWithConfig(client MCPClient, customTools []MCPCustomToolConfig, info MCPServerInfo, instructions string, mode AccessMode) *MCPHandler {
 	if info.Name == "" {
 		info.Name = "mddbd"
 	}
@@ -43,6 +44,7 @@ func NewMCPHandlerWithConfig(client MCPClient, customTools []MCPCustomToolConfig
 		customTools:  customTools,
 		serverInfo:   info,
 		instructions: instructions,
+		mode:         mode,
 		logLevel:     MCPLogWarning,
 	}
 }
@@ -212,7 +214,7 @@ func (h *MCPHandler) handleResourcesRead(ctx context.Context, req map[string]int
 	params, _ := req["params"].(map[string]interface{})
 	uri, _ := params["uri"].(string)
 
-	ts := &MCPToolServer{client: h.client, customTools: h.customTools}
+	ts := &MCPToolServer{client: h.client, customTools: h.customTools, mode: h.mode}
 	content, err := ts.readResource(ctx, uri)
 	if err != nil {
 		return map[string]interface{}{
@@ -266,7 +268,7 @@ func (h *MCPHandler) handleToolsCall(ctx context.Context, req map[string]interfa
 	name, _ := params["name"].(string)
 	args, _ := params["arguments"].(map[string]interface{})
 
-	ts := &MCPToolServer{client: h.client, customTools: h.customTools}
+	ts := &MCPToolServer{client: h.client, customTools: h.customTools, mode: h.mode}
 	result, err := ts.mcpCallTool(ctx, name, args)
 	if err != nil {
 		return map[string]interface{}{
@@ -387,7 +389,7 @@ func (s *Server) runMCPStdio() {
 
 	customTools := loadMCPCustomTools()
 	client := NewDirectClient(s)
-	handler := NewMCPHandlerWithConfig(client, customTools, s.MCPInfo, s.MCPInstructions)
+	handler := NewMCPHandlerWithConfig(client, customTools, s.MCPInfo, s.MCPInstructions, s.Config.MCP.Mode)
 
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Buffer(make([]byte, 0, 4*1024*1024), 4*1024*1024) // 4MB buffer

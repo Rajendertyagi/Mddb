@@ -61,16 +61,16 @@ func (p *MCPProgressSender) Send(progress, total int, message string) {
 
 // longRunningTools lists tools that support progress tokens.
 var longRunningTools = map[string]bool{
-	"vector_reindex":       true,
-	"fts_reindex":          true,
-	"ingest_documents":     true,
-	"export_documents":     true,
-	"add_documents_batch":  true,
+	"vector_reindex":         true,
+	"fts_reindex":            true,
+	"ingest_documents":       true,
+	"export_documents":       true,
+	"add_documents_batch":    true,
 	"delete_documents_batch": true,
-	"create_backup":        true,
-	"restore_backup":       true,
-	"find_duplicates":      true,
-	"cross_search":         true,
+	"create_backup":          true,
+	"restore_backup":         true,
+	"find_duplicates":        true,
+	"cross_search":           true,
 }
 
 // extractProgressToken extracts _meta.progressToken from request params.

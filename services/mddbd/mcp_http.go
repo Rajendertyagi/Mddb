@@ -11,6 +11,7 @@ import (
 type MCPHTTPServer struct {
 	client      MCPClient
 	customTools []MCPCustomToolConfig
+	mode        AccessMode
 }
 
 // newMCPHTTPServer creates an MCPHTTPServer backed by the Server.
@@ -18,6 +19,7 @@ func (s *Server) newMCPHTTPServer() *MCPHTTPServer {
 	return &MCPHTTPServer{
 		client:      NewDirectClient(s),
 		customTools: loadMCPCustomTools(),
+		mode:        s.Config.MCP.Mode,
 	}
 }
 
@@ -65,7 +67,7 @@ func (m *MCPHTTPServer) handleResourceRead(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	ts := &MCPToolServer{client: m.client, customTools: m.customTools}
+	ts := &MCPToolServer{client: m.client, customTools: m.customTools, mode: m.mode}
 	content, err := ts.readResource(r.Context(), req.URI)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -103,7 +105,7 @@ func (m *MCPHTTPServer) handleToolCall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ts := &MCPToolServer{client: m.client, customTools: m.customTools}
+	ts := &MCPToolServer{client: m.client, customTools: m.customTools, mode: m.mode}
 	result, err := ts.mcpCallTool(r.Context(), req.Name, req.Arguments)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

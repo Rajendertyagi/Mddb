@@ -586,6 +586,19 @@ func main() {
 
 	// Log protocol configuration
 	log.Printf("Protocol config: HTTP=%v gRPC=%v MCP=%v HTTP3=%v", srvCfg.HTTP.Enabled, srvCfg.GRPC.Enabled, srvCfg.MCP.Enabled, srvCfg.HTTP3.Enabled)
+	// Log per-protocol mode overrides
+	if srvCfg.HTTP.Mode != "" {
+		log.Printf("Per-protocol mode: API=%s (MDDB_API_MODE)", srvCfg.HTTP.Mode)
+	}
+	if srvCfg.GRPC.Mode != "" {
+		log.Printf("Per-protocol mode: gRPC=%s (MDDB_GRPC_MODE)", srvCfg.GRPC.Mode)
+	}
+	if srvCfg.MCP.Mode != "" {
+		log.Printf("Per-protocol mode: MCP=%s (MDDB_MCP_MODE)", srvCfg.MCP.Mode)
+	}
+	if srvCfg.HTTP3.Mode != "" {
+		log.Printf("Per-protocol mode: HTTP3=%s (MDDB_HTTP3_MODE)", srvCfg.HTTP3.Mode)
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.handleHealth)
@@ -766,14 +779,14 @@ func main() {
 			mcpMux.HandleFunc("/events", s.handleSSE)
 
 			// MCP-over-SSE transport (legacy, 2024-11-05 spec)
-			mcpSSEHandler := NewMCPHandlerWithConfig(NewDirectClient(s), loadMCPCustomTools(), srvCfg.MCP.ServerInfo, srvCfg.MCP.Instructions)
+			mcpSSEHandler := NewMCPHandlerWithConfig(NewDirectClient(s), loadMCPCustomTools(), srvCfg.MCP.ServerInfo, srvCfg.MCP.Instructions, srvCfg.MCP.Mode)
 			mcpSSE := NewMCPSSETransport(mcpSSEHandler)
 			mcpMux.HandleFunc("/sse", mcpSSE.HandleSSE)
 			mcpMux.HandleFunc("/message", mcpSSE.HandleMessage)
 			log.Println("MCP-over-SSE transport enabled at /sse + /message (legacy)")
 
 			// Streamable HTTP transport (2025-11-25 spec)
-			mcpStreamableHandler := NewMCPHandlerWithConfig(NewDirectClient(s), loadMCPCustomTools(), srvCfg.MCP.ServerInfo, srvCfg.MCP.Instructions)
+			mcpStreamableHandler := NewMCPHandlerWithConfig(NewDirectClient(s), loadMCPCustomTools(), srvCfg.MCP.ServerInfo, srvCfg.MCP.Instructions, srvCfg.MCP.Mode)
 			mcpStreamable := NewMCPStreamableTransport(mcpStreamableHandler)
 			mcpMux.HandleFunc("/mcp", mcpStreamable.Handle)
 			log.Println("MCP Streamable HTTP transport enabled at /mcp")
@@ -920,12 +933,34 @@ func withJSON(h http.Handler) http.Handler {
 
 func (s *Server) guardWrite(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if s.Mode == ModeRead {
+		mode := effectiveMode(s.Mode, s.Config.HTTP.Mode)
+		if mode == ModeRead {
 			http.Error(w, `{"error":"read-only mode"}`, http.StatusForbidden)
 			return
 		}
 		next(w, r)
 	}
+}
+
+// guardWriteMode creates a write guard using a per-protocol mode override.
+// If protocolMode is set, it takes precedence over the global server mode.
+func (s *Server) guardWriteMode(protocolMode AccessMode, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		mode := effectiveMode(s.Mode, protocolMode)
+		if mode == ModeRead {
+			http.Error(w, `{"error":"read-only mode"}`, http.StatusForbidden)
+			return
+		}
+		next(w, r)
+	}
+}
+
+// effectiveMode returns the per-protocol mode if set, otherwise falls back to the global mode.
+func effectiveMode(global, perProtocol AccessMode) AccessMode {
+	if perProtocol != "" {
+		return perProtocol
+	}
+	return global
 }
 
 // --- handlers

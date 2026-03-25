@@ -130,6 +130,32 @@ The legacy [MCP-over-SSE transport](https://modelcontextprotocol.io/docs/concept
 | MCP (9000) | `/message?sessionId=X` | POST | **Legacy SSE** — send JSON-RPC request to a session |
 ```
 
+## Per-Protocol Access Modes
+
+Each protocol can have its own read/write mode, independent of the global `MDDB_MODE`:
+
+| Env Var | Protocol | Default |
+|---------|----------|---------|
+| `MDDB_MODE` | **Global** (all protocols) | `wr` |
+| `MDDB_API_MODE` | HTTP/JSON REST + GraphQL | inherits `MDDB_MODE` |
+| `MDDB_GRPC_MODE` | gRPC | inherits `MDDB_MODE` |
+| `MDDB_MCP_MODE` | MCP (stdio + Streamable HTTP + SSE) | inherits `MDDB_MODE` |
+| `MDDB_HTTP3_MODE` | HTTP/3 (QUIC) | inherits `MDDB_MODE` |
+
+Values: `read`, `write`, `wr` (read-write)
+
+**Example: MCP read-only, API read-write**
+
+```bash
+# Internal services write via REST API, AI agents read via MCP
+docker run -d \
+  -e MDDB_MCP_MODE=read \
+  -p 11023:11023 -p 9000:9000 \
+  tradik/mddb:latest
+```
+
+In read-only mode, MCP tools with `readOnlyHint=false` (write, delete, destructive tools) return an error. Read-only tools (search, stats, list, export) work normally.
+
 ## MCP Protocol Features (2025-11-25)
 
 MDDB implements the full MCP 2025-11-25 specification:

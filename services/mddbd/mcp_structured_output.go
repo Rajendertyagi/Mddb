@@ -6,11 +6,11 @@ var mcpToolOutputSchemas = map[string]map[string]interface{}{
 	"get_stats": {
 		"type": "object",
 		"properties": map[string]interface{}{
-			"database_path":     map[string]interface{}{"type": "string"},
-			"database_size":     map[string]interface{}{"type": "integer"},
-			"mode":              map[string]interface{}{"type": "string"},
-			"total_documents":   map[string]interface{}{"type": "integer"},
-			"total_revisions":   map[string]interface{}{"type": "integer"},
+			"database_path":      map[string]interface{}{"type": "string"},
+			"database_size":      map[string]interface{}{"type": "integer"},
+			"mode":               map[string]interface{}{"type": "string"},
+			"total_documents":    map[string]interface{}{"type": "integer"},
+			"total_revisions":    map[string]interface{}{"type": "integer"},
 			"total_meta_indices": map[string]interface{}{"type": "integer"},
 			"collections": map[string]interface{}{
 				"type": "array",
