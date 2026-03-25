@@ -141,6 +141,56 @@ func TestMCPHandlerReadOnlyPerProtocol(t *testing.T) {
 	}
 }
 
+func TestMCPCustomToolAllowedInReadOnly(t *testing.T) {
+	customTools := []MCPCustomToolConfig{
+		{Name: "version_check", Description: "Check version", Action: "full_text_search"},
+		{Name: "kb_search", Description: "Search KB", Action: "semantic_search"},
+		{Name: "list_docs", Description: "List docs", Action: "search_documents"},
+	}
+
+	ts := &MCPToolServer{client: nil, globalMode: ModeRead, customTools: customTools}
+
+	for _, ct := range customTools {
+		if !ts.isToolReadOnly(ct.Name) {
+			t.Errorf("custom tool %q (action=%s) should be read-only", ct.Name, ct.Action)
+		}
+	}
+}
+
+func TestMCPCustomToolUnknownActionBlockedInReadOnly(t *testing.T) {
+	// A custom tool with unknown action should be blocked
+	ts := &MCPToolServer{
+		client:      nil,
+		globalMode:  ModeRead,
+		customTools: []MCPCustomToolConfig{{Name: "bad_tool", Action: "unknown_action"}},
+	}
+
+	if ts.isToolReadOnly("bad_tool") {
+		t.Error("custom tool with unknown action should NOT be read-only")
+	}
+}
+
+func TestMCPCustomToolNotBlockedInFollowerMode(t *testing.T) {
+	// Regression test for issue #27: custom tools with read-only actions
+	// should work in follower mode (globalMode=read, no per-protocol override).
+	// We verify via isToolReadOnly since nil client panics on actual call.
+	customTools := []MCPCustomToolConfig{
+		{Name: "version_check", Description: "test", Action: "full_text_search",
+			Defaults: MCPCustomToolDefs{Collection: "versions", Limit: 1}},
+	}
+
+	ts := &MCPToolServer{client: nil, globalMode: ModeRead, mode: "", customTools: customTools}
+
+	if !ts.isToolReadOnly("version_check") {
+		t.Error("custom tool with full_text_search action should be read-only (issue #27)")
+	}
+
+	// Builtin write tools should still be blocked
+	if ts.isToolReadOnly("add_document") {
+		t.Error("add_document should NOT be read-only")
+	}
+}
+
 func TestMCPBuiltinToolsDisable(t *testing.T) {
 	// Default: builtin tools included
 	tools := mcpAllTools(nil)

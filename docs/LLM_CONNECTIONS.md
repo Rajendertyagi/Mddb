@@ -169,6 +169,22 @@ docker run -d \
 
 This restricts AI agents to domain-specific tools only — no direct access to `add_document`, `delete_collection`, etc.
 
+### Custom Tools in Read-Only Mode
+
+Custom tools that use read-only actions (`semantic_search`, `search_documents`, `full_text_search`, `fts_languages`) work in read-only and follower modes. This enables public MCP endpoints on follower instances:
+
+```bash
+# Follower with read-only custom tools only
+docker run -d \
+  -e MDDB_REPLICATION_ROLE=follower \
+  -e MDDB_REPLICATION_LEADER_ADDR=leader:11024 \
+  -e MDDB_MCP_BUILTIN_TOOLS=false \
+  -e MDDB_MCP_CONFIG=/app/mcp-tools.yml \
+  tradik/mddb:latest
+```
+
+Custom tools with write actions are blocked in read-only mode, same as built-in write tools.
+
 ## MCP Protocol Features (2025-11-25)
 
 MDDB implements the full MCP 2025-11-25 specification:

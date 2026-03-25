@@ -17,13 +17,36 @@ type MCPToolServer struct {
 	mode        AccessMode // per-protocol override (from MDDB_MCP_MODE, "" = inherit global)
 }
 
+// isToolReadOnly returns true if a tool (builtin or custom) is safe for read-only mode.
+func (s *MCPToolServer) isToolReadOnly(name string) bool {
+	// Check builtin tool annotations first
+	if ann, ok := mcpToolAnnotations[name]; ok {
+		return ann.ReadOnlyHint != nil && *ann.ReadOnlyHint
+	}
+	// Check custom tools — their underlying actions are all read-only
+	// (semantic_search, search_documents, full_text_search, fts_languages)
+	for _, ct := range s.customTools {
+		if ct.Name == name {
+			return mcpCustomToolActionReadOnly[ct.Action]
+		}
+	}
+	return false
+}
+
+// mcpCustomToolActionReadOnly maps custom tool action names to their read-only status.
+var mcpCustomToolActionReadOnly = map[string]bool{
+	"semantic_search":  true,
+	"search_documents": true,
+	"full_text_search": true,
+	"fts_languages":    true,
+}
+
 // mcpCallTool invokes an MCP tool by name.
 func (s *MCPToolServer) mcpCallTool(ctx context.Context, name string, args map[string]interface{}) (string, error) {
 	// Enforce read-only mode: per-protocol override takes precedence, then global mode.
 	em := effectiveMode(s.globalMode, s.mode)
 	if em == ModeRead {
-		ann := mcpToolAnnotations[name]
-		if ann == nil || ann.ReadOnlyHint == nil || !*ann.ReadOnlyHint {
+		if !s.isToolReadOnly(name) {
 			return "", fmt.Errorf("tool %q is not available in read-only mode", name)
 		}
 	}

@@ -28,6 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **MCP now respects global read-only mode** — `MDDB_MODE=read` and follower replication role correctly block MCP write tools. Previously MCP DirectClient bypassed the mode check entirely.
 - **globalMode propagation** — Server's access mode (including follower-forced read-only) flows through the full MCP chain: Server → MCPHandler → MCPToolServer → write guard
 
+### Fixed
+- **Custom MCP tools work in read-only/follower mode** ([#27](https://github.com/tradik/mddb/issues/27)) — Custom tools with read-only actions (`full_text_search`, `search_documents`, `semantic_search`, `fts_languages`) are now allowed in read-only mode. Previously all custom tools were incorrectly blocked because they had no entries in the annotation map.
+
 ### Changed
 - Tool call errors now return `isError: true` in result content (per spec) instead of JSON-RPC error codes
 - `ping` response is now an empty object `{}` per MCP spec (was `{"result":"pong"}`)
