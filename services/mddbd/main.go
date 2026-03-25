@@ -453,9 +453,10 @@ func main() {
 	// Initialize SSE hub (enabled by default, set MDDB_SSE_ENABLED=false to disable)
 	sseEnabled := env("MDDB_SSE_ENABLED", "true") != "false"
 	sseMaxClients := envDefaultInt("MDDB_SSE_MAX_CLIENTS", 1000)
-	s.SSEHub = NewSSEHub(sseEnabled, sseMaxClients)
+	sseMaxPerIP := envDefaultInt("MDDB_SSE_MAX_PER_IP", 5)
+	s.SSEHub = NewSSEHub(sseEnabled, sseMaxClients, sseMaxPerIP)
 	if sseEnabled {
-		log.Printf("SSE event stream enabled (max clients: %d)", sseMaxClients)
+		log.Printf("SSE event stream enabled (max clients: %d, max per IP: %d)", sseMaxClients, sseMaxPerIP)
 	}
 
 	// Initialize metrics (enabled by default, set MDDB_METRICS=false to disable)
@@ -634,7 +635,7 @@ func main() {
 	mux.HandleFunc("/v1/validate", s.handleValidate)
 	mux.HandleFunc("/v1/collection-config", s.handleCollectionConfig)
 	mux.HandleFunc("/v1/collection-configs", s.handleCollectionConfigList)
-	mux.HandleFunc("/v1/events", s.SSEHub.ServeHTTP)
+	mux.HandleFunc("/v1/events", s.handleSSE)
 	mux.HandleFunc("/v1/cross-search", s.handleCrossSearch)
 	mux.HandleFunc("/v1/find-duplicates", s.handleFindDuplicates)
 	mux.HandleFunc("/v1/aggregate", s.handleAggregate)
@@ -756,6 +757,7 @@ func main() {
 			mcpMux.HandleFunc("/resources/read", mcpSrv.handleResourceRead)
 			mcpMux.HandleFunc("/tools", mcpSrv.handleTools)
 			mcpMux.HandleFunc("/tools/call", s.guardWrite(mcpSrv.handleToolCall))
+			mcpMux.HandleFunc("/events", s.handleSSE)
 
 			mcpHandler := withJSON(mcpMux)
 			if panelMode != "external" {
@@ -1037,7 +1039,7 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 		s.WebhookManager.Fire(event, collection, key, lang, &saved)
 	}
 	if s.SSEHub != nil {
-		s.SSEHub.Broadcast(event, collection, key, lang)
+		s.SSEHub.BroadcastWithAuth(event, collection, key, lang, s.AuthManager)
 	}
 
 	// Automation triggers
@@ -1151,7 +1153,7 @@ func (s *Server) deleteDocumentInternal(collection, key, lang string) error {
 		s.WebhookManager.Fire("doc.deleted", collection, key, lang, nil)
 	}
 	if s.SSEHub != nil {
-		s.SSEHub.Broadcast("doc.deleted", collection, key, lang)
+		s.SSEHub.BroadcastWithAuth("doc.deleted", collection, key, lang, s.AuthManager)
 	}
 
 	return nil

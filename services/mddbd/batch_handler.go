@@ -168,7 +168,7 @@ func (s *Server) firePostBatchHooks(collection string, processed []*ProcessedDoc
 				s.WebhookManager.Fire(event, collection, p.Doc.Key, p.Doc.Lang, &p.Doc)
 			}
 			if s.SSEHub != nil {
-				s.SSEHub.Broadcast(event, collection, p.Doc.Key, p.Doc.Lang)
+				s.SSEHub.BroadcastWithAuth(event, collection, p.Doc.Key, p.Doc.Lang, s.AuthManager)
 			}
 		}
 

@@ -127,6 +127,44 @@ Complete reference for all MDDB configuration parameters.
 
 ---
 
+## Server-Sent Events (SSE)
+
+| Env Var | Default | Type | Description |
+|---------|---------|------|-------------|
+| `MDDB_SSE_ENABLED` | `true` | bool | Enable SSE event stream at `/v1/events` |
+| `MDDB_SSE_MAX_CLIENTS` | `1000` | int | Maximum total concurrent SSE connections |
+| `MDDB_SSE_MAX_PER_IP` | `5` | int | Maximum concurrent SSE connections per IP address |
+
+---
+
+## TLS / HTTPS
+
+| Env Var | Default | Type | Description |
+|---------|---------|------|-------------|
+| `MDDB_TLS_ENABLED` | `false` | bool | Enable built-in TLS (HTTPS) |
+| `MDDB_TLS_CERT` | `""` | string | Path to TLS certificate file (PEM) |
+| `MDDB_TLS_KEY` | `""` | string | Path to TLS private key file (PEM) |
+
+---
+
+## Profiling
+
+| Env Var | Default | Type | Description |
+|---------|---------|------|-------------|
+| `MDDB_PPROF_ENABLED` | `false` | bool | Enable pprof profiling endpoints at `/debug/pprof/` |
+
+---
+
+## HTTP Connection Pool
+
+| Env Var | Default | Type | Description |
+|---------|---------|------|-------------|
+| `MDDB_HTTP_POOL_MAX_IDLE` | `100` | int | Max idle connections in shared HTTP pool |
+| `MDDB_HTTP_POOL_MAX_PER_HOST` | `10` | int | Max idle connections per target host |
+| `MDDB_HTTP_POOL_IDLE_TIMEOUT` | `90` | int | Idle connection timeout in seconds |
+
+---
+
 ## Full-Text Search (FTS)
 
 | Env Var | Default | Type | Description |
