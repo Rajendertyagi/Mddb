@@ -9,6 +9,7 @@ import (
 // MVCC implements Multi-Version Concurrency Control
 type MVCC struct {
 	versions sync.Map // key -> *VersionChain
+	txnKeys  sync.Map // txnID -> map[string]struct{} (keys touched by each txn)
 	txnID    atomic.Uint64
 	gcTicker *time.Ticker
 	gcDone   chan struct{}
@@ -45,6 +46,13 @@ func NewMVCC() *MVCC {
 // BeginTxn starts a new transaction
 func (m *MVCC) BeginTxn() uint64 {
 	return m.txnID.Add(1)
+}
+
+// trackKey records that a transaction touched a key
+func (m *MVCC) trackKey(txnID uint64, key string) {
+	val, _ := m.txnKeys.LoadOrStore(txnID, &sync.Map{})
+	keys := val.(*sync.Map)
+	keys.Store(key, struct{}{})
 }
 
 // Read reads a document at a specific transaction ID (snapshot isolation)
@@ -92,6 +100,7 @@ func (m *MVCC) Write(key string, data []byte, txnID uint64) {
 
 	// Append new version
 	chain.versions = append(chain.versions, newVersion)
+	m.trackKey(txnID, key)
 }
 
 // Delete marks a document as deleted
@@ -106,34 +115,39 @@ func (m *MVCC) Delete(key string, txnID uint64) {
 		Visible:   false,
 	}
 
-	value, ok := m.versions.Load(key)
-	if !ok {
-		// Create tombstone
-		m.versions.Store(key, &VersionChain{
-			versions: []*Version{deleteVersion},
-		})
-		return
-	}
+	// Use LoadOrStore to avoid race between Load and Store
+	value, _ := m.versions.LoadOrStore(key, &VersionChain{
+		versions: make([]*Version, 0, 4),
+	})
 
 	chain := value.(*VersionChain)
 	chain.mu.Lock()
 	defer chain.mu.Unlock()
 
 	chain.versions = append(chain.versions, deleteVersion)
+	m.trackKey(txnID, key)
 }
 
 // Commit makes all versions for a transaction visible
 func (m *MVCC) Commit(txnID uint64) {
-	m.versions.Range(func(key, value interface{}) bool {
+	val, ok := m.txnKeys.LoadAndDelete(txnID)
+	if !ok {
+		return
+	}
+	keys := val.(*sync.Map)
+	keys.Range(func(k, _ interface{}) bool {
+		key := k.(string)
+		value, ok := m.versions.Load(key)
+		if !ok {
+			return true
+		}
 		chain := value.(*VersionChain)
 		chain.mu.Lock()
-
 		for _, v := range chain.versions {
 			if v.TxnID == txnID {
 				v.Visible = true
 			}
 		}
-
 		chain.mu.Unlock()
 		return true
 	})
@@ -141,11 +155,19 @@ func (m *MVCC) Commit(txnID uint64) {
 
 // Rollback removes all versions for a transaction
 func (m *MVCC) Rollback(txnID uint64) {
-	m.versions.Range(func(key, value interface{}) bool {
+	val, ok := m.txnKeys.LoadAndDelete(txnID)
+	if !ok {
+		return
+	}
+	keys := val.(*sync.Map)
+	keys.Range(func(k, _ interface{}) bool {
+		key := k.(string)
+		value, ok := m.versions.Load(key)
+		if !ok {
+			return true
+		}
 		chain := value.(*VersionChain)
 		chain.mu.Lock()
-
-		// Remove versions with this txnID
 		filtered := make([]*Version, 0, len(chain.versions))
 		for _, v := range chain.versions {
 			if v.TxnID != txnID {
@@ -153,7 +175,6 @@ func (m *MVCC) Rollback(txnID uint64) {
 			}
 		}
 		chain.versions = filtered
-
 		chain.mu.Unlock()
 		return true
 	})
@@ -175,14 +196,21 @@ func (m *MVCC) garbageCollector() {
 func (m *MVCC) gc() {
 	cutoff := time.Now().Unix() - 300 // Keep versions for 5 minutes
 
+	// Collect active txn IDs to avoid GC'ing their uncommitted versions
+	activeTxns := make(map[uint64]bool)
+	m.txnKeys.Range(func(key, _ interface{}) bool {
+		activeTxns[key.(uint64)] = true
+		return true
+	})
+
 	m.versions.Range(func(key, value interface{}) bool {
 		chain := value.(*VersionChain)
 		chain.mu.Lock()
 
-		// Keep only recent versions
+		// Keep only recent versions and those belonging to active transactions
 		kept := make([]*Version, 0, len(chain.versions))
 		for _, v := range chain.versions {
-			if v.Timestamp > cutoff || !v.Visible {
+			if v.Timestamp > cutoff || (!v.Visible && activeTxns[v.TxnID]) {
 				kept = append(kept, v)
 			}
 		}

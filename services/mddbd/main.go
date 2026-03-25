@@ -24,7 +24,7 @@ import (
 )
 
 // VERSION is the current release version of the MDDB server.
-const VERSION = "2.8.0"
+const VERSION = "2.9.0"
 
 // AccessMode defines the database access mode (read, write, or both).
 type AccessMode string
@@ -59,11 +59,12 @@ type Server struct {
 	finalBatchProcessor *FinalBatchProcessor  // Final optimized batch processor
 	UseExtreme          bool                  // Enable extreme performance features
 	// Vector search
-	VectorStore     *VectorStore              // Persistent vector storage in BoltDB
-	VectorIndex     *VectorIndex              // In-memory flat vector index
-	VectorSearchers map[string]VectorSearcher // algorithm name -> searcher (flat, hnsw, ivf, pq, sq, bq)
-	EmbeddingWorker *EmbeddingWorker          // Background embedding processor
-	Embedding       EmbeddingProvider         // Embedding generation provider
+	VectorStore       *VectorStore              // Persistent vector storage in BoltDB
+	VectorIndex       *VectorIndex              // In-memory flat vector index
+	VectorSearchers   map[string]VectorSearcher // algorithm name -> searcher (flat, hnsw, ivf, pq, sq, bq)
+	QuantizedVecIndex *QuantizedVectorIndex     // In-memory quantized vector index (int8/int4)
+	EmbeddingWorker   *EmbeddingWorker          // Background embedding processor
+	Embedding         EmbeddingProvider         // Embedding generation provider
 	// New features
 	TTLManager         *TTLManager         // Document TTL / auto-expiry
 	FTSIndex           *FTSIndex           // Full-text search index
@@ -77,6 +78,7 @@ type Server struct {
 	AutomationLogStore *AutomationLogStore // Automation execution logs
 	CronScheduler      *CronScheduler      // Cron scheduler for automation
 	CollectionManager  *CollectionManager  // Per-collection attributes (type, description, icon, etc.)
+	SSEHub             *SSEHub             // Server-Sent Events for real-time document change notifications
 	// Replication
 	Binlog          *Binlog            // Binary replication log
 	ReplicationRole string             // "leader", "follower", or "" (standalone)
@@ -286,13 +288,24 @@ func main() {
 	if bqRerank <= 0 {
 		bqRerank = 10
 	}
+	s.QuantizedVecIndex = NewQuantizedVectorIndex(func(collection string) QuantizationType {
+		if s.CollectionManager == nil {
+			return QuantNone
+		}
+		cfg, ok := s.CollectionManager.Get(collection)
+		if !ok || cfg.Quantization == "" {
+			return QuantNone
+		}
+		return ParseQuantization(cfg.Quantization)
+	})
 	s.VectorSearchers = map[string]VectorSearcher{
-		"flat": s.VectorIndex,
-		"hnsw": NewHNSWIndex(16, 200, 100),
-		"ivf":  NewIVFIndex(10, 20),
-		"pq":   NewPQIndex(8, 256, 20),
-		"sq":   NewSQIndex(),
-		"bq":   NewBQIndex(bqRerank),
+		"flat":      s.VectorIndex,
+		"hnsw":      NewHNSWIndex(16, 200, 100),
+		"ivf":       NewIVFIndex(10, 20),
+		"pq":        NewPQIndex(8, 256, 20),
+		"sq":        NewSQIndex(),
+		"bq":        NewBQIndex(bqRerank),
+		"quantized": s.QuantizedVecIndex,
 	}
 
 	// Try to load embedding config from database first
@@ -436,6 +449,14 @@ func main() {
 		log.Fatal(err)
 	}
 	log.Printf("Collection manager initialized (%d collections configured)", len(s.CollectionManager.ListAll()))
+
+	// Initialize SSE hub (enabled by default, set MDDB_SSE_ENABLED=false to disable)
+	sseEnabled := env("MDDB_SSE_ENABLED", "true") != "false"
+	sseMaxClients := envDefaultInt("MDDB_SSE_MAX_CLIENTS", 1000)
+	s.SSEHub = NewSSEHub(sseEnabled, sseMaxClients)
+	if sseEnabled {
+		log.Printf("SSE event stream enabled (max clients: %d)", sseMaxClients)
+	}
 
 	// Initialize metrics (enabled by default, set MDDB_METRICS=false to disable)
 	metricsEnabled := env("MDDB_METRICS", "true") != "false"
@@ -613,10 +634,17 @@ func main() {
 	mux.HandleFunc("/v1/validate", s.handleValidate)
 	mux.HandleFunc("/v1/collection-config", s.handleCollectionConfig)
 	mux.HandleFunc("/v1/collection-configs", s.handleCollectionConfigList)
+	mux.HandleFunc("/v1/events", s.SSEHub.ServeHTTP)
 	mux.HandleFunc("/v1/cross-search", s.handleCrossSearch)
 	mux.HandleFunc("/v1/find-duplicates", s.handleFindDuplicates)
 	mux.HandleFunc("/v1/aggregate", s.handleAggregate)
 	mux.HandleFunc("/metrics", s.Metrics.HandleMetrics)
+
+	// pprof profiling endpoints (disabled by default, set MDDB_PPROF_ENABLED=true)
+	if env("MDDB_PPROF_ENABLED", "false") == "true" {
+		registerPprof(mux)
+		log.Println("pprof profiling endpoints enabled at /debug/pprof/")
+	}
 
 	// Replication status endpoint
 	mux.HandleFunc("/v1/replication/status", s.handleReplicationStatus)
@@ -692,10 +720,9 @@ func main() {
 	s.Ready = true
 	log.Println("Server initialization complete — ready to serve")
 
-	// Start HTTP server
+	// Start HTTP server (with optional TLS)
 	if srvCfg.HTTP.Enabled {
 		go func() {
-			log.Printf("mddb HTTP listening on %s (mode=%s, db=%s)", httpAddr, s.Mode, dbPath)
 			server := &http.Server{
 				Addr:              httpAddr,
 				Handler:           handler,
@@ -704,8 +731,16 @@ func main() {
 				WriteTimeout:      30 * time.Second,
 				IdleTimeout:       120 * time.Second,
 			}
-			if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				log.Fatal(err)
+			if srvCfg.TLS.Enabled && srvCfg.TLS.CertFile != "" && srvCfg.TLS.KeyFile != "" {
+				log.Printf("mddb HTTPS listening on %s (mode=%s, db=%s, tls=on)", httpAddr, s.Mode, dbPath)
+				if err := server.ListenAndServeTLS(srvCfg.TLS.CertFile, srvCfg.TLS.KeyFile); err != nil && err != http.ErrServerClosed {
+					log.Fatal(err)
+				}
+			} else {
+				log.Printf("mddb HTTP listening on %s (mode=%s, db=%s)", httpAddr, s.Mode, dbPath)
+				if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+					log.Fatal(err)
+				}
 			}
 		}()
 	} else {
@@ -811,6 +846,10 @@ func main() {
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-sigCh
 	log.Printf("Received %s, shutting down...", sig)
+
+	if s.LockFreeCache != nil {
+		s.LockFreeCache.Close()
+	}
 }
 
 // --- helpers / buckets
@@ -989,13 +1028,16 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 		_ = s.FTSIndex.IndexFieldsWithLang(collection, saved.ID, fields, saved.Lang)
 	}
 
-	// Webhooks
+	// Webhooks + SSE
+	event := "doc.updated"
+	if isNew {
+		event = "doc.added"
+	}
 	if s.WebhookManager != nil {
-		event := "doc.updated"
-		if isNew {
-			event = "doc.added"
-		}
 		s.WebhookManager.Fire(event, collection, key, lang, &saved)
+	}
+	if s.SSEHub != nil {
+		s.SSEHub.Broadcast(event, collection, key, lang)
 	}
 
 	// Automation triggers
@@ -1104,9 +1146,12 @@ func (s *Server) deleteDocumentInternal(collection, key, lang string) error {
 		_ = s.FTSIndex.Remove(collection, docID)
 	}
 
-	// Fire webhook
+	// Fire webhook + SSE
 	if s.WebhookManager != nil {
 		s.WebhookManager.Fire("doc.deleted", collection, key, lang, nil)
+	}
+	if s.SSEHub != nil {
+		s.SSEHub.Broadcast("doc.deleted", collection, key, lang)
 	}
 
 	return nil

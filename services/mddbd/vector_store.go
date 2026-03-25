@@ -56,6 +56,72 @@ func (vs *VectorStore) EnsureBucket() error {
 	})
 }
 
+// PutQuantized stores a single embedding record with optional quantization.
+func (vs *VectorStore) PutQuantized(collection, docID string, vector []float32, model string, contentHash string, qt QuantizationType) error {
+	if qt == QuantNone || qt == "" {
+		return vs.Put(collection, docID, vector, model, contentHash)
+	}
+	key := buildVecKey(collection, docID)
+	rec := &EmbeddingRecord{
+		DocID:       docID,
+		Vector:      vector,
+		Model:       model,
+		Dimensions:  len(vector),
+		CreatedAt:   time.Now().Unix(),
+		ContentHash: contentHash,
+	}
+	data := marshalEmbeddingRecordQuantized(rec, qt)
+
+	err := vs.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(vs.bucketName)
+		if b == nil {
+			return fmt.Errorf("vectors bucket not found")
+		}
+		return b.Put(key, data)
+	})
+	if err == nil && vs.binlog != nil {
+		_ = vs.binlog.Append(&BinlogEntry{Type: BinlogPut, BucketName: "vectors", Key: copyBytes(key), Value: copyBytes(data)})
+	}
+	return err
+}
+
+// PutChunksQuantized stores multiple chunk embeddings with optional quantization.
+func (vs *VectorStore) PutChunksQuantized(collection, docID string, chunks []ChunkEmbedding, model string, contentHash string, qt QuantizationType) error {
+	if qt == QuantNone || qt == "" {
+		return vs.PutChunks(collection, docID, chunks, model, contentHash)
+	}
+	now := time.Now().Unix()
+
+	return vs.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(vs.bucketName)
+		if b == nil {
+			return fmt.Errorf("vectors bucket not found")
+		}
+
+		for _, chunk := range chunks {
+			chunkKey := buildChunkKey(collection, docID, chunk.ChunkIndex)
+			rec := &EmbeddingRecord{
+				DocID:       docID,
+				Vector:      chunk.Vector,
+				Model:       model,
+				Dimensions:  len(chunk.Vector),
+				CreatedAt:   now,
+				ContentHash: contentHash,
+			}
+			data := marshalEmbeddingRecordQuantized(rec, qt)
+
+			if err := b.Put(chunkKey, data); err != nil {
+				return err
+			}
+
+			if vs.binlog != nil {
+				_ = vs.binlog.Append(&BinlogEntry{Type: BinlogPut, BucketName: "vectors", Key: copyBytes(chunkKey), Value: copyBytes(data)})
+			}
+		}
+		return nil
+	})
+}
+
 // Put stores a single embedding record for a document (backward-compatible).
 func (vs *VectorStore) Put(collection, docID string, vector []float32, model string, contentHash string) error {
 	key := buildVecKey(collection, docID)
@@ -179,18 +245,19 @@ func (vs *VectorStore) Get(collection, docID string) (*EmbeddingRecord, error) {
 			return nil
 		}
 		v := b.Get(chunkKey)
-		if v != nil {
-			var err error
-			rec, err = unmarshalEmbeddingRecord(v)
-			return err
+		if v == nil {
+			// Fallback to legacy non-chunked key
+			v = b.Get(buildVecKey(collection, docID))
 		}
-		// Fallback to legacy non-chunked key
-		v = b.Get(buildVecKey(collection, docID))
 		if v == nil {
 			return nil
 		}
 		var err error
-		rec, err = unmarshalEmbeddingRecord(v)
+		if isQuantizedRecord(v) {
+			rec, _, err = unmarshalEmbeddingRecordQuantized(v)
+		} else {
+			rec, err = unmarshalEmbeddingRecord(v)
+		}
 		return err
 	})
 
@@ -230,6 +297,7 @@ func (vs *VectorStore) Delete(collection, docID string) error {
 
 // LoadCollection loads all embedding records for a collection.
 // Returns records keyed by their full suffix (docID or docID#N).
+// Supports both v1 (float32) and v2 (quantized) storage formats.
 func (vs *VectorStore) LoadCollection(collection string) (map[string]*EmbeddingRecord, error) {
 	prefix := []byte("vec|" + collection + "|")
 	records := make(map[string]*EmbeddingRecord)
@@ -241,7 +309,13 @@ func (vs *VectorStore) LoadCollection(collection string) (map[string]*EmbeddingR
 		}
 		c := b.Cursor()
 		for k, v := c.Seek(prefix); k != nil && len(k) >= len(prefix) && string(k[:len(prefix)]) == string(prefix); k, v = c.Next() {
-			rec, err := unmarshalEmbeddingRecord(v)
+			var rec *EmbeddingRecord
+			var err error
+			if isQuantizedRecord(v) {
+				rec, _, err = unmarshalEmbeddingRecordQuantized(v)
+			} else {
+				rec, err = unmarshalEmbeddingRecord(v)
+			}
 			if err != nil {
 				continue
 			}
@@ -252,6 +326,42 @@ func (vs *VectorStore) LoadCollection(collection string) (map[string]*EmbeddingR
 	})
 
 	return records, err
+}
+
+// LoadCollectionQuantized loads all embedding records and their quantized vectors.
+// Returns both the EmbeddingRecords (with dequantized float32 vectors) and the raw QuantizedVectors.
+func (vs *VectorStore) LoadCollectionQuantized(collection string) (map[string]*EmbeddingRecord, map[string]*QuantizedVector, error) {
+	prefix := []byte("vec|" + collection + "|")
+	records := make(map[string]*EmbeddingRecord)
+	quantized := make(map[string]*QuantizedVector)
+
+	err := vs.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket(vs.bucketName)
+		if b == nil {
+			return nil
+		}
+		c := b.Cursor()
+		for k, v := c.Seek(prefix); k != nil && len(k) >= len(prefix) && string(k[:len(prefix)]) == string(prefix); k, v = c.Next() {
+			suffix := string(k[len(prefix):])
+			if isQuantizedRecord(v) {
+				rec, qv, err := unmarshalEmbeddingRecordQuantized(v)
+				if err != nil {
+					continue
+				}
+				records[suffix] = rec
+				quantized[suffix] = qv
+			} else {
+				rec, err := unmarshalEmbeddingRecord(v)
+				if err != nil {
+					continue
+				}
+				records[suffix] = rec
+			}
+		}
+		return nil
+	})
+
+	return records, quantized, err
 }
 
 // CountByCollection counts embeddings per collection (counting unique docIDs, not chunks).
@@ -280,11 +390,11 @@ func (vs *VectorStore) CountByCollection() (map[string]int, error) {
 			}
 			coll := rest[:pipeIdx]
 			docIDPart := rest[pipeIdx+1:]
-			// Strip chunk suffix (#N)
+			// Strip chunk suffix (#N) - keys are always built with buildChunkKey
+			// which appends #chunkIndex. Only strip the very last #N where N >= 0.
 			if hashIdx := strings.LastIndexByte(docIDPart, '#'); hashIdx >= 0 {
-				// Only strip if what follows # is a number
 				suffix := docIDPart[hashIdx+1:]
-				if _, err := strconv.Atoi(suffix); err == nil {
+				if n, err := strconv.Atoi(suffix); err == nil && n >= 0 {
 					docIDPart = docIDPart[:hashIdx]
 				}
 			}
@@ -342,8 +452,153 @@ func ContentHash(content string) string {
 	return fmt.Sprintf("%x", h[:8]) // first 8 bytes = 16 hex chars
 }
 
+// marshalEmbeddingRecordQuantized serializes an EmbeddingRecord with quantization.
+// Format v2: [1B version=2][1B quantType][4B model_len][model][4B dims][quantized_vector_data][8B created_at][4B hash_len][hash][4B docid_len][docid]
+func marshalEmbeddingRecordQuantized(rec *EmbeddingRecord, qt QuantizationType) []byte {
+	qv := QuantizeFloat32(rec.Vector, qt)
+	if qv == nil {
+		// fallback to float32 if quantization fails
+		return marshalEmbeddingRecord(rec)
+	}
+
+	qvData := MarshalQuantizedVector(qv)
+	modelBytes := []byte(rec.Model)
+	hashBytes := []byte(rec.ContentHash)
+	docIDBytes := []byte(rec.DocID)
+
+	size := 1 + 1 + // version + quantType
+		4 + len(modelBytes) + // model
+		4 + len(qvData) + // quantized vector data (length-prefixed)
+		8 + // created_at
+		4 + len(hashBytes) + // content hash
+		4 + len(docIDBytes) // docID
+
+	buf := make([]byte, size)
+	offset := 0
+
+	// version
+	buf[offset] = 2
+	offset++
+
+	// quantization type
+	switch qt {
+	case QuantInt8:
+		buf[offset] = 1
+	case QuantInt4:
+		buf[offset] = 2
+	default:
+		buf[offset] = 0
+	}
+	offset++
+
+	// model
+	binary.LittleEndian.PutUint32(buf[offset:], uint32(len(modelBytes))) // #nosec G115
+	offset += 4
+	copy(buf[offset:], modelBytes)
+	offset += len(modelBytes)
+
+	// quantized vector data (length-prefixed)
+	binary.LittleEndian.PutUint32(buf[offset:], uint32(len(qvData))) // #nosec G115
+	offset += 4
+	copy(buf[offset:], qvData)
+	offset += len(qvData)
+
+	// created_at
+	binary.LittleEndian.PutUint64(buf[offset:], uint64(rec.CreatedAt)) // #nosec G115
+	offset += 8
+
+	// content hash
+	binary.LittleEndian.PutUint32(buf[offset:], uint32(len(hashBytes))) // #nosec G115
+	offset += 4
+	copy(buf[offset:], hashBytes)
+	offset += len(hashBytes)
+
+	// docID
+	binary.LittleEndian.PutUint32(buf[offset:], uint32(len(docIDBytes))) // #nosec G115
+	offset += 4
+	copy(buf[offset:], docIDBytes)
+
+	return buf
+}
+
+// unmarshalEmbeddingRecordQuantized deserializes a v2 quantized embedding record.
+// Returns the EmbeddingRecord (with dequantized float32 vector) and the raw QuantizedVector.
+func unmarshalEmbeddingRecordQuantized(data []byte) (*EmbeddingRecord, *QuantizedVector, error) {
+	if len(data) < 14 {
+		return nil, nil, fmt.Errorf("quantized embedding record too short")
+	}
+
+	offset := 2 // skip version + quantType bytes
+	rec := &EmbeddingRecord{}
+
+	// model
+	modelLen := int(binary.LittleEndian.Uint32(data[offset:]))
+	offset += 4
+	if offset+modelLen > len(data) {
+		return nil, nil, fmt.Errorf("invalid model length")
+	}
+	rec.Model = string(data[offset : offset+modelLen])
+	offset += modelLen
+
+	// quantized vector data
+	qvDataLen := int(binary.LittleEndian.Uint32(data[offset:]))
+	offset += 4
+	if offset+qvDataLen > len(data) {
+		return nil, nil, fmt.Errorf("invalid quantized vector data")
+	}
+	qv, err := UnmarshalQuantizedVector(data[offset : offset+qvDataLen])
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to unmarshal quantized vector: %w", err)
+	}
+	offset += qvDataLen
+
+	rec.Dimensions = qv.Dims
+	rec.Vector = DequantizeToFloat32(qv)
+	if rec.Vector == nil {
+		return nil, nil, fmt.Errorf("failed to dequantize vector: data length mismatch")
+	}
+
+	// created_at
+	if offset+8 > len(data) {
+		return nil, nil, fmt.Errorf("invalid created_at")
+	}
+	rec.CreatedAt = int64(binary.LittleEndian.Uint64(data[offset:])) // #nosec G115
+	offset += 8
+
+	// content hash
+	if offset+4 > len(data) {
+		return nil, nil, fmt.Errorf("invalid hash length")
+	}
+	hashLen := int(binary.LittleEndian.Uint32(data[offset:]))
+	offset += 4
+	if offset+hashLen > len(data) {
+		return nil, nil, fmt.Errorf("invalid hash data")
+	}
+	rec.ContentHash = string(data[offset : offset+hashLen])
+	offset += hashLen
+
+	// docID
+	if offset+4 > len(data) {
+		return nil, nil, fmt.Errorf("invalid docID length")
+	}
+	docIDLen := int(binary.LittleEndian.Uint32(data[offset:]))
+	offset += 4
+	if offset+docIDLen > len(data) {
+		return nil, nil, fmt.Errorf("invalid docID data")
+	}
+	rec.DocID = string(data[offset : offset+docIDLen])
+
+	return rec, qv, nil
+}
+
+// isQuantizedRecord checks if a binary record uses the v2 quantized format.
+// V2 records start with version byte = 2.
+func isQuantizedRecord(data []byte) bool {
+	return len(data) > 0 && data[0] == 2
+}
+
 // Binary serialization for embedding records (compact, no JSON overhead).
-// Format: [4B model_len][model][4B dims][4B*dims float32s][8B created_at][4B hash_len][hash][4B docid_len][docid]
+// Format v1: [4B model_len][model][4B dims][4B*dims float32s][8B created_at][4B hash_len][hash][4B docid_len][docid]
 func marshalEmbeddingRecord(rec *EmbeddingRecord) []byte {
 	modelBytes := []byte(rec.Model)
 	hashBytes := []byte(rec.ContentHash)

@@ -245,7 +245,7 @@ type Webhook struct {
 	CreatedAt  int64    `json:"createdAt"`
 }
 
-// --- Batch & Ingest models (added manually for v2.8.0) ---
+// --- Batch & Ingest models (added manually for v2.9.0) ---
 
 type AddBatchDocumentInput struct {
 	Key          string       `json:"key"`

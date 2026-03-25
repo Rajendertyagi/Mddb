@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.0] - 2026-03-24
+
+### Added
+- **Per-Collection Vector Quantization** — Each collection can now configure its own vector quantization level for both storage and in-memory search. Supported formats:
+  - `float32` (default) — Full precision, no compression
+  - `int8` — 4x compression with ~1% recall drop, recommended for most use cases
+  - `int4` — 8x compression with ~2-3% recall drop, ideal for large collections
+- **Quantized Vector Index** (`vector_index_quantized.go`) — In-memory flat index that stores and searches vectors directly in int8/int4 format without dequantization
+- **Quantized storage format (v2)** — New binary serialization with version byte prefix, backward-compatible with existing float32 records
+- **Auto-select quantized searcher** — Vector search automatically uses the quantized index when the collection has quantization configured
+- **`quantization` field in Collection Config API** — `PUT /v1/collection-config` now accepts `quantization` field (`"float32"`, `"int8"`, `"int4"`)
+- **Quantization info in vector stats** — `GET /v1/vector-stats` now shows `quantization` per collection
+- **Panel: Vector Quantization selector** — Collection Settings modal now includes Vector Quantization dropdown
+- **New documentation** — `docs/QUANTIZATION.md` with full guide, examples, storage savings table, and technical details
+- **17 new tests** — Round-trip quantization, similarity accuracy, storage integration, compression ratio verification
+
+- **Server-Sent Events (SSE)** — Real-time document change notifications via `GET /v1/events`. Broadcasts `doc.added`, `doc.updated`, `doc.deleted` events. Per-collection filtering via `?collection=X`. Default enabled, configurable via `MDDB_SSE_ENABLED=false`. Keep-alive heartbeat every 30s.
+- **pprof profiling endpoints** — Runtime CPU/memory profiling at `/debug/pprof/` (heap, goroutine, CPU profile, trace, allocs, block, mutex). Disabled by default, enable via `MDDB_PPROF_ENABLED=true`.
+- **HTTP connection pooling** — Shared `http.Transport` with keep-alive for all outbound requests (webhooks, triggers, crons, import-url). Configurable via `MDDB_HTTP_POOL_MAX_IDLE`, `MDDB_HTTP_POOL_MAX_PER_HOST`, `MDDB_HTTP_POOL_IDLE_TIMEOUT`.
+- **Built-in TLS/HTTPS** — Native TLS support without reverse proxy. Configure via `MDDB_TLS_ENABLED=true`, `MDDB_TLS_CERT`, `MDDB_TLS_KEY` or YAML config. Works for HTTP API server.
+
+### Fixed
+- **quantization.go**: Add bounds validation in `dequantizeInt8`/`dequantizeInt4` — prevents panic on corrupted or truncated quantized vector data
+- **vector_store.go**: Return error instead of nil vector when dequantization fails due to data length mismatch
+- **lockfree_cache.go**: Fix incorrect `size` tracking when updating an existing cache key — eviction was triggered unnecessarily and size counter drifted
+- **lockfree_cache.go**: Fix goroutine leak — `cleanup()` goroutine now stops via `Close()` method; called on server shutdown
+- **lockfree_cache.go**: Fix misleading "FIFO eviction" comment — Go map iteration is random, not ordered
+- **mvcc.go**: Fix race condition in `Delete` — replaced `Load`+`Store` with `LoadOrStore` to prevent concurrent writes from being silently lost
+- **mvcc.go**: Fix memory leak in GC — uncommitted versions from abandoned transactions were never cleaned up; GC now skips only versions belonging to active transactions
+- **mvcc.go**: Optimize `Commit`/`Rollback` from O(all keys) to O(affected keys) via `txnKeys` tracking map
+- **vector_store.go**: Harden `CountByCollection` chunk suffix stripping with `n >= 0` guard to reduce false deduplication risk
+
+### Changed
+- **Use Cases section linked to guides** — `docs/index.html` Use Cases section now links to step-by-step guides (`uses/website-chat.md`, `uses/wordpress-analyzer.md`, `uses/youtube-transcribe.md`); added "Use Cases" nav link
+- Updated docs: README, CHANGELOG, openapi.yaml, docs/index.html, man page
+- `vector_store.go` — `PutQuantized`, `PutChunksQuantized`, `LoadCollectionQuantized` methods, auto-detect v1/v2 format on read
+- `vector_handlers.go` — Quantization-aware reindex, auto-algorithm selection, stats enrichment
+
 ## [2.8.0] - 2026-03-15
 
 ### Added

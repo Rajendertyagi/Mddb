@@ -230,8 +230,7 @@ func fireWebhook(hook Webhook, payload WebhookPayload) {
 		req.Header.Set("X-MDDB-Event", payload.Event)
 		req.Header.Set("X-MDDB-Webhook-ID", hook.ID)
 
-		client := &http.Client{Timeout: 10 * time.Second}
-		resp, err := client.Do(req)
+		resp, err := NewPooledClientWithTimeout(10 * time.Second).Do(req)
 		if err != nil {
 			log.Printf("webhook %s: attempt %d failed: %v", hook.ID, attempt+1, err)
 			continue

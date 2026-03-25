@@ -79,8 +79,15 @@ func (s *Server) loadVectorIndex() {
 
 		for docID, rec := range records {
 			// Add to all searchers (docID may be "id" or "id#0", "id#1", etc.)
-			for _, searcher := range s.VectorSearchers {
+			for name, searcher := range s.VectorSearchers {
+				if name == "quantized" {
+					continue // quantized index is populated separately below
+				}
 				searcher.Add(collection, docID, rec.Vector)
+			}
+			// Also add to quantized index (it will self-check if collection has quantization)
+			if s.QuantizedVecIndex != nil {
+				s.QuantizedVecIndex.Add(collection, docID, rec.Vector)
 			}
 			collVecs[docID] = rec.Vector
 		}
@@ -125,9 +132,15 @@ func (s *Server) handleVectorSearch(w http.ResponseWriter, r *http.Request) {
 	if algo == "" {
 		algo = "flat"
 	}
+
+	// Auto-select quantized searcher if collection has quantization configured
+	if algo == "flat" && s.QuantizedVecIndex != nil && s.QuantizedVecIndex.HasCollection(req.Collection) {
+		algo = "quantized"
+	}
+
 	searcher, ok2 := s.VectorSearchers[algo]
 	if !ok2 {
-		bad(w, errors.New("unknown algorithm: "+algo+", available: flat, hnsw, ivf, pq"))
+		bad(w, errors.New("unknown algorithm: "+algo+", available: flat, hnsw, ivf, pq, quantized"))
 		return
 	}
 	if !searcher.IsReady() {
@@ -282,6 +295,14 @@ func (s *Server) handleVectorReindex(w http.ResponseWriter, r *http.Request) {
 	chunkSize := envDefaultInt("MDDB_EMBEDDING_CHUNK_SIZE", 1500)
 	chunkEnabled := envDefault("MDDB_EMBEDDING_CHUNK_ENABLED", "true") == "true"
 
+	// Resolve quantization for this collection
+	var qt QuantizationType
+	if s.CollectionManager != nil {
+		if cfg, ok := s.CollectionManager.Get(req.Collection); ok && cfg.Quantization != "" {
+			qt = ParseQuantization(cfg.Quantization)
+		}
+	}
+
 	// Load all documents in collection
 	type docEntry struct {
 		ID        string
@@ -366,9 +387,9 @@ func (s *Server) handleVectorReindex(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		// Store all chunks
+		// Store all chunks (with quantization if configured)
 		contentHash := ContentHash(d.ContentMD)
-		if err := s.VectorStore.PutChunks(req.Collection, d.ID, chunkEmbeddings, s.Embedding.Model(), contentHash); err != nil {
+		if err := s.VectorStore.PutChunksQuantized(req.Collection, d.ID, chunkEmbeddings, s.Embedding.Model(), contentHash, qt); err != nil {
 			failed++
 			errs = append(errs, d.ID+": store: "+err.Error())
 			continue
@@ -377,8 +398,14 @@ func (s *Server) handleVectorReindex(w http.ResponseWriter, r *http.Request) {
 		// Update in-memory indexes
 		for _, ce := range chunkEmbeddings {
 			chunkKey := fmt.Sprintf("%s#%d", d.ID, ce.ChunkIndex)
-			for _, searcher := range s.VectorSearchers {
+			for name, searcher := range s.VectorSearchers {
+				if name == "quantized" {
+					continue
+				}
 				searcher.Add(req.Collection, chunkKey, ce.Vector)
+			}
+			if s.QuantizedVecIndex != nil {
+				s.QuantizedVecIndex.Add(req.Collection, chunkKey, ce.Vector)
 			}
 		}
 
@@ -458,11 +485,20 @@ func (s *Server) handleVectorStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for coll := range allColls {
-		collections[coll] = map[string]interface{}{
+		collInfo := map[string]interface{}{
 			"total_documents":    docCounts[coll],
 			"embedded_documents": vectorCounts[coll],
 			"total_chunks":       chunkCounts[coll],
 		}
+		// Add quantization info if configured
+		if s.CollectionManager != nil {
+			if cfg, cfgOK := s.CollectionManager.Get(coll); cfgOK && cfg.Quantization != "" {
+				collInfo["quantization"] = cfg.Quantization
+			} else {
+				collInfo["quantization"] = "float32"
+			}
+		}
+		collections[coll] = collInfo
 	}
 
 	resp["collections"] = collections

@@ -17,7 +17,7 @@ MDDB gives your AI agents a persistent, searchable knowledge base:
 
 - **File Upload** - Upload PDF, DOCX, HTML, ODT, RTF, TEX, YAML, TXT files — auto-converted to Markdown and indexed
 - **Built-in MCP Server** - 54 tools for Claude Desktop, Cursor, Windsurf, or any MCP client
-- **Vector Search** - Auto-embed documents, semantic similarity with 6 index algorithms (Flat, HNSW, IVF, PQ, SQ, BQ)
+- **Vector Search** - Auto-embed documents, semantic similarity with 6 index algorithms (Flat, HNSW, IVF, PQ, SQ, BQ) + per-collection quantization (int8/int4)
 - **RAG-Ready** - Hybrid search (BM25 + vector) for retrieval-augmented generation
 - **Integrations** - [Docling](docs/INTEGRATIONS.md), [Langflow](docs/INTEGRATIONS.md), [OpenSearch](docs/INTEGRATIONS.md), [SSG](docs/INTEGRATIONS.md), [wpexporter](docs/INTEGRATIONS.md) for production pipelines
 - **Zero-Shot Classification** — Classify documents against candidate labels using embeddings, no training data
@@ -26,6 +26,8 @@ MDDB gives your AI agents a persistent, searchable knowledge base:
 - **Full Revision History** - Every update creates a new revision with complete snapshots
 - **Triple Protocol APIs** - HTTP/JSON (easy), gRPC (fast), or GraphQL (flexible)
 - **Automation** - Triggers, crons, webhooks with template variables and sentiment analysis
+- **Real-Time Events** - Server-Sent Events (SSE) for live document change notifications
+- **Built-in TLS** - Native HTTPS support, connection pooling, pprof profiling
 - **Zero Configuration** - Single ~29MB binary, embedded database, no dependencies
 
 **Perfect for:** AI agent memory, RAG pipelines, knowledge bases for LLMs, documentation chatbots, semantic search APIs, document processing (PDF/DOCX→Markdown), static site generation, WordPress migration
@@ -477,6 +479,7 @@ mddb-cli stats
 - **[Vector Search](docs/EMBEDDING_PROVIDERS.md)** - Semantic search setup (OpenAI, Cohere, Voyage, Ollama)
 - **[RAG Pipeline](docs/RAG-PIPELINE.md)** - Complete RAG implementation guide
 - **[Search Algorithms](docs/SEARCH.md)** - TF-IDF, BM25, BM25F, PMISparse, Flat, HNSW, IVF, PQ, SQ, BQ
+- **[Vector Quantization](docs/QUANTIZATION.md)** - Per-collection int8/int4 scalar quantization (4-8x compression)
 - **[Full-Text Search](docs/FTS.md)** - Built-in inverted index with multi-language support
 - **[Zero-Shot Classification](docs/ZERO-SHOT-CLASSIFICATION.md)** - Classify documents against labels using embeddings
 - **[PMISparse](docs/PMISPARSE.md)** - Two-phase BM25 + PPMI query expansion (invented by Tradik Limited)

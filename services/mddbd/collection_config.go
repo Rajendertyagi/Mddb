@@ -21,6 +21,7 @@ type CollectionConfig struct {
 	CustomMeta     map[string]string `json:"customMeta,omitempty"`
 	StorageBackend string            `json:"storageBackend,omitempty"` // "boltdb" (default), "memory", "s3"
 	StorageConfig  *StorageConfigDef `json:"storageConfig,omitempty"`  // backend-specific settings (required for s3)
+	Quantization   string            `json:"quantization,omitempty"`   // "float32" (default), "int8", "int4"
 }
 
 // StorageConfigDef holds backend-specific configuration for non-default storage backends.
@@ -165,6 +166,7 @@ type SetCollectionConfigRequest struct {
 	CustomMeta     map[string]string `json:"customMeta,omitempty"`
 	StorageBackend string            `json:"storageBackend,omitempty"` // "boltdb", "memory", "s3"
 	StorageConfig  *StorageConfigDef `json:"storageConfig,omitempty"`
+	Quantization   string            `json:"quantization,omitempty"` // "float32" (default), "int8", "int4"
 }
 
 func (s *Server) handleCollectionConfig(w http.ResponseWriter, r *http.Request) {
@@ -249,6 +251,13 @@ func (s *Server) handleCollectionConfigSet(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Validate quantization
+	qt := req.Quantization
+	if qt != "" && qt != "float32" && qt != "int8" && qt != "int4" {
+		bad(w, errors.New("invalid quantization: must be float32, int8, or int4"))
+		return
+	}
+
 	cfg := &CollectionConfig{
 		Type:           req.Type,
 		Description:    req.Description,
@@ -257,6 +266,7 @@ func (s *Server) handleCollectionConfigSet(w http.ResponseWriter, r *http.Reques
 		CustomMeta:     req.CustomMeta,
 		StorageBackend: sb,
 		StorageConfig:  req.StorageConfig,
+		Quantization:   qt,
 	}
 	if err := s.CollectionManager.Set(req.Collection, cfg); err != nil {
 		bad(w, err)
