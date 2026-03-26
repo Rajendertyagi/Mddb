@@ -3,9 +3,11 @@ import { Code, Copy, Download, Check, Brain } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
 import mddbModelPyRaw from '@scripts/mddb_model.py?raw';
+import MCPAPIKeysPanel from './MCPAPIKeysPanel';
 
 const TABS = [
   { id: 'mcp', label: 'MCP Config', desc: 'Custom MCP tools configuration (YAML)' },
+  { id: 'api-keys', label: 'API Keys', desc: 'Manage MCP API keys' },
   { id: 'claude', label: 'Claude Desktop', desc: 'Anthropic Claude Desktop / Claude Code' },
   { id: 'chatgpt', label: 'ChatGPT', desc: 'OpenAI ChatGPT with MCP bridge' },
   { id: 'ollama', label: 'Ollama (Python)', desc: 'Local Ollama with Python MCP client' },
@@ -115,7 +117,7 @@ custom_tools:
         filename: 'openai_actions.json',
         content: JSON.stringify({
           openapi: '3.1.0',
-          info: { title: 'MDDB API', version: '2.9.4', description: 'AI-Native Document Database API' },
+          info: { title: 'MDDB API', version: '2.9.5', description: 'AI-Native Document Database API' },
           servers: [{ url: httpBase }],
           paths: {
             '/v1/search': {
@@ -523,69 +525,76 @@ export default function MCPConfigPanel() {
             </div>
           </div>
 
-          {/* Tab Description */}
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-            <div className="flex items-center text-sm text-gray-600">
-              <Brain className="w-4 h-4 mr-2 text-primary-600" />
-              <span>{currentTabInfo?.desc}</span>
+          {activeTab === 'api-keys' ? (
+            <div className="p-4">
+              <MCPAPIKeysPanel />
             </div>
-            <div className="flex items-center space-x-2">
-              {tabConfig.alt && (
-                <button
-                  onClick={() => setShowAlt(!showAlt)}
-                  className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
-                >
-                  {showAlt ? 'Docker' : tabConfig.alt.label}
-                </button>
-              )}
-              <button
-                onClick={handleCopy}
-                className="flex items-center px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded transition-colors"
-              >
-                {copied ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 mr-1 text-green-600" />
-                    <span className="text-green-600">Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5 mr-1" />
-                    <span>Copy</span>
-                  </>
-                )}
-              </button>
-              <button
-                onClick={handleDownload}
-                className="flex items-center px-3 py-1.5 text-sm bg-primary-600 text-white hover:bg-primary-700 rounded transition-colors"
-              >
-                <Download className="w-3.5 h-3.5 mr-1" />
-                <span>Download</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Code Block */}
-          <div className="bg-gray-900">
-            <div className="px-4 py-2 border-b border-gray-700 flex items-center">
-              <Code className="w-3.5 h-3.5 text-gray-400 mr-2" />
-              <span className="text-xs text-gray-400 font-mono">{displayFilename}</span>
-            </div>
-            <div className="p-4 overflow-x-auto">
-              {activeTab === 'mcp' && mcpLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-400"></div>
+          ) : (
+            <>
+              {/* Tab Description */}
+              <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                <div className="flex items-center text-sm text-gray-600">
+                  <Brain className="w-4 h-4 mr-2 text-primary-600" />
+                  <span>{currentTabInfo?.desc}</span>
                 </div>
-              ) : (
-                <pre className="text-sm text-gray-100 font-mono whitespace-pre">
-                  <code>{displayContent}</code>
-                </pre>
-              )}
-            </div>
-          </div>
+                <div className="flex items-center space-x-2">
+                  {tabConfig.alt && (
+                    <button
+                      onClick={() => setShowAlt(!showAlt)}
+                      className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                    >
+                      {showAlt ? 'Docker' : tabConfig.alt.label}
+                    </button>
+                  )}
+                  <button
+                    onClick={handleCopy}
+                    className="flex items-center px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 mr-1 text-green-600" />
+                        <span className="text-green-600">Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5 mr-1" />
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={handleDownload}
+                    className="flex items-center px-3 py-1.5 text-sm bg-primary-600 text-white hover:bg-primary-700 rounded transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5 mr-1" />
+                    <span>Download</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Code Block */}
+              <div className="bg-gray-900">
+                <div className="px-4 py-2 border-b border-gray-700 flex items-center">
+                  <Code className="w-3.5 h-3.5 text-gray-400 mr-2" />
+                  <span className="text-xs text-gray-400 font-mono">{displayFilename}</span>
+                </div>
+                <div className="p-4 overflow-x-auto">
+                  {activeTab === 'mcp' && mcpLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-400"></div>
+                    </div>
+                  ) : (
+                    <pre className="text-sm text-gray-100 font-mono whitespace-pre">
+                      <code>{displayContent}</code>
+                    </pre>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Instructions */}
-        {tabConfig.instructions.length > 0 && (
+        {activeTab !== 'api-keys' && tabConfig.instructions.length > 0 && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <h3 className="text-sm font-semibold text-blue-900 mb-2">Setup Instructions:</h3>
             <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">

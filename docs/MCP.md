@@ -73,7 +73,12 @@ curl -X POST http://localhost:9000/mcp \
 | Env Var | Default | Description |
 |---------|---------|-------------|
 | `MDDB_MCP_API_KEY_ENABLED` | `false` | Require API key for MCP HTTP access |
-| `MDDB_MCP_API_KEYS` | — | Comma-separated keys: `key1:name1,key2:name2` |
+| `MDDB_MCP_API_KEYS` | — | Static keys: `key1:name1,key2:name2` (defined at startup) |
+| `MDDB_MCP_API_KEY_CACHE_TTL` | `60s` | Cache TTL for dynamic key lookups |
+
+Two sources of keys:
+- **Static** — `MDDB_MCP_API_KEYS` env var (defined at startup, no restart needed to validate)
+- **Dynamic** — REST API (`/v1/mcp/keys`) stored in BoltDB, persists across restarts, managed without downtime
 
 Clients authenticate via:
 - `X-API-Key: <key>` header
@@ -81,13 +86,45 @@ Clients authenticate via:
 - `?api_key=<key>` query parameter (for SSE connections)
 
 ```bash
-# Example
+# Static keys only
 docker run -d \
   -e MDDB_MCP_API_KEY_ENABLED=true \
-  -e "MDDB_MCP_API_KEYS=sk-prod-abc123:claude-prod,sk-dev-def456:cursor-dev" \
+  -e "MDDB_MCP_API_KEYS=sk-prod:claude-prod,sk-dev:cursor-dev" \
   -p 9000:9000 \
   tradik/mddb:latest
 ```
+
+#### Dynamic Key Management API
+
+Keys stored in internal BoltDB bucket (`_mcp_api_keys`). Requires admin auth when `MDDB_AUTH_ENABLED=true`.
+
+```bash
+# Create a key (full key shown only once in response)
+curl -X POST http://localhost:11023/v1/mcp/keys \
+  -H "Authorization: Bearer <admin-token>" \
+  -d '{"name": "claude-prod", "expiresAt": 0}'
+# Response: {"key":"mcp_a1b2c3d4e5f6...","name":"claude-prod","createdAt":1711...}
+
+# List keys (full keys NOT shown, only prefixes)
+curl http://localhost:11023/v1/mcp/keys \
+  -H "Authorization: Bearer <admin-token>"
+
+# Delete a key
+curl -X DELETE http://localhost:11023/v1/mcp/keys \
+  -H "Authorization: Bearer <admin-token>" \
+  -d '{"key": "mcp_a1b2c3d4e5f6..."}'
+
+# Disable a key (revoke without deleting)
+curl -X POST http://localhost:11023/v1/mcp/keys/disable \
+  -H "Authorization: Bearer <admin-token>" \
+  -d '{"key": "mcp_a1b2c3d4e5f6..."}'
+```
+
+Key features:
+- **TTL support** — `expiresAt` Unix timestamp (0 = never expires)
+- **Disable without delete** — revoke instantly, keep for audit
+- **Cache** — lookups cached for `MDDB_MCP_API_KEY_CACHE_TTL` (default 60s), auto-invalidated on create/delete/disable
+- **Panel UI** — manage keys from the web panel (LLM Connections → API Keys tab)
 
 ### Rate Limiting
 

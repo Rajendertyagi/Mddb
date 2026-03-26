@@ -131,6 +131,6 @@ widget-dev: ## Run widget dev server
 	cd services/mddb-chat-widget && npm run dev
 
 version: ## Show current version
-	@echo "MDDB Version: 2.9.4"
+	@echo "MDDB Version: 2.9.5"
 
 .DEFAULT_GOAL := help
