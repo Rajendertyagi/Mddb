@@ -14,14 +14,27 @@ import (
 	json "github.com/goccy/go-json"
 )
 
-// ---- MCP API Key Authentication (#29) ----
+// ---- MCP API Key Authentication (#29, #33) ----
 
 // MCPAPIKeyMiddleware validates API keys for MCP HTTP endpoints.
+// Two sources:
+//   - Static keys from env: MDDB_MCP_API_KEYS=key1:name1,key2:name2
+//   - Dynamic keys from BoltDB store: managed via REST API (POST/GET/DELETE /v1/mcp/keys)
+//
 // Enable with MDDB_MCP_API_KEY_ENABLED=true.
-// Keys defined in MDDB_MCP_API_KEYS=key1:name1,key2:name2.
 type MCPAPIKeyMiddleware struct {
-	enabled bool
-	keys    map[string]string // key → name
+	enabled  bool
+	keys     map[string]string // static: key → name
+	keyStore *mcpAPIKeyStore   // dynamic: BoltDB-backed store
+	cacheTTL time.Duration
+	cacheMu  sync.RWMutex
+	cache    map[string]*apiKeyCacheEntry
+}
+
+type apiKeyCacheEntry struct {
+	name    string
+	valid   bool
+	expires time.Time
 }
 
 // NewMCPAPIKeyMiddleware creates API key middleware from environment variables.
@@ -29,17 +42,14 @@ func NewMCPAPIKeyMiddleware() *MCPAPIKeyMiddleware {
 	m := &MCPAPIKeyMiddleware{
 		enabled: os.Getenv("MDDB_MCP_API_KEY_ENABLED") == "true",
 		keys:    make(map[string]string),
+		cache:   make(map[string]*apiKeyCacheEntry),
 	}
 	if !m.enabled {
 		return m
 	}
 
+	// Static keys from env
 	raw := os.Getenv("MDDB_MCP_API_KEYS")
-	if raw == "" {
-		log.Println("WARNING: MDDB_MCP_API_KEY_ENABLED=true but MDDB_MCP_API_KEYS is empty — all requests will be rejected")
-		return m
-	}
-
 	for _, entry := range strings.Split(raw, ",") {
 		entry = strings.TrimSpace(entry)
 		if entry == "" {
@@ -47,15 +57,34 @@ func NewMCPAPIKeyMiddleware() *MCPAPIKeyMiddleware {
 		}
 		parts := strings.SplitN(entry, ":", 2)
 		key := parts[0]
-		name := key[:8] + "..." // default name = truncated key
+		name := key
+		if len(name) > 8 {
+			name = name[:8] + "..."
+		}
 		if len(parts) == 2 && parts[1] != "" {
 			name = parts[1]
 		}
 		m.keys[key] = name
 	}
 
-	log.Printf("MCP API key auth enabled (%d keys configured)", len(m.keys))
+	ttl, err := time.ParseDuration(os.Getenv("MDDB_MCP_API_KEY_CACHE_TTL"))
+	if err != nil || ttl <= 0 {
+		ttl = 60 * time.Second
+	}
+	m.cacheTTL = ttl
+
 	return m
+}
+
+// SetKeyStore attaches the BoltDB key store for dynamic key validation.
+// Called after Server init.
+func (m *MCPAPIKeyMiddleware) SetKeyStore(store *mcpAPIKeyStore) {
+	m.keyStore = store
+	storeCount := 0
+	if store != nil {
+		storeCount = store.Count()
+	}
+	log.Printf("MCP API key auth enabled (%d static, %d stored, cache TTL=%s)", len(m.keys), storeCount, m.cacheTTL)
 }
 
 // Wrap wraps an HTTP handler with API key validation.
@@ -87,12 +116,18 @@ func (m *MCPAPIKeyMiddleware) Wrap(next http.Handler) http.Handler {
 }
 
 func (m *MCPAPIKeyMiddleware) validateKey(provided string) (string, bool) {
+	// 1. Check static keys (constant-time comparison)
 	for key, name := range m.keys {
 		if subtle.ConstantTimeCompare([]byte(provided), []byte(key)) == 1 {
 			return name, true
 		}
 	}
-	return "", false
+
+	// 2. Check dynamic keys from BoltDB store
+	if m.keyStore == nil {
+		return "", false
+	}
+	return m.validateFromStore(provided)
 }
 
 func extractAPIKey(r *http.Request) string {

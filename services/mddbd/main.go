@@ -24,7 +24,7 @@ import (
 )
 
 // VERSION is the current release version of the MDDB server.
-const VERSION = "2.9.4"
+const VERSION = "2.9.5"
 
 // AccessMode defines the database access mode (read, write, or both).
 type AccessMode string
@@ -79,8 +79,10 @@ type Server struct {
 	CronScheduler      *CronScheduler      // Cron scheduler for automation
 	CollectionManager  *CollectionManager  // Per-collection attributes (type, description, icon, etc.)
 	SSEHub             *SSEHub             // Server-Sent Events for real-time document change notifications
-	MCPInfo            MCPServerInfo       // Customizable MCP server profile
-	MCPInstructions    string              // System prompt for LLM — how to use this server
+	MCPInfo            MCPServerInfo        // Customizable MCP server profile
+	MCPInstructions    string               // System prompt for LLM — how to use this server
+	mcpKeyStore        *mcpAPIKeyStore      // BoltDB-backed MCP API key store
+	mcpAuth            *MCPAPIKeyMiddleware // MCP API key middleware (for cache invalidation)
 	// Replication
 	Binlog          *Binlog            // Binary replication log
 	ReplicationRole string             // "leader", "follower", or "" (standalone)
@@ -465,6 +467,9 @@ func main() {
 	s.MCPInfo = srvCfg.MCP.ServerInfo
 	s.MCPInstructions = srvCfg.MCP.Instructions
 
+	// Initialize MCP API key store (BoltDB-backed, persists across restarts)
+	s.mcpKeyStore = newMCPAPIKeyStore(s.DB)
+
 	// Initialize metrics (enabled by default, set MDDB_METRICS=false to disable)
 	metricsEnabled := env("MDDB_METRICS", "true") != "false"
 	s.Metrics = NewMetrics(s, metricsEnabled)
@@ -673,6 +678,8 @@ func main() {
 	mux.HandleFunc("/v1/system/info", s.handleSystemInfo)
 	mux.HandleFunc("/v1/config", s.handleConfig)
 	mux.HandleFunc("/v1/mcp/config", s.handleMCPConfig)
+	mux.HandleFunc("/v1/mcp/keys", s.guardWrite(s.handleMCPAPIKeys))
+	mux.HandleFunc("/v1/mcp/keys/disable", s.guardWrite(s.handleMCPAPIKeyDisable))
 	mux.HandleFunc("/v1/endpoints", s.handleEndpoints)
 
 	// Auth endpoints (if enabled)
@@ -802,6 +809,8 @@ func main() {
 			mcpHandler = mcpRateLimiter.Wrap(mcpHandler)
 
 			mcpAuth := NewMCPAPIKeyMiddleware()
+			mcpAuth.SetKeyStore(s.mcpKeyStore)
+			s.mcpAuth = mcpAuth
 			mcpHandler = mcpAuth.Wrap(mcpHandler)
 
 			if panelMode != "external" {

@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **MCP API Key Authentication** ([#29](https://github.com/tradik/mddb/issues/29)) — Protect MCP endpoints with API keys. Enable with `MDDB_MCP_API_KEY_ENABLED=true`, define keys in `MDDB_MCP_API_KEYS=key1:name1,key2:name2`. Supports `X-API-Key` header, `Authorization: Bearer`, and `?api_key=` query param (for SSE).
 - **MCP Request Logging / Audit Trail** ([#30](https://github.com/tradik/mddb/issues/30)) — Structured JSON audit logs for all MCP requests. Enable with `MDDB_MCP_LOGGING_ENABLED=true`. Logs method, path, status, duration, client IP, API key name, session ID, and user agent.
 - **MCP Rate Limiting** ([#31](https://github.com/tradik/mddb/issues/31)) — Per-client rate limiting for MCP endpoints. Enable with `MDDB_MCP_RATE_LIMIT_ENABLED=true`. Configurable via `MDDB_MCP_RATE_LIMIT_REQUESTS` (default: 100), `MDDB_MCP_RATE_LIMIT_WINDOW` (default: 60s), `MDDB_MCP_RATE_LIMIT_BURST` (default: 20), `MDDB_MCP_RATE_LIMIT_BY` (ip/api_key/session). Returns `X-RateLimit-*` headers and `Retry-After` on 429.
+- **Dynamic MCP API Key Management** ([#33](https://github.com/tradik/mddb/issues/33)) — REST API for creating, listing, disabling, and deleting MCP API keys stored in BoltDB. Keys persist across restarts. Supports TTL expiry and disable-without-delete. Endpoints: `POST/GET/DELETE /v1/mcp/keys`, `POST /v1/mcp/keys/disable`. Requires admin auth. Cache with configurable TTL (`MDDB_MCP_API_KEY_CACHE_TTL`).
+- **Panel: MCP API Keys tab** — New "API Keys" tab in LLM Connections for creating, viewing, and managing MCP API keys from the web panel.
+- **Panel: Metadata filter scroll fix** ([#14](https://github.com/tradik/mddb/issues/14)) — Filter panel now uses `max-h-[70vh]` instead of `max-h-60` for proper scrolling with many metadata fields.
 
 ## [2.9.3] - 2026-03-25
 

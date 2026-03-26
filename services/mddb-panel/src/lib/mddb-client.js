@@ -442,6 +442,22 @@ class MDDBClient {
     return this.request('/mcp/config', { method: 'GET' });
   }
 
+  async listMCPAPIKeys() {
+    return this.request('/mcp/keys', { method: 'GET' });
+  }
+
+  async createMCPAPIKey(name, expiresAt = 0) {
+    return this.request('/mcp/keys', { method: 'POST', body: JSON.stringify({ name, expiresAt }) });
+  }
+
+  async deleteMCPAPIKey(key) {
+    return this.request('/mcp/keys', { method: 'DELETE', body: JSON.stringify({ key }) });
+  }
+
+  async disableMCPAPIKey(key) {
+    return this.request('/mcp/keys/disable', { method: 'POST', body: JSON.stringify({ key }) });
+  }
+
   /**
    * Get all API endpoints
    */
