@@ -47,7 +47,7 @@ Detailed roadmap showing implemented features and future plans.
 - HTTP connection pooling (shared transport)
 - Built-in TLS/HTTPS support
 
-### v2.9.3 — MCP 2025-11-25 Compliance
+### v2.9.4 — MCP 2025-11-25 Compliance
 - **Protocol version**: `2025-11-25` (upgraded from 2024-11-05)
 - **Streamable HTTP transport** (`POST/GET /mcp`) — new standard, alongside legacy SSE
 - **Tool annotations**: `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint` on all 52+ tools
