@@ -78,7 +78,7 @@ export default function MetaFilterBar({ collection }) {
       </button>
 
       {open && (
-        <div className="px-3 pb-3 space-y-2 max-h-60 overflow-y-auto">
+        <div className="px-3 pb-3 space-y-2 max-h-[70vh] overflow-y-auto">
           {Object.entries(metaKeys).map(([key, values]) => (
             <div key={key}>
               <span className="text-xs font-medium text-gray-500 mb-1 block">{key}</span>
