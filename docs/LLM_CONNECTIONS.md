@@ -2,6 +2,8 @@
 
 Connect MDDB to AI agents and LLM tools for RAG (Retrieval-Augmented Generation) and knowledge base workflows.
 
+**[→ Full MCP Server Configuration (env vars, API keys, rate limits, logging)](MCP.md)**
+
 ## Overview
 
 MDDB provides multiple integration paths:
@@ -185,6 +187,58 @@ docker run -d \
 
 Custom tools with write actions are blocked in read-only mode, same as built-in write tools.
 
+### API Key Authentication
+
+Protect MCP endpoints with API keys:
+
+```bash
+docker run -d \
+  -e MDDB_MCP_API_KEY_ENABLED=true \
+  -e MDDB_MCP_API_KEYS="sk-abc123:claude-prod,sk-def456:cursor-dev" \
+  tradik/mddb:latest
+```
+
+Clients authenticate via `X-API-Key` header, `Authorization: Bearer` header, or `?api_key=` query param (for SSE):
+
+```bash
+# Claude Code
+claude mcp add mydb --transport http https://mydb.example.com/mcp \
+  --header "X-API-Key: sk-abc123"
+
+# curl
+curl -X POST https://mydb.example.com/mcp \
+  -H "X-API-Key: sk-abc123" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+### Rate Limiting
+
+Protect against abuse with per-client rate limits:
+
+| Env Var | Default | Description |
+|---------|---------|-------------|
+| `MDDB_MCP_RATE_LIMIT_ENABLED` | `false` | Enable rate limiting |
+| `MDDB_MCP_RATE_LIMIT_REQUESTS` | `100` | Requests per window |
+| `MDDB_MCP_RATE_LIMIT_WINDOW` | `60` | Window in seconds |
+| `MDDB_MCP_RATE_LIMIT_BURST` | `20` | Burst allowance above limit |
+| `MDDB_MCP_RATE_LIMIT_BY` | `ip` | Rate limit key: `ip`, `api_key`, or `session` |
+
+Response headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`. Returns `429 Too Many Requests` with `Retry-After` header when exceeded.
+
+### Request Logging
+
+Enable structured JSON audit logs for all MCP requests:
+
+```bash
+MDDB_MCP_LOGGING_ENABLED=true
+MDDB_MCP_LOGGING_LEVEL=info   # debug|info|warn|error
+```
+
+Log output (to stderr):
+```json
+{"timestamp":"2026-03-26T10:30:00Z","method":"POST","path":"/mcp","status":200,"duration_ms":45,"client_ip":"1.2.3.4","key_name":"claude-prod","session_id":"abc123","user_agent":"claude-code/1.0"}
+```
+
 ## MCP Protocol Features (2025-11-25)
 
 MDDB implements the full MCP 2025-11-25 specification:
@@ -313,7 +367,7 @@ Create a Custom GPT that connects to MDDB via its REST API.
 ```json
 {
   "openapi": "3.1.0",
-  "info": { "title": "MDDB API", "version": "2.9.3" },
+  "info": { "title": "MDDB API", "version": "2.9.4" },
   "servers": [{ "url": "https://your-domain:11023" }],
   "paths": {
     "/v1/search": {

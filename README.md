@@ -82,7 +82,7 @@ MDDB has a built-in MCP server — no extra service needed. Add to your MCP conf
 
 That's it — your AI agent now has full access to your knowledge base with 54 built-in tools (add, search, vector search, classify, and more).
 
-**[→ Full MCP setup guide](docs/LLM_CONNECTIONS.md)** | **[→ Custom MCP tools](docs/CUSTOM-TOOLS.md)**
+**[→ Full MCP setup guide](docs/LLM_CONNECTIONS.md)** | **[→ MCP server config](docs/MCP.md)** | **[→ Custom MCP tools](docs/CUSTOM-TOOLS.md)**
 
 ### Docker - Individual Services
 

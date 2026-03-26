@@ -67,7 +67,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: "2.9.3"
+  version: "2.9.4"
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -5022,7 +5022,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.9.3
+          example: 2.9.4
         uptimeSeconds:
           type: integer
           format: int64
@@ -5086,7 +5086,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.9.3
+          example: 2.9.4
         databasePath:
           type: string
           description: Path to the database file

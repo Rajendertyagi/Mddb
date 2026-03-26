@@ -24,7 +24,7 @@ import (
 )
 
 // VERSION is the current release version of the MDDB server.
-const VERSION = "2.9.3"
+const VERSION = "2.9.4"
 
 // AccessMode defines the database access mode (read, write, or both).
 type AccessMode string
@@ -791,7 +791,19 @@ func main() {
 			mcpMux.HandleFunc("/mcp", mcpStreamable.Handle)
 			log.Println("MCP Streamable HTTP transport enabled at /mcp")
 
-			mcpHandler := withJSON(mcpMux)
+			// MCP middleware chain: CORS → API Key Auth → Rate Limit → Request Logging → JSON → Routes
+			var mcpHandler http.Handler = mcpMux
+			mcpHandler = withJSON(mcpHandler)
+
+			mcpLogger := NewMCPRequestLogger()
+			mcpHandler = mcpLogger.Wrap(mcpHandler)
+
+			mcpRateLimiter := NewMCPRateLimiter()
+			mcpHandler = mcpRateLimiter.Wrap(mcpHandler)
+
+			mcpAuth := NewMCPAPIKeyMiddleware()
+			mcpHandler = mcpAuth.Wrap(mcpHandler)
+
 			if panelMode != "external" {
 				mcpHandler = withCORS(mcpHandler)
 			}
