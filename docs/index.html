@@ -63,7 +63,7 @@
         "priceCurrency": "USD"
       },
       "description": "AI-native knowledge base with built-in MCP server, vector search, RAG support, and semantic retrieval for AI agents and LLM workflows",
-      "softwareVersion": "2.9.5",
+      "softwareVersion": "2.9.6",
       "featureList": [
         "Built-in MCP server (2025-11-25) with 54 tools, tool annotations, prompts, completion, structured output — stdio, Streamable HTTP, SSE transports for Claude, Cursor, Windsurf, ChatGPT, Ollama, DeepSeek",
         "Vector/semantic search with 6 index algorithms: Flat, HNSW, IVF, PQ, SQ, BQ + per-collection int8/int4 quantization (OpenAI, Ollama, Cohere, Voyage AI)",
@@ -140,7 +140,7 @@
                     <p class="hero-subtitle">Built-in MCP server, vector search, RAG, and hybrid retrieval. Plugs into
                         Claude, ChatGPT, Cursor, Windsurf, and any MCP client — single ~29MB binary, zero config</p>
                     <div class="hero-badges">
-                        <span class="badge">54 MCP Tools</span>
+                        <span class="badge">60 MCP Tools</span>
                         <span class="badge" data-v>v{v}</span>
                         <span class="badge">RAG-Ready</span>
                         <span class="badge">Docker Ready</span>
@@ -198,6 +198,7 @@
                         <li>Zero-shot document classification using embedding cosine similarity</li>
                         <li>Custom MCP tools defined in YAML for domain-specific AI workflows</li>
                         <li>RAG pipeline: auto-embed on ingest, semantic retrieval, MCP exposure to LLMs</li>
+                        <li>Memory RAG: conversational memory with session management, semantic recall, and summarization</li>
                         <li>Triple protocol: HTTP/JSON REST API, gRPC/Protobuf, GraphQL</li>
                         <li>Multi-format upload: .md, .txt, .html, .pdf, .docx, .odt, .rtf, .tex, .yaml with
                             auto-conversion to Markdown</li>
@@ -469,7 +470,7 @@ make docker-up
                                 <span class="terminal-title">bash — binary</span>
                             </div>
                             <pre><code id="binary-download-code" data-terminal="bash"># Download binary
-wget https://github.com/tradik/mddb/releases/download/v2.9.5/mddbd-linux-amd64
+wget https://github.com/tradik/mddb/releases/download/v2.9.6/mddbd-linux-amd64
 chmod +x mddbd-linux-amd64
 
 # Run server
@@ -562,13 +563,13 @@ make build
                         <div class="version" data-v>tradik/mddb:{v}</div>
                         <p class="release-date">Alpine-based (~29MB)</p>
                         <pre><code id="docker-pull-code">docker pull tradik/mddb:latest
-docker pull tradik/mddb:2.9.5</code></pre>
+docker pull tradik/mddb:2.9.6</code></pre>
                         <a href="https://hub.docker.com/r/tradik/mddb" class="btn btn-secondary" target="_blank"
                             rel="noopener">View on Docker Hub</a>
                     </div>
                 </div>
                 <div class="release-notes">
-                    <h3 id="whats-new-header">What's New in v2.9.5</h3>
+                    <h3 id="whats-new-header">What's New in v2.9.6</h3>
                     <ul>
                         <li>✏️ <strong>Partial Document Update</strong> - <code>PATCH /v1/update</code> to update
                             metadata and/or content independently without re-sending entire document</li>
@@ -951,8 +952,8 @@ $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
                 <div class="use-cases-grid">
                     <div class="use-case">
                         <h3>🧠 AI Agent Memory</h3>
-                        <p>Persistent knowledge store for autonomous agents. MCP integration lets any AI read and write
-                            documents</p>
+                        <p>Built-in Memory RAG: store conversation sessions, recall context with semantic search, and
+                            summarize past interactions — 6 dedicated MCP tools for conversational memory</p>
                     </div>
                     <div class="use-case">
                         <h3>🤖 RAG Pipelines</h3>
@@ -1077,7 +1078,7 @@ graph LR
                 <div class="footer-section">
                     <h4>MDDB</h4>
                     <p>AI-native knowledge base</p>
-                    <p class="footer-version" id="footer-version">Version 2.9.5</p>
+                    <p class="footer-version" id="footer-version">Version 2.9.6</p>
                 </div>
                 <div class="footer-section">
                     <h4>Documentation</h4>
@@ -1118,7 +1119,7 @@ graph LR
 
     <script defer>
         // Single source of truth for version — change here to update everywhere
-        const MDDB_VERSION = '2.9.5';
+        const MDDB_VERSION = '2.9.6';
         const MDDB_RELEASE_DATE = 'March 10, 2026';
 
         // Replace all version references in the page

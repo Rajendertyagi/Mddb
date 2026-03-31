@@ -63,6 +63,18 @@ Complete list of MDDB features organized by category.
 - **Configurable Parameters** - `strategy`, `alpha`, `rrfK`, `algorithm`, `vectorAlgorithm`
 - **API Endpoint** - `POST /v1/hybrid-search` with gRPC `HybridSearch` RPC and `hybrid_search` MCP tool
 
+#### Memory RAG (Conversational Memory)
+- **Session Management** — Create, list, and track conversation sessions with user/scenario metadata
+- **Message Storage** — Store user/assistant/system/tool messages with auto-embedding
+- **Semantic Recall** — Retrieve relevant past messages using vector similarity search
+- **Keyword Recall** — FTS-based conversation search with BM25 scoring
+- **Hybrid Recall** — Combined semantic + keyword search with Reciprocal Rank Fusion (RRF)
+- **Session Summarization** — Generate and store conversation summaries with embeddings
+- **User/Session Filtering** — Scope recall to specific users, sessions, or message roles
+- **Session TTL** — Auto-expiring sessions (default: 30 days, configurable)
+- **6 MCP Tools** — `memory_start_session`, `memory_add_message`, `memory_recall`, `memory_summarize`, `memory_list_sessions`, `memory_session_history`
+- **API Endpoints** — `POST /v1/memory/session`, `/message`, `/recall`, `/summarize`, `/sessions`, `/history`
+
 #### Zero-Shot Classification
 - **Embedding-based** — Classify documents against candidate labels using cosine similarity
 - **No Training Data** — Works out of the box with any embedding provider

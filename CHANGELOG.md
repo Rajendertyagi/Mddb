@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.6] - 2026-03-31
+
+### Added
+- **Memory RAG** — Conversational memory system for RAG applications. Store, retrieve, and semantically search conversation history across sessions.
+  - **6 new HTTP endpoints**: `POST /v1/memory/session` (create session), `POST /v1/memory/message` (add message), `POST /v1/memory/recall` (semantic/hybrid/keyword recall), `POST /v1/memory/summarize` (session summary), `POST /v1/memory/sessions` (list sessions), `POST /v1/memory/history` (message history)
+  - **6 new MCP tools**: `memory_start_session`, `memory_add_message`, `memory_recall`, `memory_summarize`, `memory_list_sessions`, `memory_session_history`
+  - **3 dedicated collections**: `memory_sessions`, `memory_messages`, `memory_summaries`
+  - **Hybrid recall**: Combines vector search (semantic) + FTS (keyword) with Reciprocal Rank Fusion (RRF) for optimal context retrieval
+  - **Auto-embedding**: Messages are automatically embedded for semantic search when an embedding provider is configured
+  - **Session TTL**: Default 30-day auto-expiry, configurable per session
+  - **User/session/role filtering**: Filter recall by userId, sessionId, or message role
+  - **Session summarization**: Generate and store conversation summaries with embeddings
+- **20 new tests** for Memory RAG handlers and helpers
+
 ## [2.9.4] - 2026-03-26
 
 ### Added

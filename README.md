@@ -19,6 +19,7 @@ MDDB gives your AI agents a persistent, searchable knowledge base:
 - **Built-in MCP Server** - 54 tools for Claude Desktop, Cursor, Windsurf, or any MCP client
 - **Vector Search** - Auto-embed documents, semantic similarity with 6 index algorithms (Flat, HNSW, IVF, PQ, SQ, BQ) + per-collection quantization (int8/int4)
 - **RAG-Ready** - Hybrid search (BM25 + vector) for retrieval-augmented generation
+- **Memory RAG** - Conversational memory system: store, recall, and summarize chat sessions with semantic search
 - **Integrations** - [Docling](docs/INTEGRATIONS.md), [Langflow](docs/INTEGRATIONS.md), [OpenSearch](docs/INTEGRATIONS.md), [SSG](docs/INTEGRATIONS.md), [wpexporter](docs/INTEGRATIONS.md) for production pipelines
 - **Zero-Shot Classification** — Classify documents against candidate labels using embeddings, no training data
 - **Custom AI Tools** - Define YAML-based MCP tools for domain-specific workflows

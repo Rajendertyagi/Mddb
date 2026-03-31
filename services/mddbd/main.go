@@ -24,7 +24,7 @@ import (
 )
 
 // VERSION is the current release version of the MDDB server.
-const VERSION = "2.9.5"
+const VERSION = "2.9.6"
 
 // AccessMode defines the database access mode (read, write, or both).
 type AccessMode string
@@ -66,19 +66,19 @@ type Server struct {
 	EmbeddingWorker   *EmbeddingWorker          // Background embedding processor
 	Embedding         EmbeddingProvider         // Embedding generation provider
 	// New features
-	TTLManager         *TTLManager         // Document TTL / auto-expiry
-	FTSIndex           *FTSIndex           // Full-text search index
-	WebhookManager     *WebhookManager     // Webhook subscriptions and delivery
-	SchemaManager      *SchemaManager      // Per-collection metadata schema validation
-	Metrics            *Metrics            // Prometheus-compatible telemetry
-	AuthManager        *AuthManager        // Authentication and authorization
-	SynonymManager     *SynonymManager     // Synonym dictionaries for FTS
-	StopWordManager    *StopWordManager    // Per-collection custom stop words for FTS
-	AutomationManager  *AutomationManager  // Automation: triggers, crons, webhook targets
-	AutomationLogStore *AutomationLogStore // Automation execution logs
-	CronScheduler      *CronScheduler      // Cron scheduler for automation
-	CollectionManager  *CollectionManager  // Per-collection attributes (type, description, icon, etc.)
-	SSEHub             *SSEHub             // Server-Sent Events for real-time document change notifications
+	TTLManager         *TTLManager          // Document TTL / auto-expiry
+	FTSIndex           *FTSIndex            // Full-text search index
+	WebhookManager     *WebhookManager      // Webhook subscriptions and delivery
+	SchemaManager      *SchemaManager       // Per-collection metadata schema validation
+	Metrics            *Metrics             // Prometheus-compatible telemetry
+	AuthManager        *AuthManager         // Authentication and authorization
+	SynonymManager     *SynonymManager      // Synonym dictionaries for FTS
+	StopWordManager    *StopWordManager     // Per-collection custom stop words for FTS
+	AutomationManager  *AutomationManager   // Automation: triggers, crons, webhook targets
+	AutomationLogStore *AutomationLogStore  // Automation execution logs
+	CronScheduler      *CronScheduler       // Cron scheduler for automation
+	CollectionManager  *CollectionManager   // Per-collection attributes (type, description, icon, etc.)
+	SSEHub             *SSEHub              // Server-Sent Events for real-time document change notifications
 	MCPInfo            MCPServerInfo        // Customizable MCP server profile
 	MCPInstructions    string               // System prompt for LLM — how to use this server
 	mcpKeyStore        *mcpAPIKeyStore      // BoltDB-backed MCP API key store
@@ -660,6 +660,14 @@ func main() {
 	mux.HandleFunc("/v1/collection-config", s.handleCollectionConfig)
 	mux.HandleFunc("/v1/collection-configs", s.handleCollectionConfigList)
 	mux.HandleFunc("/v1/events", s.handleSSE)
+	// Memory RAG endpoints
+	mux.HandleFunc("/v1/memory/session", s.guardWrite(s.handleMemorySessionCreate))
+	mux.HandleFunc("/v1/memory/message", s.guardWrite(s.handleMemoryMessageAdd))
+	mux.HandleFunc("/v1/memory/recall", s.handleMemoryRecall)
+	mux.HandleFunc("/v1/memory/summarize", s.guardWrite(s.handleMemorySummarize))
+	mux.HandleFunc("/v1/memory/sessions", s.handleMemorySessionsList)
+	mux.HandleFunc("/v1/memory/history", s.handleMemoryHistory)
+
 	mux.HandleFunc("/v1/cross-search", s.handleCrossSearch)
 	mux.HandleFunc("/v1/find-duplicates", s.handleFindDuplicates)
 	mux.HandleFunc("/v1/aggregate", s.handleAggregate)

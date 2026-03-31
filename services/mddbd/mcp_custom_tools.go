@@ -778,6 +778,94 @@ func mcpBuiltinTools() []MCPTool {
 				"required": []string{"collection"},
 			},
 		},
+
+		// --- Memory RAG ---
+		{
+			Name:        "memory_start_session",
+			Description: "Start a new memory/conversation session for RAG. Returns a session ID that can be used to add messages and recall context later.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"user_id":  map[string]interface{}{"type": "string", "description": "User identifier for the session"},
+					"scenario": map[string]interface{}{"type": "string", "description": "Scenario or context name (e.g. 'customer_support', 'code_review')"},
+					"title":    map[string]interface{}{"type": "string", "description": "Human-readable session title"},
+					"meta":     map[string]interface{}{"type": "object", "description": "Additional metadata key-value pairs"},
+					"ttl":      map[string]interface{}{"type": "integer", "description": "Session TTL in seconds (default: 30 days)"},
+				},
+				"required": []string{"user_id"},
+			},
+		},
+		{
+			Name:        "memory_add_message",
+			Description: "Add a message to an existing memory session. Messages are automatically embedded for semantic recall.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"session_id": map[string]interface{}{"type": "string", "description": "Session ID returned from memory_start_session"},
+					"role":       map[string]interface{}{"type": "string", "description": "Message role: user, assistant, system, or tool"},
+					"content":    map[string]interface{}{"type": "string", "description": "Message content (markdown supported)"},
+					"meta":       map[string]interface{}{"type": "object", "description": "Additional metadata (e.g. topic, source, tool_call)"},
+				},
+				"required": []string{"session_id", "role", "content"},
+			},
+		},
+		{
+			Name:        "memory_recall",
+			Description: "Semantically recall relevant messages from past conversations. Uses hybrid search (vector + keyword) to find the most relevant context across all sessions or filtered by user/session.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"query":           map[string]interface{}{"type": "string", "description": "Natural language query to recall relevant context"},
+					"user_id":         map[string]interface{}{"type": "string", "description": "Filter recall to sessions belonging to this user"},
+					"session_id":      map[string]interface{}{"type": "string", "description": "Filter recall to a specific session"},
+					"role":            map[string]interface{}{"type": "string", "description": "Filter by message role (user, assistant, system, tool)"},
+					"top_k":           map[string]interface{}{"type": "integer", "description": "Number of results (default: 10)"},
+					"threshold":       map[string]interface{}{"type": "number", "description": "Min similarity score 0-1 (default: 0.0)"},
+					"strategy":        map[string]interface{}{"type": "string", "description": "Search strategy: hybrid (default), semantic, keyword"},
+					"include_content": map[string]interface{}{"type": "boolean", "description": "Include full message content (default: false)"},
+				},
+				"required": []string{"query"},
+			},
+		},
+		{
+			Name:        "memory_summarize",
+			Description: "Generate a summary of a conversation session. Stores the summary as a document with embeddings for future recall.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"session_id": map[string]interface{}{"type": "string", "description": "Session ID to summarize"},
+					"user_id":    map[string]interface{}{"type": "string", "description": "User ID for validation"},
+				},
+				"required": []string{"session_id"},
+			},
+		},
+		{
+			Name:        "memory_list_sessions",
+			Description: "List memory/conversation sessions with optional filtering by user, scenario, and sorting.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"user_id":  map[string]interface{}{"type": "string", "description": "Filter sessions by user ID"},
+					"scenario": map[string]interface{}{"type": "string", "description": "Filter sessions by scenario"},
+					"limit":    map[string]interface{}{"type": "integer", "description": "Max results (default: 50)"},
+					"offset":   map[string]interface{}{"type": "integer", "description": "Results offset for pagination"},
+					"sort":     map[string]interface{}{"type": "string", "description": "Sort by: createdAt (default), updatedAt"},
+				},
+			},
+		},
+		{
+			Name:        "memory_session_history",
+			Description: "Get the full message history of a specific conversation session, ordered chronologically.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"session_id": map[string]interface{}{"type": "string", "description": "Session ID to fetch history for"},
+					"limit":      map[string]interface{}{"type": "integer", "description": "Max messages (default: 100)"},
+					"offset":     map[string]interface{}{"type": "integer", "description": "Message offset for pagination"},
+				},
+				"required": []string{"session_id"},
+			},
+		},
 	}
 }
 
