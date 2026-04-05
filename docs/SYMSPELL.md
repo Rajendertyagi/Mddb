@@ -6,7 +6,7 @@ MDDB includes a lightweight spell checker that can automatically correct FTS sea
 
 | Environment variable | Default | Description |
 |---|---|---|
-| `MDDB_SPELL` | `true` | Enable/disable spell checking globally |
+| `MDDB_SPELL` | `false` | Enable spell checking (`true` to enable) |
 
 Per-collection opt-in via Collection Settings (panel) or `PUT /v1/collection-config`:
 

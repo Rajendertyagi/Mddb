@@ -456,8 +456,8 @@ func main() {
 	}
 	log.Printf("Collection manager initialized (%d collections configured)", len(s.CollectionManager.ListAll()))
 
-	// Initialize temporal event tracking (enabled by default; set MDDB_TEMPORAL=false to disable)
-	if env("MDDB_TEMPORAL", "true") != "false" {
+	// Initialize temporal event tracking (disabled by default; set MDDB_TEMPORAL=true to enable)
+	if env("MDDB_TEMPORAL", "false") == "true" {
 		s.TemporalManager = NewTemporalManager(db)
 		if err := s.TemporalManager.EnsureBuckets(); err != nil {
 			log.Fatal(err)
@@ -466,8 +466,8 @@ func main() {
 		log.Println("Temporal event tracking initialized")
 	}
 
-	// Initialize spell checker (enabled by default; set MDDB_SPELL=false to disable)
-	if env("MDDB_SPELL", "true") != "false" {
+	// Initialize spell checker (disabled by default; set MDDB_SPELL=true to enable)
+	if env("MDDB_SPELL", "false") == "true" {
 		s.SpellManager = NewSpellManager(db)
 		if err := s.SpellManager.EnsureBucket(); err != nil {
 			log.Fatal(err)

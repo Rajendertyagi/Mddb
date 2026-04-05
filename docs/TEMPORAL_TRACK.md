@@ -6,7 +6,7 @@ MDDB can record document lifecycle events — **create**, **update**, and **acce
 
 | Environment variable | Default | Description |
 |---|---|---|
-| `MDDB_TEMPORAL` | `true` | Enable/disable temporal tracking globally |
+| `MDDB_TEMPORAL` | `false` | Enable temporal tracking (`true` to enable) |
 
 Per-collection opt-in via Collection Settings (panel) or `PUT /v1/collection-config`:
 
