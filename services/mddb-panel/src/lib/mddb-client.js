@@ -834,6 +834,59 @@ class MDDBClient {
       body: JSON.stringify({ collection, key, lang, timestamp }),
     });
   }
+
+  /**
+   * Temporal event tracking
+   */
+  async temporalQuery({ collection, key, lang, eventType, from, to, limit }) {
+    return this.request('/temporal/query', {
+      method: 'POST',
+      body: JSON.stringify({ collection, key, lang, eventType, from, to, limit }),
+    });
+  }
+
+  async temporalHot({ collection, topN, since }) {
+    return this.request('/temporal/hot', {
+      method: 'POST',
+      body: JSON.stringify({ collection, topN, since }),
+    });
+  }
+
+  async temporalHistogram({ collection, eventType, interval, from, to }) {
+    return this.request('/temporal/histogram', {
+      method: 'POST',
+      body: JSON.stringify({ collection, eventType, interval, from, to }),
+    });
+  }
+
+  /**
+   * Spell correction
+   */
+  async spellSuggest({ collection, text, lang, maxSuggestions }) {
+    return this.request('/spell-suggest', {
+      method: 'POST',
+      body: JSON.stringify({ collection, text, lang, maxSuggestions }),
+    });
+  }
+
+  async spellCleanup({ collection, text, lang }) {
+    return this.request('/spell-cleanup', {
+      method: 'POST',
+      body: JSON.stringify({ collection, text, lang }),
+    });
+  }
+
+  async spellDictionary(method, { collection, lang, words, frequency }) {
+    if (method === 'GET') {
+      const params = new URLSearchParams({ lang });
+      if (collection) params.set('collection', collection);
+      return this.request(`/spell-dictionary?${params}`, { method: 'GET' });
+    }
+    return this.request('/spell-dictionary', {
+      method,
+      body: JSON.stringify({ collection, lang, words, frequency }),
+    });
+  }
 }
 
 export default new MDDBClient();

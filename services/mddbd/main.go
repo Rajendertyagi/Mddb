@@ -78,6 +78,8 @@ type Server struct {
 	AutomationLogStore *AutomationLogStore  // Automation execution logs
 	CronScheduler      *CronScheduler       // Cron scheduler for automation
 	CollectionManager  *CollectionManager   // Per-collection attributes (type, description, icon, etc.)
+	TemporalManager    *TemporalManager     // Document lifecycle event tracking (create/update/access)
+	SpellManager       *SpellManager        // Spell correction for FTS queries and document content
 	SSEHub             *SSEHub              // Server-Sent Events for real-time document change notifications
 	MCPInfo            MCPServerInfo        // Customizable MCP server profile
 	MCPInstructions    string               // System prompt for LLM — how to use this server
@@ -454,6 +456,26 @@ func main() {
 	}
 	log.Printf("Collection manager initialized (%d collections configured)", len(s.CollectionManager.ListAll()))
 
+	// Initialize temporal event tracking (enabled by default; set MDDB_TEMPORAL=false to disable)
+	if env("MDDB_TEMPORAL", "true") != "false" {
+		s.TemporalManager = NewTemporalManager(db)
+		if err := s.TemporalManager.EnsureBuckets(); err != nil {
+			log.Fatal(err)
+		}
+		s.TemporalManager.Start()
+		log.Println("Temporal event tracking initialized")
+	}
+
+	// Initialize spell checker (enabled by default; set MDDB_SPELL=false to disable)
+	if env("MDDB_SPELL", "true") != "false" {
+		s.SpellManager = NewSpellManager(db)
+		if err := s.SpellManager.EnsureBucket(); err != nil {
+			log.Fatal(err)
+		}
+		s.SpellManager.LoadAll() // async — sets ready flag when done
+		log.Println("Spell manager initialized (loading dictionaries in background)")
+	}
+
 	// Initialize SSE hub (enabled by default, set MDDB_SSE_ENABLED=false to disable)
 	sseEnabled := env("MDDB_SSE_ENABLED", "true") != "false"
 	sseMaxClients := envDefaultInt("MDDB_SSE_MAX_CLIENTS", 1000)
@@ -524,6 +546,12 @@ func main() {
 		s.StopWordManager.SetBinlog(s.Binlog)
 		s.AutomationManager.SetBinlog(s.Binlog)
 		s.CollectionManager.SetBinlog(s.Binlog)
+		if s.TemporalManager != nil {
+			s.TemporalManager.SetBinlog(s.Binlog)
+		}
+		if s.SpellManager != nil {
+			s.SpellManager.SetBinlog(s.Binlog)
+		}
 	}
 
 	// Follower: disable background writers (data comes from binlog)
@@ -671,6 +699,18 @@ func main() {
 	mux.HandleFunc("/v1/cross-search", s.handleCrossSearch)
 	mux.HandleFunc("/v1/find-duplicates", s.handleFindDuplicates)
 	mux.HandleFunc("/v1/aggregate", s.handleAggregate)
+	// Temporal event tracking
+	if s.TemporalManager != nil {
+		mux.HandleFunc("/v1/temporal/query", s.handleTemporalQuery)
+		mux.HandleFunc("/v1/temporal/hot", s.handleTemporalHot)
+		mux.HandleFunc("/v1/temporal/histogram", s.handleTemporalHistogram)
+	}
+	// Spell correction
+	if s.SpellManager != nil {
+		mux.HandleFunc("/v1/spell-suggest", s.handleSpellSuggest)
+		mux.HandleFunc("/v1/spell-cleanup", s.handleSpellCleanup)
+		mux.HandleFunc("/v1/spell-dictionary", s.handleSpellDictionary)
+	}
 	mux.HandleFunc("/metrics", s.Metrics.HandleMetrics)
 
 	// pprof profiling endpoints (disabled by default, set MDDB_PPROF_ENABLED=true)
@@ -1100,6 +1140,15 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 		_ = s.FTSIndex.IndexFieldsWithLang(collection, saved.ID, fields, saved.Lang)
 	}
 
+	// Temporal tracking
+	if s.TemporalManager != nil {
+		et := EventUpdate
+		if isNew {
+			et = EventCreate
+		}
+		s.TemporalManager.RecordAsync(collection, saved.ID, et, "")
+	}
+
 	// Webhooks + SSE
 	event := "doc.updated"
 	if isNew {
@@ -1308,6 +1357,17 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 	if doc.ExpiresAt > 0 && doc.ExpiresAt < time.Now().Unix() {
 		bad(w, errors.New("not found"))
 		return
+	}
+
+	// Temporal access tracking (gated on collection config)
+	if s.TemporalManager != nil && s.CollectionManager != nil {
+		if cfg, cfgOk := s.CollectionManager.Get(req.Collection); cfgOk && cfg.TrackAccess {
+			actor := ""
+			if claims, ok := GetClaimsFromContext(r.Context()); ok {
+				actor = claims.Username
+			}
+			s.TemporalManager.RecordAsync(req.Collection, doc.ID, EventAccess, actor)
+		}
 	}
 
 	// Templating via ENV: replace %%var%%

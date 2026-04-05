@@ -4,6 +4,20 @@ Complete list of MDDB features organized by category.
 
 ## Core Database Features
 
+### Temporal Tracking
+- **Lifecycle Events** - Track document create, update, and access events per collection
+- **Activity Histogram** - Day/week/month event-frequency charts
+- **Hot Documents** - Top-N most-accessed document leaderboard
+- **Async writes** - Zero overhead on the read/write path; events batched with BoltDB `Batch()`
+- See [TEMPORAL_TRACK.md](TEMPORAL_TRACK.md)
+
+### Spell Correction
+- **FTS Auto-correction** - Optionally correct FTS queries before execution (per-collection)
+- **Spell Suggest API** - Token-level corrections with confidence scores
+- **Custom Dictionaries** - Per-collection domain-term allowlists stored in BoltDB
+- **Zero new dependencies** - Built on existing `levenshtein` library
+- See [SYMSPELL.md](SYMSPELL.md)
+
 ### Document Management
 - **Full CRUD Operations** - Add, retrieve, update, delete markdown documents
 - **Rich Metadata** - Multi-value tags and structured metadata per document

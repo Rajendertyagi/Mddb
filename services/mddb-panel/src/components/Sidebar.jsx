@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Folder, Database, Trash2, Brain, Server, Settings, Network, Users, UsersIcon, Upload, FolderPlus, Sliders, GitBranch, PanelLeftClose, BookOpen, Ban, Zap, Globe, Image, Music, FileText, Settings2, Shuffle } from 'lucide-react';
+import { Folder, Database, Trash2, Brain, Server, Settings, Network, Users, UsersIcon, Upload, FolderPlus, Sliders, GitBranch, PanelLeftClose, BookOpen, Ban, Zap, Globe, Image, Music, FileText, Settings2, Shuffle, Clock, Type } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
 import UploadModal from './UploadModal';
@@ -305,6 +305,8 @@ export default function Sidebar({ stats, statsError, onStatsRefresh, onCollapse 
           <NavButton mode="embeddings" icon={Brain} label="Embedding Models" />
           <NavButton mode="synonyms" icon={BookOpen} label="Synonyms" />
           <NavButton mode="stopwords" icon={Ban} label="Stop Words" />
+          <NavButton mode="temporal" icon={Clock} label="Temporal Analytics" />
+          <NavButton mode="spellcheck" icon={Type} label="Spell Checker" />
           {config?.automationsEnabled !== false && (
             <NavButton mode="automation" icon={Zap} label="Automation" />
           )}

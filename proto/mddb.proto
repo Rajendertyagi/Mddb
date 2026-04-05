@@ -173,6 +173,18 @@ service MDDB {
 
   // Restore a document from a specific revision
   rpc RestoreRevision(RestoreRevisionRequest) returns (Document);
+
+  // Query temporal events for a specific document
+  rpc TemporalQuery(TemporalQueryRequest) returns (TemporalQueryResponse);
+
+  // Get hot (most accessed) documents in a collection
+  rpc TemporalHot(TemporalHotRequest) returns (TemporalHotResponse);
+
+  // Get spell correction suggestions for a text string
+  rpc SpellSuggest(SpellSuggestRequest) returns (SpellSuggestResponse);
+
+  // Apply best spell corrections to a text string
+  rpc SpellCleanup(SpellCleanupRequest) returns (SpellCleanupResponse);
 }
 
 // Document represents a markdown document
@@ -1156,4 +1168,81 @@ message AcknowledgeLSNRequest {
 message AcknowledgeLSNResponse {
   bool ok = 1;
   uint64 leader_lsn = 2;
+}
+
+// --- Temporal tracking ---
+
+message TemporalQueryRequest {
+  string collection = 1;
+  string key = 2;
+  string lang = 3;
+  string event_type = 4;  // "create", "update", "access", or "" for all
+  int64 from = 5;
+  int64 to = 6;
+  int32 limit = 7;
+}
+
+message TemporalEventProto {
+  string doc_id = 1;
+  string event_type = 2;
+  int64 timestamp = 3;
+  string actor = 4;
+}
+
+message TemporalQueryResponse {
+  string collection = 1;
+  string doc_id = 2;
+  repeated TemporalEventProto events = 3;
+  int32 total = 4;
+}
+
+message TemporalHotRequest {
+  string collection = 1;
+  int32 top_n = 2;
+  int64 since = 3;
+}
+
+message TemporalHotEntry {
+  Document document = 1;
+  string doc_id = 2;
+  uint64 access_count = 3;
+  int64 last_access_at = 4;
+}
+
+message TemporalHotResponse {
+  string collection = 1;
+  repeated TemporalHotEntry entries = 2;
+}
+
+// --- Spell correction ---
+
+message SpellSuggestRequest {
+  string collection = 1;
+  string text = 2;
+  string lang = 3;
+  int32 max_suggestions = 4;
+}
+
+message SpellSuggestionProto {
+  string original = 1;
+  string corrected = 2;
+  double confidence = 3;
+}
+
+message SpellSuggestResponse {
+  string original_text = 1;
+  string suggested_text = 2;
+  repeated SpellSuggestionProto token_suggestions = 3;
+}
+
+message SpellCleanupRequest {
+  string collection = 1;
+  string text = 2;
+  string lang = 3;
+}
+
+message SpellCleanupResponse {
+  string original = 1;
+  string cleaned = 2;
+  int32 corrections_applied = 3;
 }

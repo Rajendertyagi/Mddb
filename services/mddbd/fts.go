@@ -86,16 +86,17 @@ type FTSSearchRequest struct {
 
 // FTSSearchResponse is the HTTP response for full-text search.
 type FTSSearchResponse struct {
-	Results        []FTSResultWithDoc `json:"results"`
-	Total          int                `json:"total"`
-	Algorithm      string             `json:"algorithm"`
-	Mode           string             `json:"mode"`
-	Fuzzy          int                `json:"fuzzy"`
-	Lang           string             `json:"lang,omitempty"`
-	StemmingActive bool               `json:"stemmingActive"`
-	SynonymsActive bool               `json:"synonymsActive"`
-	FieldWeights   map[string]float64 `json:"fieldWeights,omitempty"`
-	Stats          *SearchStats       `json:"searchStats,omitempty"`
+	Results        []FTSResultWithDoc   `json:"results"`
+	Total          int                  `json:"total"`
+	Algorithm      string               `json:"algorithm"`
+	Mode           string               `json:"mode"`
+	Fuzzy          int                  `json:"fuzzy"`
+	Lang           string               `json:"lang,omitempty"`
+	StemmingActive bool                 `json:"stemmingActive"`
+	SynonymsActive bool                 `json:"synonymsActive"`
+	FieldWeights   map[string]float64   `json:"fieldWeights,omitempty"`
+	Stats          *SearchStats         `json:"searchStats,omitempty"`
+	SpellCorrected *SpellCorrectionInfo `json:"spellCorrected,omitempty"`
 }
 
 // FTSResultWithDoc includes the full document in the result.
@@ -743,6 +744,22 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Spell-correct the query when enabled for this collection
+	var spellCorrected *SpellCorrectionInfo
+	if s.SpellManager != nil && s.SpellManager.Ready() && s.CollectionManager != nil {
+		if cfg, ok := s.CollectionManager.Get(req.Collection); ok && cfg.SpellCorrect {
+			lang := req.Lang
+			if cfg.SpellLang != "" {
+				lang = cfg.SpellLang
+			}
+			corrected := s.SpellManager.Cleanup(req.Collection, lang, req.Query)
+			if corrected != req.Query {
+				spellCorrected = &SpellCorrectionInfo{Original: req.Query, Corrected: corrected}
+				req.Query = corrected
+			}
+		}
+	}
+
 	// Per-query stemming/synonym control (thread-safe: no mutation of shared state)
 	origStemmer := s.FTSIndex.stemmer
 	origSynonyms := s.FTSIndex.synonymManager
@@ -956,6 +973,7 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	resp.SpellCorrected = spellCorrected
 	ok(w, resp)
 }
 

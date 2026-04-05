@@ -22,6 +22,12 @@ type CollectionConfig struct {
 	StorageBackend string            `json:"storageBackend,omitempty"` // "boltdb" (default), "memory", "s3"
 	StorageConfig  *StorageConfigDef `json:"storageConfig,omitempty"`  // backend-specific settings (required for s3)
 	Quantization   string            `json:"quantization,omitempty"`   // "float32" (default), "int8", "int4"
+	// Temporal tracking
+	TrackAccess bool `json:"trackAccess,omitempty"` // record per-read access events
+	TrackHot    bool `json:"trackHot,omitempty"`    // maintain hot-docs leaderboard
+	// Spell correction
+	SpellCorrect bool   `json:"spellCorrect,omitempty"` // auto-correct FTS queries using spell checker
+	SpellLang    string `json:"spellLang,omitempty"`    // override language for spell correction
 }
 
 // StorageConfigDef holds backend-specific configuration for non-default storage backends.
