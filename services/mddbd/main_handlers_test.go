@@ -1437,7 +1437,7 @@ func TestMainCopyFile(t *testing.T) {
 	srcPath := filepath.Join(dir, "source.txt")
 	dstPath := filepath.Join(dir, "dest.txt")
 
-	if err := os.WriteFile(srcPath, []byte("hello world"), 0644); err != nil {
+	if err := os.WriteFile(srcPath, []byte("hello world"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1446,7 +1446,8 @@ func TestMainCopyFile(t *testing.T) {
 	}
 
 	// Verify contents
-	data, err := os.ReadFile(dstPath)
+	data, err := os.ReadFile( //nolint:gosec // G304: temp path in test
+		dstPath)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -171,6 +171,11 @@ a:hover {
     font-size: 2rem;
 }
 
+.brand-name {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
 .nav-links {
     display: flex;
     gap: 2rem;
@@ -786,6 +791,58 @@ code {
 
 .package-link:hover {
     border-color: var(--primary-color);
+}
+
+.pkg-section {
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.pkg-section:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.pkg-section:first-child {
+    padding-top: 0;
+}
+
+.pkg-label {
+    font-weight: 600;
+    margin: 0 0 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.pkg-platform {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--text-muted);
+}
+
+.pkg-section pre {
+    margin: 0.5rem 0;
+    font-size: 0.85rem;
+}
+
+.pkg-section .package-link {
+    display: inline;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 0;
+    text-align: left;
+    font-size: 0.85rem;
+    color: var(--primary-color);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.pkg-section .package-link:hover {
+    border-color: transparent;
+    box-shadow: none;
+    opacity: 0.8;
 }
 
 .release-notes {

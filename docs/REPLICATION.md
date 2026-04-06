@@ -1,3 +1,10 @@
+---
+title: "MDDB Replication (Leader-Follower)"
+slug: "docs/replication"
+description: "MDDB Replication (Leader-Follower)"
+status: publish
+---
+
 # MDDB Replication (Leader-Follower)
 
 MDDB supports **leader-follower replication** for horizontal read scaling and high availability. A single leader node handles all writes and streams changes to one or more read-only follower nodes via a binary replication log (binlog).

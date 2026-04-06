@@ -18,6 +18,7 @@ info:
     - **URL import** with YAML frontmatter parsing
     - **Authentication** - JWT tokens and API keys
     - **Authorization** - Collection-level RBAC (Read/Write/Admin)
+    - **Memory RAG** - Conversational memory system with session management, message storage, semantic/hybrid recall, and summarization
     - **User Management** - Multi-user with admin roles
     - **Group Permissions** - Organize users into groups
     - Template variable substitution
@@ -67,7 +68,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: "2.9.5"
+  version: "2.9.6"
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -124,6 +125,8 @@ tags:
     description: System information and endpoint discovery
   - name: MCP
     description: Model Context Protocol 2025-11-25 — Streamable HTTP transport, tools, resources, prompts, completion, logging
+  - name: Memory RAG
+    description: Conversational memory system for RAG — session management, message storage, semantic/hybrid recall, summarization
   - name: Configuration
     description: Server and MCP configuration
   - name: GraphQL
@@ -3557,6 +3560,296 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /v1/memory/session:
+    post:
+      tags: [Memory RAG]
+      summary: Create a new memory session
+      description: Start a new conversation session for storing and recalling messages.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              properties:
+                userId:
+                  type: string
+                  description: User identifier
+                scenario:
+                  type: string
+                  description: Session context/scenario
+                title:
+                  type: string
+                  description: Human-readable title
+                meta:
+                  type: object
+                  additionalProperties:
+                    type: string
+                ttl:
+                  type: integer
+                  description: TTL in seconds (default 30 days)
+      responses:
+        "200":
+          description: Session created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessionId:
+                    type: string
+                  userId:
+                    type: string
+                  scenario:
+                    type: string
+                  title:
+                    type: string
+                  createdAt:
+                    type: integer
+                  expiresAt:
+                    type: integer
+
+  /v1/memory/message:
+    post:
+      tags: [Memory RAG]
+      summary: Add a message to a session
+      description: Store a message in a memory session. Messages are auto-embedded for semantic recall.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId, role, content]
+              properties:
+                sessionId:
+                  type: string
+                role:
+                  type: string
+                  enum: [user, assistant, system, tool]
+                content:
+                  type: string
+                meta:
+                  type: object
+                  additionalProperties:
+                    type: string
+      responses:
+        "200":
+          description: Message added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messageId:
+                    type: string
+                  sessionId:
+                    type: string
+                  role:
+                    type: string
+                  createdAt:
+                    type: integer
+                  embedded:
+                    type: boolean
+
+  /v1/memory/recall:
+    post:
+      tags: [Memory RAG]
+      summary: Recall relevant messages
+      description: Semantically recall relevant messages from past conversations using hybrid search (vector + keyword).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query:
+                  type: string
+                userId:
+                  type: string
+                sessionId:
+                  type: string
+                role:
+                  type: string
+                topK:
+                  type: integer
+                  default: 10
+                threshold:
+                  type: number
+                strategy:
+                  type: string
+                  enum: [hybrid, semantic, keyword]
+                  default: hybrid
+                alpha:
+                  type: number
+                includeContent:
+                  type: boolean
+                filterMeta:
+                  type: object
+      responses:
+        "200":
+          description: Recall results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        document:
+                          $ref: "#/components/schemas/Document"
+                        score:
+                          type: number
+                        rank:
+                          type: integer
+                        sessionId:
+                          type: string
+                        role:
+                          type: string
+                        matchStrategy:
+                          type: string
+                  total:
+                    type: integer
+                  strategy:
+                    type: string
+                  query:
+                    type: string
+
+  /v1/memory/summarize:
+    post:
+      tags: [Memory RAG]
+      summary: Summarize a session
+      description: Generate and store a summary of a session's conversation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId]
+              properties:
+                sessionId:
+                  type: string
+                userId:
+                  type: string
+      responses:
+        "200":
+          description: Summary generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  summaryId:
+                    type: string
+                  sessionId:
+                    type: string
+                  summary:
+                    type: string
+                  createdAt:
+                    type: integer
+                  messages:
+                    type: integer
+
+  /v1/memory/sessions:
+    post:
+      tags: [Memory RAG]
+      summary: List memory sessions
+      description: List sessions with optional user/scenario filtering and pagination.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+                scenario:
+                  type: string
+                limit:
+                  type: integer
+                  default: 50
+                offset:
+                  type: integer
+                sort:
+                  type: string
+                  enum: [createdAt, updatedAt]
+                  default: createdAt
+                asc:
+                  type: boolean
+      responses:
+        "200":
+          description: Session list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        sessionId:
+                          type: string
+                        userId:
+                          type: string
+                        scenario:
+                          type: string
+                        title:
+                          type: string
+                        createdAt:
+                          type: integer
+                        updatedAt:
+                          type: integer
+                        expiresAt:
+                          type: integer
+                        messageCount:
+                          type: integer
+                  total:
+                    type: integer
+
+  /v1/memory/history:
+    post:
+      tags: [Memory RAG]
+      summary: Get session message history
+      description: Retrieve chronologically ordered message history for a session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId]
+              properties:
+                sessionId:
+                  type: string
+                limit:
+                  type: integer
+                  default: 100
+                offset:
+                  type: integer
+      responses:
+        "200":
+          description: Message history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Document"
+                  total:
+                    type: integer
+
 components:
   schemas:
     Document:
@@ -5022,7 +5315,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.9.5
+          example: 2.9.6
         uptimeSeconds:
           type: integer
           format: int64
@@ -5086,7 +5379,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.9.5
+          example: 2.9.6
         databasePath:
           type: string
           description: Path to the database file

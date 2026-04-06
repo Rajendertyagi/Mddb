@@ -1,3 +1,10 @@
+---
+title: "LLM Connections"
+slug: "docs/llm-connections"
+description: "LLM Connections"
+status: publish
+---
+
 # LLM Connections
 
 Connect MDDB to AI agents and LLM tools for RAG (Retrieval-Augmented Generation) and knowledge base workflows.
@@ -367,7 +374,7 @@ Create a Custom GPT that connects to MDDB via its REST API.
 ```json
 {
   "openapi": "3.1.0",
-  "info": { "title": "MDDB API", "version": "2.9.5" },
+  "info": { "title": "MDDB API", "version": "2.9.6" },
   "servers": [{ "url": "https://your-domain:11023" }],
   "paths": {
     "/v1/search": {

@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.6] - 2026-04-05
+
+### Added
+- **Temporal Tracking** — Document lifecycle event tracking with analytics API.
+  - Records `create`, `update`, and `access` events per document
+  - **3 new HTTP endpoints**: `POST /v1/temporal/query` (event history for a doc), `POST /v1/temporal/hot` (top-N most accessed docs), `POST /v1/temporal/histogram` (activity histogram by day/week/month)
+  - Per-collection opt-in: `trackAccess` (record GET events), `trackHot` (hot-docs leaderboard) via Collection Settings
+  - **Panel**: new "Temporal Analytics" panel with activity histogram and hot-docs leaderboard
+  - Async writes via buffered channel + `db.Batch()` — zero overhead on read/write path
+  - Configurable via `MDDB_TEMPORAL=false` to disable globally
+- **Spell Correction** — SymSpell-style spell checker for FTS queries and document content.
+  - Uses Levenshtein distance with frequency-weighted ranking (no new dependencies)
+  - **3 new HTTP endpoints**: `POST /v1/spell-suggest` (token suggestions with confidence), `POST /v1/spell-cleanup` (apply corrections), `GET/PUT/DELETE /v1/spell-dictionary` (custom per-collection dictionaries)
+  - FTS integration: enable `spellCorrect: true` on a collection to auto-correct queries; `FTSSearchResponse` now includes `spellCorrected` field
+  - **Panel**: new "Spell Checker" panel with interactive test UI and custom dictionary management
+  - `SpellSuggestionBadge` shown in FTS results when query was auto-corrected
+  - Configurable via `MDDB_SPELL=false` to disable globally; async dictionary loading with HTTP 503 guard
+- **Memory RAG** — Conversational memory system for RAG applications. Store, retrieve, and semantically search conversation history across sessions.
+  - **6 new HTTP endpoints**: `POST /v1/memory/session` (create session), `POST /v1/memory/message` (add message), `POST /v1/memory/recall` (semantic/hybrid/keyword recall), `POST /v1/memory/summarize` (session summary), `POST /v1/memory/sessions` (list sessions), `POST /v1/memory/history` (message history)
+  - **6 new MCP tools**: `memory_start_session`, `memory_add_message`, `memory_recall`, `memory_summarize`, `memory_list_sessions`, `memory_session_history`
+  - **3 dedicated collections**: `memory_sessions`, `memory_messages`, `memory_summaries`
+  - **Hybrid recall**: Combines vector search (semantic) + FTS (keyword) with Reciprocal Rank Fusion (RRF) for optimal context retrieval
+  - **Auto-embedding**: Messages are automatically embedded for semantic search when an embedding provider is configured
+  - **Session TTL**: Default 30-day auto-expiry, configurable per session
+  - **User/session/role filtering**: Filter recall by userId, sessionId, or message role
+  - **Session summarization**: Generate and store conversation summaries with embeddings
+- **20 new tests** for Memory RAG handlers and helpers
+
 ## [2.9.4] - 2026-03-26
 
 ### Added

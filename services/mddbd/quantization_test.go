@@ -266,7 +266,7 @@ func TestCosineSimInt8DifferentVectors(t *testing.T) {
 
 func TestQuantizedSearchRanking(t *testing.T) {
 	// Verify that quantized search preserves ranking order vs float32 search
-	rng := rand.New(rand.NewSource(42))
+	rng := rand.New(rand.NewSource(42)) //nolint:gosec // G404: math/rand fine for test data generation
 	dims := 128
 	numVecs := 50
 
@@ -486,7 +486,7 @@ func TestQuantizationCompressionRatio(t *testing.T) {
 	dims := 1536 // typical OpenAI embedding size
 
 	vec := make([]float32, dims)
-	rng := rand.New(rand.NewSource(42))
+	rng := rand.New(rand.NewSource(42)) //nolint:gosec // G404: math/rand fine for test data generation
 	for i := range vec {
 		vec[i] = rng.Float32()*2 - 1
 	}

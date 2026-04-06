@@ -117,7 +117,7 @@ custom_tools:
         filename: 'openai_actions.json',
         content: JSON.stringify({
           openapi: '3.1.0',
-          info: { title: 'MDDB API', version: '2.9.5', description: 'AI-Native Document Database API' },
+          info: { title: 'MDDB API', version: '2.9.6', description: 'AI-Native Document Database API' },
           servers: [{ url: httpBase }],
           paths: {
             '/v1/search': {

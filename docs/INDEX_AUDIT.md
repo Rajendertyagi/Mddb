@@ -1,3 +1,10 @@
+---
+title: "index.html Audit Report"
+slug: "docs/index-audit"
+description: "index.html Audit Report"
+status: publish
+---
+
 # index.html Audit Report
 
 Date: November 23, 2025

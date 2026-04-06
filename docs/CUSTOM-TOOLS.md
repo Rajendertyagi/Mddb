@@ -1,3 +1,10 @@
+---
+title: "Custom YAML Tools for MCP"
+slug: "docs/custom-tools"
+description: "Custom YAML Tools for MCP"
+status: publish
+---
+
 # Custom YAML Tools for MCP
 
 Define website-specific MCP tools in YAML that simplify AI interactions with your MDDB data.

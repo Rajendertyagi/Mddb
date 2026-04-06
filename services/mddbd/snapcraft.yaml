@@ -1,0 +1,43 @@
+name: mddbd
+title: MDDB Server
+version: "2.9.6"
+summary: Embedded Markdown database server
+description: |
+  MDDB (Markdown Database) is an embedded database server that stores documents
+  as Markdown with YAML frontmatter. Provides REST, gRPC, GraphQL and vector
+  search APIs. Supports BoltDB storage, full-text search, and AI embeddings.
+
+  Default port: 11023 (HTTP), 11024 (gRPC)
+
+grade: stable
+confinement: strict
+base: core24
+architectures:
+  - build-on: amd64
+  - build-on: arm64
+
+apps:
+  mddbd:
+    command: bin/mddbd
+    daemon: simple
+    restart-condition: on-failure
+    plugs:
+      - network
+      - network-bind
+      - home
+    environment:
+      MDDB_DATA_DIR: $SNAP_DATA/data
+
+parts:
+  mddbd:
+    plugin: go
+    source: .
+    source-type: local
+    build-snaps:
+      - go/1.26/stable
+    build-environment:
+      - CGO_ENABLED: "0"
+      - GOFLAGS: "-trimpath"
+    override-build: |
+      cd $CRAFT_PART_SRC
+      go build -ldflags="-s -w -X main.Version=${CRAFT_PROJECT_VERSION}" -o $CRAFT_PART_INSTALL/bin/mddbd .

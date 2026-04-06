@@ -1,3 +1,10 @@
+---
+title: "MDDB Telemetry & Monitoring"
+slug: "docs/telemetry"
+description: "MDDB Telemetry & Monitoring"
+status: publish
+---
+
 # MDDB Telemetry & Monitoring
 
 MDDB exposes a Prometheus-compatible `/metrics` endpoint that provides real-time telemetry about the server, database, and Go runtime. No external dependencies are required -- metrics are rendered in the standard [Prometheus text exposition format](https://prometheus.io/docs/instrumenting/exposition_formats/#text-based-format) and can be scraped by any compatible tool.

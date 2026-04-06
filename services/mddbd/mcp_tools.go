@@ -164,6 +164,19 @@ func (s *MCPToolServer) mcpCallTool(ctx context.Context, name string, args map[s
 		return s.toolIngest(ctx, args)
 	case "upload_file":
 		return s.toolUploadFile(ctx, args)
+	// Memory RAG tools
+	case "memory_start_session":
+		return s.toolMemoryStartSession(ctx, args)
+	case "memory_add_message":
+		return s.toolMemoryAddMessage(ctx, args)
+	case "memory_recall":
+		return s.toolMemoryRecall(ctx, args)
+	case "memory_summarize":
+		return s.toolMemorySummarize(ctx, args)
+	case "memory_list_sessions":
+		return s.toolMemoryListSessions(ctx, args)
+	case "memory_session_history":
+		return s.toolMemorySessionHistory(ctx, args)
 	default:
 		for _, ct := range s.customTools {
 			if ct.Name == name {

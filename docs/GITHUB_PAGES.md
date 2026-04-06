@@ -1,3 +1,10 @@
+---
+title: "GitHub Pages Setup"
+slug: "docs/github-pages"
+description: "GitHub Pages Setup"
+status: publish
+---
+
 # GitHub Pages Setup
 
 This document explains how to enable GitHub Pages for the MDDB website.
@@ -17,7 +24,7 @@ GitHub will automatically deploy the website from the `docs` folder.
 ## Access the Website
 
 After enabling GitHub Pages, the website will be available at:
-- **https://tradik.github.io/mddb/**
+- **https://mddb.tradik.com/mddb/**
 
 It may take a few minutes for the first deployment.
 
@@ -51,7 +58,7 @@ To use a custom domain:
    ```
 
 2. Configure DNS records at your domain provider:
-   - Add a CNAME record pointing to `tradik.github.io`
+   - Add a CNAME record pointing to `mddb.tradik.com`
 
 3. In GitHub Pages settings, add your custom domain
 

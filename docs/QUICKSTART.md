@@ -1,3 +1,10 @@
+---
+title: "MDDB Quick Start Guide"
+slug: "docs/quickstart"
+description: "MDDB Quick Start Guide"
+status: publish
+---
+
 # MDDB Quick Start Guide
 
 ## Installation

@@ -24,6 +24,8 @@ import SynonymsPanel from './components/SynonymsPanel';
 import StopWordsPanel from './components/StopWordsPanel';
 import AutomationPanel from './components/AutomationPanel';
 import CrossSearchPanel from './components/CrossSearchPanel';
+import TemporalPanel from './components/TemporalPanel';
+import SpellCheckPanel from './components/SpellCheckPanel';
 import SSEToast from './components/SSEToast';
 import { useSSE } from './lib/useSSE';
 
@@ -256,6 +258,16 @@ function App() {
           {viewMode === 'settings' && (
             <div className="flex-1 border-l border-gray-200">
               <SettingsPanel />
+            </div>
+          )}
+          {viewMode === 'temporal' && (
+            <div className="flex-1 border-l border-gray-200">
+              <TemporalPanel />
+            </div>
+          )}
+          {viewMode === 'spellcheck' && (
+            <div className="flex-1 border-l border-gray-200">
+              <SpellCheckPanel />
             </div>
           )}
           {viewMode === 'documents' && (

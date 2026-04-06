@@ -1,0 +1,52 @@
+name: mddb-panel
+title: MDDB Panel
+version: "2.9.2"
+summary: Web admin panel for MDDB Markdown Database
+description: |
+  MDDB Panel is a React-based web administration interface for MDDB.
+  Provides a visual UI for browsing collections, editing documents,
+  managing schemas, configuring vector search, and monitoring the server.
+
+  The panel is served as static files — point your web server or
+  mddbd's --panel-dir flag to $SNAP/panel.
+
+grade: stable
+confinement: strict
+base: core24
+architectures:
+  - build-on: amd64
+  - build-on: arm64
+
+apps:
+  serve:
+    command: bin/serve-panel
+    daemon: simple
+    restart-condition: on-failure
+    plugs:
+      - network
+      - network-bind
+
+parts:
+  panel:
+    plugin: npm
+    source: .
+    source-type: local
+    npm-include-node: true
+    npm-node-version: "22.x"
+    override-build: |
+      cd $CRAFT_PART_SRC
+      npm ci
+      npm run build
+      mkdir -p $CRAFT_PART_INSTALL/panel
+      cp -r dist/. $CRAFT_PART_INSTALL/panel/
+
+  serve-panel:
+    plugin: nil
+    after: [panel]
+    override-build: |
+      mkdir -p $CRAFT_PART_INSTALL/bin
+      cat > $CRAFT_PART_INSTALL/bin/serve-panel << 'EOF'
+      #!/bin/sh
+      exec python3 -m http.server ${MDDB_PANEL_PORT:-11025} --directory $SNAP/panel
+      EOF
+      chmod +x $CRAFT_PART_INSTALL/bin/serve-panel

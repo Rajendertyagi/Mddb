@@ -1,3 +1,10 @@
+---
+title: "MCP Server Configuration"
+slug: "docs/mcp"
+description: "MCP Server Configuration"
+status: publish
+---
+
 # MCP Server Configuration
 
 MDDB has a built-in MCP (Model Context Protocol) server implementing the **2025-11-25** specification. This document covers all MCP configuration options.
@@ -196,6 +203,37 @@ docker run -d \
 | **Progress Tokens** | `notifications/progress` for long-running operations |
 | **Cursor Pagination** | `tools/list` and `resources/list` |
 | **Notifications** | `notifications/initialized`, `notifications/cancelled` |
+| **Memory RAG Tools** | 6 tools for conversational memory: start session, add message, recall, summarize, list sessions, history |
+
+## Memory RAG Tools
+
+Built-in MCP tools for conversational memory and RAG:
+
+| Tool | Description | Write? |
+|------|-------------|--------|
+| `memory_start_session` | Start a new conversation session | Yes |
+| `memory_add_message` | Add a message (auto-embedded) | Yes |
+| `memory_recall` | Semantic/hybrid/keyword recall across sessions | No |
+| `memory_summarize` | Generate and store session summary | Yes |
+| `memory_list_sessions` | List sessions with filters | No |
+| `memory_session_history` | Get chronological message history | No |
+
+### Example: Agent with Memory
+
+```json
+// 1. Start session
+{"name": "memory_start_session", "arguments": {"user_id": "user-1", "scenario": "support"}}
+
+// 2. Store messages as conversation progresses
+{"name": "memory_add_message", "arguments": {"session_id": "abc...", "role": "user", "content": "How do I use vector search?"}}
+{"name": "memory_add_message", "arguments": {"session_id": "abc...", "role": "assistant", "content": "Use POST /v1/vector-search..."}}
+
+// 3. In a future session, recall relevant context
+{"name": "memory_recall", "arguments": {"query": "vector search usage", "user_id": "user-1", "top_k": 5, "include_content": true}}
+
+// 4. Summarize when done
+{"name": "memory_summarize", "arguments": {"session_id": "abc..."}}
+```
 
 ## Built-in Prompts
 

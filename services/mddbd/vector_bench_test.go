@@ -30,7 +30,7 @@ func generateRandomVector(dims int, rng *rand.Rand) []float32 {
 
 // populateIndex fills a VectorIndex with n random vectors of given dimensions.
 func populateIndex(idx *VectorIndex, collection string, n, dims int) {
-	rng := rand.New(rand.NewSource(42))
+	rng := rand.New(rand.NewSource(42)) //nolint:gosec // G404: math/rand fine for test data generation
 	for i := 0; i < n; i++ {
 		idx.Add(collection, fmt.Sprintf("doc-%d", i), generateRandomVector(dims, rng))
 	}
@@ -75,7 +75,7 @@ func benchmarkSearch(b *testing.B, numDocs, dims int) {
 	idx.SetReady()
 	populateIndex(idx, "bench", numDocs, dims)
 
-	rng := rand.New(rand.NewSource(99))
+	rng := rand.New(rand.NewSource(99)) //nolint:gosec // G404: math/rand fine for test data generation
 	query := generateRandomVector(dims, rng)
 
 	b.ResetTimer()
@@ -100,7 +100,7 @@ func benchmarkSearchWithFilter(b *testing.B, numDocs, dims int, filterRatio floa
 	idx.SetReady()
 	populateIndex(idx, "bench", numDocs, dims)
 
-	rng := rand.New(rand.NewSource(99))
+	rng := rand.New(rand.NewSource(99)) //nolint:gosec // G404: math/rand fine for test data generation
 	query := generateRandomVector(dims, rng)
 
 	// Build filter set
@@ -132,7 +132,7 @@ func BenchmarkCosineSimilarity_1024(b *testing.B) {
 }
 
 func benchmarkCosine(b *testing.B, dims int) {
-	rng := rand.New(rand.NewSource(42))
+	rng := rand.New(rand.NewSource(42)) //nolint:gosec // G404: math/rand fine for test data generation
 	a := generateRandomVector(dims, rng)
 	vecB := generateRandomVector(dims, rng)
 
@@ -156,7 +156,7 @@ func BenchmarkVectorAdd_1536(b *testing.B) {
 func benchmarkAdd(b *testing.B, dims int) {
 	idx := NewVectorIndex()
 	idx.SetReady()
-	rng := rand.New(rand.NewSource(42))
+	rng := rand.New(rand.NewSource(42)) //nolint:gosec // G404: math/rand fine for test data generation
 
 	vecs := make([][]float32, b.N)
 	for i := range vecs {
@@ -196,7 +196,7 @@ func benchmarkStorePut(b *testing.B, dims int) {
 		b.Fatal(err)
 	}
 
-	rng := rand.New(rand.NewSource(42))
+	rng := rand.New(rand.NewSource(42)) //nolint:gosec // G404: math/rand fine for test data generation
 	vecs := make([][]float32, b.N)
 	for i := range vecs {
 		vecs[i] = generateRandomVector(dims, rng)
@@ -225,7 +225,7 @@ func BenchmarkVectorStoreGet(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	rng := rand.New(rand.NewSource(42))
+	rng := rand.New(rand.NewSource(42)) //nolint:gosec // G404: math/rand fine for test data generation
 	// Pre-populate with 1000 records
 	for i := 0; i < 1000; i++ {
 		vec := generateRandomVector(768, rng)
@@ -250,7 +250,7 @@ func BenchmarkMarshalEmbeddingRecord_1536(b *testing.B) {
 }
 
 func benchmarkMarshal(b *testing.B, dims int) {
-	rng := rand.New(rand.NewSource(42))
+	rng := rand.New(rand.NewSource(42)) //nolint:gosec // G404: math/rand fine for test data generation
 	rec := &EmbeddingRecord{
 		DocID:       "test-doc-id-12345",
 		Vector:      generateRandomVector(dims, rng),
@@ -276,7 +276,7 @@ func BenchmarkUnmarshalEmbeddingRecord_1536(b *testing.B) {
 }
 
 func benchmarkUnmarshal(b *testing.B, dims int) {
-	rng := rand.New(rand.NewSource(42))
+	rng := rand.New(rand.NewSource(42)) //nolint:gosec // G404: math/rand fine for test data generation
 	rec := &EmbeddingRecord{
 		DocID:       "test-doc-id-12345",
 		Vector:      generateRandomVector(dims, rng),

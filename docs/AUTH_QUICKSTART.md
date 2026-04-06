@@ -1,3 +1,10 @@
+---
+title: "Authentication Quick Start"
+slug: "docs/auth-quickstart"
+description: "Authentication Quick Start"
+status: publish
+---
+
 # Authentication Quick Start
 
 5-minute guide to get started with MDDB authentication.

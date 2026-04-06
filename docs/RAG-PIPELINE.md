@@ -1,3 +1,10 @@
+---
+title: "RAG Pipeline with MDDB"
+slug: "docs/rag-pipeline"
+description: "RAG Pipeline with MDDB"
+status: publish
+---
+
 # RAG Pipeline with MDDB
 
 Build a production RAG (Retrieval-Augmented Generation) pipeline using MDDB as the knowledge base, with WordPress as a content source and MCP for LLM integration.

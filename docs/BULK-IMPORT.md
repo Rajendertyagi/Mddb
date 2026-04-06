@@ -1,3 +1,10 @@
+---
+title: "Bulk Import Guide"
+slug: "docs/bulk-import"
+description: "Bulk Import Guide"
+status: publish
+---
+
 # Bulk Import Guide
 
 ## Overview

@@ -1,3 +1,10 @@
+---
+title: "MDDB Configuration Reference"
+slug: "docs/config"
+description: "MDDB Configuration Reference"
+status: publish
+---
+
 # MDDB Configuration Reference
 
 Complete reference for all MDDB configuration parameters.

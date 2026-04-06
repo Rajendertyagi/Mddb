@@ -1,3 +1,10 @@
+---
+title: "MDDB - High-Performance Markdown Database"
+slug: "docs/docker-hub"
+description: "MDDB - High-Performance Markdown Database"
+status: publish
+---
+
 # MDDB - High-Performance Markdown Database
 
 ![Performance](https://img.shields.io/badge/performance-29.8k%20docs%2Fs-brightgreen.svg)

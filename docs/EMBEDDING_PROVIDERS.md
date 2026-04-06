@@ -1,3 +1,10 @@
+---
+title: "Embedding Providers Guide"
+slug: "docs/embedding-providers"
+description: "Embedding Providers Guide"
+status: publish
+---
+
 # Embedding Providers Guide
 
 MDDB supports multiple embedding providers for vector search functionality. You can configure embeddings either through environment variables or via the Admin Panel UI.

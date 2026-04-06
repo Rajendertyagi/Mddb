@@ -1,3 +1,10 @@
+---
+title: "MDDB Use Cases"
+slug: "docs/use-cases"
+description: "MDDB Use Cases"
+status: publish
+---
+
 # MDDB Use Cases
 
 Real-world examples and use cases for MDDB.

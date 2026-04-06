@@ -136,7 +136,7 @@ func TestTTLSetAndVerify(t *testing.T) {
 		if len(v) != 8 {
 			t.Errorf("expected 8-byte value, got %d", len(v))
 		}
-		stored := int64(binary.BigEndian.Uint64(v))
+		stored := int64(binary.BigEndian.Uint64(v)) //nolint:gosec // G115: uint64→int64 safe for Unix timestamps in test
 		if stored != expiresAt {
 			t.Errorf("expected expiresAt %d, got %d", expiresAt, stored)
 		}
@@ -186,7 +186,7 @@ func TestTTLSetUpdatesTTL(t *testing.T) {
 	err = db.View(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket(bucketTTLRev)
 		v := bRev.Get(ttlRevKey("blog", "doc1"))
-		stored := int64(binary.BigEndian.Uint64(v))
+		stored := int64(binary.BigEndian.Uint64(v)) //nolint:gosec // G115: uint64→int64 safe for Unix timestamps in test
 		if stored != newExpiry {
 			t.Errorf("reverse key should point to new expiry %d, got %d", newExpiry, stored)
 		}

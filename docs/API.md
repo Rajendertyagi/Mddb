@@ -1,3 +1,10 @@
+---
+title: "MDDB API Documentation"
+slug: "docs/api"
+description: "MDDB API Documentation"
+status: publish
+---
+
 # MDDB API Documentation
 
 > **Note**: The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in [RFC 2119](https://www.ietf.org/rfc/rfc2119.txt).
@@ -65,6 +72,12 @@
   - [GET /v1/system/info](#get-v1systeminfo)
   - [GET /v1/config](#get-v1config)
   - [GET /v1/endpoints](#get-v1endpoints)
+  - [POST /v1/memory/session](#post-v1memorysession)
+  - [POST /v1/memory/message](#post-v1memorymessage)
+  - [POST /v1/memory/recall](#post-v1memoryrecall)
+  - [POST /v1/memory/summarize](#post-v1memorysummarize)
+  - [POST /v1/memory/sessions](#post-v1memorysessions)
+  - [POST /v1/memory/history](#post-v1memoryhistory)
   - [GET /health](#get-health)
   - [POST /v1/auth/register](#post-v1authregister)
   - [GET /v1/auth/me](#get-v1authme)
@@ -2624,7 +2637,7 @@ curl http://localhost:11023/v1/system/info
   "arch": "amd64",
   "numCPU": 4,
   "goVersion": "go1.26.0",
-  "version": "2.9.5",
+  "version": "2.9.6",
   "uptimeSeconds": 3600,
   "memoryTotal": 134217728,
   "memoryUsed": 67108864,
@@ -2647,7 +2660,7 @@ curl http://localhost:11023/v1/config
 **Response**:
 ```json
 {
-  "version": "2.9.5",
+  "version": "2.9.6",
   "databasePath": "mddb.db",
   "mode": "wr",
   "protocols": {
@@ -2971,3 +2984,209 @@ curl "http://localhost:11023/v1/auth/group-permissions?group=editors"
 3. **Batch Operations**: Use export/import for bulk operations
 4. **Revisions**: Truncate old revisions regularly to keep database size manageable
 5. **Read Mode**: Use read-only mode for read-heavy workloads with separate write instances
+
+---
+
+## Memory RAG Endpoints
+
+Conversational memory system for RAG applications. Store, search, and recall conversation history with semantic search.
+
+### POST /v1/memory/session
+
+Create a new memory/conversation session.
+
+**Request:**
+```json
+{
+  "userId": "user-1",
+  "scenario": "customer_support",
+  "title": "Session about search API",
+  "meta": {"department": "engineering"},
+  "ttl": 2592000
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `userId` | string | Yes | User identifier |
+| `scenario` | string | No | Session context/scenario |
+| `title` | string | No | Human-readable title (auto-generated if empty) |
+| `meta` | object | No | Additional metadata key-value pairs |
+| `ttl` | int | No | TTL in seconds (default: 30 days) |
+
+**Response:**
+```json
+{
+  "sessionId": "a1b2c3d4e5f6...",
+  "userId": "user-1",
+  "scenario": "customer_support",
+  "title": "Session about search API",
+  "createdAt": 1743400000,
+  "expiresAt": 1745992000
+}
+```
+
+### POST /v1/memory/message
+
+Add a message to an existing session. Messages are automatically embedded for semantic recall.
+
+**Request:**
+```json
+{
+  "sessionId": "a1b2c3d4e5f6...",
+  "role": "user",
+  "content": "How does vector search work?",
+  "meta": {"topic": "search", "source": "docs"}
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `sessionId` | string | Yes | Session ID from `/v1/memory/session` |
+| `role` | string | Yes | `user`, `assistant`, `system`, or `tool` |
+| `content` | string | Yes | Message content (markdown supported) |
+| `meta` | object | No | Extra metadata (topic, source, tool_call, etc.) |
+
+**Response:**
+```json
+{
+  "messageId": "memory_messages|...",
+  "sessionId": "a1b2c3d4e5f6...",
+  "role": "user",
+  "createdAt": 1743400100,
+  "embedded": true
+}
+```
+
+### POST /v1/memory/recall
+
+Semantically recall relevant messages from past conversations using hybrid search (vector + keyword).
+
+**Request:**
+```json
+{
+  "query": "How does vector search work?",
+  "userId": "user-1",
+  "sessionId": "",
+  "role": "assistant",
+  "topK": 10,
+  "threshold": 0.5,
+  "strategy": "hybrid",
+  "alpha": 0.5,
+  "includeContent": true,
+  "filterMeta": {}
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `query` | string | Yes | Natural language recall query |
+| `userId` | string | No | Filter to sessions belonging to this user |
+| `sessionId` | string | No | Filter to a specific session |
+| `role` | string | No | Filter by message role |
+| `topK` | int | No | Number of results (default: 10) |
+| `threshold` | float | No | Min similarity score 0-1 |
+| `strategy` | string | No | `hybrid` (default), `semantic`, `keyword` |
+| `alpha` | float | No | Weight 0-1 (0=keyword, 1=semantic) |
+| `includeContent` | bool | No | Include full message content |
+| `filterMeta` | object | No | Additional metadata filters |
+
+**Response:**
+```json
+{
+  "results": [
+    {
+      "document": {"id": "...", "key": "...", "meta": {...}, "contentMd": "..."},
+      "score": 0.87,
+      "rank": 1,
+      "sessionId": "a1b2c3d4e5f6...",
+      "role": "assistant",
+      "matchStrategy": "hybrid"
+    }
+  ],
+  "total": 5,
+  "strategy": "hybrid",
+  "query": "How does vector search work?"
+}
+```
+
+### POST /v1/memory/summarize
+
+Generate and store a summary of a session's conversation.
+
+**Request:**
+```json
+{
+  "sessionId": "a1b2c3d4e5f6...",
+  "userId": "user-1"
+}
+```
+
+**Response:**
+```json
+{
+  "summaryId": "memory_summaries|...",
+  "sessionId": "a1b2c3d4e5f6...",
+  "summary": "# Session Summary: a1b2c3d4\n\nMessages: 5\n\n## Conversation\n\n...",
+  "createdAt": 1743401000,
+  "messages": 5
+}
+```
+
+### POST /v1/memory/sessions
+
+List memory sessions with optional filtering.
+
+**Request:**
+```json
+{
+  "userId": "user-1",
+  "scenario": "customer_support",
+  "limit": 50,
+  "offset": 0,
+  "sort": "createdAt",
+  "asc": false
+}
+```
+
+**Response:**
+```json
+{
+  "sessions": [
+    {
+      "sessionId": "a1b2c3d4e5f6...",
+      "userId": "user-1",
+      "scenario": "customer_support",
+      "title": "Session about search API",
+      "createdAt": 1743400000,
+      "updatedAt": 1743401000,
+      "expiresAt": 1745992000,
+      "messageCount": 12
+    }
+  ],
+  "total": 3
+}
+```
+
+### POST /v1/memory/history
+
+Get the full message history for a session, ordered chronologically.
+
+**Request:**
+```json
+{
+  "sessionId": "a1b2c3d4e5f6...",
+  "limit": 100,
+  "offset": 0
+}
+```
+
+**Response:**
+```json
+{
+  "messages": [
+    {"id": "...", "key": "...", "meta": {"role": ["user"], "sessionId": ["..."]}, "contentMd": "How does vector search work?", "addedAt": 1743400100},
+    {"id": "...", "key": "...", "meta": {"role": ["assistant"], "sessionId": ["..."]}, "contentMd": "Vector search uses embeddings...", "addedAt": 1743400110}
+  ],
+  "total": 2
+}

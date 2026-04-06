@@ -1,3 +1,10 @@
+---
+title: "Server-Sent Events (SSE)"
+slug: "docs/sse"
+description: "Server-Sent Events (SSE)"
+status: publish
+---
+
 # Server-Sent Events (SSE)
 
 MDDB provides a real-time event stream for document changes via Server-Sent Events (SSE).

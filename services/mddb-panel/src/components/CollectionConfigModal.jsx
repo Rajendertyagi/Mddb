@@ -31,6 +31,10 @@ export default function CollectionConfigModal({ collection, onClose, onSave }) {
   const [quantization, setQuantization] = useState('float32');
   const [storageBackend, setStorageBackend] = useState('boltdb');
   const [storageConfig, setStorageConfig] = useState({ endpoint: '', bucket: '', region: '', accessKey: '', secretKey: '', prefix: '', useTLS: false });
+  const [trackAccess, setTrackAccess] = useState(false);
+  const [trackHot, setTrackHot] = useState(false);
+  const [spellCorrect, setSpellCorrect] = useState(false);
+  const [spellLang, setSpellLang] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -59,6 +63,10 @@ export default function CollectionConfigModal({ collection, onClose, onSave }) {
         if (cfg.storageConfig) {
           setStorageConfig({ endpoint: '', bucket: '', region: '', accessKey: '', secretKey: '', prefix: '', useTLS: false, ...cfg.storageConfig });
         }
+        setTrackAccess(cfg.trackAccess || false);
+        setTrackHot(cfg.trackHot || false);
+        setSpellCorrect(cfg.spellCorrect || false);
+        setSpellLang(cfg.spellLang || '');
       }
     } catch (err) {
       setError(err.message);
@@ -86,6 +94,10 @@ export default function CollectionConfigModal({ collection, onClose, onSave }) {
         customMeta: Object.keys(metaObj).length > 0 ? metaObj : undefined,
         quantization: quantization !== 'float32' ? quantization : undefined,
         storageBackend: storageBackend !== 'boltdb' ? storageBackend : undefined,
+        trackAccess: trackAccess || undefined,
+        trackHot: trackHot || undefined,
+        spellCorrect: spellCorrect || undefined,
+        spellLang: spellLang || undefined,
       };
       if (storageBackend === 's3') {
         payload.storageConfig = storageConfig;
@@ -341,6 +353,55 @@ export default function CollectionConfigModal({ collection, onClose, onSave }) {
                   <p className="text-sm text-blue-800">After changing quantization, run <span className="font-mono text-xs bg-blue-100 px-1 rounded">vector-reindex --force</span> to re-encode existing vectors.</p>
                 </div>
               )}
+
+              {/* Temporal Tracking */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">Temporal Tracking</label>
+                <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={trackAccess}
+                    onChange={(e) => setTrackAccess(e.target.checked)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  Track document access events
+                </label>
+                <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={trackHot}
+                    onChange={(e) => setTrackHot(e.target.checked)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  Maintain hot-docs leaderboard
+                </label>
+              </div>
+
+              {/* Spell Correction */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">Spell Correction</label>
+                <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={spellCorrect}
+                    onChange={(e) => setSpellCorrect(e.target.checked)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  Auto-correct FTS queries
+                </label>
+                {spellCorrect && (
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-0.5">Override spell language (optional)</label>
+                    <input
+                      type="text"
+                      value={spellLang}
+                      onChange={(e) => setSpellLang(e.target.value)}
+                      placeholder="e.g. en, de, fr (leave empty to use query lang)"
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
+              </div>
 
               {/* Custom Metadata */}
               <div>

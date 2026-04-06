@@ -1,3 +1,10 @@
+---
+title: "MDDB Deployment Guide"
+slug: "docs/deployment"
+description: "MDDB Deployment Guide"
+status: publish
+---
+
 # MDDB Deployment Guide
 
 ## Production Deployment

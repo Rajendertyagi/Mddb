@@ -1,3 +1,10 @@
+---
+title: "MDDB Roadmap"
+slug: "docs/roadmap"
+description: "MDDB Roadmap"
+status: publish
+---
+
 # MDDB Roadmap
 
 Detailed roadmap showing implemented features and future plans.

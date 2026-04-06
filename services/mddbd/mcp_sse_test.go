@@ -99,7 +99,7 @@ func TestMCPSSEMessageFlow(t *testing.T) {
 		"method":  "ping",
 	}
 	body, _ := json.Marshal(pingReq)
-	postResp, err := http.Post(endpointURL, "application/json", bytes.NewReader(body))
+	postResp, err := http.Post(endpointURL, "application/json", bytes.NewReader(body)) //nolint:gosec // G107: test server URL, not user-controlled
 	if err != nil {
 		t.Fatal(err)
 	}

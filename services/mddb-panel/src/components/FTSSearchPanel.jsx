@@ -4,6 +4,7 @@ import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
 import CommandModal from './CommandModal';
 import MetaFilterBar from './MetaFilterBar';
+import SpellSuggestionBadge from './SpellSuggestionBadge';
 
 export default function FTSSearchPanel() {
   const {
@@ -29,6 +30,7 @@ export default function FTSSearchPanel() {
   const [weightsOpen, setWeightsOpen] = useState(true);
   const [newFieldName, setNewFieldName] = useState('');
   const [showCommand, setShowCommand] = useState(false);
+  const [spellCorrected, setSpellCorrected] = useState(null);
   const [availableLangs, setAvailableLangs] = useState([]);
   const [reindexing, setReindexing] = useState(false);
   const [reindexResult, setReindexResult] = useState(null);
@@ -74,6 +76,7 @@ export default function FTSSearchPanel() {
       });
       setFtsResults(data.results || []);
       setFtsSearchStats(data.searchStats || null);
+      setSpellCorrected(data.spellCorrected || null);
     } catch (error) {
       if (error.name === 'AbortError') {
         setFtsError(null);
@@ -377,6 +380,11 @@ export default function FTSSearchPanel() {
 
       {/* Results */}
       <div className="flex-1 overflow-y-auto">
+        {spellCorrected && (
+          <div className="px-4 pt-3">
+            <SpellSuggestionBadge original={spellCorrected.original} corrected={spellCorrected.corrected} />
+          </div>
+        )}
         {ftsResults.length > 0 && (
           <div className="px-4 pt-3 pb-1 flex items-center justify-between">
             <span className="text-xs font-medium text-gray-500">

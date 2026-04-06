@@ -1,3 +1,10 @@
+---
+title: "MDDB Authentication & Authorization"
+slug: "docs/authentication"
+description: "MDDB Authentication & Authorization"
+status: publish
+---
+
 # MDDB Authentication & Authorization
 
 Complete guide to JWT authentication and RBAC (Role-Based Access Control) in MDDB.

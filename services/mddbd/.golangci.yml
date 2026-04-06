@@ -1,0 +1,14 @@
+version: "2"
+
+linters:
+  enable:
+    - errcheck
+    - gosec
+    - govet
+    - staticcheck
+  exclusions:
+    rules:
+      - path: graphql/generated.go
+        linters:
+          - gosec
+          - errcheck

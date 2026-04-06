@@ -27,20 +27,20 @@ func TestZeroCopyManagerCopyFile(t *testing.T) {
 	// Create source file
 	srcPath := filepath.Join(dir, "src.txt")
 	content := []byte("hello world zero copy test data")
-	if err := os.WriteFile(srcPath, content, 0644); err != nil {
+	if err := os.WriteFile(srcPath, content, 0600); err != nil {
 		t.Fatal(err)
 	}
 
 	// Create destination file
 	dstPath := filepath.Join(dir, "dst.txt")
 
-	src, err := os.Open(srcPath)
+	src, err := os.Open(srcPath) //nolint:gosec // G304: temp file in test
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() { _ = src.Close() }()
 
-	dst, err := os.Create(dstPath)
+	dst, err := os.Create(dstPath) //nolint:gosec // G304: temp file in test
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestZeroCopyManagerCopyFile(t *testing.T) {
 	}
 
 	// Verify
-	got, err := os.ReadFile(dstPath)
+	got, err := os.ReadFile(dstPath) //nolint:gosec // G304: temp file in test
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +80,7 @@ func TestZeroCopyManagerCopyFileRange(t *testing.T) {
 	// Create source file with known content
 	srcPath := filepath.Join(dir, "src.txt")
 	content := []byte("0123456789ABCDEF")
-	if err := os.WriteFile(srcPath, content, 0644); err != nil {
+	if err := os.WriteFile(srcPath, content, 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -88,17 +88,17 @@ func TestZeroCopyManagerCopyFileRange(t *testing.T) {
 	dstPath := filepath.Join(dir, "dst.txt")
 	// Pre-fill destination with zeros
 	dstContent := make([]byte, 20)
-	if err := os.WriteFile(dstPath, dstContent, 0644); err != nil {
+	if err := os.WriteFile(dstPath, dstContent, 0600); err != nil {
 		t.Fatal(err)
 	}
 
-	src, err := os.Open(srcPath)
+	src, err := os.Open(srcPath) //nolint:gosec // G304: temp file in test
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() { _ = src.Close() }()
 
-	dst, err := os.OpenFile(dstPath, os.O_RDWR, 0644)
+	dst, err := os.OpenFile(dstPath, os.O_RDWR, 0600) //nolint:gosec // G304: temp file in test
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func TestZeroCopyManagerCopyFileRange(t *testing.T) {
 	}
 
 	// Verify destination
-	got, err := os.ReadFile(dstPath)
+	got, err := os.ReadFile(dstPath) //nolint:gosec // G304: temp file in test
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,18 +130,18 @@ func TestZeroCopyManagerCopyFileRangeBeyondEOF(t *testing.T) {
 
 	srcPath := filepath.Join(dir, "src.txt")
 	content := []byte("short")
-	if err := os.WriteFile(srcPath, content, 0644); err != nil {
+	if err := os.WriteFile(srcPath, content, 0600); err != nil {
 		t.Fatal(err)
 	}
 
 	dstPath := filepath.Join(dir, "dst.txt")
-	dst, err := os.Create(dstPath)
+	dst, err := os.Create(dstPath) //nolint:gosec // G304: temp file in test
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() { _ = dst.Close() }()
 
-	src, err := os.Open(srcPath)
+	src, err := os.Open(srcPath) //nolint:gosec // G304: temp file in test
 	if err != nil {
 		t.Fatal(err)
 	}
