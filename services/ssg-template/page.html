@@ -50,10 +50,8 @@ function restoreMermaidNewlines(text) {
     text = text.replace(/\s+(participant|actor|autonumber)\s+/g, '\n$1 ');
     text = text.replace(/\s+(Note\s+over)\s+/g, '\n$1 ');
     text = text.replace(/\s+(loop|alt|else|opt|par|critical|break|rect|activate|deactivate)\s+/g, '\n$1 ');
-    // Sequence arrows: ->>  -->>  -->  ->  --x  -x
-    text = text.replace(/\s+(-->>|->>|-->|->|--x|-x)\s*/g, '\n$1');
-    // Flowchart edges from node closers: ] --> or ) -->
-    text = text.replace(/([\])}|"])\s+(--?>|==?>|-\.->)/g, '$1\n$2');
+    // Arrows: match identifier + optional space + arrow (handles both WP --> and U->>)
+    text = text.replace(/\s+(\w[\w-]*)\s*(-->>|->>|-->|->|--x|-x|===>|==>|-.->)/g, '\n$1$2');
     // Style / classDef / linkStyle
     text = text.replace(/\s+(style|classDef|linkStyle|click)\s+/g, '\n$1 ');
     return text.trim();
