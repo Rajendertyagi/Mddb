@@ -23,9 +23,11 @@
             <header class="doc-header">
                 <h1 class="doc-title">{{.Page.Title}}</h1>
             </header>
+            <!-- htmlmin:ignore -->
             <div class="doc-body">
                 {{.Page.Content | safeHTML}}
             </div>
+            <!-- /htmlmin:ignore -->
             <footer class="doc-footer">
                 <a href="https://github.com/tradik/mddb/edit/main/docs/{{.Page.Slug}}.md" target="_blank" rel="noopener" class="doc-edit-link">Edit this page on GitHub</a>
             </footer>
