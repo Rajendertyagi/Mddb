@@ -1,3 +1,10 @@
+---
+title: "MDDB Chat Widget"
+slug: "docs/chat"
+description: "MDDB Chat Widget"
+status: publish
+---
+
 # MDDB Chat Widget
 
 Embed an AI-powered chatbot on any website with a single script tag. RAG-powered answers from your MDDB knowledge base. Supports OpenAI, Claude, Ollama, Bielik, Groq, Mistral, and more.

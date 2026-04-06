@@ -1,3 +1,10 @@
+---
+title: "Integrations: Docling, Langflow & OpenSearch"
+slug: "docs/integrations"
+description: "Integrations: Docling, Langflow & OpenSearch"
+status: publish
+---
+
 # Integrations: Docling, Langflow & OpenSearch
 
 Use MDDB alongside popular AI/ML tools to build production document processing and RAG pipelines.

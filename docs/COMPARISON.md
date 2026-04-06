@@ -1,3 +1,10 @@
+---
+title: "MDDB vs Alternatives"
+slug: "docs/comparison"
+description: "MDDB vs Alternatives"
+status: publish
+---
+
 # MDDB vs Alternatives
 
 How MDDB compares to other database and content management solutions.

@@ -1,3 +1,10 @@
+---
+title: "MDDB Panel - Web Admin Interface"
+slug: "docs/panel"
+description: "MDDB Panel - Web Admin Interface"
+status: publish
+---
+
 # MDDB Panel - Web Admin Interface
 
 ## Overview

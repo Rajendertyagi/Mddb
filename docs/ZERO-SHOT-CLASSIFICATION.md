@@ -1,3 +1,10 @@
+---
+title: "Zero-Shot Classification"
+slug: "docs/zero-shot-classification"
+description: "Zero-Shot Classification"
+status: publish
+---
+
 # Zero-Shot Classification
 
 ## What Is It?

@@ -1,3 +1,10 @@
+---
+title: "Vector Quantization"
+slug: "docs/quantization"
+description: "Vector Quantization"
+status: publish
+---
+
 # Vector Quantization
 
 MDDB supports **per-collection vector quantization** to reduce storage size and memory usage for embedding vectors. Quantization compresses float32 vectors into lower-precision formats while preserving search quality.

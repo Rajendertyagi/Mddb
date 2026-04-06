@@ -1,3 +1,10 @@
+---
+title: "JWT Authentication + Authorization Implementation Summary"
+slug: "docs/auth-implementation-summary"
+description: "JWT Authentication + Authorization Implementation Summary"
+status: publish
+---
+
 # JWT Authentication + Authorization Implementation Summary
 
 **Date:** March 2, 2026

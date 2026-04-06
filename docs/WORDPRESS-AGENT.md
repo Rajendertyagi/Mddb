@@ -1,3 +1,10 @@
+---
+title: "Build a WordPress AI Agent"
+slug: "docs/wordpress-agent"
+description: "Build a WordPress AI Agent"
+status: publish
+---
+
 # Build a WordPress AI Agent
 
 A step-by-step guide to building your own AI chatbot for a WordPress site.

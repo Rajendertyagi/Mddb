@@ -1,3 +1,10 @@
+---
+title: "Health Check Guide"
+slug: "docs/healthcheck"
+description: "Health Check Guide"
+status: publish
+---
+
 # Health Check Guide
 
 MDDB provides health check endpoints for monitoring and orchestration tools like Docker, Kubernetes, and load balancers.

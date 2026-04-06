@@ -1,3 +1,10 @@
+---
+title: "MDDB Architecture"
+slug: "docs/architecture"
+description: "MDDB Architecture"
+status: publish
+---
+
 # MDDB Architecture
 
 ## Overview

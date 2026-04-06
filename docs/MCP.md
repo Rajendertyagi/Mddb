@@ -1,3 +1,10 @@
+---
+title: "MCP Server Configuration"
+slug: "docs/mcp"
+description: "MCP Server Configuration"
+status: publish
+---
+
 # MCP Server Configuration
 
 MDDB has a built-in MCP (Model Context Protocol) server implementing the **2025-11-25** specification. This document covers all MCP configuration options.

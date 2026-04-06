@@ -1,3 +1,10 @@
+---
+title: "MDDB Features"
+slug: "docs/features"
+description: "MDDB Features"
+status: publish
+---
+
 # MDDB Features
 
 Complete list of MDDB features organized by category.

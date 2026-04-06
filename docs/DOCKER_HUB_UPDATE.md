@@ -1,3 +1,10 @@
+---
+title: "Docker Hub Description Update"
+slug: "docs/docker-hub-update"
+description: "Docker Hub Description Update"
+status: publish
+---
+
 # Docker Hub Description Update
 
 The Docker Hub description is **not automatically updated** by GitHub Actions due to token permission requirements.

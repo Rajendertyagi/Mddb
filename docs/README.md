@@ -1,3 +1,10 @@
+---
+title: "MDDB Documentation"
+slug: "docs/readme"
+description: "MDDB Documentation"
+status: publish
+---
+
 # MDDB Documentation
 
 This directory contains the documentation for MDDB.

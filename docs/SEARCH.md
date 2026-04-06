@@ -1,3 +1,10 @@
+---
+title: "MDDB Search Algorithms"
+slug: "docs/search"
+description: "MDDB Search Algorithms"
+status: publish
+---
+
 # MDDB Search Algorithms
 
 MDDB provides four search methods: **Metadata Search**, **Full-Text Search**, **Vector Search**, and **Hybrid Search**. Each method supports multiple algorithms selectable at query time via the `algorithm` parameter.

@@ -1,3 +1,10 @@
+---
+title: "License Audit Report"
+slug: "docs/license-audit"
+description: "License Audit Report"
+status: publish
+---
+
 # License Audit Report
 
 **Project:** MDDB (Markdown Database)  

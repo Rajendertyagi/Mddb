@@ -1,3 +1,10 @@
+---
+title: "Installation Guide"
+slug: "docs/installation"
+description: "Installation Guide"
+status: publish
+---
+
 # Installation Guide
 
 Complete installation instructions for MDDB on all supported platforms.

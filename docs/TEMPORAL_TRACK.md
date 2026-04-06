@@ -1,3 +1,10 @@
+---
+title: "Temporal Tracking"
+slug: "docs/temporal-track"
+description: "Temporal Tracking"
+status: publish
+---
+
 # Temporal Tracking
 
 MDDB can record document lifecycle events — **create**, **update**, and **access** — and expose them via a dedicated API. This enables analytics like activity histograms and hot-document leaderboards.

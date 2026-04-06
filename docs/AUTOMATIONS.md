@@ -1,3 +1,10 @@
+---
+title: "MDDB Automations (v2.7.1)"
+slug: "docs/automations"
+description: "MDDB Automations (v2.7.1)"
+status: publish
+---
+
 # MDDB Automations (v2.7.1)
 
 MDDB supports an **automation system** for reactive and scheduled workflows. Define webhook targets, create triggers that fire when documents match search criteria, and schedule periodic trigger execution with cron jobs. All three types are stored in a single `automation` BoltDB bucket and managed through a unified REST API.

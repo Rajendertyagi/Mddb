@@ -1,3 +1,10 @@
+---
+title: "MDDB GraphQL API Documentation"
+slug: "docs/graphql"
+description: "MDDB GraphQL API Documentation"
+status: publish
+---
+
 # MDDB GraphQL API Documentation
 
 ## Overview

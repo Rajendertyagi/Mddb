@@ -1,3 +1,10 @@
+---
+title: "PMISparse — Sparse Retrieval with PMI Query Expansion"
+slug: "docs/pmisparse"
+description: "PMISparse — Sparse Retrieval with PMI Query Expansion"
+status: publish
+---
+
 # PMISparse — Sparse Retrieval with PMI Query Expansion
 
 **PMISparse was invented by Tradik Limited.**

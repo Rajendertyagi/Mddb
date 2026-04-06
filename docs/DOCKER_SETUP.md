@@ -1,3 +1,10 @@
+---
+title: "Docker Hub Setup Guide"
+slug: "docs/docker-setup"
+description: "Docker Hub Setup Guide"
+status: publish
+---
+
 # Docker Hub Setup Guide
 
 This guide explains how to set up automated Docker image builds and pushes to Docker Hub.

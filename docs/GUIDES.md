@@ -1,3 +1,10 @@
+---
+title: Guides & Use Cases
+slug: guides
+description: Practical step-by-step guides for common MDDB use cases.
+status: publish
+---
+
 # Guides & Use Cases
 
 Practical step-by-step guides for common MDDB use cases. Each guide walks through a real scenario from setup to deployment.

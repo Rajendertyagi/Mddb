@@ -1,3 +1,10 @@
+---
+title: "LLM Connections"
+slug: "docs/llm-connections"
+description: "LLM Connections"
+status: publish
+---
+
 # LLM Connections
 
 Connect MDDB to AI agents and LLM tools for RAG (Retrieval-Augmented Generation) and knowledge base workflows.

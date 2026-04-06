@@ -1,3 +1,10 @@
+---
+title: "GitHub Pages Setup"
+slug: "docs/github-pages"
+description: "GitHub Pages Setup"
+status: publish
+---
+
 # GitHub Pages Setup
 
 This document explains how to enable GitHub Pages for the MDDB website.

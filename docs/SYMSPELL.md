@@ -1,3 +1,10 @@
+---
+title: "Spell Correction (SymSpell-style)"
+slug: "docs/symspell"
+description: "Spell Correction (SymSpell-style)"
+status: publish
+---
+
 # Spell Correction (SymSpell-style)
 
 MDDB includes a lightweight spell checker that can automatically correct FTS search queries and on-demand document content. It uses Levenshtein distance with frequency-weighted candidate ranking — similar to SymSpell — implemented on top of the existing `agnivade/levenshtein` library (no extra dependencies).

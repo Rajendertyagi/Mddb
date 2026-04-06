@@ -1,3 +1,10 @@
+---
+title: "MDDB Usage Examples"
+slug: "docs/examples"
+description: "MDDB Usage Examples"
+status: publish
+---
+
 # MDDB Usage Examples
 
 ## Basic Operations
