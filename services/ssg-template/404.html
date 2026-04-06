@@ -1,0 +1,81 @@
+{{define "page_slug"}}{{end}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>404 – Page Not Found | MDDB</title>
+    <link rel="canonical" href="https://{{.Domain}}/" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/svg+xml"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📝</text></svg>">
+    <style>
+        .not-found {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 2rem;
+            background: var(--bg, #ffffff);
+            color: var(--text, #0f172a);
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .not-found__code {
+            font-size: 8rem;
+            font-weight: 700;
+            line-height: 1;
+            color: var(--primary, #2563eb);
+            margin-bottom: 1rem;
+        }
+        .not-found__title {
+            font-size: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+        .not-found__desc {
+            color: var(--text-secondary, #475569);
+            margin-bottom: 2rem;
+            max-width: 400px;
+        }
+        .not-found__links {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .not-found__links a {
+            padding: 0.6rem 1.4rem;
+            border-radius: 0.5rem;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: opacity 0.15s;
+        }
+        .not-found__links a:hover { opacity: 0.8; }
+        .btn-primary {
+            background: var(--primary, #2563eb);
+            color: #fff;
+        }
+        .btn-secondary {
+            border: 1px solid var(--border, #e2e8f0);
+            color: var(--text, #0f172a);
+        }
+    </style>
+</head>
+<body>
+    <div class="not-found">
+        <div class="not-found__code">404</div>
+        <h1 class="not-found__title">Page not found</h1>
+        <p class="not-found__desc">The page you're looking for doesn't exist or has been moved.</p>
+        <div class="not-found__links">
+            <a href="/" class="btn-primary">Home</a>
+            <a href="/docs/quickstart/" class="btn-secondary">Quickstart</a>
+            <a href="/docs/api/" class="btn-secondary">API Docs</a>
+        </div>
+    </div>
+</body>
+</html>
