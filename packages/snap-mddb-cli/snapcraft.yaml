@@ -1,0 +1,38 @@
+name: mddb-cli
+title: MDDB CLI
+version: "2.9.2"
+summary: Command-line client for MDDB Markdown Database
+description: |
+  mddb is the official command-line interface for MDDB (Markdown Database).
+  Connect to a running mddbd server to manage collections, documents,
+  run queries, import/export data and more.
+
+  Usage: mddb --server http://localhost:11023 <command>
+
+grade: stable
+confinement: strict
+base: core24
+architectures:
+  - build-on: amd64
+  - build-on: arm64
+
+apps:
+  mddb:
+    command: bin/mddb
+    plugs:
+      - network
+      - home
+
+parts:
+  mddb-cli:
+    plugin: go
+    source: ../../services/mddb-cli
+    source-type: local
+    build-snaps:
+      - go/1.24/stable
+    build-environment:
+      - CGO_ENABLED: "0"
+      - GOFLAGS: "-trimpath"
+    override-build: |
+      cd $CRAFT_PART_SRC
+      go build -ldflags="-s -w -X main.Version=${CRAFT_PROJECT_VERSION}" -o $CRAFT_PART_INSTALL/bin/mddb .
