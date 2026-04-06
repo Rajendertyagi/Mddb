@@ -1,0 +1,56 @@
+name: Deploy Docs to Cloudflare Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - 'content/**'
+      - 'packages/ssg-template/**'
+      - '.ssg.yaml'
+      - 'scripts/ssg-prep.sh'
+  workflow_dispatch:
+
+env:
+  SSG_VERSION: '1.7.8'
+  CLOUDFLARE_PROJECT: mddb-docs
+
+jobs:
+  deploy:
+    name: Build & Deploy Docs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install SSG
+        run: |
+          curl -sSL \
+            "https://github.com/spagu/ssg/releases/download/v${SSG_VERSION}/ssg-linux-amd64.tar.gz" \
+            -o ssg.tar.gz
+          tar -xzf ssg.tar.gz
+          chmod +x ssg
+          sudo mv ssg /usr/local/bin/ssg
+          ssg --version
+
+      - name: Run SSG prep
+        if: hashFiles('scripts/ssg-prep.sh') != ''
+        run: bash scripts/ssg-prep.sh
+
+      - name: Build site
+        run: |
+          ssg --config .ssg.yaml --clean --minify-all
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy docs --project-name=${{ env.CLOUDFLARE_PROJECT }} --commit-dirty=true
