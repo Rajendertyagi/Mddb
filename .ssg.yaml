@@ -3,14 +3,14 @@
 # Prep:  bash scripts/ssg-prep.sh   (generates content from docs/)
 # Prod:  ssg --config .ssg.yaml --clean --minify-all
 
-source: docs
-content-dir: content
+source: .
+content_dir: docs
 template: ssg-template
-templateDir: services
+templates_dir: services
 domain: mddb.tradik.com
-output-dir: dist
+output_dir: dist
 port: 8888
-post-url-format: slug
-page-format: directory
+post_url_format: slug
+page_format: directory
 http: true
 watch: true
