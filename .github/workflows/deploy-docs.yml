@@ -52,4 +52,4 @@ jobs:
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          command: pages deploy docs --project-name=${{ env.CLOUDFLARE_PROJECT }} --commit-dirty=true
+          command: pages deploy dist --project-name=${{ env.CLOUDFLARE_PROJECT }} --commit-dirty=true

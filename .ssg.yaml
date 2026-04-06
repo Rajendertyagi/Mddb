@@ -1,0 +1,16 @@
+# SSG configuration for MDDB documentation site
+# Dev:   ssg --config .ssg.yaml
+# Prep:  bash scripts/ssg-prep.sh   (generates content from docs/)
+# Prod:  ssg --config .ssg.yaml --clean --minify-all
+
+source: docs
+content-dir: content
+template: ssg-template
+templateDir: services
+domain: mddb.tradik.com
+output-dir: dist
+port: 8888
+post-url-format: slug
+page-format: directory
+http: true
+watch: true

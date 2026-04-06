@@ -1,6 +1,6 @@
 name = "mddb-docs"
 account_id = "9428d66e62f1c561eb9884c675409755"
-pages_build_output_dir = "docs"
+pages_build_output_dir = "dist"
 
 [env.production]
 name = "mddb-docs"
