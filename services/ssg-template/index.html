@@ -55,7 +55,7 @@
         "priceCurrency": "USD"
       },
       "description": "AI-native knowledge base with built-in MCP server, vector search, RAG support, and semantic retrieval for AI agents and LLM workflows",
-      "softwareVersion": "2.9.6",
+      "softwareVersion": "2.9.7",
       "featureList": [
         "Built-in MCP server (2025-11-25) with 72 tools, tool annotations, prompts, completion, structured output — stdio, Streamable HTTP, SSE transports for Claude, Cursor, Windsurf, ChatGPT, Ollama, DeepSeek",
         "Vector/semantic search with 6 index algorithms: Flat, HNSW, IVF, PQ, SQ, BQ + per-collection int8/int4 quantization (OpenAI, Ollama, Cohere, Voyage AI)",
@@ -327,7 +327,8 @@
                 </div>
                 <div
                     style="max-width: 1200px; margin: 0 auto; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
-                    <img src="/images/panel.png" alt="MDDB Web Admin Panel" style="width: 100%; height: auto; display: block;">
+                    <img src="/images/panel.png" alt="MDDB Web Admin Panel"
+                        style="width: 100%; height: auto; display: block;">
                 </div>
                 <div style="text-align: center; margin-top: 40px;">
                     <div
@@ -436,8 +437,8 @@ make docker-up
                                 <span class="terminal-title">bash — binary</span>
                             </div>
                             <pre><code id="binary-download-code" data-terminal="bash"># Download binary
-wget https://github.com/tradik/mddb/releases/download/v2.9.6/mddbd-v2.9.6-linux-amd64.tar.gz
-tar -xzf mddbd-v2.9.6-linux-amd64.tar.gz
+wget https://github.com/tradik/mddb/releases/download/v2.9.7/mddbd-v2.9.7-linux-amd64.tar.gz
+tar -xzf mddbd-v2.9.7-linux-amd64.tar.gz
 
 # Run server
 ./mddbd
@@ -533,23 +534,26 @@ make build
                             <p class="pkg-label">🍺 Homebrew <span class="pkg-platform">macOS &amp; Linux</span></p>
                             <pre><code>brew tap tradik/tap
 brew install tradik/tap/mddb</code></pre>
-                            <a href="https://github.com/tradik/homebrew-tap" class="package-link" target="_blank" rel="noopener">View Tap on GitHub →</a>
+                            <a href="https://github.com/tradik/homebrew-tap" class="package-link" target="_blank"
+                                rel="noopener">View Tap on GitHub →</a>
                         </div>
                         <div class="pkg-section">
                             <p class="pkg-label">🐧 Snap <span class="pkg-platform">Linux</span></p>
                             <pre><code>sudo snap install mddbd
 sudo snap install mddb-cli</code></pre>
-                            <a href="https://snapcraft.io/mddbd" class="package-link" target="_blank" rel="noopener">View on Snap Store →</a>
+                            <a href="https://snapcraft.io/mddbd" class="package-link" target="_blank"
+                                rel="noopener">View on Snap Store →</a>
                         </div>
                         <div class="pkg-section">
                             <p class="pkg-label">🐳 Docker <span class="pkg-platform">All platforms</span></p>
                             <pre><code id="docker-pull-code">docker pull tradik/mddb:latest</code></pre>
-                            <a href="https://hub.docker.com/r/tradik/mddb" class="package-link" target="_blank" rel="noopener">View on Docker Hub →</a>
+                            <a href="https://hub.docker.com/r/tradik/mddb" class="package-link" target="_blank"
+                                rel="noopener">View on Docker Hub →</a>
                         </div>
                     </div>
                 </div>
                 <div class="release-notes">
-                    <h3 id="whats-new-header">What's New in v2.9.6</h3>
+                    <h3 id="whats-new-header">What's New in v2.9.7</h3>
                     <ul>
                         <li>✏️ <strong>Partial Document Update</strong> - <code>PATCH /v1/update</code> to update
                             metadata and/or content independently without re-sending entire document</li>
@@ -585,7 +589,8 @@ sudo snap install mddb-cli</code></pre>
                             <li><a href="/docs/api/swagger.html">API Documentation</a><span
                                     class="docs-badge">Interactive</span><span class="docs-desc">Swagger UI for all
                                     endpoints</span></li>
-                            <li><a href="/docs/api/openapi.yaml">OpenAPI Spec</a><span class="docs-desc">Machine-readable API
+                            <li><a href="/docs/api/openapi.yaml">OpenAPI Spec</a><span
+                                    class="docs-desc">Machine-readable API
                                     specification</span></li>
                             <li><a href="/docs/examples/">Examples</a><span class="docs-desc">Code
                                     examples and patterns</span></li>
@@ -606,14 +611,14 @@ sudo snap install mddb-cli</code></pre>
                             <li><a href="/docs/rag-pipeline/">RAG Pipeline</a><span class="docs-badge">New</span><span
                                     class="docs-desc">WordPress → MDDB → LLM
                                     guide</span></li>
-                            <li><a href="/docs/llm-connections/">LLM Connections</a><span class="docs-badge">New</span><span
-                                    class="docs-desc">Claude, ChatGPT, Ollama,
+                            <li><a href="/docs/llm-connections/">LLM Connections</a><span
+                                    class="docs-badge">New</span><span class="docs-desc">Claude, ChatGPT, Ollama,
                                     DeepSeek, Manus, Bielik.ai</span></li>
                             <li><a href="/docs/mcp/">MCP Server Config</a><span class="docs-badge">New</span><span
                                     class="docs-desc">API keys, rate limits, logging,
                                     access modes</span></li>
-                            <li><a href="/docs/custom-tools/">Custom MCP Tools</a><span class="docs-badge">New</span><span
-                                    class="docs-desc">YAML-defined website-specific
+                            <li><a href="/docs/custom-tools/">Custom MCP Tools</a><span
+                                    class="docs-badge">New</span><span class="docs-desc">YAML-defined website-specific
                                     AI tools</span></li>
                             <li><a href="/docs/integrations/">Integrations</a><span class="docs-badge">New</span><span
                                     class="docs-desc">Docling, Langflow, OpenSearch
@@ -631,26 +636,30 @@ sudo snap install mddb-cli</code></pre>
                             <li><a href="/docs/replication/">Replication</a><span class="docs-badge">New</span><span
                                     class="docs-desc">Leader-follower, Docker
                                     Compose, monitoring</span></li>
-                            <li><a href="/docs/telemetry/">Telemetry & Monitoring</a><span class="docs-badge">New</span><span
-                                    class="docs-desc">Prometheus metrics, Grafana
+                            <li><a href="/docs/telemetry/">Telemetry & Monitoring</a><span
+                                    class="docs-badge">New</span><span class="docs-desc">Prometheus metrics, Grafana
                                     dashboards</span></li>
-                            <li><a href="/docs/healthcheck/">Health Checks</a><span class="docs-desc">Docker & Kubernetes
+                            <li><a href="/docs/healthcheck/">Health Checks</a><span class="docs-desc">Docker &
+                                    Kubernetes
                                     monitoring</span></li>
-                            <li><a href="/docs/license-audit/">License Audit</a><span class="docs-desc">Dependency license
+                            <li><a href="/docs/license-audit/">License Audit</a><span class="docs-desc">Dependency
+                                    license
                                     compliance (Trivy)</span></li>
                         </ul>
 
                         <h3 class="docs-group-title">Protocols & Advanced</h3>
                         <ul class="docs-list">
-                            <li><a href="/docs/grpc/">gRPC Guide</a><span class="docs-desc">High-performance protocol</span>
+                            <li><a href="/docs/grpc/">gRPC Guide</a><span class="docs-desc">High-performance
+                                    protocol</span>
                             </li>
                             <li><a href="/docs/schema-validation/">Schema Validation</a><span class="docs-desc">Enforce
                                     metadata structure per collection</span></li>
                             <li><a href="/docs/automations/">Automations</a><span class="docs-badge">New</span><span
                                     class="docs-desc">Triggers, crons, webhooks,
                                     sentiment</span></li>
-                            <li><a href="/docs/temporal-track/">Temporal Tracking</a><span class="docs-badge">New</span><span
-                                    class="docs-desc">Event history, hot-docs leaderboard,
+                            <li><a href="/docs/temporal-track/">Temporal Tracking</a><span
+                                    class="docs-badge">New</span><span class="docs-desc">Event history, hot-docs
+                                    leaderboard,
                                     activity histograms</span></li>
                             <li><a href="/docs/symspell/">Spell Correction</a><span class="docs-badge">New</span><span
                                     class="docs-desc">SymSpell FTS corrections, custom
@@ -1010,7 +1019,7 @@ graph LR
                 <div class="footer-section">
                     <h4>MDDB</h4>
                     <p>AI-native knowledge base</p>
-                    <p class="footer-version" id="footer-version">Version 2.9.6</p>
+                    <p class="footer-version" id="footer-version">Version 2.9.7</p>
                 </div>
                 <div class="footer-section">
                     <h4>Documentation</h4>
@@ -1051,7 +1060,7 @@ graph LR
 
     <script defer>
         // Single source of truth for version — change here to update everywhere
-        const MDDB_VERSION = '2.9.6';
+        const MDDB_VERSION = '2.9.7';
         const MDDB_RELEASE_DATE = 'March 10, 2026';
 
         // Replace all version references in the page
