@@ -23,11 +23,9 @@
             <header class="doc-header">
                 <h1 class="doc-title">{{.Page.Title}}</h1>
             </header>
-            <!-- htmlmin:ignore -->
             <div class="doc-body">
                 {{.Page.Content | safeHTML}}
             </div>
-            <!-- /htmlmin:ignore -->
             <footer class="doc-footer">
                 <a href="https://github.com/tradik/mddb/edit/main/docs/{{.Page.Slug}}.md" target="_blank" rel="noopener" class="doc-edit-link">Edit this page on GitHub</a>
             </footer>
@@ -40,10 +38,21 @@
 <script type="module">
 import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
 mermaid.initialize({ startOnLoad: false, theme: 'neutral' });
+
+function restoreMermaidNewlines(text) {
+    // Sequence diagram keywords that must start a new line
+    text = text.replace(/\s+(participant|actor|Note\s+(?:over|left of|right of)|loop|alt|else|opt|par|critical|break|rect|end|activate|deactivate|autonumber)\s/g, '\n$1 ');
+    // Sequence and flowchart arrows
+    text = text.replace(/\s+(-->>|->>|-->|->|--x|-x|===>|==>|-.->)/g, '\n$1');
+    // Flowchart style / classDef / linkStyle
+    text = text.replace(/\s+(style|classDef|linkStyle|click)\s+/g, '\n$1 ');
+    return text.trim();
+}
+
 document.querySelectorAll('pre code.language-mermaid').forEach(function(el) {
     var div = document.createElement('div');
     div.className = 'mermaid';
-    div.textContent = el.textContent;
+    div.textContent = restoreMermaidNewlines(el.textContent);
     el.parentElement.replaceWith(div);
 });
 mermaid.run();
