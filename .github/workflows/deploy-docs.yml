@@ -6,14 +6,12 @@ on:
       - main
     paths:
       - 'docs/**'
-      - 'content/**'
-      - 'packages/ssg-template/**'
+      - 'services/ssg-template/**'
       - '.ssg.yaml'
-      - 'scripts/ssg-prep.sh'
   workflow_dispatch:
 
 env:
-  SSG_VERSION: '1.7.8'
+  SSG_VERSION: '1.7.9'
   CLOUDFLARE_PROJECT: mddb-docs
 
 jobs:
@@ -40,13 +38,11 @@ jobs:
           sudo mv ssg /usr/local/bin/ssg
           ssg --version
 
-      - name: Run SSG prep
-        if: hashFiles('scripts/ssg-prep.sh') != ''
-        run: bash scripts/ssg-prep.sh
+      - name: Prepare metadata
+        run: echo '{"categories":[],"media":[],"users":[]}' > docs/metadata.json
 
       - name: Build site
-        run: |
-          ssg --config .ssg.yaml --clean --minify-all
+        run: ssg --config .ssg.yaml --clean --minify-all
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
