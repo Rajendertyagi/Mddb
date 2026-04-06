@@ -14,3 +14,15 @@ post_url_format: slug
 page_format: directory
 http: false
 watch: false
+
+# Build optimization
+webp: true
+minify_all: true
+clean: true
+
+# Enable sitemap and robots.txt generation
+sitemap_off: false
+robots_off: false
+
+# Template engine (Go templates)
+engine: "go"
