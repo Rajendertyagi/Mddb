@@ -34,5 +34,18 @@
 </div>
 
 {{template "footer" .}}
+<!-- htmlmin:ignore -->
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+mermaid.initialize({ startOnLoad: false, theme: 'neutral' });
+document.querySelectorAll('pre code.language-mermaid').forEach(function(el) {
+    var div = document.createElement('div');
+    div.className = 'mermaid';
+    div.textContent = el.textContent;
+    el.parentElement.replaceWith(div);
+});
+mermaid.run();
+</script>
+<!-- /htmlmin:ignore -->
 </body>
 </html>
