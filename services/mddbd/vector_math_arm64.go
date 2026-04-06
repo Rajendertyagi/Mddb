@@ -1,4 +1,4 @@
-//go:build arm64 && !nosme
+//go:build arm64 && !nosme && cgo
 
 package main
 
