@@ -7,16 +7,16 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/tradik/mddb)](https://hub.docker.com/r/tradik/mddb)
 [![Tests](https://github.com/tradik/mddb/workflows/Tests/badge.svg)](https://github.com/tradik/mddb/actions)
 
-**AI-native document database with built-in MCP server, file upload (PDF/DOCX/HTML/ODT/RTF/TEX/YAML→Markdown), vector search, RAG pipelines, and 54 MCP tools. Plugs directly into Claude, ChatGPT, Cursor, Windsurf, and any MCP-compatible agent.**
+**AI-native document database with built-in MCP server, file upload (PDF/DOCX/HTML/ODT/RTF/TEX/YAML→Markdown), vector search, RAG pipelines, and 72 MCP tools. Plugs directly into Claude, ChatGPT, Cursor, Windsurf, and any MCP-compatible agent.**
 
-MDDB is a document database purpose-built for AI agents and LLM workflows. Upload files (PDF, DOCX, HTML, ODT, RTF, TEX, YAML, TXT) — they're auto-converted to Markdown and embedded for semantic search. Expose everything to AI agents via 54 built-in MCP tools. Integrates with [Docling](docs/INTEGRATIONS.md#1-docling--mddb-document-ingestion), [Langflow](docs/INTEGRATIONS.md#2-langflow--mddb-visual-rag-orchestration), [OpenSearch](docs/INTEGRATIONS.md#3-opensearch--mddb-scalable-search), [SSG](docs/INTEGRATIONS.md#4-ssg--static-site-generator-from-mddb), and [wpexporter](docs/INTEGRATIONS.md#5-wpexporter--wordpress-to-mddb-migration) for production pipelines. Single ~29MB binary, zero configuration, BoltDB embedded storage, triple-protocol APIs (HTTP + gRPC + GraphQL).
+MDDB is a document database purpose-built for AI agents and LLM workflows. Upload files (PDF, DOCX, HTML, ODT, RTF, TEX, YAML, TXT) — they're auto-converted to Markdown and embedded for semantic search. Expose everything to AI agents via 72 built-in MCP tools. Integrates with [Docling](docs/INTEGRATIONS.md#1-docling--mddb-document-ingestion), [Langflow](docs/INTEGRATIONS.md#2-langflow--mddb-visual-rag-orchestration), [OpenSearch](docs/INTEGRATIONS.md#3-opensearch--mddb-scalable-search), [SSG](docs/INTEGRATIONS.md#4-ssg--static-site-generator-from-mddb), and [wpexporter](docs/INTEGRATIONS.md#5-wpexporter--wordpress-to-mddb-migration) for production pipelines. Single ~29MB binary, zero configuration, BoltDB embedded storage, triple-protocol APIs (HTTP + gRPC + GraphQL).
 
 ## 🎯 What is MDDB?
 
 MDDB gives your AI agents a persistent, searchable knowledge base:
 
 - **File Upload** - Upload PDF, DOCX, HTML, ODT, RTF, TEX, YAML, TXT files — auto-converted to Markdown and indexed
-- **Built-in MCP Server** - 54 tools for Claude Desktop, Cursor, Windsurf, or any MCP client
+- **Built-in MCP Server** - 72 tools for Claude Desktop, Cursor, Windsurf, or any MCP client
 - **Vector Search** - Auto-embed documents, semantic similarity with 6 index algorithms (Flat, HNSW, IVF, PQ, SQ, BQ) + per-collection quantization (int8/int4)
 - **RAG-Ready** - Hybrid search (BM25 + vector) for retrieval-augmented generation
 - **Memory RAG** - Conversational memory system: store, recall, and summarize chat sessions with semantic search
@@ -81,7 +81,7 @@ MDDB has a built-in MCP server — no extra service needed. Add to your MCP conf
 }
 ```
 
-That's it — your AI agent now has full access to your knowledge base with 54 built-in tools (add, search, vector search, classify, and more).
+That's it — your AI agent now has full access to your knowledge base with 72 built-in tools (add, search, vector search, classify, and more).
 
 **[→ Full MCP setup guide](docs/LLM_CONNECTIONS.md)** | **[→ MCP server config](docs/MCP.md)** | **[→ Custom MCP tools](docs/CUSTOM-TOOLS.md)**
 
@@ -223,7 +223,7 @@ Proto definitions at `proto/mddb.proto` - generate clients for any language supp
 ## 💡 Key Features
 
 ### AI & Search
-- ✅ **MCP Server** - 54 built-in tools via Model Context Protocol 2025-11-25 (stdio + Streamable HTTP + SSE) with tool annotations, prompts, completion, and structured output
+- ✅ **MCP Server** - 72 built-in tools via Model Context Protocol 2025-11-25 (stdio + Streamable HTTP + SSE) with tool annotations, prompts, completion, and structured output
 - ✅ **File Upload** - Upload PDF, DOCX, HTML, ODT, RTF, TEX, YAML, TXT — auto-converted to Markdown (single and batch, configurable size limit)
 - ✅ **Vector Search** - Semantic similarity with auto-embeddings (OpenAI, Ollama, Cohere, Voyage)
 - ✅ **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, BM25F, PMISparse scoring, 7 search modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), typo tolerance, metadata pre-filtering, multi-language stemming and stop words (18 languages)
@@ -241,6 +241,8 @@ Proto definitions at `proto/mddb.proto` - generate clients for any language supp
 - ✅ **Collection Checksum** - Lightweight CRC32 checksum per collection for cache invalidation
 - ✅ **Partial Document Update** - Update metadata and/or content independently
 - ✅ **Document TTL** - Time-to-live with automatic cleanup
+- ✅ **Temporal Tracking** - Document event history (create/update/access), hot-docs leaderboard, activity histograms (env `MDDB_TEMPORAL=true`)
+- ✅ **Spell Correction** - SymSpell-based FTS spell suggestions, text cleanup, per-collection custom dictionaries (env `MDDB_SPELL=true`)
 - ✅ **Automation** - Triggers, crons, webhooks with template variables, sentiment analysis, execution logs
 - ✅ **Multi-language** - Same key, multiple languages
 - ✅ **Schema Validation** - JSON Schema validation per collection
@@ -490,6 +492,8 @@ mddb-cli stats
 - **[PMISparse](docs/PMISPARSE.md)** - Two-phase BM25 + PPMI query expansion (invented by Tradik Limited)
 - **[Webhooks](docs/WEBHOOKS.md)** - Event-driven integration
 - **[Automations](docs/AUTOMATIONS.md)** - Triggers, crons, webhooks, sentiment, template variables
+- **[Temporal Tracking](docs/TEMPORAL-TRACK.md)** - Document event history, hot-docs leaderboard, activity histograms
+- **[Spell Correction](docs/SYMSPELL.md)** - SymSpell FTS spell suggestions, text cleanup, custom dictionaries
 - **[Authentication](docs/AUTH.md)** - JWT & API keys, RBAC
 - **[Web Panel](docs/PANEL.md)** - Admin UI guide
 - **[LLM Connections](docs/LLM_CONNECTIONS.md)** - MCP for Claude, ChatGPT, Ollama, DeepSeek
