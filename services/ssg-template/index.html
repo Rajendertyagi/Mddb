@@ -957,15 +957,14 @@ $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
                     </p>
                 </div>
                 <div style="max-width: 700px; margin: 0 auto; text-align: center;">
-                    <pre class="mermaid"
-                        style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <pre class="mermaid" style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
 graph LR
     C[Clients] -->|Writes/Reads| L[Leader]
     C -->|Reads| F1[Follower 1]
     C -->|Reads| F2[Follower 2]
     L -->|gRPC binlog stream| F1
     L -->|gRPC binlog stream| F2
-</pre>
+                    </pre>
                     <div style="margin-top: 30px;">
                         <a href="/docs/replication/" class="btn btn-primary">Read Replication Guide</a>
                     </div>
