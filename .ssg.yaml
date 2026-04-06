@@ -1,10 +1,10 @@
 # SSG configuration for MDDB documentation site
-# Dev:   ssg --config .ssg.yaml
-# Prep:  bash scripts/ssg-prep.sh   (generates content from docs/)
-# Prod:  ssg --config .ssg.yaml --clean --minify-all
+# Dev:  ssg --config .ssg.yaml
+# Prod: ssg --config .ssg.yaml --clean --minify-all
 
 source: .
 content_dir: docs
+pages_path: .
 template: ssg-template
 templates_dir: services
 domain: mddb.tradik.com
