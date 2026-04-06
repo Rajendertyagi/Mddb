@@ -9,7 +9,7 @@ status: publish
 
 Embed an AI-powered chatbot on any website with a single script tag. RAG-powered answers from your MDDB knowledge base. Supports OpenAI, Claude, Ollama, Bielik, Groq, Mistral, and more.
 
-**[→ Open Live Demo](/chat.html)**
+
 
 ## Features
 
@@ -174,4 +174,4 @@ See the [Website Chat Guide](/uses-website-chat/) for a complete walkthrough wit
 
 - Widget: [`services/mddb-chat-widget`](https://github.com/tradik/mddb/tree/main/services/mddb-chat-widget)
 - Server: [`services/mddb-chat`](https://github.com/tradik/mddb/tree/main/services/mddb-chat)
-- Demo: [`docs/chat.html`](https://github.com/tradik/mddb/blob/main/docs/chat.html)
+
