@@ -22,6 +22,8 @@ Complete reference for all MDDB configuration parameters.
 - [Embedding / Vector Search](#embedding--vector-search)
 - [Vector Index](#vector-index)
 - [Full-Text Search (FTS)](#full-text-search-fts)
+- [Temporal Tracking](#temporal-tracking)
+- [Spell Correction](#spell-correction)
 - [Compression](#compression)
 - [Replication](#replication)
 - [Automation & Triggers](#automation--triggers)
@@ -76,6 +78,33 @@ Complete reference for all MDDB configuration parameters.
 | `MDDB_MCP_STDIO` | `false` | bool | `--mcp-stdio` | Run MCP in stdio mode (for Claude Desktop) |
 | `MDDB_MCP_DOMAIN` | `""` | string | — | MCP server domain |
 | `MDDB_MCP_CONFIG` | `""` | string | — | Path to YAML with custom MCP tool definitions |
+| `MDDB_MCP_BUILTIN_TOOLS` | `true` | bool | — | Set to `false` to expose only custom YAML tools |
+| `MDDB_MCP_MODE` | `"wr"` | string | — | MCP access mode: `"read"`, `"write"`, or `"wr"` |
+
+### MCP API Key Authentication
+
+| Env Var | Default | Type | Description |
+|---------|---------|------|-------------|
+| `MDDB_MCP_API_KEY_ENABLED` | `false` | bool | Enable API key authentication for MCP endpoints |
+| `MDDB_MCP_API_KEYS` | `""` | string | Static API keys: `key1:name1,key2:name2` |
+| `MDDB_MCP_API_KEY_CACHE_TTL` | `"5m"` | duration | Cache TTL for dynamic API key lookups |
+
+### MCP Rate Limiting
+
+| Env Var | Default | Type | Description |
+|---------|---------|------|-------------|
+| `MDDB_MCP_RATE_LIMIT_ENABLED` | `false` | bool | Enable per-client rate limiting for MCP |
+| `MDDB_MCP_RATE_LIMIT_REQUESTS` | `100` | int | Maximum requests per window |
+| `MDDB_MCP_RATE_LIMIT_WINDOW` | `"60s"` | duration | Rate limit time window |
+| `MDDB_MCP_RATE_LIMIT_BURST` | `20` | int | Maximum burst size |
+| `MDDB_MCP_RATE_LIMIT_BY` | `"ip"` | string | Rate limit key: `"ip"`, `"api_key"`, or `"session"` |
+
+### MCP Logging
+
+| Env Var | Default | Type | Description |
+|---------|---------|------|-------------|
+| `MDDB_MCP_LOGGING_ENABLED` | `false` | bool | Enable structured JSON audit logs for MCP requests |
+| `MDDB_MCP_LOGGING_LEVEL` | `"info"` | string | Minimum log level: `"debug"`, `"info"`, `"warn"`, `"error"` |
 
 ---
 
@@ -129,8 +158,10 @@ Complete reference for all MDDB configuration parameters.
 
 | Env Var | Default | Type | Description |
 |---------|---------|------|-------------|
-| `MDDB_VECTOR_DEFAULT_ALGORITHM` | `"flat"` | string | Default algorithm: `"flat"`, `"hnsw"`, `"ivf"`, `"pq"`, `"sq"`, `"bq"` |
+| `MDDB_VECTOR_DEFAULT_ALGORITHM` | `"flat"` | string | Default algorithm: `"flat"`, `"hnsw"`, `"ivf"`, `"pq"`, `"opq"`, `"sq"`, `"bq"` |
 | `MDDB_VECTOR_BQ_RERANK_FACTOR` | `10` | int | Binary quantization rerank factor |
+| `MDDB_VECTOR_PARALLEL_WORKERS` | `NumCPU` (max 16) | int | Number of goroutines for parallel vector scoring |
+| `MDDB_VECTOR_PARALLEL_MIN_SIZE` | `2048` | int | Minimum collection size to enable parallel search |
 
 ---
 
@@ -208,6 +239,27 @@ mcp:
 |---------|---------|------|-------------|
 | `MDDB_FTS_STEMMING` | `true` | bool | Enable Porter stemming for FTS indexing and queries |
 | `MDDB_FTS_SYNONYMS` | `true` | bool | Enable synonym expansion in FTS queries |
+| `MDDB_FTS_DEFAULT_LANG` | `"en"` | string | Default language for stemming and stop words |
+
+---
+
+## Temporal Tracking
+
+| Env Var | Default | Type | Description |
+|---------|---------|------|-------------|
+| `MDDB_TEMPORAL` | `false` | bool | Enable document lifecycle event tracking (create/update/access) |
+
+When enabled, provides endpoints: `POST /v1/temporal/query`, `POST /v1/temporal/hot`, `POST /v1/temporal/histogram`. Per-collection opt-in via Collection Settings (`trackAccess`, `trackHot`).
+
+---
+
+## Spell Correction
+
+| Env Var | Default | Type | Description |
+|---------|---------|------|-------------|
+| `MDDB_SPELL` | `false` | bool | Enable SymSpell-style spell checker for FTS queries |
+
+When enabled, provides endpoints: `POST /v1/spell-suggest`, `POST /v1/spell-cleanup`, `GET/PUT/DELETE /v1/spell-dictionary`. Enable `spellCorrect: true` on a collection for auto-correction.
 
 ---
 
@@ -325,8 +377,27 @@ compression:
 vector:
   defaultAlgorithm: "flat"
   bqRerankFactor: 10
+  parallelWorkers: 0              # 0 = auto (NumCPU, max 16)
+  parallelMinSize: 2048           # min collection size for parallel search
+
+# Temporal Tracking
+temporal: false
+
+# Spell Correction
+spell: false
+
+# MCP Security
+mcp:
+  apiKeyEnabled: false
+  apiKeys: ""
+  rateLimitEnabled: false
+  rateLimitRequests: 100
+  rateLimitWindow: "60s"
+  rateLimitBurst: 20
+  rateLimitBy: "ip"
+  loggingEnabled: false
 ```
 
 ---
 
-**Total: 46 environment variables** across 13 categories, 10 CLI flags, full YAML config file support.
+**Total: 65+ environment variables** across 17 categories, 10 CLI flags, full YAML config file support.

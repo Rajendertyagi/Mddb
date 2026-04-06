@@ -4723,7 +4723,7 @@ components:
           example: false
         algorithm:
           type: string
-          enum: [flat, hnsw, ivf, pq]
+          enum: [flat, hnsw, ivf, pq, opq, sq, bq]
           description: |
             Search algorithm to use (default "flat").
             - **flat**: Exact brute-force cosine similarity (most accurate, slower for large datasets)
@@ -5349,7 +5349,7 @@ components:
           example: bm25
         vectorAlgorithm:
           type: string
-          enum: [flat, hnsw, ivf, pq, sq]
+          enum: [flat, hnsw, ivf, pq, opq, sq, bq]
           description: Vector search algorithm (default "flat")
           default: flat
           example: flat
@@ -6604,7 +6604,7 @@ components:
         algorithm:
           type: string
           description: Vector search algorithm
-          enum: [flat, hnsw, ivf, pq, sq]
+          enum: [flat, hnsw, ivf, pq, opq, sq, bq]
           default: flat
           example: flat
         distanceMetric:

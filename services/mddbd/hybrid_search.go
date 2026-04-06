@@ -18,7 +18,7 @@ type HybridSearchRequest struct {
 	Query           string              `json:"query"`
 	TopK            int                 `json:"topK"`
 	Algorithm       string              `json:"algorithm"`       // FTS algorithm: "bm25" (default), "bm25f"
-	VectorAlgorithm string              `json:"vectorAlgorithm"` // vector algorithm: "flat" (default), "hnsw", "ivf", "pq", "sq"
+	VectorAlgorithm string              `json:"vectorAlgorithm"` // vector algorithm: "flat" (default), "hnsw", "ivf", "pq", "opq", "sq", "bq"
 	Alpha           float64             `json:"alpha"`           // weight for alpha blending: 0=keyword only, 1=semantic only (default 0.5)
 	Strategy        string              `json:"strategy"`        // "alpha" (default) or "rrf"
 	RRFK            int                 `json:"rrfK"`            // RRF parameter k (default 60)

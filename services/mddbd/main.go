@@ -309,6 +309,7 @@ func main() {
 		"hnsw":      NewHNSWIndex(16, 200, 100),
 		"ivf":       NewIVFIndex(10, 20),
 		"pq":        NewPQIndex(8, 256, 20),
+		"opq":       NewOPQIndex(8, 256, 20, 5),
 		"sq":        NewSQIndex(),
 		"bq":        NewBQIndex(bqRerank),
 		"quantized": s.QuantizedVecIndex,

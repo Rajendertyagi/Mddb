@@ -385,7 +385,7 @@ message VectorSearchRequest {
   double threshold = 5;                          // minimum similarity 0-1 (default: 0.0)
   map<string, MetaValues> filter_meta = 6;       // optional metadata pre-filter
   bool include_content = 7;                      // include full content_md in results
-  string algorithm = 8;                          // "flat" (default), "hnsw", "ivf", "pq"
+  string algorithm = 8;                          // "flat" (default), "hnsw", "ivf", "pq", "opq", "sq", "bq"
 }
 
 // Vector search result
@@ -517,7 +517,7 @@ message HybridSearchRequest {
   string query = 2;
   int32 top_k = 3;
   string algorithm = 4;                          // FTS algorithm: "bm25" (default), "bm25f"
-  string vector_algorithm = 5;                   // vector algorithm: "flat" (default), "hnsw", "ivf", "pq", "sq"
+  string vector_algorithm = 5;                   // vector algorithm: "flat" (default), "hnsw", "ivf", "pq", "opq", "sq", "bq"
   double alpha = 6;                              // weight for alpha blending: 0=keyword only, 1=semantic only
   string strategy = 7;                           // "alpha" (default) or "rrf"
   int32 rrf_k = 8;                               // RRF parameter k (default 60)

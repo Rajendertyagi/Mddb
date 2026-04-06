@@ -19,6 +19,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Deterministic ordering with docID tiebreaker for stable results
   - **~2.5x speedup** on 50K×768 (24ms → 9.7ms), **~2.8x** on 50K×1536 (38ms → 13.5ms)
   - New file: `vector_parallel.go`, tests: `vector_parallel_test.go`
+- **OPQ (Optimized Product Quantization)** — New vector index algorithm extending PQ with learned orthogonal rotation matrix.
+  - Decorrelates dimensions before subspace splitting for better quantization quality (~1-3% recall improvement over standard PQ)
+  - Alternating optimization: jointly learns rotation matrix + PQ codebooks (5 iterations default)
+  - Rotation via Procrustes alignment with Gram-Schmidt re-orthogonalization
+  - ADC search on rotated query, re-ranking with exact similarity on original vectors
+  - API: `"algorithm": "opq"` in vector search requests
+  - New file: `vector_opq.go`
+- **Configuration documentation update** — Added 15+ missing environment variables to `docs/config.md`:
+  - `MDDB_VECTOR_PARALLEL_WORKERS`, `MDDB_VECTOR_PARALLEL_MIN_SIZE` (parallel search)
+  - `MDDB_TEMPORAL`, `MDDB_SPELL` (feature toggles)
+  - MCP API key authentication, rate limiting, and logging settings
 
 ## [2.9.7] - 2026-04-06
 
