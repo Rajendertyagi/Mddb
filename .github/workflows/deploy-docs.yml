@@ -50,9 +50,8 @@ jobs:
           content-dir: 'docs'
           templates-dir: 'services'
           output-dir: 'dist'
-          pages-path: '.'
-          post-url-format: 'slug'
-          page-format: 'directory'
+          webp: 'true'
+          webp-quality: '80'
           minify: 'true'
           clean: 'true'
 
