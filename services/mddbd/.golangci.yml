@@ -6,7 +6,9 @@ linters:
     - gosec
     - govet
     - staticcheck
-
-issues:
-  exclude-files:
-    - graphql/generated.go
+  exclusions:
+    rules:
+      - path: graphql/generated.go
+        linters:
+          - gosec
+          - errcheck
