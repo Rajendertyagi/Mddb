@@ -731,6 +731,75 @@ jobs:
           name: homebrew-formulas
           path: homebrew-formula/*.rb
 
+  publish-snap-mddbd:
+    name: Publish mddbd Snap
+    needs: [create-release]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Build snap
+        uses: snapcore/action-build@v1
+        id: build
+        with:
+          path: services/mddbd
+
+      - name: Publish snap to Snap Store
+        uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        with:
+          snap: ${{ steps.build.outputs.snap }}
+          release: stable
+
+  publish-snap-mddb-cli:
+    name: Publish mddb-cli Snap
+    needs: [create-release]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Build snap
+        uses: snapcore/action-build@v1
+        id: build
+        with:
+          path: services/mddb-cli
+
+      - name: Publish snap to Snap Store
+        uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        with:
+          snap: ${{ steps.build.outputs.snap }}
+          release: stable
+
+  publish-snap-mddb-panel:
+    name: Publish mddb-panel Snap
+    needs: [create-release]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Build snap
+        uses: snapcore/action-build@v1
+        id: build
+        with:
+          path: services/mddb-panel
+
+      - name: Publish snap to Snap Store
+        uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        with:
+          snap: ${{ steps.build.outputs.snap }}
+          release: stable
+
   docker-server:
     name: Build Server Docker Image
     needs: [build-server]
@@ -910,7 +979,7 @@ jobs:
 
   release-summary:
     name: Release Summary
-    needs: [create-release, docker-server, docker-panel]
+    needs: [create-release, docker-server, docker-panel, publish-snap-mddbd, publish-snap-mddb-cli, publish-snap-mddb-panel]
     runs-on: ubuntu-latest
     steps:
       - name: Get version
@@ -932,6 +1001,11 @@ jobs:
 
           ### Native Packages
           - GitHub Release: https://github.com/tradik/mddb/releases/tag/${{ steps.meta.outputs.VERSION }}
+
+          ### Snap Store
+          - `snap install mddbd`
+          - `snap install mddb-cli`
+          - `snap install mddb-panel`
 
           ### Docker Images
 
