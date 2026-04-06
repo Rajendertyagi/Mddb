@@ -1,0 +1,42 @@
+{{define "page_slug"}}category/{{.Category.Slug}}{{end}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {{template "head_meta" .}}
+    <meta name="description" content="{{.Category.Description}}">
+    <meta property="og:title" content="{{.Category.Title}} — MDDB Documentation">
+    <meta property="og:url" content="https://{{.Domain}}/category/{{.Category.Slug}}/" />
+    <meta property="twitter:title" content="{{.Category.Title}} — MDDB Documentation">
+    <meta property="twitter:url" content="https://{{.Domain}}/category/{{.Category.Slug}}/" />
+    <link rel="canonical" href="https://{{.Domain}}/category/{{.Category.Slug}}/" />
+    <title>{{.Category.Title}} — MDDB Documentation</title>
+</head>
+<body>
+{{template "gtm_noscript" .}}
+{{template "navbar" .}}
+
+<div class="site-layout">
+    {{template "sidebar" .}}
+    <main id="main-content" class="main-content">
+        <div class="doc-category">
+            <header class="doc-header">
+                <h1 class="doc-title">{{.Category.Title}}</h1>
+                {{if .Category.Description}}
+                <p class="doc-index-lead">{{.Category.Description}}</p>
+                {{end}}
+            </header>
+            <ul class="doc-page-list">
+                {{range .Posts}}
+                <li>
+                    <a href="/{{.Slug}}/">{{.Title}}</a>
+                    {{if .Excerpt}}<span class="doc-page-excerpt">{{.Excerpt}}</span>{{end}}
+                </li>
+                {{end}}
+            </ul>
+        </div>
+    </main>
+</div>
+
+{{template "footer" .}}
+</body>
+</html>

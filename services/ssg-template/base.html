@@ -1,0 +1,148 @@
+{{define "gtm_id"}}GTM-K296KCVM{{end}}
+
+{{define "head_meta"}}
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="index, follow">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://mddb.tradik.com/og-image.png">
+<meta property="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📝</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/docs.css">
+<script>(function (w, d, s, l, i) { w[l] = w[l] || []; w[l].push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' }); var f = d.getElementsByTagName(s)[0], j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f); })(window, document, 'script', 'dataLayer', '{{template "gtm_id" .}}');</script>
+{{end}}
+
+{{define "gtm_noscript"}}
+<noscript><iframe src='https://www.googletagmanager.com/ns.html?id={{template "gtm_id" .}}' height="0" width="0"
+        style="display:none;visibility:hidden"></iframe></noscript>
+{{end}}
+
+{{define "navbar"}}
+<a href="#main-content" class="skip-to-main">Skip to main content</a>
+<nav class="navbar" role="navigation" aria-label="Main navigation">
+    <div class="container">
+        <a href="/" class="nav-brand">
+            <span class="logo" aria-hidden="true">📝</span>
+            <span class="brand-name">MDDB</span>
+        </a>
+        <div class="nav-links" id="nav-links">
+            <a href="/#features">Features</a>
+            <a href="/#download">Download</a>
+            <a href="/#docs">Documentation</a>
+            <a href="/guides/">Use Cases</a>
+            <a href="/#examples">Examples</a>
+            <a href="https://github.com/tradik/mddb" target="_blank" rel="noopener">GitHub</a>
+        </div>
+        <button class="mobile-menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false"
+            aria-controls="nav-links">
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+        </button>
+    </div>
+</nav>
+{{end}}
+
+{{define "sidebar"}}
+<aside class="sidebar" aria-label="Documentation navigation">
+    <div class="sidebar-inner">
+        <div class="sidebar-section">
+            <p class="sidebar-group-title">Getting Started</p>
+            <ul class="sidebar-list">
+                <li><a href="/quickstart/">Quick Start</a></li>
+                <li><a href="/installation/">Installation</a></li>
+                <li><a href="/docker/">Docker</a></li>
+                <li><a href="/architecture/">Architecture</a></li>
+            </ul>
+        </div>
+        <div class="sidebar-section">
+            <p class="sidebar-group-title">Search & AI</p>
+            <ul class="sidebar-list">
+                <li><a href="/search/">Full-Text Search</a></li>
+                <li><a href="/pmisparse/">PMISparse</a></li>
+                <li><a href="/rag-pipeline/">RAG Pipeline</a></li>
+                <li><a href="/llm-connections/">LLM Connections</a></li>
+                <li><a href="/mcp/">MCP Config</a></li>
+                <li><a href="/custom-tools/">Custom Tools</a></li>
+                <li><a href="/integrations/">Integrations</a></li>
+                <li><a href="/embedding-providers/">Embeddings</a></li>
+                <li><a href="/zero-shot-classification/">Zero-Shot</a></li>
+            </ul>
+        </div>
+        <div class="sidebar-section">
+            <p class="sidebar-group-title">API & Protocols</p>
+            <ul class="sidebar-list">
+                <li><a href="/api/">REST API</a></li>
+                <li><a href="/grpc/">gRPC</a></li>
+                <li><a href="/graphql/">GraphQL</a></li>
+                <li><a href="/sse/">SSE</a></li>
+                <li><a href="/schema-validation/">Schema Validation</a></li>
+            </ul>
+        </div>
+        <div class="sidebar-section">
+            <p class="sidebar-group-title">Security & Ops</p>
+            <ul class="sidebar-list">
+                <li><a href="/authentication/">Authentication</a></li>
+                <li><a href="/replication/">Replication</a></li>
+                <li><a href="/telemetry/">Telemetry</a></li>
+                <li><a href="/healthcheck/">Health Checks</a></li>
+                <li><a href="/deployment/">Deployment</a></li>
+            </ul>
+        </div>
+        <div class="sidebar-section">
+            <p class="sidebar-group-title">Advanced</p>
+            <ul class="sidebar-list">
+                <li><a href="/automations/">Automations</a></li>
+                <li><a href="/bulk-import/">Bulk Import</a></li>
+                <li><a href="/examples/">Examples</a></li>
+                <li><a href="/benchmark/">Benchmark</a></li>
+                <li><a href="/comparison/">Comparison</a></li>
+                <li><a href="/wordpress-agent/">WordPress Agent</a></li>
+            </ul>
+        </div>
+        <div class="sidebar-section">
+            <p class="sidebar-group-title">Chat Widget</p>
+            <ul class="sidebar-list">
+                <li><a href="/chat/">Chat Widget</a></li>
+                <li><a href="/chat.html" target="_blank" rel="noopener">Live Demo ↗</a></li>
+            </ul>
+        </div>
+        <div class="sidebar-section">
+            <p class="sidebar-group-title">Guides</p>
+            <ul class="sidebar-list">
+                <li><a href="/guides/">All Guides</a></li>
+                <li><a href="/uses-website-chat/">Website Chat</a></li>
+                <li><a href="/uses-wordpress-analyzer/">WordPress Analyzer</a></li>
+                <li><a href="/uses-youtube-transcribe/">YouTube Transcriber</a></li>
+            </ul>
+        </div>
+        <div class="sidebar-section">
+            <p class="sidebar-group-title">More</p>
+            <ul class="sidebar-list">
+                <li><a href="/api/swagger.html">API Swagger UI</a></li>
+                <li><a href="https://github.com/tradik/mddb" target="_blank" rel="noopener">GitHub</a></li>
+            </ul>
+        </div>
+    </div>
+</aside>
+{{end}}
+
+{{define "footer"}}
+<footer class="footer" role="contentinfo">
+    <div class="container">
+        <div class="footer-bottom">
+            <span>MDDB Documentation</span>
+            <span class="footer-sep">·</span>
+            <a href="https://github.com/tradik/mddb">GitHub</a>
+            <span class="footer-sep">·</span>
+            <span>BSD 3-Clause License</span>
+        </div>
+    </div>
+</footer>
+<script src="/js/main.js"></script>
+{{end}}

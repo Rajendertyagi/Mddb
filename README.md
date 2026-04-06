@@ -465,7 +465,7 @@ mddb-cli stats
 
 ## 📚 Documentation
 
-**🌐 [Official Website](https://tradik.github.io/mddb/)** - Complete documentation, downloads, examples
+**🌐 [Official Website](https://mddb.tradik.com/mddb/)** - Complete documentation, downloads, examples
 
 ### Getting Started
 - **[Quick Start Guide](docs/QUICKSTART.md)** - 5-minute setup
@@ -557,6 +557,6 @@ BSD 3-Clause License - see **[LICENSE](LICENSE)**
 - **[GitHub](https://github.com/tradik/mddb)** - Source code
 - **[Docker Hub](https://hub.docker.com/r/tradik/mddb)** - Container images
 - **[Releases](https://github.com/tradik/mddb/releases)** - Download binaries
-- **[Documentation](https://tradik.github.io/mddb/)** - Full docs
+- **[Documentation](https://mddb.tradik.com/mddb/)** - Full docs
 - **[LLM Connections](docs/LLM_CONNECTIONS.md)** - Claude, ChatGPT, Ollama, DeepSeek, Manus, Bielik.ai
 - **[Issues](https://github.com/tradik/mddb/issues)** - Bug reports

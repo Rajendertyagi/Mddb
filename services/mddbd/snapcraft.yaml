@@ -1,6 +1,6 @@
 name: mddbd
 title: MDDB Server
-version: "2.9.2"
+version: "2.9.6"
 summary: Embedded Markdown database server
 description: |
   MDDB (Markdown Database) is an embedded database server that stores documents
@@ -34,7 +34,7 @@ parts:
     source: .
     source-type: local
     build-snaps:
-      - go/1.24/stable
+      - go/1.26/stable
     build-environment:
       - CGO_ENABLED: "0"
       - GOFLAGS: "-trimpath"

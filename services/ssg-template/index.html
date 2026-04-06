@@ -1,3 +1,4 @@
+{{define "page_slug"}}{{end}}
 <!DOCTYPE html>
 <html lang="en">
 
@@ -13,33 +14,24 @@
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://tradik.github.io/mddb/">
+    <meta property="og:url" content="https://{{.Domain}}/" />
     <meta property="og:title" content="MDDB - AI-Native Knowledge Base with MCP">
     <meta property="og:description"
         content="Knowledge base for AI agents with built-in MCP server, vector search, RAG, and semantic retrieval. Single binary, zero config.">
-    <meta property="og:image" content="https://tradik.github.io/mddb/og-image.png">
+    <meta property="og:image" content="https://mddb.tradik.com/og-image.png">
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="https://tradik.github.io/mddb/">
+    <meta property="twitter:url" content="https://mddb.tradik.com/">
     <meta property="twitter:title" content="MDDB - AI-Native Knowledge Base with MCP">
     <meta property="twitter:description"
         content="Knowledge base for AI agents with built-in MCP server, vector search, RAG, and semantic retrieval. Single binary, zero config.">
-    <meta property="twitter:image" content="https://tradik.github.io/mddb/og-image.png">
+    <meta property="twitter:image" content="https://mddb.tradik.com/og-image.png">
 
-    <!-- Google Tag Manager -->
-    <script>(function (w, d, s, l, i) {
-            w[l] = w[l] || []; w[l].push({
-                'gtm.start':
-                    new Date().getTime(), event: 'gtm.js'
-            }); var f = d.getElementsByTagName(s)[0],
-                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
-                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
-        })(window, document, 'script', 'dataLayer', 'GTM-K296KCVM');</script>
-    <!-- End Google Tag Manager -->
+    <script>(function (w, d, s, l, i) { w[l] = w[l] || []; w[l].push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' }); var f = d.getElementsByTagName(s)[0], j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f); })(window, document, 'script', 'dataLayer', '{{template "gtm_id" .}}');</script>
 
     <title>MDDB - AI-Native Knowledge Base with Built-in MCP Server</title>
-    <link rel="canonical" href="https://tradik.github.io/mddb/">
+    <link rel="canonical" href="https://{{.Domain}}/" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -100,35 +92,8 @@
 </head>
 
 <body>
-    <!-- Google Tag Manager (noscript) -->
-    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-K296KCVM" height="0" width="0"
-            style="display:none;visibility:hidden"></iframe></noscript>
-    <!-- End Google Tag Manager (noscript) -->
-    <a href="#main-content" class="skip-to-main">Skip to main content</a>
-    <!-- Navigation -->
-    <nav class="navbar">
-        <div class="container">
-            <a href="#" class="nav-brand" onclick="window.scrollTo({top:0,behavior:'smooth'});return false;">
-                <span class="logo">📝</span>
-                <span class="brand-name">MDDB</span>
-            </a>
-            <div class="nav-links">
-                <a href="#features">Features</a>
-                <a href="#download">Download</a>
-                <a href="#docs">Documentation</a>
-                <a href="#use-cases">Use Cases</a>
-                <a href="#examples">Examples</a>
-                <a href="chat.html">Chat Widget</a>
-                <a href="https://github.com/tradik/mddb" target="_blank" rel="noopener">GitHub</a>
-            </div>
-            <button class="mobile-menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
-                <span class="sr-only">Menu</span>
-                <span aria-hidden="true"></span>
-                <span aria-hidden="true"></span>
-                <span aria-hidden="true"></span>
-            </button>
-        </div>
-    </nav>
+    {{template "gtm_noscript" .}}
+    {{template "navbar" .}}
 
     <!-- Main Content -->
     <main id="main-content">
@@ -198,7 +163,8 @@
                         <li>Zero-shot document classification using embedding cosine similarity</li>
                         <li>Custom MCP tools defined in YAML for domain-specific AI workflows</li>
                         <li>RAG pipeline: auto-embed on ingest, semantic retrieval, MCP exposure to LLMs</li>
-                        <li>Memory RAG: conversational memory with session management, semantic recall, and summarization</li>
+                        <li>Memory RAG: conversational memory with session management, semantic recall, and
+                            summarization</li>
                         <li>Triple protocol: HTTP/JSON REST API, gRPC/Protobuf, GraphQL</li>
                         <li>Multi-format upload: .md, .txt, .html, .pdf, .docx, .odt, .rtf, .tex, .yaml with
                             auto-conversion to Markdown</li>
@@ -596,79 +562,79 @@ docker pull tradik/mddb:2.9.6</code></pre>
                     <div class="docs-col">
                         <h3 class="docs-group-title">Getting Started</h3>
                         <ul class="docs-list">
-                            <li><a href="md-viewer.html?doc=QUICKSTART.md">Quick Start</a><span class="docs-desc">Get up
+                            <li><a href="/quickstart/">Quick Start</a><span class="docs-desc">Get up
                                     and running in 5 minutes</span></li>
-                            <li><a href="swagger.html">API Documentation</a><span
+                            <li><a href="/api/swagger.html">API Documentation</a><span
                                     class="docs-badge">Interactive</span><span class="docs-desc">Swagger UI for all
                                     endpoints</span></li>
-                            <li><a href="openapi.yaml">OpenAPI Spec</a><span class="docs-desc">Machine-readable API
+                            <li><a href="/api/openapi.yaml">OpenAPI Spec</a><span class="docs-desc">Machine-readable API
                                     specification</span></li>
-                            <li><a href="md-viewer.html?doc=EXAMPLES.md">Examples</a><span class="docs-desc">Code
+                            <li><a href="/examples/">Examples</a><span class="docs-desc">Code
                                     examples and patterns</span></li>
-                            <li><a href="md-viewer.html?doc=DOCKER.md">Docker Guide</a><span class="docs-desc">Container
+                            <li><a href="/docker/">Docker Guide</a><span class="docs-desc">Container
                                     deployment</span></li>
-                            <li><a href="md-viewer.html?doc=ARCHITECTURE.md">Architecture</a><span
-                                    class="docs-desc">System design and internals</span></li>
+                            <li><a href="/architecture/">Architecture</a><span class="docs-desc">System design and
+                                    internals</span></li>
                         </ul>
 
                         <h3 class="docs-group-title">Search & AI</h3>
                         <ul class="docs-list">
-                            <li><a href="md-viewer.html?doc=SEARCH.md">Search Algorithms</a><span
-                                    class="docs-badge">New</span><span class="docs-desc">TF-IDF, BM25, BM25F, Flat,
+                            <li><a href="/search/">Search Algorithms</a><span class="docs-badge">New</span><span
+                                    class="docs-desc">TF-IDF, BM25, BM25F, Flat,
                                     HNSW, IVF, PQ, SQ, BQ</span></li>
-                            <li><a href="md-viewer.html?doc=PMISPARSE.md">PMISparse</a><span
-                                    class="docs-badge">New</span><span class="docs-desc">BM25 + PPMI query expansion
+                            <li><a href="/pmisparse/">PMISparse</a><span class="docs-badge">New</span><span
+                                    class="docs-desc">BM25 + PPMI query expansion
                                     (Tradik Limited)</span></li>
-                            <li><a href="md-viewer.html?doc=RAG-PIPELINE.md">RAG Pipeline</a><span
-                                    class="docs-badge">New</span><span class="docs-desc">WordPress → MDDB → LLM
+                            <li><a href="/rag-pipeline/">RAG Pipeline</a><span class="docs-badge">New</span><span
+                                    class="docs-desc">WordPress → MDDB → LLM
                                     guide</span></li>
-                            <li><a href="md-viewer.html?doc=LLM_CONNECTIONS.md">LLM Connections</a><span
-                                    class="docs-badge">New</span><span class="docs-desc">Claude, ChatGPT, Ollama,
+                            <li><a href="/llm-connections/">LLM Connections</a><span class="docs-badge">New</span><span
+                                    class="docs-desc">Claude, ChatGPT, Ollama,
                                     DeepSeek, Manus, Bielik.ai</span></li>
-                            <li><a href="md-viewer.html?doc=MCP.md">MCP Server Config</a><span
-                                    class="docs-badge">New</span><span class="docs-desc">API keys, rate limits, logging,
+                            <li><a href="/mcp/">MCP Server Config</a><span class="docs-badge">New</span><span
+                                    class="docs-desc">API keys, rate limits, logging,
                                     access modes</span></li>
-                            <li><a href="md-viewer.html?doc=CUSTOM-TOOLS.md">Custom MCP Tools</a><span
-                                    class="docs-badge">New</span><span class="docs-desc">YAML-defined website-specific
+                            <li><a href="/custom-tools/">Custom MCP Tools</a><span class="docs-badge">New</span><span
+                                    class="docs-desc">YAML-defined website-specific
                                     AI tools</span></li>
-                            <li><a href="md-viewer.html?doc=INTEGRATIONS.md">Integrations</a><span
-                                    class="docs-badge">New</span><span class="docs-desc">Docling, Langflow, OpenSearch
+                            <li><a href="/integrations/">Integrations</a><span class="docs-badge">New</span><span
+                                    class="docs-desc">Docling, Langflow, OpenSearch
                                     pipelines</span></li>
                         </ul>
                     </div>
                     <div class="docs-col">
                         <h3 class="docs-group-title">Security & Operations</h3>
                         <ul class="docs-list">
-                            <li><a href="md-viewer.html?doc=AUTHENTICATION.md">Authentication & RBAC</a><span
+                            <li><a href="/authentication/">Authentication & RBAC</a><span
                                     class="docs-badge">New</span><span class="docs-desc">JWT tokens, API keys,
                                     role-based access</span></li>
-                            <li><a href="md-viewer.html?doc=AUTH_QUICKSTART.md">Auth Quick Start</a><span
-                                    class="docs-desc">5-minute authentication setup</span></li>
-                            <li><a href="md-viewer.html?doc=REPLICATION.md">Replication</a><span
-                                    class="docs-badge">New</span><span class="docs-desc">Leader-follower, Docker
+                            <li><a href="/auth-quickstart/">Auth Quick Start</a><span class="docs-desc">5-minute
+                                    authentication setup</span></li>
+                            <li><a href="/replication/">Replication</a><span class="docs-badge">New</span><span
+                                    class="docs-desc">Leader-follower, Docker
                                     Compose, monitoring</span></li>
-                            <li><a href="md-viewer.html?doc=TELEMETRY.md">Telemetry & Monitoring</a><span
-                                    class="docs-badge">New</span><span class="docs-desc">Prometheus metrics, Grafana
+                            <li><a href="/telemetry/">Telemetry & Monitoring</a><span class="docs-badge">New</span><span
+                                    class="docs-desc">Prometheus metrics, Grafana
                                     dashboards</span></li>
-                            <li><a href="md-viewer.html?doc=HEALTHCHECK.md">Health Checks</a><span
-                                    class="docs-desc">Docker & Kubernetes monitoring</span></li>
-                            <li><a href="md-viewer.html?doc=LICENSE_AUDIT.md">License Audit</a><span
-                                    class="docs-desc">Dependency license compliance (Trivy)</span></li>
+                            <li><a href="/healthcheck/">Health Checks</a><span class="docs-desc">Docker & Kubernetes
+                                    monitoring</span></li>
+                            <li><a href="/license-audit/">License Audit</a><span class="docs-desc">Dependency license
+                                    compliance (Trivy)</span></li>
                         </ul>
 
                         <h3 class="docs-group-title">Protocols & Advanced</h3>
                         <ul class="docs-list">
-                            <li><a href="md-viewer.html?doc=GRPC.md">gRPC Guide</a><span
-                                    class="docs-desc">High-performance protocol</span></li>
-                            <li><a href="md-viewer.html?doc=SCHEMA-VALIDATION.md">Schema Validation</a><span
-                                    class="docs-desc">Enforce metadata structure per collection</span></li>
-                            <li><a href="md-viewer.html?doc=AUTOMATIONS.md">Automations</a><span
-                                    class="docs-badge">New</span><span class="docs-desc">Triggers, crons, webhooks,
+                            <li><a href="/grpc/">gRPC Guide</a><span class="docs-desc">High-performance protocol</span>
+                            </li>
+                            <li><a href="/schema-validation/">Schema Validation</a><span class="docs-desc">Enforce
+                                    metadata structure per collection</span></li>
+                            <li><a href="/automations/">Automations</a><span class="docs-badge">New</span><span
+                                    class="docs-desc">Triggers, crons, webhooks,
                                     sentiment</span></li>
-                            <li><a href="md-viewer.html?doc=WORDPRESS-AGENT.md">WordPress AI Agent</a><span
+                            <li><a href="/wordpress-agent/">WordPress AI Agent</a><span
                                     class="docs-badge">New</span><span class="docs-desc">Build a chatbot for your WP
                                     site</span></li>
-                            <li><a href="chat.html">Chat Widget</a><span class="docs-badge">New</span><span
+                            <li><a href="/chat/">Chat Widget</a><span class="docs-badge">New</span><span
                                     class="docs-desc">Embeddable AI chatbot powered by MDDB</span></li>
                         </ul>
                     </div>
@@ -945,64 +911,6 @@ $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
             </div>
         </section>
 
-        <!-- Use Cases Section -->
-        <section id="use-cases" class="use-cases">
-            <div class="container">
-                <h2>Use Cases <a href="#use-cases" class="anchor-link" aria-label="Link to Use Cases section">#</a></h2>
-                <div class="use-cases-grid">
-                    <div class="use-case">
-                        <h3>🧠 AI Agent Memory</h3>
-                        <p>Built-in Memory RAG: store conversation sessions, recall context with semantic search, and
-                            summarize past interactions — 6 dedicated MCP tools for conversational memory</p>
-                    </div>
-                    <div class="use-case">
-                        <h3>🤖 RAG Pipelines</h3>
-                        <p>Semantic vector search + hybrid retrieval + auto-embeddings. Purpose-built for
-                            retrieval-augmented generation</p>
-                    </div>
-                    <div class="use-case">
-                        <h3>💬 Documentation Chatbots</h3>
-                        <p>Import docs, embed them automatically, expose via MCP — instant AI-powered support</p>
-                    </div>
-                    <div class="use-case">
-                        <h3>📝 Content Management</h3>
-                        <p>Blogs, docs, and knowledge bases with version control, webhooks, and TTL</p>
-                    </div>
-                    <div class="use-case">
-                        <h3>🔔 Event-Driven Apps</h3>
-                        <p>Webhooks trigger HTTP callbacks on doc changes for real-time sync and notifications</p>
-                    </div>
-                    <div class="use-case">
-                        <h3>🌐 Multi-language Sites</h3>
-                        <p>Store and manage content in multiple languages with the same document key</p>
-                    </div>
-                </div>
-                <h3 style="text-align:center; margin-top:48px; margin-bottom:24px;">Step-by-Step Guides</h3>
-                <div class="use-cases-grid">
-                    <div class="use-case">
-                        <h3>💬 Website Chat</h3>
-                        <p>Add an AI chatbot to any website — runs locally with Docker and Ollama, no cloud API fees</p>
-                        <a href="md-viewer.html?doc=uses/website-chat.md" class="btn btn-secondary"
-                            style="margin-top:12px;">Read Guide →</a>
-                    </div>
-                    <div class="use-case">
-                        <h3>📰 WordPress Analyzer</h3>
-                        <p>Export WordPress content into MDDB, then analyze it with Claude CLI — find broken links,
-                            missing meta, duplicates</p>
-                        <a href="md-viewer.html?doc=uses/wordpress-analyzer.md" class="btn btn-secondary"
-                            style="margin-top:12px;">Read Guide →</a>
-                    </div>
-                    <div class="use-case">
-                        <h3>🎬 YouTube Transcriber</h3>
-                        <p>Scan transcripts from a YouTube channel, load them into MDDB, then ask questions with Claude
-                            CLI</p>
-                        <a href="md-viewer.html?doc=uses/youtube-transcribe.md" class="btn btn-secondary"
-                            style="margin-top:12px;">Read Guide →</a>
-                    </div>
-                </div>
-            </div>
-        </section>
-
         <!-- Replication Section -->
         <section id="replication" class="replication" style="background-color: #f8fafc; padding: 80px 0;">
             <div class="container">
@@ -1026,7 +934,7 @@ graph LR
     L -->|gRPC binlog stream| F2
 </pre>
                     <div style="margin-top: 30px;">
-                        <a href="md-viewer.html?doc=REPLICATION.md" class="btn btn-primary">Read Replication Guide</a>
+                        <a href="/replication/" class="btn btn-primary">Read Replication Guide</a>
                     </div>
                 </div>
             </div>
@@ -1083,10 +991,10 @@ graph LR
                 <div class="footer-section">
                     <h4>Documentation</h4>
                     <ul>
-                        <li><a href="md-viewer.html?doc=QUICKSTART.md">Quick Start</a></li>
-                        <li><a href="swagger.html">API Docs</a></li>
-                        <li><a href="md-viewer.html?doc=EXAMPLES.md">Examples</a></li>
-                        <li><a href="md-viewer.html?doc=ARCHITECTURE.md">Architecture</a></li>
+                        <li><a href="/quickstart/">Quick Start</a></li>
+                        <li><a href="/api/swagger.html">API Docs</a></li>
+                        <li><a href="/examples/">Examples</a></li>
+                        <li><a href="/architecture/">Architecture</a></li>
                     </ul>
                 </div>
                 <div class="footer-section">

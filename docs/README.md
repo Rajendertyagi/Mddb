@@ -4,7 +4,7 @@ This directory contains the documentation for MDDB.
 
 ## GitHub Pages
 
-The documentation is published at: https://tradik.github.io/mddb/
+The documentation is published at: https://mddb.tradik.com/mddb/
 
 ### Markdown Viewer
 
@@ -14,7 +14,7 @@ All `.md` files are automatically rendered using `md-viewer.html`, which uses:
 
 Usage: `md-viewer.html?doc=FILENAME.md`
 
-Example: https://tradik.github.io/mddb/md-viewer.html?doc=QUICKSTART.md
+Example: https://mddb.tradik.com/mddb/md-viewer.html?doc=QUICKSTART.md
 
 Welcome to the MDDB documentation! This guide will help you understand, deploy, and use MDDB effectively.
 

@@ -1,4 +1,4 @@
-.PHONY: help dev-start dev-stop dev-logs dev-build dev-clean test lint fmt vet sec test-graphql lint-all test-all ci chat-build chat-dev chat-test widget-build widget-dev dev-logs-chat
+.PHONY: help dev-start dev-stop dev-logs dev-build dev-clean test lint fmt vet sec test-graphql lint-all test-all ci chat-build chat-dev chat-test widget-build widget-dev dev-logs-chat docs-prep docs-dev docs-build
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -132,5 +132,24 @@ widget-dev: ## Run widget dev server
 
 version: ## Show current version
 	@echo "MDDB Version: 2.9.6"
+
+docs-prep: ## Generate SSG content from docs/ (adds frontmatter to all .md files)
+	@bash scripts/ssg-prep.sh
+
+docs-dev: docs-prep ## Start SSG docs server in watch mode on :8888
+	@ssg docs ssg-template mddb.tradik.com \
+	  --content-dir=content \
+	  --templates-dir=packages \
+	  --output-dir=docs \
+	  --http \
+	  --watch \
+	  --port=8888
+
+docs-build: docs-prep ## Build static documentation site into docs/
+	@ssg docs ssg-template mddb.tradik.com \
+	  --content-dir=content \
+	  --templates-dir=packages \
+	  --output-dir=docs \
+	  --minify-all
 
 .DEFAULT_GOAL := help

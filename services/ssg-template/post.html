@@ -1,0 +1,41 @@
+{{define "page_slug"}}{{.Post.Slug}}{{end}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {{template "head_meta" .}}
+    <meta name="description" content="{{.Post.Excerpt}}">
+    <meta property="og:title" content="{{.Post.Title}} — MDDB Documentation">
+    <meta property="og:description" content="{{.Post.Excerpt}}">
+    <meta property="og:url" content="https://{{.Domain}}/{{.Post.Slug}}/" />
+    <meta property="twitter:title" content="{{.Post.Title}} — MDDB Documentation">
+    <meta property="twitter:url" content="https://{{.Domain}}/{{.Post.Slug}}/" />
+    <link rel="canonical" href="https://{{.Domain}}/{{.Post.Slug}}/" />
+    <title>{{.Post.Title}} — MDDB Documentation</title>
+</head>
+<body>
+{{template "gtm_noscript" .}}
+{{template "navbar" .}}
+
+<div class="site-layout">
+    {{template "sidebar" .}}
+    <main id="main-content" class="main-content">
+        <article class="doc-article">
+            <header class="doc-header">
+                <h1 class="doc-title">{{.Post.Title}}</h1>
+                {{if .Post.Date}}
+                <time class="doc-date" datetime="{{.Post.Date.Format "2006-01-02"}}">{{.Post.Date.Format "2 January 2006"}}</time>
+                {{end}}
+            </header>
+            <div class="doc-body">
+                {{.Post.Content | safeHTML}}
+            </div>
+            <footer class="doc-footer">
+                <a href="https://github.com/tradik/mddb/edit/main/docs/{{.Post.Slug}}.md" target="_blank" rel="noopener" class="doc-edit-link">Edit this page on GitHub</a>
+            </footer>
+        </article>
+    </main>
+</div>
+
+{{template "footer" .}}
+</body>
+</html>

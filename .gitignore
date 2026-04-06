@@ -107,3 +107,12 @@ services/mddb-chat/target/
 
 # Chat widget build artifacts
 services/mddb-chat-widget/dist/
+
+# SSG generated output and temp content
+output/
+output-custom/
+output-test/
+output-test2/
+.ssg-output/
+content/docs/pages/
+docs/metadata.json

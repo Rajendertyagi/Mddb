@@ -1,0 +1,38 @@
+{{define "page_slug"}}{{.Page.Slug}}{{end}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {{template "head_meta" .}}
+    <meta name="description" content="{{.Page.Excerpt}}">
+    <meta property="og:title" content="{{.Page.Title}} — MDDB Documentation">
+    <meta property="og:description" content="{{.Page.Excerpt}}">
+    <meta property="og:url" content="https://{{.Domain}}/{{.Page.Slug}}/" />
+    <meta property="twitter:title" content="{{.Page.Title}} — MDDB Documentation">
+    <meta property="twitter:url" content="https://{{.Domain}}/{{.Page.Slug}}/" />
+    <link rel="canonical" href="https://{{.Domain}}/{{.Page.Slug}}/" />
+    <title>{{.Page.Title}} — MDDB Documentation</title>
+</head>
+<body>
+{{template "gtm_noscript" .}}
+{{template "navbar" .}}
+
+<div class="site-layout">
+    {{template "sidebar" .}}
+    <main id="main-content" class="main-content">
+        <article class="doc-article">
+            <header class="doc-header">
+                <h1 class="doc-title">{{.Page.Title}}</h1>
+            </header>
+            <div class="doc-body">
+                {{.Page.Content | safeHTML}}
+            </div>
+            <footer class="doc-footer">
+                <a href="https://github.com/tradik/mddb/edit/main/docs/{{.Page.Slug}}.md" target="_blank" rel="noopener" class="doc-edit-link">Edit this page on GitHub</a>
+            </footer>
+        </article>
+    </main>
+</div>
+
+{{template "footer" .}}
+</body>
+</html>
