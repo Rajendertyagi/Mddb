@@ -58,7 +58,7 @@
       "softwareVersion": "2.9.8",
       "featureList": [
         "Built-in MCP server (2025-11-25) with 72 tools, tool annotations, prompts, completion, structured output — stdio, Streamable HTTP, SSE transports for Claude, Cursor, Windsurf, ChatGPT, Ollama, DeepSeek",
-        "Vector/semantic search with 6 index algorithms: Flat, HNSW, IVF, PQ, OPQ, SQ, BQ + per-collection int8/int4 quantization (OpenAI, Ollama, Cohere, Voyage AI)",
+        "Vector/semantic search with 7 index algorithms: Flat, HNSW, IVF, PQ, OPQ, SQ, BQ + per-collection int8/int4 quantization (OpenAI, Ollama, Cohere, Voyage AI)",
         "Hybrid search combining sparse BM25 + dense vector with alpha blending and Reciprocal Rank Fusion",
         "Full-text search with TF-IDF, BM25, BM25F, PMISparse scoring, 7 search modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), multi-language stemming (18 languages), and typo tolerance",
         "Zero-shot document classification using embedding cosine similarity",
@@ -151,7 +151,7 @@
                     <ul>
                         <li>Built-in MCP server with 72 tools — connects to Claude, Cursor, Windsurf, ChatGPT, Ollama,
                             DeepSeek, Manus via stdio and HTTP transport</li>
-                        <li>Vector/semantic search with 6 index algorithms: Flat (exact), HNSW, IVF, PQ, SQ, BQ —
+                        <li>Vector/semantic search with 7 index algorithms: Flat (exact), HNSW, IVF, PQ, OPQ, SQ, BQ —
                             supports OpenAI, Ollama, Cohere, Voyage AI embeddings + per-collection int8/int4
                             quantization (4-8x compression)</li>
                         <li>Full-text search with 7 modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy),
@@ -233,7 +233,7 @@
                             <span class="feat-label">Search</span>
                             <h3>Hybrid Search Engine</h3>
                             <p>Full-text with 7 search modes (simple, boolean, phrase, wildcard, proximity, range,
-                                fuzzy) + vector search with 6 index types. Multi-language stemming for 18 languages.
+                                fuzzy) + vector search with 7 index types. Multi-language stemming for 18 languages.
                                 Combine with
                                 alpha blending or Reciprocal Rank Fusion. Metadata pre-filtering, typo tolerance.</p>
                             <ul class="feat-tags">
