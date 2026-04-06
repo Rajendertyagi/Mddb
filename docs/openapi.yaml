@@ -68,7 +68,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: "2.9.7"
+  version: "2.9.8"
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -4723,7 +4723,7 @@ components:
           example: false
         algorithm:
           type: string
-          enum: [flat, hnsw, ivf, pq]
+          enum: [flat, hnsw, ivf, pq, opq, sq, bq]
           description: |
             Search algorithm to use (default "flat").
             - **flat**: Exact brute-force cosine similarity (most accurate, slower for large datasets)
@@ -5349,7 +5349,7 @@ components:
           example: bm25
         vectorAlgorithm:
           type: string
-          enum: [flat, hnsw, ivf, pq, sq]
+          enum: [flat, hnsw, ivf, pq, opq, sq, bq]
           description: Vector search algorithm (default "flat")
           default: flat
           example: flat
@@ -5676,7 +5676,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.9.7
+          example: 2.9.8
         uptimeSeconds:
           type: integer
           format: int64
@@ -5740,7 +5740,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.9.7
+          example: 2.9.8
         databasePath:
           type: string
           description: Path to the database file
@@ -6604,7 +6604,7 @@ components:
         algorithm:
           type: string
           description: Vector search algorithm
-          enum: [flat, hnsw, ivf, pq, sq]
+          enum: [flat, hnsw, ivf, pq, opq, sq, bq]
           default: flat
           example: flat
         distanceMetric:

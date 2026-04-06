@@ -24,7 +24,7 @@ import (
 )
 
 // VERSION is the current release version of the MDDB server.
-const VERSION = "2.9.7"
+const VERSION = "2.9.8"
 
 // AccessMode defines the database access mode (read, write, or both).
 type AccessMode string
@@ -309,6 +309,7 @@ func main() {
 		"hnsw":      NewHNSWIndex(16, 200, 100),
 		"ivf":       NewIVFIndex(10, 20),
 		"pq":        NewPQIndex(8, 256, 20),
+		"opq":       NewOPQIndex(8, 256, 20, 5),
 		"sq":        NewSQIndex(),
 		"bq":        NewBQIndex(bqRerank),
 		"quantized": s.QuantizedVecIndex,

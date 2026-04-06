@@ -408,7 +408,7 @@ curl -X POST http://localhost:11023/v1/fts \
 
 ## Vector Search
 
-Vector search embeds the query text into a high-dimensional vector and finds documents with the most similar embeddings using cosine similarity. Similarity computation is hardware-accelerated on ARM64 via NEON (all ARM64) and SME (Apple M4+) SIMD instructions, with automatic runtime detection and fallback to scalar Go on other platforms.
+Vector search embeds the query text into a high-dimensional vector and finds documents with the most similar embeddings using cosine similarity. Similarity computation is hardware-accelerated on ARM64 via NEON (all ARM64) and SME (Apple M4+) SIMD instructions, with automatic runtime detection and fallback to scalar Go on other platforms. Search is parallelized across multiple goroutines for collections above 2048 vectors (~2.5x speedup on 50K collections).
 
 ### Flat (default)
 
@@ -465,6 +465,20 @@ Compresses vectors by splitting them into subspaces and quantizing each subspace
 
 **When to use:** Very large collections (> 500K documents) where memory is the primary constraint. Re-ranks top candidates with exact cosine for better accuracy.
 
+### OPQ (Optimized Product Quantization)
+
+Extends PQ by learning an orthogonal rotation matrix that decorrelates dimensions before subspace splitting. Jointly optimizes rotation and codebooks via alternating optimization.
+
+| Property | Value |
+|----------|-------|
+| Accuracy | ~88-97% recall (~1-3% better than PQ) |
+| Speed | Fast (same ADC as PQ, rotated query) |
+| Memory | ~32x compression (same as PQ) |
+| Build time | O(n * iterations * opqIter) |
+| Parameters | 8 subspaces, 256 codebook entries, 5 optimization iterations |
+
+**When to use:** Same use case as PQ but when higher recall is needed. The rotation learning adds training time but search speed is identical to PQ.
+
 ### SQ (Scalar Quantization)
 
 Compresses vectors by quantizing each float32 dimension to uint8 (8-bit). Simpler than PQ with better accuracy but less compression.
@@ -501,6 +515,7 @@ Extreme compression by converting each float32 dimension to a single bit (1 if p
 | HNSW | ~97% | Fast | ~2x | 10K-1M docs |
 | IVF | ~94% | Medium | ~1.1x | 100K+ docs |
 | PQ | ~90% | Fast | ~0.03x | 500K+ docs, low memory |
+| OPQ | ~93% | Fast | ~0.03x | 500K+ docs, higher recall than PQ |
 | SQ | ~95% | Fast | ~0.25x | 50K+ docs, balanced |
 | BQ | ~85% | Very fast | ~0.008x | 1M+ docs, speed-first |
 
@@ -632,7 +647,7 @@ score = 1/(k + rank_fts) + 1/(k + rank_vector)
 | `alpha` | `0.5` | Weight for alpha blending (0-1) |
 | `rrfK` | `60` | RRF k parameter |
 | `algorithm` | `"bm25"` | FTS algorithm: `"bm25"`, `"bm25f"`, `"pmisparse"` |
-| `vectorAlgorithm` | `"flat"` | Vector algorithm: `"flat"`, `"hnsw"`, `"ivf"`, `"pq"`, `"sq"` |
+| `vectorAlgorithm` | `"flat"` | Vector algorithm: `"flat"`, `"hnsw"`, `"ivf"`, `"pq"`, `"opq"`, `"sq"`, `"bq"` |
 | `topK` | `10` | Number of results to return |
 | `fuzzy` | `0` | Typo tolerance for FTS (0, 1, 2) |
 | `threshold` | `0.0` | Minimum vector similarity |

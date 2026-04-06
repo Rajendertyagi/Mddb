@@ -20,7 +20,7 @@ type VectorSearcher interface {
 	IsReady() bool
 	// SetReady marks the index as ready for queries.
 	SetReady()
-	// Name returns the algorithm name (e.g. "flat", "hnsw", "ivf", "pq").
+	// Name returns the algorithm name (e.g. "flat", "hnsw", "ivf", "pq", "opq", "sq", "bq").
 	Name() string
 }
 

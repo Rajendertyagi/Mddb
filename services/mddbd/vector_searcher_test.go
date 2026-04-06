@@ -391,6 +391,7 @@ func TestVectorSearchersEmptyCollection(t *testing.T) {
 		{"HNSWIndex", NewHNSWIndex(16, 200, 100)},
 		{"IVFIndex", NewIVFIndex(2, 10)},
 		{"PQIndex", NewPQIndex(4, 16, 10)},
+		{"OPQIndex", NewOPQIndex(4, 16, 10, 3)},
 	}
 
 	for _, impl := range implementations {
@@ -446,6 +447,7 @@ func TestVectorSearchersRemove(t *testing.T) {
 		{"HNSWIndex", NewHNSWIndex(16, 200, 100)},
 		{"IVFIndex", NewIVFIndex(2, 10)},
 		{"PQIndex", NewPQIndex(4, 16, 10)},
+		{"OPQIndex", NewOPQIndex(4, 16, 10, 3)},
 	}
 
 	for _, impl := range implementations {
@@ -509,6 +511,7 @@ func TestTrainableInterface(t *testing.T) {
 	}{
 		{"IVFIndex", NewIVFIndex(2, 10)},
 		{"PQIndex", NewPQIndex(4, 16, 10)},
+		{"OPQIndex", NewOPQIndex(4, 16, 10, 3)},
 	}
 
 	for _, tr := range trainables {

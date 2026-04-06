@@ -234,6 +234,7 @@ export default function HybridSearchPanel() {
               <option value="hnsw">HNSW (Approximate)</option>
               <option value="ivf">IVF (Clustered)</option>
               <option value="pq">PQ (Compressed)</option>
+              <option value="opq">OPQ (Optimized PQ)</option>
               <option value="sq">SQ (Scalar Quantized)</option>
               <option value="bq">BQ (Binary Quantized)</option>
             </select>

@@ -149,6 +149,7 @@ func (idx *IVFIndex) Train(collection string, vectors map[string][]float32) {
 }
 
 // Search implements the VectorSearcher interface.
+// Uses goroutine parallelism when probed clusters contain enough vectors.
 func (idx *IVFIndex) Search(collection string, query []float32, topK int, threshold float64, metric SimilarityFunc) []VectorResult {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
@@ -164,33 +165,13 @@ func (idx *IVFIndex) Search(collection string, query []float32, topK int, thresh
 		metric = cosineSimilarity
 	}
 
-	// Find nProbe nearest centroids
 	probeIndices := nearestNCentroids(query, c.centroids, idx.nProbe)
 
-	// Search within those clusters
-	results := make([]VectorResult, 0, topK)
-	for _, ci := range probeIndices {
-		if ci >= len(c.clusters) {
-			continue
-		}
-		for docID, vec := range c.clusters[ci] {
-			score := metric(query, vec)
-			if float64(score) >= threshold {
-				results = append(results, VectorResult{DocID: docID, Score: score})
-			}
-		}
-	}
-
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].Score > results[j].Score
-	})
-	if len(results) > topK {
-		results = results[:topK]
-	}
-	return results
+	return idx.searchClusters(c, query, topK, threshold, metric, probeIndices, nil)
 }
 
 // SearchWithFilter implements the VectorSearcher interface.
+// Uses goroutine parallelism when probed clusters contain enough vectors.
 func (idx *IVFIndex) SearchWithFilter(collection string, query []float32, topK int, threshold float64, allowed map[string]bool, metric SimilarityFunc) []VectorResult {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
@@ -208,13 +189,81 @@ func (idx *IVFIndex) SearchWithFilter(collection string, query []float32, topK i
 
 	probeIndices := nearestNCentroids(query, c.centroids, idx.nProbe)
 
+	filter := func(docID string) bool {
+		return allowed[baseDocID(docID)]
+	}
+	return idx.searchClusters(c, query, topK, threshold, metric, probeIndices, filter)
+}
+
+// searchClusters searches probed clusters, using parallel goroutines when
+// the total probed vectors exceed the parallel threshold.
+func (idx *IVFIndex) searchClusters(c *ivfCollection, query []float32, topK int, threshold float64, metric SimilarityFunc, probeIndices []int, filter func(string) bool) []VectorResult {
+	// Count total vectors in probed clusters
+	totalVectors := 0
+	for _, ci := range probeIndices {
+		if ci < len(c.clusters) {
+			totalVectors += len(c.clusters[ci])
+		}
+	}
+
+	// Parallel: one goroutine per cluster when enough data
+	if totalVectors >= parallelSearchConfig.minSize && len(probeIndices) >= 2 {
+		partials := make([][]VectorResult, len(probeIndices))
+		var wg sync.WaitGroup
+		wg.Add(len(probeIndices))
+
+		for wi, ci := range probeIndices {
+			go func(workerID, clusterIdx int) {
+				defer wg.Done()
+				if clusterIdx >= len(c.clusters) {
+					return
+				}
+				cluster := c.clusters[clusterIdx]
+				local := make([]VectorResult, 0, len(cluster))
+				for docID, vec := range cluster {
+					if filter != nil && !filter(docID) {
+						continue
+					}
+					score := metric(query, vec)
+					if float64(score) >= threshold {
+						local = append(local, VectorResult{DocID: docID, Score: score})
+					}
+				}
+				partials[workerID] = local
+			}(wi, ci)
+		}
+
+		wg.Wait()
+
+		total := 0
+		for _, p := range partials {
+			total += len(p)
+		}
+		merged := make([]VectorResult, 0, total)
+		for _, p := range partials {
+			merged = append(merged, p...)
+		}
+
+		sort.Slice(merged, func(i, j int) bool {
+			if merged[i].Score != merged[j].Score {
+				return merged[i].Score > merged[j].Score
+			}
+			return merged[i].DocID < merged[j].DocID
+		})
+		if len(merged) > topK {
+			merged = merged[:topK]
+		}
+		return merged
+	}
+
+	// Sequential path
 	results := make([]VectorResult, 0, topK)
 	for _, ci := range probeIndices {
 		if ci >= len(c.clusters) {
 			continue
 		}
 		for docID, vec := range c.clusters[ci] {
-			if !allowed[baseDocID(docID)] {
+			if filter != nil && !filter(docID) {
 				continue
 			}
 			score := metric(query, vec)
