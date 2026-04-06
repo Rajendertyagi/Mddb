@@ -1,141 +1,125 @@
 ---
-title: "Spell Correction (SymSpell-style)"
+title: "FTS Spell Correction"
 slug: "docs/symspell"
-description: "Spell Correction (SymSpell-style)"
+description: "SymSpell-based spell correction for full-text search with per-collection custom dictionaries"
 status: publish
 ---
 
-# Spell Correction (SymSpell-style)
+# FTS Spell Correction
 
-MDDB includes a lightweight spell checker that can automatically correct FTS search queries and on-demand document content. It uses Levenshtein distance with frequency-weighted candidate ranking — similar to SymSpell — implemented on top of the existing `agnivade/levenshtein` library (no extra dependencies).
+MDDB includes a SymSpell-based spell checker that improves full-text search recall by correcting typos before querying the FTS index.
 
-## Feature Flags
+## Enable
 
-| Environment variable | Default | Description |
-|---|---|---|
-| `MDDB_SPELL` | `false` | Enable spell checking (`true` to enable) |
+Spell correction is **disabled by default**. Enable it via environment variable:
 
-Per-collection opt-in via Collection Settings (panel) or `PUT /v1/collection-config`:
+```bash
+MDDB_SPELL=true mddbd
+```
 
-| Field | Type | Description |
-|---|---|---|
-| `spellCorrect` | bool | Auto-correct FTS queries for this collection |
-| `spellLang` | string | Override the language used for spell correction (defaults to query `lang`) |
+Or with Docker:
 
-## API Endpoints
+```yaml
+environment:
+  MDDB_SPELL: "true"
+```
 
-### POST /v1/spell-suggest
+When enabled, MDDB builds a frequency dictionary from all indexed documents at startup. The index loads in the background — queries return `503` until ready.
 
-Returns token-level spell correction suggestions.
+## Endpoints
 
-**Request:**
+### Spell Suggestions
+
+`POST /v1/spell-suggest`
+
+Returns per-token suggestions and a corrected version of the input text.
+
 ```json
 {
-  "collection": "docs",
-  "text": "Docuemnt retreival systtem",
+  "collection": "articles",
+  "text": "quikc brwon fox",
   "lang": "en",
-  "maxSuggestions": 5
+  "maxSuggestions": 3
 }
 ```
 
+| Field | Required | Description |
+|-------|----------|-------------|
+| `text` | ✓ | Input text to check |
+| `lang` | ✓ | Language code (`en`, `pl`, `de`, …) |
+| `collection` | — | Scope to collection's custom dictionary |
+| `maxSuggestions` | — | Max suggestions per token (default 5) |
+
 **Response:**
+
 ```json
 {
-  "originalText": "Docuemnt retreival systtem",
-  "suggestedText": "document retrieval system",
+  "originalText": "quikc brwon fox",
+  "suggestedText": "quick brown fox",
   "tokenSuggestions": [
-    { "original": "Docuemnt",  "corrected": "document",  "confidence": 0.65 },
-    { "original": "retreival", "corrected": "retrieval", "confidence": 0.65 },
-    { "original": "systtem",   "corrected": "system",    "confidence": 0.65 }
+    { "token": "quikc", "suggestions": ["quick"] },
+    { "token": "brwon", "suggestions": ["brown"] }
   ]
 }
 ```
 
-> Returns HTTP 503 while the spell index is loading on startup.
+### Apply Corrections
 
----
+`POST /v1/spell-cleanup`
 
-### POST /v1/spell-cleanup
-
-Applies the best correction to each token and returns the cleaned text.
-
-**Request:**
-```json
-{ "collection": "docs", "text": "Ths is bad speling", "lang": "en" }
-```
-
-**Response:**
-```json
-{ "original": "Ths is bad speling", "cleaned": "This is bad spelling", "correctionsApplied": 2 }
-```
-
----
-
-### GET /v1/spell-dictionary?collection=blog&lang=en
-
-Returns all custom dictionary words for a collection+language.
-
----
-
-### PUT /v1/spell-dictionary
-
-Adds words to the custom dictionary. Custom words are never spell-corrected (treated as valid domain terms).
-
-```json
-{ "collection": "blog", "lang": "en", "words": ["mddb", "boltdb", "grpc"] }
-```
-
----
-
-### DELETE /v1/spell-dictionary
-
-Removes words from the custom dictionary.
-
-```json
-{ "collection": "blog", "lang": "en", "words": ["grpc"] }
-```
-
-## Auto-correction in FTS
-
-When `spellCorrect: true` is set on a collection, `POST /v1/fts` will automatically correct the query before executing the search. The response includes a `spellCorrected` field:
+Applies the best correction for each token and returns cleaned text.
 
 ```json
 {
-  "results": [...],
-  "spellCorrected": {
-    "original": "docuemnt retreival",
-    "corrected": "document retrieval"
-  }
+  "collection": "articles",
+  "text": "quikc brwon fox",
+  "lang": "en"
 }
 ```
 
-The panel's FTS Search view shows a badge above results when a correction was applied.
+**Response:**
 
-## Storage
+```json
+{
+  "original": "quikc brwon fox",
+  "cleaned": "quick brown fox",
+  "correctionsApplied": 2
+}
+```
 
-Custom dictionaries are persisted in a `spelldicts` BoltDB bucket:
+### Custom Dictionary
 
-| Key format | Value |
-|---|---|
-| `{lang}\|{word}` | 4-byte frequency (uint32 LE) — global lang dict |
-| `col\|{collection}\|{lang}\|{word}` | 4-byte frequency (uint32 LE) — collection-specific |
+#### List — `GET /v1/spell-dictionary?lang=en&collection=articles`
 
-On startup all words are loaded asynchronously into in-memory frequency maps. The API returns HTTP 503 until loading is complete.
+#### Add — `PUT /v1/spell-dictionary`
 
-## Token Filtering
+```json
+{
+  "collection": "articles",
+  "lang": "en",
+  "words": ["MDDB", "mddbd", "SymSpell"],
+  "frequency": 500
+}
+```
 
-Only tokens that are:
-- At least 3 characters long
-- Not purely numeric
-- Not URL-like (contain `/`, `:`, `.`, `@`)
+Higher `frequency` gives words stronger priority. Default is `100`.
 
-...are considered for spell correction. Proper nouns, UUIDs, and code identifiers are generally left unchanged.
+#### Remove — `DELETE /v1/spell-dictionary`
 
-## Panel
+```json
+{
+  "collection": "articles",
+  "lang": "en",
+  "words": ["mddbd"]
+}
+```
 
-The **Spell Checker** panel (sidebar → "Spell Checker") provides:
+## Integration with FTS
 
-- **Test Spell Checker**: interactive text input with per-token suggestion display
-- **Custom Dictionary**: add/remove domain-specific words that should not be corrected
+```bash
+CLEANED=$(curl -s -X POST http://localhost:11023/v1/spell-cleanup \
+  -d '{"text":"documnt retriveal","lang":"en"}' | jq -r .cleaned)
 
-Enable `spellCorrect` in Collection Settings to activate auto-correction on FTS queries.
+curl -s -X POST http://localhost:11023/v1/search \
+  -d "{\"collection\":\"articles\",\"query\":\"$CLEANED\",\"lang\":\"en\"}"
+```
