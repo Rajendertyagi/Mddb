@@ -306,12 +306,13 @@ func TestParallelConcurrentSearchAndMutate(t *testing.T) {
 		}()
 	}
 
-	// Concurrent mutations
+	// Concurrent mutations (each goroutine gets its own rng to avoid data race)
 	for m := 0; m < 5; m++ {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			idx.Add("test", fmt.Sprintf("new-%d", id), randVecP(dims, rng))
+			localRng := rand.New(rand.NewSource(int64(id + 1000))) //nolint:gosec // G404
+			idx.Add("test", fmt.Sprintf("new-%d", id), randVecP(dims, localRng))
 			idx.Remove("test", fmt.Sprintf("doc-%d", id))
 		}(m)
 	}
