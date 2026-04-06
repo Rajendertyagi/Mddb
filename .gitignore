@@ -12,7 +12,7 @@
 *.out
 coverage.html
 coverage.out
-
+gosec.json
 # Go workspace file
 go.work
 

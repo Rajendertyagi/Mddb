@@ -809,7 +809,7 @@ code {
 
 .pkg-label {
     font-weight: 600;
-    margin-bottom: 0.5rem;
+    margin: 0 0 0.5rem;
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -823,6 +823,26 @@ code {
 
 .pkg-section pre {
     margin: 0.5rem 0;
+    font-size: 0.85rem;
+}
+
+.pkg-section .package-link {
+    display: inline;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 0;
+    text-align: left;
+    font-size: 0.85rem;
+    color: var(--primary-color);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.pkg-section .package-link:hover {
+    border-color: transparent;
+    box-shadow: none;
+    opacity: 0.8;
 }
 
 .release-notes {
