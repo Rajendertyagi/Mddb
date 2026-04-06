@@ -24,5 +24,8 @@ clean: true
 sitemap_off: false
 robots_off: false
 
+# Rewrite .md links to final /docs/ URLs
+rewrite_md_links: true
+
 # Template engine (Go templates)
 engine: "go"

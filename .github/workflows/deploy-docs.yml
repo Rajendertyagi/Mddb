@@ -42,7 +42,7 @@ jobs:
         run: echo '{"categories":[],"media":[],"users":[]}' > docs/metadata.json
 
       - name: Generate site with SSG
-        uses: spagu/ssg@v1.7.9
+        uses: spagu/ssg@v1.7.10
         with:
           source: '.'
           template: 'ssg-template'
