@@ -364,18 +364,6 @@ func nearestNCentroids(vec []float32, centroids [][]float32, n int) []int {
 	return result
 }
 
-func euclideanDistSq(a, b []float32) float64 {
-	var sum float64
-	for i := range a {
-		if i >= len(b) {
-			break
-		}
-		d := float64(a[i]) - float64(b[i])
-		sum += d * d
-	}
-	return sum
-}
-
 func copyVec(v []float32) []float32 {
 	c := make([]float32, len(v))
 	copy(c, v)

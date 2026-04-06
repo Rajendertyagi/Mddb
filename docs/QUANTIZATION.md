@@ -203,3 +203,19 @@ The quantized vector block:
 - `CosineSimInt4` — Nibble extraction + integer arithmetic
 
 Both return values in the same range as float32 cosine similarity, so thresholds work identically.
+
+### Hardware Acceleration (v2.9.7+)
+
+Float32 vector math (cosine similarity, dot product, Euclidean distance) is hardware-accelerated on ARM64 platforms using a 3-tier dispatch:
+
+| Tier | Hardware | SIMD Width | Speedup |
+|------|----------|-----------|---------|
+| **SME** | Apple M4+, Cortex-X925+ | Scalable (128-2048 bit) | ~7x |
+| **NEON** | All ARM64 (M1+, Graviton, etc.) | 128 bit (4x float32) | ~3-4x |
+| **Scalar** | x86, other architectures | N/A | Baseline |
+
+Detection is automatic at runtime. No configuration required.
+
+Build with `-tags nosme` to force pure Go scalar on ARM64 (useful for debugging or CI).
+
+Check active tier via server logs at startup or `vectorMathTier()` in code.

@@ -382,10 +382,10 @@ func UnmarshalQuantizedVector(data []byte) (*QuantizedVector, error) {
 // helper functions for binary encoding
 func putFloat32LE(buf []byte, v float32) {
 	bits := math.Float32bits(v)
-	buf[0] = byte(bits)         //nolint:gosec // G115: intentional low-byte extraction for LE encoding
-	buf[1] = byte(bits >> 8)   //nolint:gosec // G115: intentional low-byte extraction for LE encoding
-	buf[2] = byte(bits >> 16)  //nolint:gosec // G115: intentional low-byte extraction for LE encoding
-	buf[3] = byte(bits >> 24)  //nolint:gosec // G115: intentional low-byte extraction for LE encoding
+	buf[0] = byte(bits)       //nolint:gosec // G115: intentional low-byte extraction for LE encoding
+	buf[1] = byte(bits >> 8)  //nolint:gosec // G115: intentional low-byte extraction for LE encoding
+	buf[2] = byte(bits >> 16) //nolint:gosec // G115: intentional low-byte extraction for LE encoding
+	buf[3] = byte(bits >> 24) //nolint:gosec // G115: intentional low-byte extraction for LE encoding
 }
 
 func readFloat32LE(buf []byte) float32 {
@@ -394,10 +394,10 @@ func readFloat32LE(buf []byte) float32 {
 }
 
 func putUint32LE(buf []byte, v uint32) {
-	buf[0] = byte(v)         //nolint:gosec // G115: intentional low-byte extraction for LE encoding
-	buf[1] = byte(v >> 8)   //nolint:gosec // G115: intentional low-byte extraction for LE encoding
-	buf[2] = byte(v >> 16)  //nolint:gosec // G115: intentional low-byte extraction for LE encoding
-	buf[3] = byte(v >> 24)  //nolint:gosec // G115: intentional low-byte extraction for LE encoding
+	buf[0] = byte(v)       //nolint:gosec // G115: intentional low-byte extraction for LE encoding
+	buf[1] = byte(v >> 8)  //nolint:gosec // G115: intentional low-byte extraction for LE encoding
+	buf[2] = byte(v >> 16) //nolint:gosec // G115: intentional low-byte extraction for LE encoding
+	buf[3] = byte(v >> 24) //nolint:gosec // G115: intentional low-byte extraction for LE encoding
 }
 
 func readUint32LE(buf []byte) uint32 {
