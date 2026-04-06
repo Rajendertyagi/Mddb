@@ -29,7 +29,7 @@ apps:
 parts:
   panel:
     plugin: npm
-    source: ../../services/mddb-panel
+    source: .
     source-type: local
     npm-include-node: true
     npm-node-version: "22.x"

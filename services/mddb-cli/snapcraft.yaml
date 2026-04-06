@@ -26,7 +26,7 @@ apps:
 parts:
   mddb-cli:
     plugin: go
-    source: ../../services/mddb-cli
+    source: .
     source-type: local
     build-snaps:
       - go/1.24/stable

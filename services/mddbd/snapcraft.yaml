@@ -31,7 +31,7 @@ apps:
 parts:
   mddbd:
     plugin: go
-    source: ../../services/mddbd
+    source: .
     source-type: local
     build-snaps:
       - go/1.24/stable
