@@ -793,6 +793,38 @@ code {
     border-color: var(--primary-color);
 }
 
+.pkg-section {
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.pkg-section:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.pkg-section:first-child {
+    padding-top: 0;
+}
+
+.pkg-label {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.pkg-platform {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--text-muted);
+}
+
+.pkg-section pre {
+    margin: 0.5rem 0;
+}
+
 .release-notes {
     background: var(--bg-secondary);
     padding: 2rem;

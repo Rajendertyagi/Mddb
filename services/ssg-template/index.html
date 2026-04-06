@@ -528,27 +528,24 @@ make build
                         </div>
                     </div>
                     <div class="download-card">
-                        <h3>Homebrew</h3>
-                        <p class="release-date">macOS &amp; Linux</p>
-                        <pre><code>brew tap tradik/tap
+                        <h3>Package Managers</h3>
+                        <div class="pkg-section">
+                            <p class="pkg-label">🍺 Homebrew <span class="pkg-platform">macOS &amp; Linux</span></p>
+                            <pre><code>brew tap tradik/tap
 brew install tradik/tap/mddb</code></pre>
-                        <a href="https://github.com/tradik/homebrew-tap" class="btn btn-secondary" target="_blank" rel="noopener">View Tap on GitHub</a>
-                    </div>
-                    <div class="download-card">
-                        <h3>Snap</h3>
-                        <p class="release-date">Linux</p>
-                        <pre><code>sudo snap install mddbd
+                            <a href="https://github.com/tradik/homebrew-tap" class="package-link" target="_blank" rel="noopener">View Tap on GitHub →</a>
+                        </div>
+                        <div class="pkg-section">
+                            <p class="pkg-label">🐧 Snap <span class="pkg-platform">Linux</span></p>
+                            <pre><code>sudo snap install mddbd
 sudo snap install mddb-cli</code></pre>
-                        <a href="https://snapcraft.io/mddbd" class="btn btn-secondary" target="_blank" rel="noopener">View on Snap Store</a>
-                    </div>
-                    <div class="download-card">
-                        <h3>Docker Image</h3>
-                        <div class="version" data-v>tradik/mddb:{v}</div>
-                        <p class="release-date">Alpine-based (~29MB)</p>
-                        <pre><code id="docker-pull-code">docker pull tradik/mddb:latest
-docker pull tradik/mddb:2.9.6</code></pre>
-                        <a href="https://hub.docker.com/r/tradik/mddb" class="btn btn-secondary" target="_blank"
-                            rel="noopener">View on Docker Hub</a>
+                            <a href="https://snapcraft.io/mddbd" class="package-link" target="_blank" rel="noopener">View on Snap Store →</a>
+                        </div>
+                        <div class="pkg-section">
+                            <p class="pkg-label">🐳 Docker <span class="pkg-platform">All platforms</span></p>
+                            <pre><code id="docker-pull-code">docker pull tradik/mddb:latest</code></pre>
+                            <a href="https://hub.docker.com/r/tradik/mddb" class="package-link" target="_blank" rel="noopener">View on Docker Hub →</a>
+                        </div>
                     </div>
                 </div>
                 <div class="release-notes">
