@@ -61,6 +61,7 @@ func (vi *VectorIndex) Remove(collection, docID string) {
 }
 
 // Search finds the top-K most similar vectors to the query vector.
+// Uses goroutine parallelism for collections above parallelSearchConfig.minSize.
 func (vi *VectorIndex) Search(collection string, query []float32, topK int, threshold float64, metric SimilarityFunc) []VectorResult {
 	vi.mu.RLock()
 	defer vi.mu.RUnlock()
@@ -77,7 +78,13 @@ func (vi *VectorIndex) Search(collection string, query []float32, topK int, thre
 		metric = cosineSimilarity
 	}
 
-	// Compute similarity for all vectors
+	// Parallel path for large collections
+	if len(coll) >= parallelSearchConfig.minSize {
+		entries := snapshotMap(coll)
+		return parallelScore(entries, query, topK, threshold, metric, nil)
+	}
+
+	// Sequential path for small collections
 	results := make([]VectorResult, 0, len(coll))
 	for docID, vec := range coll {
 		score := metric(query, vec)
@@ -86,12 +93,10 @@ func (vi *VectorIndex) Search(collection string, query []float32, topK int, thre
 		}
 	}
 
-	// Sort by score descending
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].Score > results[j].Score
 	})
 
-	// Limit to topK
 	if len(results) > topK {
 		results = results[:topK]
 	}
@@ -101,6 +106,7 @@ func (vi *VectorIndex) Search(collection string, query []float32, topK int, thre
 
 // SearchWithFilter performs vector search only on documents matching the given docID set.
 // Handles chunk keys: if the index has "docID#0" and allowed has "docID", it matches.
+// Uses goroutine parallelism for collections above parallelSearchConfig.minSize.
 func (vi *VectorIndex) SearchWithFilter(collection string, query []float32, topK int, threshold float64, allowedDocIDs map[string]bool, metric SimilarityFunc) []VectorResult {
 	vi.mu.RLock()
 	defer vi.mu.RUnlock()
@@ -117,10 +123,20 @@ func (vi *VectorIndex) SearchWithFilter(collection string, query []float32, topK
 		metric = cosineSimilarity
 	}
 
+	filter := func(docID string) bool {
+		return allowedDocIDs[baseDocID(docID)]
+	}
+
+	// Parallel path for large collections
+	if len(coll) >= parallelSearchConfig.minSize {
+		entries := snapshotMap(coll)
+		return parallelScore(entries, query, topK, threshold, metric, filter)
+	}
+
+	// Sequential path for small collections
 	results := make([]VectorResult, 0, min(len(allowedDocIDs), len(coll)))
 	for docID, vec := range coll {
-		baseID := baseDocID(docID)
-		if !allowedDocIDs[baseID] {
+		if !filter(docID) {
 			continue
 		}
 		score := metric(query, vec)

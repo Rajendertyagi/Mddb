@@ -55,7 +55,7 @@
         "priceCurrency": "USD"
       },
       "description": "AI-native knowledge base with built-in MCP server, vector search, RAG support, and semantic retrieval for AI agents and LLM workflows",
-      "softwareVersion": "2.9.7",
+      "softwareVersion": "2.9.8",
       "featureList": [
         "Built-in MCP server (2025-11-25) with 72 tools, tool annotations, prompts, completion, structured output — stdio, Streamable HTTP, SSE transports for Claude, Cursor, Windsurf, ChatGPT, Ollama, DeepSeek",
         "Vector/semantic search with 6 index algorithms: Flat, HNSW, IVF, PQ, SQ, BQ + per-collection int8/int4 quantization (OpenAI, Ollama, Cohere, Voyage AI)",
@@ -437,8 +437,8 @@ make docker-up
                                 <span class="terminal-title">bash — binary</span>
                             </div>
                             <pre><code id="binary-download-code" data-terminal="bash"># Download binary
-wget https://github.com/tradik/mddb/releases/download/v2.9.7/mddbd-v2.9.7-linux-amd64.tar.gz
-tar -xzf mddbd-v2.9.7-linux-amd64.tar.gz
+wget https://github.com/tradik/mddb/releases/download/v2.9.8/mddbd-v2.9.8-linux-amd64.tar.gz
+tar -xzf mddbd-v2.9.8-linux-amd64.tar.gz
 
 # Run server
 ./mddbd
@@ -553,7 +553,7 @@ sudo snap install mddb-cli</code></pre>
                     </div>
                 </div>
                 <div class="release-notes">
-                    <h3 id="whats-new-header">What's New in v2.9.7</h3>
+                    <h3 id="whats-new-header">What's New in v2.9.8</h3>
                     <ul>
                         <li>✏️ <strong>Partial Document Update</strong> - <code>PATCH /v1/update</code> to update
                             metadata and/or content independently without re-sending entire document</li>
@@ -1019,7 +1019,7 @@ graph LR
                 <div class="footer-section">
                     <h4>MDDB</h4>
                     <p>AI-native knowledge base</p>
-                    <p class="footer-version" id="footer-version">Version 2.9.7</p>
+                    <p class="footer-version" id="footer-version">Version 2.9.8</p>
                 </div>
                 <div class="footer-section">
                     <h4>Documentation</h4>
@@ -1060,7 +1060,7 @@ graph LR
 
     <script defer>
         // Single source of truth for version — change here to update everywhere
-        const MDDB_VERSION = '2.9.7';
+        const MDDB_VERSION = '2.9.8';
         const MDDB_RELEASE_DATE = 'March 10, 2026';
 
         // Replace all version references in the page

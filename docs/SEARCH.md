@@ -408,7 +408,7 @@ curl -X POST http://localhost:11023/v1/fts \
 
 ## Vector Search
 
-Vector search embeds the query text into a high-dimensional vector and finds documents with the most similar embeddings using cosine similarity. Similarity computation is hardware-accelerated on ARM64 via NEON (all ARM64) and SME (Apple M4+) SIMD instructions, with automatic runtime detection and fallback to scalar Go on other platforms.
+Vector search embeds the query text into a high-dimensional vector and finds documents with the most similar embeddings using cosine similarity. Similarity computation is hardware-accelerated on ARM64 via NEON (all ARM64) and SME (Apple M4+) SIMD instructions, with automatic runtime detection and fallback to scalar Go on other platforms. Search is parallelized across multiple goroutines for collections above 2048 vectors (~2.5x speedup on 50K collections).
 
 ### Flat (default)
 

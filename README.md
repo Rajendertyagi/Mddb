@@ -17,7 +17,7 @@ MDDB gives your AI agents a persistent, searchable knowledge base:
 
 - **File Upload** - Upload PDF, DOCX, HTML, ODT, RTF, TEX, YAML, TXT files — auto-converted to Markdown and indexed
 - **Built-in MCP Server** - 72 tools for Claude Desktop, Cursor, Windsurf, or any MCP client
-- **Vector Search** - Auto-embed documents, semantic similarity with 6 index algorithms (Flat, HNSW, IVF, PQ, SQ, BQ) + per-collection quantization (int8/int4) + ARM NEON/SME hardware acceleration
+- **Vector Search** - Auto-embed documents, semantic similarity with 6 index algorithms (Flat, HNSW, IVF, PQ, SQ, BQ) + per-collection quantization (int8/int4) + ARM NEON/SME hardware acceleration + goroutine parallel search
 - **RAG-Ready** - Hybrid search (BM25 + vector) for retrieval-augmented generation
 - **Memory RAG** - Conversational memory system: store, recall, and summarize chat sessions with semantic search
 - **Integrations** - [Docling](docs/INTEGRATIONS.md), [Langflow](docs/INTEGRATIONS.md), [OpenSearch](docs/INTEGRATIONS.md), [SSG](docs/INTEGRATIONS.md), [wpexporter](docs/INTEGRATIONS.md) for production pipelines

@@ -204,7 +204,7 @@ The quantized vector block:
 
 Both return values in the same range as float32 cosine similarity, so thresholds work identically.
 
-### Hardware Acceleration (v2.9.7+)
+### Hardware Acceleration (v2.9.8+)
 
 Float32 vector math (cosine similarity, dot product, Euclidean distance) is hardware-accelerated on ARM64 platforms using a 3-tier dispatch:
 

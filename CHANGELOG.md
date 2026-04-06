@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.8] - 2026-04-06
+
+### Added
+- **Goroutine Parallel Vector Search** — Multi-threaded scoring for Flat and IVF search paths.
+  - Flat search: map snapshot + fan-out scoring across goroutines on disjoint index ranges
+  - IVF search: parallel cluster probing with per-cluster goroutines
+  - Auto worker count: `runtime.NumCPU()` (capped at 16), configurable via `MDDB_VECTOR_PARALLEL_WORKERS`
+  - Minimum collection size threshold (default 2048) to avoid goroutine overhead on small collections, configurable via `MDDB_VECTOR_PARALLEL_MIN_SIZE`
+  - Zero contention during scoring — each worker writes to its own result slice
+  - Deterministic ordering with docID tiebreaker for stable results
+  - **~2.5x speedup** on 50K×768 (24ms → 9.7ms), **~2.8x** on 50K×1536 (38ms → 13.5ms)
+  - New file: `vector_parallel.go`, tests: `vector_parallel_test.go`
+
 ## [2.9.7] - 2026-04-06
 
 ### Added
