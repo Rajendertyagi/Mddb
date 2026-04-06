@@ -436,11 +436,11 @@ make docker-up
                                 <span class="terminal-title">bash — binary</span>
                             </div>
                             <pre><code id="binary-download-code" data-terminal="bash"># Download binary
-wget https://github.com/tradik/mddb/releases/download/v2.9.6/mddbd-linux-amd64
-chmod +x mddbd-linux-amd64
+wget https://github.com/tradik/mddb/releases/download/v2.9.6/mddbd-v2.9.6-linux-amd64.tar.gz
+tar -xzf mddbd-v2.9.6-linux-amd64.tar.gz
 
 # Run server
-./mddbd-linux-amd64
+./mddbd
 
 # Server starts on http://localhost:11023</code></pre>
                         </div>
@@ -481,31 +481,31 @@ make build
                         <p class="release-date" id="release-date">Released: March 5, 2026</p>
                         <div class="download-links">
                             <a href="#"
-                                data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-linux-amd64"
+                                data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-v{v}-linux-amd64.tar.gz"
                                 class="download-link">
                                 <span class="platform">Linux AMD64</span>
                                 <span class="size">~29MB</span>
                             </a>
                             <a href="#"
-                                data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-linux-arm64"
+                                data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-v{v}-linux-arm64.tar.gz"
                                 class="download-link">
                                 <span class="platform">Linux ARM64</span>
                                 <span class="size">~29MB</span>
                             </a>
                             <a href="#"
-                                data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-darwin-amd64"
+                                data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-v{v}-darwin-amd64.tar.gz"
                                 class="download-link">
                                 <span class="platform">macOS AMD64</span>
                                 <span class="size">~29MB</span>
                             </a>
                             <a href="#"
-                                data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-darwin-arm64"
+                                data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-v{v}-darwin-arm64.tar.gz"
                                 class="download-link">
                                 <span class="platform">macOS ARM64</span>
                                 <span class="size">~29MB</span>
                             </a>
                             <a href="#"
-                                data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-freebsd-amd64"
+                                data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-v{v}-freebsd-amd64.tar.gz"
                                 class="download-link">
                                 <span class="platform">FreeBSD AMD64</span>
                                 <span class="size">~29MB</span>
@@ -513,12 +513,12 @@ make build
                         </div>
                         <div class="package-links">
                             <a href="#"
-                                data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddb_{v}_amd64.deb"
+                                data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-{v}-linux-amd64.deb"
                                 class="package-link">
                                 📦 Debian/Ubuntu (.deb)
                             </a>
                             <a href="#"
-                                data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddb-{v}-1.x86_64.rpm"
+                                data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-{v}-linux-amd64.rpm"
                                 class="package-link">
                                 📦 RedHat/CentOS (.rpm)
                             </a>
@@ -576,42 +576,42 @@ sudo snap install mddb-cli</code></pre>
                     <div class="docs-col">
                         <h3 class="docs-group-title">Getting Started</h3>
                         <ul class="docs-list">
-                            <li><a href="/quickstart/">Quick Start</a><span class="docs-desc">Get up
+                            <li><a href="/docs/quickstart/">Quick Start</a><span class="docs-desc">Get up
                                     and running in 5 minutes</span></li>
                             <li><a href="/api/swagger.html">API Documentation</a><span
                                     class="docs-badge">Interactive</span><span class="docs-desc">Swagger UI for all
                                     endpoints</span></li>
                             <li><a href="/api/openapi.yaml">OpenAPI Spec</a><span class="docs-desc">Machine-readable API
                                     specification</span></li>
-                            <li><a href="/examples/">Examples</a><span class="docs-desc">Code
+                            <li><a href="/docs/examples/">Examples</a><span class="docs-desc">Code
                                     examples and patterns</span></li>
-                            <li><a href="/docker/">Docker Guide</a><span class="docs-desc">Container
+                            <li><a href="/docs/docker/">Docker Guide</a><span class="docs-desc">Container
                                     deployment</span></li>
-                            <li><a href="/architecture/">Architecture</a><span class="docs-desc">System design and
+                            <li><a href="/docs/architecture/">Architecture</a><span class="docs-desc">System design and
                                     internals</span></li>
                         </ul>
 
                         <h3 class="docs-group-title">Search & AI</h3>
                         <ul class="docs-list">
-                            <li><a href="/search/">Search Algorithms</a><span class="docs-badge">New</span><span
+                            <li><a href="/docs/search/">Search Algorithms</a><span class="docs-badge">New</span><span
                                     class="docs-desc">TF-IDF, BM25, BM25F, Flat,
                                     HNSW, IVF, PQ, SQ, BQ</span></li>
-                            <li><a href="/pmisparse/">PMISparse</a><span class="docs-badge">New</span><span
+                            <li><a href="/docs/pmisparse/">PMISparse</a><span class="docs-badge">New</span><span
                                     class="docs-desc">BM25 + PPMI query expansion
                                     (Tradik Limited)</span></li>
-                            <li><a href="/rag-pipeline/">RAG Pipeline</a><span class="docs-badge">New</span><span
+                            <li><a href="/docs/rag-pipeline/">RAG Pipeline</a><span class="docs-badge">New</span><span
                                     class="docs-desc">WordPress → MDDB → LLM
                                     guide</span></li>
-                            <li><a href="/llm-connections/">LLM Connections</a><span class="docs-badge">New</span><span
+                            <li><a href="/docs/llm-connections/">LLM Connections</a><span class="docs-badge">New</span><span
                                     class="docs-desc">Claude, ChatGPT, Ollama,
                                     DeepSeek, Manus, Bielik.ai</span></li>
-                            <li><a href="/mcp/">MCP Server Config</a><span class="docs-badge">New</span><span
+                            <li><a href="/docs/mcp/">MCP Server Config</a><span class="docs-badge">New</span><span
                                     class="docs-desc">API keys, rate limits, logging,
                                     access modes</span></li>
-                            <li><a href="/custom-tools/">Custom MCP Tools</a><span class="docs-badge">New</span><span
+                            <li><a href="/docs/custom-tools/">Custom MCP Tools</a><span class="docs-badge">New</span><span
                                     class="docs-desc">YAML-defined website-specific
                                     AI tools</span></li>
-                            <li><a href="/integrations/">Integrations</a><span class="docs-badge">New</span><span
+                            <li><a href="/docs/integrations/">Integrations</a><span class="docs-badge">New</span><span
                                     class="docs-desc">Docling, Langflow, OpenSearch
                                     pipelines</span></li>
                         </ul>
@@ -619,36 +619,36 @@ sudo snap install mddb-cli</code></pre>
                     <div class="docs-col">
                         <h3 class="docs-group-title">Security & Operations</h3>
                         <ul class="docs-list">
-                            <li><a href="/authentication/">Authentication & RBAC</a><span
+                            <li><a href="/docs/authentication/">Authentication & RBAC</a><span
                                     class="docs-badge">New</span><span class="docs-desc">JWT tokens, API keys,
                                     role-based access</span></li>
-                            <li><a href="/auth-quickstart/">Auth Quick Start</a><span class="docs-desc">5-minute
+                            <li><a href="/docs/auth-quickstart/">Auth Quick Start</a><span class="docs-desc">5-minute
                                     authentication setup</span></li>
-                            <li><a href="/replication/">Replication</a><span class="docs-badge">New</span><span
+                            <li><a href="/docs/replication/">Replication</a><span class="docs-badge">New</span><span
                                     class="docs-desc">Leader-follower, Docker
                                     Compose, monitoring</span></li>
-                            <li><a href="/telemetry/">Telemetry & Monitoring</a><span class="docs-badge">New</span><span
+                            <li><a href="/docs/telemetry/">Telemetry & Monitoring</a><span class="docs-badge">New</span><span
                                     class="docs-desc">Prometheus metrics, Grafana
                                     dashboards</span></li>
-                            <li><a href="/healthcheck/">Health Checks</a><span class="docs-desc">Docker & Kubernetes
+                            <li><a href="/docs/healthcheck/">Health Checks</a><span class="docs-desc">Docker & Kubernetes
                                     monitoring</span></li>
-                            <li><a href="/license-audit/">License Audit</a><span class="docs-desc">Dependency license
+                            <li><a href="/docs/license-audit/">License Audit</a><span class="docs-desc">Dependency license
                                     compliance (Trivy)</span></li>
                         </ul>
 
                         <h3 class="docs-group-title">Protocols & Advanced</h3>
                         <ul class="docs-list">
-                            <li><a href="/grpc/">gRPC Guide</a><span class="docs-desc">High-performance protocol</span>
+                            <li><a href="/docs/grpc/">gRPC Guide</a><span class="docs-desc">High-performance protocol</span>
                             </li>
-                            <li><a href="/schema-validation/">Schema Validation</a><span class="docs-desc">Enforce
+                            <li><a href="/docs/schema-validation/">Schema Validation</a><span class="docs-desc">Enforce
                                     metadata structure per collection</span></li>
-                            <li><a href="/automations/">Automations</a><span class="docs-badge">New</span><span
+                            <li><a href="/docs/automations/">Automations</a><span class="docs-badge">New</span><span
                                     class="docs-desc">Triggers, crons, webhooks,
                                     sentiment</span></li>
-                            <li><a href="/wordpress-agent/">WordPress AI Agent</a><span
+                            <li><a href="/docs/wordpress-agent/">WordPress AI Agent</a><span
                                     class="docs-badge">New</span><span class="docs-desc">Build a chatbot for your WP
                                     site</span></li>
-                            <li><a href="/chat/">Chat Widget</a><span class="docs-badge">New</span><span
+                            <li><a href="/docs/chat/">Chat Widget</a><span class="docs-badge">New</span><span
                                     class="docs-desc">Embeddable AI chatbot powered by MDDB</span></li>
                         </ul>
                     </div>
@@ -948,7 +948,7 @@ graph LR
     L -->|gRPC binlog stream| F2
 </pre>
                     <div style="margin-top: 30px;">
-                        <a href="/replication/" class="btn btn-primary">Read Replication Guide</a>
+                        <a href="/docs/replication/" class="btn btn-primary">Read Replication Guide</a>
                     </div>
                 </div>
             </div>
@@ -1005,10 +1005,10 @@ graph LR
                 <div class="footer-section">
                     <h4>Documentation</h4>
                     <ul>
-                        <li><a href="/quickstart/">Quick Start</a></li>
+                        <li><a href="/docs/quickstart/">Quick Start</a></li>
                         <li><a href="/api/swagger.html">API Docs</a></li>
-                        <li><a href="/examples/">Examples</a></li>
-                        <li><a href="/architecture/">Architecture</a></li>
+                        <li><a href="/docs/examples/">Examples</a></li>
+                        <li><a href="/docs/architecture/">Architecture</a></li>
                     </ul>
                 </div>
                 <div class="footer-section">
@@ -1058,7 +1058,7 @@ graph LR
         if (dpEl) dpEl.textContent = 'docker pull tradik/mddb:latest\ndocker pull tradik/mddb:' + MDDB_VERSION;
         // Update binary download code block
         const bdEl = document.getElementById('binary-download-code');
-        if (bdEl) bdEl.textContent = '# Download binary\nwget https://github.com/tradik/mddb/releases/download/v' + MDDB_VERSION + '/mddbd-linux-amd64\nchmod +x mddbd-linux-amd64\n\n# Run server\n./mddbd-linux-amd64\n\n# Server starts on http://localhost:11023';
+        if (bdEl) bdEl.textContent = '# Download binary\nwget https://github.com/tradik/mddb/releases/download/v' + MDDB_VERSION + '/mddbd-v' + MDDB_VERSION + '-linux-amd64.tar.gz\ntar -xzf mddbd-v' + MDDB_VERSION + '-linux-amd64.tar.gz\n\n# Run server\n./mddbd\n\n# Server starts on http://localhost:11023';
         // Update "What's New" header
         const wnEl = document.getElementById('whats-new-header');
         if (wnEl) wnEl.textContent = "What's New in v" + MDDB_VERSION;

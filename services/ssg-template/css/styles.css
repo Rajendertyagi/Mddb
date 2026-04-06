@@ -213,8 +213,10 @@ a:hover {
 .hero {
     padding: 8rem 0 4rem;
     background:
-        linear-gradient(135deg, rgba(15, 20, 40, 0.72) 0%, rgba(30, 15, 60, 0.68) 100%),
-        url("hero.webp") center/cover no-repeat;
+        linear-gradient(135deg, rgba(15, 20, 40, 0.92) 0%, rgba(30, 15, 60, 0.88) 50%, rgba(10, 30, 60, 0.92) 100%),
+        radial-gradient(ellipse at 20% 50%, rgba(37, 99, 235, 0.3) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 50%, rgba(109, 40, 217, 0.3) 0%, transparent 60%);
+    background-color: #0f172a;
     color: white;
     text-align: center;
     margin-top: 60px;
