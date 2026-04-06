@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.7] - 2026-04-06
+
+### Added
+- **ARM NEON/SME Vector Math Acceleration** — Hardware-accelerated similarity functions for vector search using ARM SIMD instructions.
+  - **3-tier dispatch**: SME (Apple M4+, Cortex-X925+) → NEON (all ARM64) → scalar Go (x86/other)
+  - Accelerated functions: `cosineSimilarity`, `dotProductSimilarity`, `euclideanSimilarity`, `euclideanDistSq`
+  - **Batch cosine similarity**: Single CGo call for entire collection search (zero per-vector overhead)
+  - NEON: 4-way float32 FMA via `float32x4_t` + `vfmaq_f32` intrinsics
+  - SME: Scalable Vector Extension in streaming mode (`__arm_locally_streaming`) for wider SIMD on M4+
+  - Runtime hardware detection: macOS (`sysctlbyname`), Linux (`getauxval`)
+  - Zero allocations, zero external dependencies (~200 lines of C vendored in-tree)
+  - Build tag `nosme` to force pure Go scalar on ARM64
+  - Cross-platform: on amd64 compiles to identical pure Go code (no CGo required)
+  - New benchmarks: `BenchmarkCosineSim{768,1024,1536,3072}`, `BenchmarkBatchCosineSim_{1K,10K,50K}_{768,1536}`
+  - New files: `vector_math_scalar.go`, `vector_math_arm64.go`, `vector_math_arm64_neon.c`, `vector_math_arm64_sme.c`, `vector_math_test.go`, `vector_math_bench_test.go`
+
 ## [2.9.6] - 2026-04-05
 
 ### Added

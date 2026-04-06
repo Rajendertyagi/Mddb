@@ -1,7 +1,6 @@
 package main
 
 import (
-	"math"
 	"sort"
 	"strings"
 	"sync"
@@ -168,55 +167,9 @@ func (vi *VectorIndex) Name() string {
 
 // SimilarityFunc computes similarity between two vectors.
 // Higher values = more similar. Used as a configurable distance metric.
+// Implementations are in vector_math_scalar.go (pure Go) and
+// vector_math_arm64.go (NEON/SME accelerated).
 type SimilarityFunc func(a, b []float32) float32
-
-// cosineSimilarity computes cosine similarity between two vectors.
-// Returns value between -1 and 1, where 1 = identical direction.
-func cosineSimilarity(a, b []float32) float32 {
-	if len(a) != len(b) || len(a) == 0 {
-		return 0
-	}
-
-	var dotProduct, normA, normB float32
-	for i := range a {
-		dotProduct += a[i] * b[i]
-		normA += a[i] * a[i]
-		normB += b[i] * b[i]
-	}
-
-	if normA == 0 || normB == 0 {
-		return 0
-	}
-
-	return dotProduct / float32(math.Sqrt(float64(normA)*float64(normB)))
-}
-
-// dotProductSimilarity computes the dot product between two vectors.
-// For normalized vectors (e.g. OpenAI embeddings) this equals cosine similarity.
-func dotProductSimilarity(a, b []float32) float32 {
-	if len(a) != len(b) || len(a) == 0 {
-		return 0
-	}
-	var sum float32
-	for i := range a {
-		sum += a[i] * b[i]
-	}
-	return sum
-}
-
-// euclideanSimilarity converts Euclidean distance to a similarity score.
-// Returns 1/(1+dist), so closer vectors → higher score (range 0 to 1).
-func euclideanSimilarity(a, b []float32) float32 {
-	if len(a) != len(b) || len(a) == 0 {
-		return 0
-	}
-	var sum float64
-	for i := range a {
-		d := float64(a[i]) - float64(b[i])
-		sum += d * d
-	}
-	return float32(1.0 / (1.0 + math.Sqrt(sum)))
-}
 
 // ResolveSimilarity returns the SimilarityFunc for a given metric name.
 // Defaults to cosineSimilarity if the name is unknown or empty.
