@@ -223,7 +223,7 @@
                                 </div>
                                 <div class="feat-stack-plus">+</div>
                                 <div class="feat-stack-layer l2">
-                                    <span>Flat</span><span>HNSW</span><span>IVF</span><span>PQ</span>
+                                    <span>Flat</span><span>HNSW</span><span>IVF</span><span>PQ</span><span>OPQ</span><span>SQ</span><span>BQ</span>
                                 </div>
                                 <div class="feat-stack-eq">=</div>
                                 <div class="feat-stack-layer l3"><span>Hybrid RAG</span></div>
@@ -479,7 +479,7 @@ make build
                     <div class="download-card">
                         <h3>Latest Release</h3>
                         <div class="version" data-v>v{v}</div>
-                        <p class="release-date" id="release-date">Released: March 5, 2026</p>
+                        <p class="release-date" id="release-date">Released: April 6, 2026</p>
                         <div class="download-links">
                             <a href="#"
                                 data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-v{v}-linux-amd64.tar.gz"
@@ -555,19 +555,10 @@ sudo snap install mddb-cli</code></pre>
                 <div class="release-notes">
                     <h3 id="whats-new-header">What's New in v2.9.8</h3>
                     <ul>
-                        <li>✏️ <strong>Partial Document Update</strong> - <code>PATCH /v1/update</code> to update
-                            metadata and/or content independently without re-sending entire document</li>
-                        <li>📋 <strong>Document Metadata Read</strong> - <code>GET /v1/doc-meta</code> lightweight
-                            endpoint returning only metadata (no content transfer)</li>
-                        <li>🔌 <strong>gRPC + MCP Support</strong> - <code>UpdateDocument</code> and
-                            <code>GetDocumentMeta</code> RPCs, plus MCP tools
-                        </li>
-                        <li>🧪 <strong>Zero-Shot Classification</strong> - <code>POST /v1/classify</code> classifies
-                            documents against candidate labels using embedding similarity, no training data needed</li>
-                        <li>📊 <strong>Temporal Tracking</strong> - Document event history, hot-docs leaderboard,
-                            activity histograms (<code>MDDB_TEMPORAL=true</code>)</li>
-                        <li>🔤 <strong>Spell Correction</strong> - SymSpell FTS spell suggestions, text cleanup,
-                            per-collection custom dictionaries (<code>MDDB_SPELL=true</code>)</li>
+                        <li><strong>Goroutine Parallel Search</strong> - Multi-threaded Flat and IVF vector scoring with ~2.5x speedup on 50K collections. Configurable via <code>MDDB_VECTOR_PARALLEL_WORKERS</code></li>
+                        <li><strong>OPQ (Optimized Product Quantization)</strong> - New index algorithm with learned rotation matrix for ~1-3% better recall than PQ. Use <code>"algorithm": "opq"</code></li>
+                        <li><strong>ARM NEON/SME Acceleration</strong> - Hardware-accelerated cosine similarity, dot product, Euclidean distance on ARM64 (3-4x NEON, ~7x SME on M4+)</li>
+                        <li><strong>Configuration Docs</strong> - 15+ missing env vars documented: temporal, spell, parallel search, MCP auth/rate-limit/logging</li>
                     </ul>
                     <a href="https://github.com/tradik/mddb/blob/main/CHANGELOG.md" target="_blank" rel="noopener">View
                         Full Changelog →</a>
@@ -604,7 +595,7 @@ sudo snap install mddb-cli</code></pre>
                         <ul class="docs-list">
                             <li><a href="/docs/search/">Search Algorithms</a><span class="docs-badge">New</span><span
                                     class="docs-desc">TF-IDF, BM25, BM25F, Flat,
-                                    HNSW, IVF, PQ, SQ, BQ</span></li>
+                                    HNSW, IVF, PQ, OPQ, SQ, BQ</span></li>
                             <li><a href="/docs/pmisparse/">PMISparse</a><span class="docs-badge">New</span><span
                                     class="docs-desc">BM25 + PPMI query expansion
                                     (Tradik Limited)</span></li>
