@@ -139,6 +139,10 @@ tags:
     description: Per-collection type, description, icon, color, and custom metadata
   - name: Cross-Collection Search
     description: Search across multiple collections using embeddings or text queries
+  - name: Temporal Tracking
+    description: Document event history, hot-docs leaderboard and activity histograms (requires MDDB_TEMPORAL=true)
+  - name: Spell Correction
+    description: SymSpell-based FTS spell suggestions, text cleanup, and per-collection custom dictionaries (requires MDDB_SPELL=true)
 
 paths:
   /health:
@@ -3850,8 +3854,365 @@ paths:
                   total:
                     type: integer
 
+  /v1/temporal/query:
+    post:
+      tags: [Temporal Tracking]
+      summary: Query document event history
+      description: Returns create/update/access events for a specific document within a time range. Requires MDDB_TEMPORAL=true.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [collection, key, lang]
+              properties:
+                collection:
+                  type: string
+                key:
+                  type: string
+                lang:
+                  type: string
+                eventType:
+                  type: string
+                  enum: [create, update, access]
+                  description: Filter by event type; omit for all events
+                from:
+                  type: integer
+                  format: int64
+                  description: Unix timestamp; defaults to 30 days ago
+                to:
+                  type: integer
+                  format: int64
+                  description: Unix timestamp; defaults to now
+                limit:
+                  type: integer
+                  default: 100
+      responses:
+        "200":
+          description: Event history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collection:
+                    type: string
+                  docId:
+                    type: string
+                  events:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TemporalEvent"
+                  total:
+                    type: integer
+        "400":
+          description: Missing required fields or temporal not available
+
+  /v1/temporal/hot:
+    post:
+      tags: [Temporal Tracking]
+      summary: Hot documents leaderboard
+      description: Returns the top-N most accessed documents in a collection. Requires MDDB_TEMPORAL=true.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [collection]
+              properties:
+                collection:
+                  type: string
+                topN:
+                  type: integer
+                  default: 10
+                since:
+                  type: integer
+                  format: int64
+                  description: Unix timestamp to filter events from
+      responses:
+        "200":
+          description: Hot documents list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collection:
+                    type: string
+                  entries:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        docId:
+                          type: string
+                        accessCount:
+                          type: integer
+                          format: int64
+                        lastAccessAt:
+                          type: integer
+                          format: int64
+                        document:
+                          $ref: "#/components/schemas/Document"
+        "400":
+          description: Missing required field or temporal not available
+
+  /v1/temporal/histogram:
+    post:
+      tags: [Temporal Tracking]
+      summary: Event frequency histogram
+      description: Returns a bucketed histogram of event frequency for a collection. Requires MDDB_TEMPORAL=true.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [collection]
+              properties:
+                collection:
+                  type: string
+                eventType:
+                  type: string
+                  default: access
+                  enum: [create, update, access]
+                interval:
+                  type: string
+                  default: day
+                  enum: [day, week, month]
+                from:
+                  type: integer
+                  format: int64
+                to:
+                  type: integer
+                  format: int64
+      responses:
+        "200":
+          description: Histogram buckets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collection:
+                    type: string
+                  eventType:
+                    type: string
+                  interval:
+                    type: string
+                  buckets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        from:
+                          type: integer
+                          format: int64
+                        to:
+                          type: integer
+                          format: int64
+                        count:
+                          type: integer
+        "400":
+          description: Missing required field or temporal not available
+
+  /v1/spell-suggest:
+    post:
+      tags: [Spell Correction]
+      summary: Spell correction suggestions
+      description: Returns per-token spell suggestions and a corrected version of the input text. Requires MDDB_SPELL=true.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text, lang]
+              properties:
+                collection:
+                  type: string
+                  description: Optional — scope suggestions to collection dictionary
+                text:
+                  type: string
+                lang:
+                  type: string
+                  example: en
+                maxSuggestions:
+                  type: integer
+                  default: 5
+      responses:
+        "200":
+          description: Spell suggestions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  originalText:
+                    type: string
+                  suggestedText:
+                    type: string
+                  tokenSuggestions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        token:
+                          type: string
+                        suggestions:
+                          type: array
+                          items:
+                            type: string
+        "503":
+          description: Spell index still loading — retry
+
+  /v1/spell-cleanup:
+    post:
+      tags: [Spell Correction]
+      summary: Apply spell corrections to text
+      description: Applies the best corrections to each token and returns the cleaned text. Requires MDDB_SPELL=true.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text, lang]
+              properties:
+                collection:
+                  type: string
+                text:
+                  type: string
+                lang:
+                  type: string
+      responses:
+        "200":
+          description: Cleaned text
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  original:
+                    type: string
+                  cleaned:
+                    type: string
+                  correctionsApplied:
+                    type: integer
+        "503":
+          description: Spell index still loading — retry
+
+  /v1/spell-dictionary:
+    get:
+      tags: [Spell Correction]
+      summary: List custom dictionary words
+      description: Returns words in the custom dictionary for the given collection and language.
+      parameters:
+        - in: query
+          name: collection
+          schema:
+            type: string
+        - in: query
+          name: lang
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Dictionary words
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collection:
+                    type: string
+                  lang:
+                    type: string
+                  words:
+                    type: array
+                    items:
+                      type: string
+    put:
+      tags: [Spell Correction]
+      summary: Add words to custom dictionary
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lang, words]
+              properties:
+                collection:
+                  type: string
+                lang:
+                  type: string
+                words:
+                  type: array
+                  items:
+                    type: string
+                frequency:
+                  type: integer
+                  default: 100
+                  description: Boost frequency for added words
+      responses:
+        "200":
+          description: Words added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  added:
+                    type: integer
+    delete:
+      tags: [Spell Correction]
+      summary: Remove words from custom dictionary
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lang, words]
+              properties:
+                collection:
+                  type: string
+                lang:
+                  type: string
+                words:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: Words removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  removed:
+                    type: integer
+
 components:
   schemas:
+    TemporalEvent:
+      type: object
+      properties:
+        docId:
+          type: string
+        collection:
+          type: string
+        eventType:
+          type: string
+          enum: [create, update, access]
+        timestamp:
+          type: integer
+          format: int64
     Document:
       type: object
       properties:
