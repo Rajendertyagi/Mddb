@@ -45,7 +45,8 @@ jobs:
         run: ssg --config .ssg.yaml --clean --minify-all
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v3.14.1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          wranglerVersion: "4.80.0"
           command: pages deploy dist --project-name=${{ env.CLOUDFLARE_PROJECT }} --commit-dirty=true
