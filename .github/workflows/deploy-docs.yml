@@ -12,6 +12,7 @@ on:
 
 env:
   SSG_VERSION: '1.7.9'
+  WRANGLER_VERSION: '4.80.0'
   CLOUDFLARE_PROJECT: mddb-docs
 
 jobs:
@@ -38,6 +39,9 @@ jobs:
           sudo mv ssg /usr/local/bin/ssg
           ssg --version
 
+      - name: Install Wrangler
+        run: npm install -g wrangler@${WRANGLER_VERSION}
+
       - name: Prepare metadata
         run: echo '{"categories":[],"media":[],"users":[]}' > docs/metadata.json
 
@@ -45,8 +49,6 @@ jobs:
         run: ssg --config .ssg.yaml --clean --minify-all
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3.14.1
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          wranglerVersion: "4.80.0"
-          command: pages deploy dist --project-name=${{ env.CLOUDFLARE_PROJECT }} --commit-dirty=true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: wrangler pages deploy dist --project-name=${{ env.CLOUDFLARE_PROJECT }} --commit-dirty=true
