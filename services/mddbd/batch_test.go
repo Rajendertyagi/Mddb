@@ -406,7 +406,7 @@ func TestBatchProcessor_ConcurrentProcessing(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 			docs := []*proto.BatchDocument{
-				makeBatchDoc("doc"+string(rune('A'+idx)), "en", "content", nil, false),
+				makeBatchDoc("doc"+string(rune('A'+idx)), "en", "content", nil, false), //nolint:gosec // G115: safe int→rune for ASCII letters A-Z in test
 			}
 			_, errors[idx] = bp.ProcessBatch(context.Background(), "concurrent", docs)
 		}(i)

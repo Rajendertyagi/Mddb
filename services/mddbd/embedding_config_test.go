@@ -56,7 +56,7 @@ func TestEmbeddingConfig_JSONMarshal(t *testing.T) {
 		CreatedAt:  1700000000,
 	}
 
-	data, err := json.Marshal(config)
+	data, err := json.Marshal(config) //nolint:gosec // G117: test-only marshal of config struct with dummy API key
 	if err != nil {
 		t.Fatalf("Marshal: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestEmbeddingConfig_JSONFields(t *testing.T) {
 		ID:   "test",
 		Name: "Test Config",
 	}
-	data, _ := json.Marshal(config)
+	data, _ := json.Marshal(config) //nolint:gosec // G117: test-only marshal of config struct
 
 	var raw map[string]interface{}
 	_ = json.Unmarshal(data, &raw)

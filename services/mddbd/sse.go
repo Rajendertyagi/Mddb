@@ -270,11 +270,11 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 	if claims != nil {
 		username = claims.Username
 	}
-	_, _ = fmt.Fprintf(w, "event: connected\ndata: {\"status\":\"connected\",\"collection\":%q,\"mode\":%q,\"user\":%q}\n\n",
+	_, _ = fmt.Fprintf(w, "event: connected\ndata: {\"status\":\"connected\",\"collection\":%q,\"mode\":%q,\"user\":%q}\n\n", //nolint:gosec // G705: values quoted with %q, safe for JSON/SSE
 		collection, mode, username)
 	flusher.Flush()
 
-	log.Printf("SSE client connected (collection=%q, mode=%s, user=%q, total=%d)", collection, mode, username, h.ClientCount())
+	log.Printf("SSE client connected (collection=%q, mode=%s, user=%q, total=%d)", collection, mode, username, h.ClientCount()) //nolint:gosec // G706: values sanitized with %q
 
 	// Keep-alive ticker
 	ticker := time.NewTicker(h.keepAlive)

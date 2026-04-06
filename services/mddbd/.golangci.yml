@@ -1,0 +1,12 @@
+version: "2"
+
+linters:
+  enable:
+    - errcheck
+    - gosec
+    - govet
+    - staticcheck
+
+issues:
+  exclude-files:
+    - graphql/generated.go

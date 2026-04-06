@@ -134,7 +134,7 @@ mcp:
   addr: ":9000"
   stdio: true
 `
-	if err := os.WriteFile(cfgFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(cfgFile, []byte(content), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -188,7 +188,7 @@ func TestLoadConfigFile_PartialConfig(t *testing.T) {
 mcp:
   enabled: false
 `
-	if err := os.WriteFile(cfgFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(cfgFile, []byte(content), 0600); err != nil {
 		t.Fatal(err)
 	}
 

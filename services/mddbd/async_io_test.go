@@ -29,11 +29,11 @@ func TestAsyncIOReadAsync(t *testing.T) {
 	// Create a file with known content
 	fpath := filepath.Join(dir, "test.txt")
 	content := []byte("hello async read world")
-	if err := os.WriteFile(fpath, content, 0644); err != nil {
+	if err := os.WriteFile(fpath, content, 0600); err != nil {
 		t.Fatal(err)
 	}
 
-	f, err := os.Open(fpath)
+	f, err := os.Open(fpath) //nolint:gosec // G304: temp file path in test
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,11 +70,11 @@ func TestAsyncIOReadAsyncWithOffset(t *testing.T) {
 
 	fpath := filepath.Join(dir, "test.txt")
 	content := []byte("0123456789ABCDEF")
-	if err := os.WriteFile(fpath, content, 0644); err != nil {
+	if err := os.WriteFile(fpath, content, 0600); err != nil {
 		t.Fatal(err)
 	}
 
-	f, err := os.Open(fpath)
+	f, err := os.Open(fpath) //nolint:gosec // G304: temp file path in test
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +101,7 @@ func TestAsyncIOWriteAsync(t *testing.T) {
 	dir := t.TempDir()
 
 	fpath := filepath.Join(dir, "test.txt")
-	f, err := os.Create(fpath)
+	f, err := os.Create(fpath) //nolint:gosec // G304: temp file path in test
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +128,7 @@ func TestAsyncIOWriteAsync(t *testing.T) {
 	}
 
 	// Verify file content
-	got, err := os.ReadFile(fpath)
+	got, err := os.ReadFile(fpath) //nolint:gosec // G304: temp file path in test
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,11 +144,11 @@ func TestAsyncIOWriteAsyncWithOffset(t *testing.T) {
 	fpath := filepath.Join(dir, "test.txt")
 	// Pre-fill file
 	initial := []byte("XXXXXXXXXX")
-	if err := os.WriteFile(fpath, initial, 0644); err != nil {
+	if err := os.WriteFile(fpath, initial, 0600); err != nil {
 		t.Fatal(err)
 	}
 
-	f, err := os.OpenFile(fpath, os.O_RDWR, 0644)
+	f, err := os.OpenFile(fpath, os.O_RDWR, 0600) //nolint:gosec // G304: temp file path in test
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +163,7 @@ func TestAsyncIOWriteAsyncWithOffset(t *testing.T) {
 
 	wg.Wait()
 
-	got, err := os.ReadFile(fpath)
+	got, err := os.ReadFile(fpath) //nolint:gosec // G304: temp file path in test
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,11 +178,11 @@ func TestAsyncIOWait(t *testing.T) {
 
 	fpath := filepath.Join(dir, "test.txt")
 	content := []byte("wait for me")
-	if err := os.WriteFile(fpath, content, 0644); err != nil {
+	if err := os.WriteFile(fpath, content, 0600); err != nil {
 		t.Fatal(err)
 	}
 
-	f, err := os.Open(fpath)
+	f, err := os.Open(fpath) //nolint:gosec // G304: temp file path in test
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -226,10 +226,10 @@ func TestAsyncIOStats(t *testing.T) {
 	// Perform an operation
 	dir := t.TempDir()
 	fpath := filepath.Join(dir, "test.txt")
-	if err := os.WriteFile(fpath, []byte("stats"), 0644); err != nil {
+	if err := os.WriteFile(fpath, []byte("stats"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	f, err := os.Open(fpath)
+	f, err := os.Open(fpath) //nolint:gosec // G304: temp file path in test
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -257,11 +257,11 @@ func TestAsyncIOBatchReadAsync(t *testing.T) {
 
 	fpath := filepath.Join(dir, "test.txt")
 	content := []byte("0123456789ABCDEFGHIJ")
-	if err := os.WriteFile(fpath, content, 0644); err != nil {
+	if err := os.WriteFile(fpath, content, 0600); err != nil {
 		t.Fatal(err)
 	}
 
-	f, err := os.Open(fpath)
+	f, err := os.Open(fpath) //nolint:gosec // G304: temp file path in test
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -305,11 +305,11 @@ func TestAsyncIOBatchReadAsyncEmpty(t *testing.T) {
 	dir := t.TempDir()
 
 	fpath := filepath.Join(dir, "test.txt")
-	if err := os.WriteFile(fpath, []byte("data"), 0644); err != nil {
+	if err := os.WriteFile(fpath, []byte("data"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
-	f, err := os.Open(fpath)
+	f, err := os.Open(fpath) //nolint:gosec // G304: temp file path in test
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -336,11 +336,11 @@ func TestAsyncIOOperationIDs(t *testing.T) {
 	dir := t.TempDir()
 
 	fpath := filepath.Join(dir, "test.txt")
-	if err := os.WriteFile(fpath, []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(fpath, []byte("test"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
-	f, err := os.Open(fpath)
+	f, err := os.Open(fpath) //nolint:gosec // G304: temp file path in test
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -362,11 +362,11 @@ func TestAsyncIOOperationIDs(t *testing.T) {
 func TestDirectIO(t *testing.T) {
 	dir := t.TempDir()
 	fpath := filepath.Join(dir, "test.txt")
-	if err := os.WriteFile(fpath, []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(fpath, []byte("test"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
-	f, err := os.Open(fpath)
+	f, err := os.Open(fpath) //nolint:gosec // G304: temp file path in test
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -422,11 +422,11 @@ func TestAsyncIOReadAsyncNilCallback(t *testing.T) {
 	dir := t.TempDir()
 
 	fpath := filepath.Join(dir, "test.txt")
-	if err := os.WriteFile(fpath, []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(fpath, []byte("test"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
-	f, err := os.Open(fpath)
+	f, err := os.Open(fpath) //nolint:gosec // G304: temp file path in test
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -447,7 +447,7 @@ func TestAsyncIOWriteAsyncNilCallback(t *testing.T) {
 	dir := t.TempDir()
 
 	fpath := filepath.Join(dir, "test.txt")
-	f, err := os.Create(fpath)
+	f, err := os.Create(fpath) //nolint:gosec // G304: temp file path in test
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -459,7 +459,7 @@ func TestAsyncIOWriteAsyncNilCallback(t *testing.T) {
 		t.Fatalf("Wait error: %v", err)
 	}
 
-	got, err := os.ReadFile(fpath)
+	got, err := os.ReadFile(fpath) //nolint:gosec // G304: temp file path in test
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -478,11 +478,11 @@ func TestAsyncIOConcurrentOperations(t *testing.T) {
 	for i := range content {
 		content[i] = byte('A' + i%26)
 	}
-	if err := os.WriteFile(fpath, content, 0644); err != nil {
+	if err := os.WriteFile(fpath, content, 0600); err != nil {
 		t.Fatal(err)
 	}
 
-	f, err := os.Open(fpath)
+	f, err := os.Open(fpath) //nolint:gosec // G304: temp file path in test
 	if err != nil {
 		t.Fatal(err)
 	}
