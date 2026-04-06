@@ -1,3 +1,10 @@
+---
+title: "YouTube Transcript Analyzer"
+slug: "docs/uses-youtube-transcribe"
+description: "YouTube Transcript Analyzer - MDDB use case guide"
+status: publish
+---
+
 # YouTube Transcript Analyzer
 
 Scan transcripts from a YouTube channel, load them into MDDB, then ask questions about the channel's content using Claude CLI.

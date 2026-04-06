@@ -1,3 +1,10 @@
+---
+title: "Website Chat"
+slug: "docs/uses-website-chat"
+description: "Website Chat - MDDB use case guide"
+status: publish
+---
+
 # Website Chat
 
 Add an AI chatbot to any website that answers questions based on your content. The entire stack runs locally with Docker and Ollama — no cloud API fees.

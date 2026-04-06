@@ -1,3 +1,10 @@
+---
+title: "WordPress Website Analyzer"
+slug: "docs/uses-wordpress-analyzer"
+description: "WordPress Website Analyzer - MDDB use case guide"
+status: publish
+---
+
 # WordPress Website Analyzer
 
 Export content from a WordPress website into MDDB, then analyze it with Claude CLI — find broken links, missing meta tags, duplicate content, and other issues.
