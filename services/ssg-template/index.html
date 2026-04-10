@@ -55,7 +55,7 @@
         "priceCurrency": "USD"
       },
       "description": "AI-native knowledge base with built-in MCP server, vector search, RAG support, and semantic retrieval for AI agents and LLM workflows",
-      "softwareVersion": "2.9.8",
+      "softwareVersion": "2.9.9",
       "featureList": [
         "Built-in MCP server (2025-11-25) with 72 tools, tool annotations, prompts, completion, structured output — stdio, Streamable HTTP, SSE transports for Claude, Cursor, Windsurf, ChatGPT, Ollama, DeepSeek",
         "Vector/semantic search with 7 index algorithms: Flat, HNSW, IVF, PQ, OPQ, SQ, BQ + per-collection int8/int4 quantization (OpenAI, Ollama, Cohere, Voyage AI)",
@@ -65,6 +65,7 @@
         "Custom YAML-based MCP tools for domain-specific AI workflows",
         "RAG pipeline: auto-embed on ingest, semantic retrieval, MCP exposure",
         "Multi-format upload: .md, .txt, .html, .pdf, .docx, .odt, .rtf, .tex, .yaml with auto-conversion to Markdown",
+        "Wikipedia XML dump import: stream multi-GB MediaWiki dumps (.xml.bz2) with wikitext-to-Markdown conversion",
         "URL import: fetch and store documents from any URL",
         "Full revision history for every document",
         "Triple protocol: HTTP/JSON REST + gRPC/Protobuf + GraphQL",
@@ -145,7 +146,7 @@
                 <!-- Machine-readable feature summary (visually hidden, for crawlers and screen readers) -->
                 <div class="sr-only">
                     <p>MDDB is an AI-native embedded document database written in Go, using BoltDB for storage. It
-                        accepts Markdown, plain text, HTML, PDF, DOCX, ODT, RTF, LaTeX, and YAML documents,
+                        accepts Markdown, plain text, HTML, PDF, DOCX, ODT, RTF, LaTeX, YAML, and Wikipedia XML dump documents,
                         auto-converting everything to Markdown. All documents are stored with full revision history.</p>
                     <h3>Core capabilities</h3>
                     <ul>
@@ -168,6 +169,8 @@
                         <li>Triple protocol: HTTP/JSON REST API, gRPC/Protobuf, GraphQL</li>
                         <li>Multi-format upload: .md, .txt, .html, .pdf, .docx, .odt, .rtf, .tex, .yaml with
                             auto-conversion to Markdown</li>
+                        <li>Wikipedia XML dump import: stream multi-GB MediaWiki dumps with wikitext-to-Markdown
+                            conversion, namespace filtering, batch processing</li>
                         <li>URL import: fetch and store documents from any URL</li>
                         <li>Document TTL with auto-expiry and background cleanup</li>
                         <li>Full revision history for every document</li>
@@ -279,6 +282,7 @@
                                 <div class="feat-file f-tex">.tex</div>
                                 <div class="feat-file f-yaml">.yaml</div>
                                 <div class="feat-file f-url">URL</div>
+                                <div class="feat-file f-wiki">Wiki XML</div>
                                 <div class="feat-arrow-down"></div>
                                 <div class="feat-file f-out">Markdown</div>
                             </div>
@@ -286,11 +290,13 @@
                         <div class="feat-text">
                             <span class="feat-label">Ingestion</span>
                             <h3>Multi-Format Pipeline</h3>
-                            <p>Upload .md, .txt, .html, .pdf, .docx, .odt, .rtf, .tex, .yaml or import from any URL.
+                            <p>Upload .md, .txt, .html, .pdf, .docx, .odt, .rtf, .tex, .yaml, import from any URL,
+                                or stream Wikipedia XML dumps (.xml.bz2).
                                 Everything auto-converts to Markdown. Background embedding worker indexes documents as
                                 they arrive.</p>
                             <ul class="feat-tags">
-                                <li>12 Formats</li>
+                                <li>13 Formats</li>
+                                <li>Wikipedia Import</li>
                                 <li>URL Import</li>
                                 <li>Auto-Embed</li>
                                 <li>TTL Expiry</li>
@@ -437,8 +443,8 @@ make docker-up
                                 <span class="terminal-title">bash — binary</span>
                             </div>
                             <pre><code id="binary-download-code" data-terminal="bash"># Download binary
-wget https://github.com/tradik/mddb/releases/download/v2.9.8/mddbd-v2.9.8-linux-amd64.tar.gz
-tar -xzf mddbd-v2.9.8-linux-amd64.tar.gz
+wget https://github.com/tradik/mddb/releases/download/v2.9.9/mddbd-v2.9.9-linux-amd64.tar.gz
+tar -xzf mddbd-v2.9.9-linux-amd64.tar.gz
 
 # Run server
 ./mddbd
@@ -553,12 +559,19 @@ sudo snap install mddb-cli</code></pre>
                     </div>
                 </div>
                 <div class="release-notes">
-                    <h3 id="whats-new-header">What's New in v2.9.8</h3>
+                    <h3 id="whats-new-header">What's New in v2.9.9</h3>
                     <ul>
-                        <li><strong>Goroutine Parallel Search</strong> - Multi-threaded Flat and IVF vector scoring with ~2.5x speedup on 50K collections. Configurable via <code>MDDB_VECTOR_PARALLEL_WORKERS</code></li>
-                        <li><strong>OPQ (Optimized Product Quantization)</strong> - New index algorithm with learned rotation matrix for ~1-3% better recall than PQ. Use <code>"algorithm": "opq"</code></li>
-                        <li><strong>ARM NEON/SME Acceleration</strong> - Hardware-accelerated cosine similarity, dot product, Euclidean distance on ARM64 (3-4x NEON, ~7x SME on M4+)</li>
-                        <li><strong>Configuration Docs</strong> - 15+ missing env vars documented: temporal, spell, parallel search, MCP auth/rate-limit/logging</li>
+                        <li><strong>Wikipedia XML Import</strong> - Stream and import MediaWiki XML dumps (.xml.bz2)
+                            with wikitext-to-Markdown conversion, namespace filtering, and batch processing for
+                            multi-million document imports</li>
+                        <li><strong>Database Path Configuration</strong> - Database location now configurable via
+                            <code>--db</code> CLI flag, YAML config (<code>database.path</code>), or
+                            <code>MDDB_PATH</code> env var</li>
+                        <li><strong>Goroutine Parallel Search</strong> - Multi-threaded Flat and IVF vector scoring with
+                            ~2.5x speedup on 50K collections. Configurable via <code>MDDB_VECTOR_PARALLEL_WORKERS</code>
+                        </li>
+                        <li><strong>OPQ (Optimized Product Quantization)</strong> - New index algorithm with learned
+                            rotation matrix for ~1-3% better recall than PQ. Use <code>"algorithm": "opq"</code></li>
                     </ul>
                     <a href="https://github.com/tradik/mddb/blob/main/CHANGELOG.md" target="_blank" rel="noopener">View
                         Full Changelog →</a>
@@ -948,7 +961,8 @@ $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
                     </p>
                 </div>
                 <div style="max-width: 700px; margin: 0 auto; text-align: center;">
-                    <pre class="mermaid" style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <pre class="mermaid"
+                        style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
 graph LR
     C[Clients] -->|Writes/Reads| L[Leader]
     C -->|Reads| F1[Follower 1]
@@ -1009,7 +1023,7 @@ graph LR
                 <div class="footer-section">
                     <h4>MDDB</h4>
                     <p>AI-native knowledge base</p>
-                    <p class="footer-version" id="footer-version">Version 2.9.8</p>
+                    <p class="footer-version" id="footer-version">Version 2.9.9</p>
                 </div>
                 <div class="footer-section">
                     <h4>Documentation</h4>
@@ -1050,7 +1064,7 @@ graph LR
 
     <script defer>
         // Single source of truth for version — change here to update everywhere
-        const MDDB_VERSION = '2.9.8';
+        const MDDB_VERSION = '2.9.9';
         const MDDB_RELEASE_DATE = 'April 7, 2026';
 
         // Replace all version references in the page

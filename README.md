@@ -7,7 +7,7 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/tradik/mddb)](https://hub.docker.com/r/tradik/mddb)
 [![Tests](https://github.com/tradik/mddb/workflows/Tests/badge.svg)](https://github.com/tradik/mddb/actions)
 
-**AI-native document database with built-in MCP server, file upload (PDF/DOCX/HTML/ODT/RTF/TEX/YAML→Markdown), vector search, RAG pipelines, and 72 MCP tools. Plugs directly into Claude, ChatGPT, Cursor, Windsurf, and any MCP-compatible agent.**
+**AI-native document database with built-in MCP server, file upload (PDF/DOCX/HTML/ODT/RTF/TEX/YAML/Wikipedia XML→Markdown), vector search, RAG pipelines, and 72 MCP tools. Plugs directly into Claude, ChatGPT, Cursor, Windsurf, and any MCP-compatible agent.**
 
 MDDB is a document database purpose-built for AI agents and LLM workflows. Upload files (PDF, DOCX, HTML, ODT, RTF, TEX, YAML, TXT) — they're auto-converted to Markdown and embedded for semantic search. Expose everything to AI agents via 72 built-in MCP tools. Integrates with [Docling](docs/INTEGRATIONS.md#1-docling--mddb-document-ingestion), [Langflow](docs/INTEGRATIONS.md#2-langflow--mddb-visual-rag-orchestration), [OpenSearch](docs/INTEGRATIONS.md#3-opensearch--mddb-scalable-search), [SSG](docs/INTEGRATIONS.md#4-ssg--static-site-generator-from-mddb), and [wpexporter](docs/INTEGRATIONS.md#5-wpexporter--wordpress-to-mddb-migration) for production pipelines. Single ~29MB binary, zero configuration, BoltDB embedded storage, triple-protocol APIs (HTTP + gRPC + GraphQL).
 
@@ -16,6 +16,7 @@ MDDB is a document database purpose-built for AI agents and LLM workflows. Uploa
 MDDB gives your AI agents a persistent, searchable knowledge base:
 
 - **File Upload** - Upload PDF, DOCX, HTML, ODT, RTF, TEX, YAML, TXT files — auto-converted to Markdown and indexed
+- **Wikipedia Import** - Stream and import MediaWiki XML dumps (`.xml.bz2`) — wikitext auto-converted to Markdown, namespace filtering, handles multi-GB files
 - **Built-in MCP Server** - 72 tools for Claude Desktop, Cursor, Windsurf, or any MCP client
 - **Vector Search** - Auto-embed documents, semantic similarity with 7 index algorithms (Flat, HNSW, IVF, PQ, OPQ, SQ, BQ) + per-collection quantization (int8/int4) + ARM NEON/SME hardware acceleration + goroutine parallel search
 - **RAG-Ready** - Hybrid search (BM25 + vector) for retrieval-augmented generation
@@ -225,6 +226,7 @@ Proto definitions at `proto/mddb.proto` - generate clients for any language supp
 ### AI & Search
 - ✅ **MCP Server** - 72 built-in tools via Model Context Protocol 2025-11-25 (stdio + Streamable HTTP + SSE) with tool annotations, prompts, completion, and structured output
 - ✅ **File Upload** - Upload PDF, DOCX, HTML, ODT, RTF, TEX, YAML, TXT — auto-converted to Markdown (single and batch, configurable size limit)
+- ✅ **Wikipedia Import** - Stream MediaWiki XML dumps (`.xml.bz2`) with wikitext→Markdown conversion, namespace filtering, batch processing
 - ✅ **Vector Search** - Semantic similarity with auto-embeddings (OpenAI, Ollama, Cohere, Voyage), ARM NEON/SME SIMD acceleration
 - ✅ **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, BM25F, PMISparse scoring, 7 search modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), typo tolerance, metadata pre-filtering, multi-language stemming and stop words (18 languages)
 - ✅ **Hybrid Search** - Sparse (BM25) + dense (vector) fusion with alpha blending or RRF

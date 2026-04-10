@@ -24,7 +24,7 @@ import (
 )
 
 // VERSION is the current release version of the MDDB server.
-const VERSION = "2.9.8"
+const VERSION = "2.9.9"
 
 // AccessMode defines the database access mode (read, write, or both).
 type AccessMode string
@@ -192,8 +192,8 @@ func main() {
 	// Load server configuration (CLI flags > env vars > config file > defaults)
 	srvCfg := loadServerConfig()
 
-	dbPath := env("MDDB_PATH", "mddb.db")
-	mode := AccessMode(env("MDDB_MODE", "wr")) // read|write|wr
+	dbPath := srvCfg.Database.Path
+	mode := srvCfg.Database.Mode
 
 	db, err := bolt.Open(dbPath, 0600, getOptimizedBoltOptions())
 	if err != nil {
@@ -658,6 +658,7 @@ func main() {
 	mux.HandleFunc("/v1/embedding-configs/set-default", s.guardWrite(s.handleSetDefaultEmbeddingConfig))
 	mux.HandleFunc("/v1/upload", s.guardWrite(s.handleUpload))
 	mux.HandleFunc("/v1/import-url", s.guardWrite(s.handleImportURL))
+	mux.HandleFunc("/v1/import-wiki", s.guardWrite(s.handleWikiImport))
 	mux.HandleFunc("/v1/set-ttl", s.guardWrite(s.handleSetTTL))
 	mux.HandleFunc("/v1/fts", s.handleFTS)
 	mux.HandleFunc("/v1/fts-reindex", s.guardWrite(s.handleFTSReindex))

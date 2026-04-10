@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.9] - 2026-04-10
+
+### Added
+- **Wikipedia XML Dump Import** (`/v1/import-wiki`) — Stream and import MediaWiki XML dumps (including `.xml.bz2` compressed) directly into MDDB.
+  - Streaming XML parser — processes multi-GB dumps without loading into memory
+  - Automatic wikitext-to-Markdown conversion (headings, bold/italic, links, lists, tables, templates, references, categories)
+  - Namespace filtering (default: ns=0, articles only), redirect skipping, max page limit
+  - Batch processing with configurable batch size (default 500) and progress logging every 10K pages
+  - Supports multipart file upload or raw octet-stream with query params
+  - Metadata extraction: `wiki_id`, `wiki_title`, `wiki_ns`, `wiki_rev_id`, `wiki_timestamp`, `wiki_contributor`
+  - `skipFts` option for faster bulk imports (run `/v1/fts-reindex` after)
+  - New files: `wiki_import.go`, `wikitext.go`, `wikitext_test.go`, `wiki_import_test.go`
+- **Database Path Configuration** — Database file location now configurable via CLI flag, YAML config, or environment variable.
+  - CLI: `--db /path/to/mddb.db`, `--mode wr`
+  - YAML config: `database.path`, `database.mode`
+  - Env var: `MDDB_PATH`, `MDDB_MODE` (unchanged, still supported)
+  - Precedence: CLI flags > env vars > config file > defaults
+
 ## [2.9.8] - 2026-04-06
 
 ### Added

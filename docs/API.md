@@ -66,6 +66,7 @@ status: publish
   - [GET/PUT/DELETE /v1/automation/:id](#getputdelete-v1automationid)
   - [GET /v1/automation-logs](#get-v1automation-logs)
   - [POST /v1/import-url](#post-v1import-url)
+  - [POST /v1/import-wiki](#post-v1import-wiki)
   - [POST /v1/set-ttl](#post-v1set-ttl)
   - [GET /v1/meta-keys](#get-v1meta-keys)
   - [GET /v1/checksum](#get-v1checksum)
@@ -105,8 +106,8 @@ The server can be configured using environment variables:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `MDDB_ADDR` | `:11023` | Server address and port |
-| `MDDB_MODE` | `wr` | Access mode: `read`, `write`, or `wr` (read+write) |
-| `MDDB_PATH` | `mddb.db` | Path to the BoltDB database file |
+| `MDDB_MODE` | `wr` | Access mode: `read`, `write`, or `wr` (read+write). Also: `--mode` flag, `database.mode` in YAML |
+| `MDDB_PATH` | `mddb.db` | Path to the BoltDB database file. Also: `--db` flag, `database.path` in YAML |
 | `MDDB_EMBEDDING_PROVIDER` | `none` | Embedding provider: `openai`, `ollama`, `voyage`, or `none` |
 | `MDDB_EMBEDDING_API_KEY` | | API key for OpenAI or Voyage AI |
 | `MDDB_EMBEDDING_API_URL` | *(per provider)* | API base URL (see [Vector Search](#vector-search-configuration)) |
@@ -2543,6 +2544,52 @@ Import a markdown document from a URL. Automatically extracts YAML frontmatter.
 
 ---
 
+### POST /v1/import-wiki
+
+Import Wikipedia (MediaWiki) XML dumps. Supports `.xml` and `.xml.bz2` compressed files. Streams the XML — does not load the entire file into memory.
+
+**Multipart Form Upload:**
+```bash
+curl -X POST http://localhost:11023/v1/import-wiki \
+  -F "file=@enwiki-20260101-pages-articles.xml.bz2" \
+  -F "collection=wikipedia" \
+  -F "lang=en" \
+  -F "skipRedirects=true" \
+  -F "skipFts=true"
+```
+
+**Raw Stream (octet-stream):**
+```bash
+curl -X POST "http://localhost:11023/v1/import-wiki?collection=wikipedia&lang=en&skipRedirects=true&skipFts=true" \
+  -H "Content-Type: application/x-bzip2" \
+  --data-binary @enwiki-20260101-pages-articles.xml.bz2
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `collection` | string | **Required.** Target collection |
+| `lang` | string | **Required.** Language code (e.g. `en`, `de`, `pl`) |
+| `namespaces` | string | Comma-separated namespace IDs to import (default: `0` = articles only) |
+| `skipRedirects` | bool | Skip redirect pages (default: `false`) |
+| `skipFts` | bool | Skip FTS indexing during import for speed (default: `false`). Run `/v1/fts-reindex` after. |
+| `maxPages` | int | Maximum pages to import (default: unlimited) |
+| `batchSize` | int | Pages per batch commit (default: `500`) |
+
+**Response:**
+```json
+{
+  "imported": 1234567,
+  "skipped": 456789,
+  "failed": 0,
+  "collection": "wikipedia",
+  "durationMs": 3600000
+}
+```
+
+**Metadata stored per document:** `source=wikipedia`, `wiki_id`, `wiki_title`, `wiki_ns`, `wiki_rev_id`, `wiki_timestamp`, `wiki_contributor`, `wiki_redirect` (if applicable).
+
+---
+
 ### POST /v1/set-ttl
 
 Set or remove document time-to-live.
@@ -2637,7 +2684,7 @@ curl http://localhost:11023/v1/system/info
   "arch": "amd64",
   "numCPU": 4,
   "goVersion": "go1.26.0",
-  "version": "2.9.8",
+  "version": "2.9.9",
   "uptimeSeconds": 3600,
   "memoryTotal": 134217728,
   "memoryUsed": 67108864,
@@ -2660,7 +2707,7 @@ curl http://localhost:11023/v1/config
 **Response**:
 ```json
 {
-  "version": "2.9.8",
+  "version": "2.9.9",
   "databasePath": "mddb.db",
   "mode": "wr",
   "protocols": {
