@@ -43,6 +43,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Removes `protobuf` + `protobuf-dev` from Alpine apk packages and `go install protoc-gen-go*` steps — smaller image, faster build, reproducible across environments.
   - `services/mddb-chat` Dockerfile is unchanged — Rust's `tonic-build` legitimately needs `protoc` at cargo build time (no committed Rust bindings equivalent to `.pb.go`), and the `tonic-build` crate version is pinned in `Cargo.lock`.
 - **`go mod tidy`** across all Go modules (`services/mddbd`, `services/mddb-cli`, `tools/bench`, `test`) — dependency lists now match actual imports after recent feature additions.
+- **Go workspace for the monorepo** — [`go.work`](go.work) committed at the repo root, listing `services/mddbd`, `services/mddb-cli`, and `tools/bench`.
+  - Enables cross-module refactoring, unified `go build ./...` from the repo root, and gopls "goto definition" across module boundaries.
+  - `test/` module intentionally excluded (pre-existing `package main` conflicts in benchmark scripts); its `replace mddb => ../services/mddbd` in `test/go.mod` remains as a standalone fallback.
+  - **CI runs with `GOWORK=off`** in both [test.yml](.github/workflows/test.yml) and [release.yml](.github/workflows/release.yml) — each module builds and tests in strict isolation so missing `require` entries (that workspace mode would hide) fail fast.
+  - `.gitignore` updated: `go.work` is now committed; `go.work.sum` is ignored (not needed when every module maintains its own `go.sum`).
+  - Docker builds are unaffected — `COPY services/mddbd/` never picks up the repo-root `go.work`, so containers naturally run in isolated mode.
+  - See README.md "Development with Go Workspace" section for details.
 
 ### Fixed
 - **Vector search RLock regression from 2.9.8** — `VectorIndex.Search` and `SearchWithFilter` held the read lock for the entire multi-millisecond parallel scoring phase, serializing every writer (`Add`/`Remove`) against searches and partially defeating the 2.5x parallel speedup under write-heavy workloads.

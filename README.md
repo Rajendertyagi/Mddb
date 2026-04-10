@@ -154,6 +154,24 @@ make build
 ./services/mddbd/mddbd
 ```
 
+### Development with Go Workspace
+
+MDDB is a Go monorepo with multiple modules (`services/mddbd`, `services/mddb-cli`, `tools/bench`). A [`go.work`](go.work) file at the repo root enables Go workspace mode for local development:
+
+- **Cross-module refactoring** — renaming a symbol in `services/mddbd` immediately updates references in `services/mddb-cli` via `gopls`.
+- **Unified build** — `go build ./services/mddbd/... ./services/mddb-cli/... ./tools/bench/...` from the repo root.
+- **IDE "goto definition"** works across module boundaries without opening each module separately.
+
+**CI runs in module-isolation mode** (`GOWORK=off` in [`.github/workflows/test.yml`](.github/workflows/test.yml) and [`release.yml`](.github/workflows/release.yml)) so each module builds and tests independently. This catches missing `require` entries that workspace mode would transparently resolve from sibling modules.
+
+To use the same mode locally for debugging:
+
+```bash
+GOWORK=off go build ./...   # from inside services/mddbd
+```
+
+Regenerating protos (`buf generate`) and Docker builds are unaffected by `go.work` — they operate on individual modules.
+
 ## 📦 Packages & Client Libraries
 
 MDDB ships as a monorepo with multiple packages:

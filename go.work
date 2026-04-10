@@ -1,0 +1,28 @@
+// Go workspace for the MDDB monorepo.
+//
+// This file is for LOCAL DEVELOPMENT ONLY — it enables cross-module
+// refactoring, unified `go build ./...` from the repo root, and gopls
+// "goto definition" across module boundaries.
+//
+// CI INTENTIONALLY DISABLES WORKSPACE MODE via `GOWORK=off` in
+// .github/workflows/test.yml. Each module's tests, vet, and build
+// run in isolation to catch missing `require` entries that workspace
+// mode would hide.
+//
+// Every module listed here must also maintain its own go.mod with
+// complete `require` entries so it builds standalone when GOWORK=off.
+//
+// NOT listed here:
+//   - ./test — pre-existing package-level conflicts
+//     (multiple files declaring `package main` with duplicate symbols).
+//     Can be added after the benchmark scripts are split into
+//     per-subdirectory packages. Its go.mod has `replace mddb => ../services/mddbd`
+//     which serves the same purpose standalone.
+
+go 1.26
+
+use (
+	./services/mddbd
+	./services/mddb-cli
+	./tools/bench
+)
