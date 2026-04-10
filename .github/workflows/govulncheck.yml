@@ -1,0 +1,63 @@
+name: Vulnerability Scan
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'services/mddbd/**'
+      - 'services/mddb-cli/**'
+      - 'tools/bench/**'
+      - '.github/workflows/govulncheck.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'services/mddbd/**'
+      - 'services/mddb-cli/**'
+      - 'tools/bench/**'
+      - '.github/workflows/govulncheck.yml'
+  # Daily scan catches newly-disclosed CVEs in already-pinned dependencies.
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+env:
+  GO_VERSION: "1.26.2"
+  # Scan each module in isolation — mirrors the Tests workflow so we catch
+  # vulnerabilities reachable from each module's declared deps, not the
+  # workspace-merged graph.
+  GOWORK: "off"
+
+permissions:
+  contents: read
+
+jobs:
+  govulncheck:
+    name: govulncheck (${{ matrix.module.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - name: mddbd
+            path: services/mddbd
+          - name: mddb-cli
+            path: services/mddb-cli
+          - name: bench
+            path: tools/bench
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: ${{ matrix.module.path }}/go.sum
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: Run govulncheck
+        working-directory: ${{ matrix.module.path }}
+        run: govulncheck ./...

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Pinned Go toolchain to 1.26.2** across all modules (`services/mddbd`, `services/mddb-cli`, `tools/bench`, `test`) and `go.work`, plus matching bumps in Dockerfiles (`golang:1.26.2-alpine`) and GitHub Actions workflows (`test.yml`, `release.yml`, `govulncheck.yml`). Fixes 5 stdlib vulnerabilities flagged by `govulncheck`:
+  - GO-2026-4947 — `crypto/x509` unexpected work during chain building
+  - GO-2026-4946 — `crypto/x509` inefficient policy validation
+  - GO-2026-4870 — `crypto/tls` unauthenticated TLS 1.3 KeyUpdate DoS
+  - GO-2026-4866 — `crypto/x509` case-sensitive `excludedSubtrees` auth bypass
+  - GO-2026-4865 — `html/template` JsBraceDepth XSS
+- **Added `govulncheck` GitHub Actions workflow** (`.github/workflows/govulncheck.yml`) — scans all three Go modules on push/PR and nightly (06:00 UTC) with `GOWORK=off` to mirror the isolation of the Tests workflow.
+
 ## [2.9.9] - 2026-04-10
 
 ### Added

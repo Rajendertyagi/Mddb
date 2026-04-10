@@ -21,6 +21,8 @@
 
 go 1.26
 
+toolchain go1.26.2
+
 use (
 	./services/mddbd
 	./services/mddb-cli

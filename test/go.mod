@@ -2,6 +2,8 @@ module mddb-test
 
 go 1.26
 
+toolchain go1.26.2
+
 require (
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/lib/pq v1.10.9
