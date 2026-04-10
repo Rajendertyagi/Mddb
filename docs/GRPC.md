@@ -87,7 +87,7 @@ grpcurl -plaintext -d '{"collection":"blog","key":"test","lang":"en_US"}' \
 
 ## Service Definition
 
-The complete service definition is in [`proto/mddb.proto`](../services/mddbd/proto/mddb.proto).
+The complete service definition is in [`proto/mddb.proto`](../proto/mddb.proto).
 
 ### Available RPCs (58 total)
 

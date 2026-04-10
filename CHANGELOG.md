@@ -25,6 +25,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Env var: `MDDB_PATH`, `MDDB_MODE` (unchanged, still supported)
   - Precedence: CLI flags > env vars > config file > defaults
 
+### Removed
+- **`services/mddbd/proto/mddb.proto`** — stale duplicate of the source-of-truth `proto/mddb.proto` at the repo root. Nothing actually referenced it: Go imports the generated `mddb/proto` package (the `.pb.go` files, which remain), Docker builds already read the root `proto/mddb.proto` via `COPY proto /proto`, and `buf generate` reads from the root too. The duplicate had drifted 2KB behind source.
+- **`services/mddbd/generate.sh`** — dead duplicate of `proto/generate.sh` using hardcoded relative paths to the stale copy above. Three competing code generators was two too many.
+
+### Changed
+- **Protobuf code generation now uses `buf`** — Replaces the `protoc`-based `proto/generate.sh` script as the primary code generator.
+  - New files: [buf.yaml](buf.yaml) (lint rules + module config), [buf.gen.yaml](buf.gen.yaml) (pinned plugin versions)
+  - Pinned plugins for reproducibility: `protocolbuffers/go:v1.36.11`, `grpc/go:v1.6.1`, `protocolbuffers/python:v31.1`, `grpc/python:v1.71.0`, `protocolbuffers/js:v3.21.4`, `grpc/node:v1.13.0`, `protocolbuffers/php:v31.1`, `grpc/php:v1.72.0`
+  - Legacy `protoc`-based script preserved as `proto/generate-legacy.sh`; the main `proto/generate.sh` now wraps `buf generate` and falls back to the legacy script if `buf` is not installed.
+  - `proto/generate.sh` also syncs `proto/mddb.proto` → `clients/nodejs/proto/mddb.proto` after generation — required because `@grpc/proto-loader` loads the file at runtime.
+  - CI now runs `buf lint`, `buf breaking` (on PRs, against base branch), and `git diff --exit-code` after `buf generate` + nodejs sync to catch drift between `.proto` source and committed generated code.
+  - Fixes the long-standing quirk documented in the repo memory where `generate.sh` placed files in the wrong directory due to `-I proto` stripping the path prefix.
+  - Fixes [docs/GRPC.md](docs/GRPC.md) broken link that pointed at the now-deleted `services/mddbd/proto/mddb.proto`.
+- **`services/mddbd` Docker images no longer regenerate proto** — [services/mddbd/Dockerfile](services/mddbd/Dockerfile) and [Dockerfile.dev](services/mddbd/Dockerfile.dev) used to install `protoc-gen-go@latest` + `protoc-gen-go-grpc@latest` at image build time and regenerate `.pb.go` files from scratch, **silently overriding the pinned plugin versions** from buf.gen.yaml and producing Docker images with different proto bindings than local builds.
+  - Fix: Dockerfile now just copies the already-committed `services/mddbd/proto/*.pb.go` files (CI enforces these match `buf generate` output via `git diff --exit-code`).
+  - Removes `protobuf` + `protobuf-dev` from Alpine apk packages and `go install protoc-gen-go*` steps — smaller image, faster build, reproducible across environments.
+  - `services/mddb-chat` Dockerfile is unchanged — Rust's `tonic-build` legitimately needs `protoc` at cargo build time (no committed Rust bindings equivalent to `.pb.go`), and the `tonic-build` crate version is pinned in `Cargo.lock`.
+- **`go mod tidy`** across all Go modules (`services/mddbd`, `services/mddb-cli`, `tools/bench`, `test`) — dependency lists now match actual imports after recent feature additions.
+
 ### Fixed
 - **Vector search RLock regression from 2.9.8** — `VectorIndex.Search` and `SearchWithFilter` held the read lock for the entire multi-millisecond parallel scoring phase, serializing every writer (`Add`/`Remove`) against searches and partially defeating the 2.5x parallel speedup under write-heavy workloads.
   - Fix: release `RLock` immediately after `snapshotMap()` copies slice headers; parallel scoring now runs lock-free on the owned snapshot.

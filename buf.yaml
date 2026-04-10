@@ -1,0 +1,37 @@
+version: v2
+
+# Single module containing all shared protobuf definitions.
+# Add more modules here if the repo grows multiple proto roots.
+modules:
+  - path: proto
+
+# Lint rules — STANDARD is the sensible default.
+# We opt out of PACKAGE_DIRECTORY_MATCH because our package is `mddb`
+# but the directory is `proto/` (single-proto layout).
+lint:
+  use:
+    - STANDARD
+  except:
+    # Our package is `mddb` but lives in `proto/` — intentional single-proto layout.
+    - PACKAGE_DIRECTORY_MATCH
+    # Package is `mddb` not `mddb.v1` — versioning is done via git tags / CHANGELOG,
+    # and renaming would break every existing client (Go/Python/Node.js/PHP).
+    - PACKAGE_VERSION_SUFFIX
+    # Services are named `MDDB` / `MDDBReplication`, not `MDDBService`.
+    # Renaming would break every existing client.
+    - SERVICE_SUFFIX
+    # We intentionally reuse types across RPCs (e.g., Document as both
+    # AddResponse and GetResponse, AutomationRuleProto for all Automation
+    # RPCs). This is a deliberate design choice — a single shared entity
+    # type is clearer than dozens of wrapper messages. Renaming would
+    # break every existing client.
+    - RPC_REQUEST_STANDARD_NAME
+    - RPC_RESPONSE_STANDARD_NAME
+    - RPC_REQUEST_RESPONSE_UNIQUE
+
+# Breaking-change detection — FILE scope catches API-breaking field
+# number reuse, type changes, service changes, etc. Runs in CI via
+# `buf breaking --against '.git#branch=main'`.
+breaking:
+  use:
+    - FILE

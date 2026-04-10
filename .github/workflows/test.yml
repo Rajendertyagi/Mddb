@@ -7,6 +7,8 @@ on:
       - 'services/mddbd/**'
       - 'services/mddb-cli/**'
       - 'proto/**'
+      - 'buf.yaml'
+      - 'buf.gen.yaml'
       - '.github/workflows/test.yml'
   pull_request:
     branches: [main, develop]
@@ -14,6 +16,8 @@ on:
       - 'services/mddbd/**'
       - 'services/mddb-cli/**'
       - 'proto/**'
+      - 'buf.yaml'
+      - 'buf.gen.yaml'
       - '.github/workflows/test.yml'
 
 env:
@@ -72,6 +76,49 @@ jobs:
           version: latest
           working-directory: services/mddbd
           args: --timeout=5m
+
+  proto:
+    name: Proto Lint & Breaking Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          # buf breaking needs the full history of the target branch to
+          # compare against.
+          fetch-depth: 0
+
+      - name: Set up buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          version: "1.50.0"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lint proto files
+        run: buf lint
+
+      - name: Detect breaking proto changes
+        # Only run on PRs — on push to main, this would compare against
+        # itself and always pass.
+        if: github.event_name == 'pull_request'
+        run: buf breaking --against "https://github.com/${{ github.repository }}.git#branch=${{ github.base_ref }}"
+
+      - name: Verify generated code is up to date
+        # Regenerates everything with pinned plugin versions from buf.gen.yaml,
+        # then syncs the source .proto file to the Node.js client directory
+        # (required at runtime by @grpc/proto-loader). If any committed file
+        # drifts from what this produces, the git diff fails the job.
+        # Developers must run `./proto/generate.sh` locally and commit.
+        run: |
+          buf generate
+          cp proto/mddb.proto clients/nodejs/proto/mddb.proto
+          if ! git diff --exit-code services/mddbd/proto/ clients/python/mddb_client/ clients/nodejs/proto/ services/php-extension/proto/ 2>&1; then
+            echo ""
+            echo "❌ Generated proto code is out of date."
+            echo "   Run './proto/generate.sh' locally and commit the result."
+            exit 1
+          fi
 
   build:
     name: Build Binaries
