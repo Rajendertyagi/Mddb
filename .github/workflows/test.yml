@@ -107,8 +107,22 @@ jobs:
       - name: Detect breaking proto changes
         # Only run on PRs — on push to main, this would compare against
         # itself and always pass.
+        #
+        # Skip when the base branch has no buf.yaml yet (expected only
+        # for the initial buf-migration PR, where main still has the
+        # pre-migration layout — legacy duplicate `services/mddbd/proto/
+        # mddb.proto` alongside `proto/mddb.proto`, which buf cannot
+        # build as a single image because they define the same symbols).
+        # Once this PR merges, main gains buf.yaml and subsequent PRs
+        # run the check normally.
         if: github.event_name == 'pull_request'
-        run: buf breaking --against "https://github.com/${{ github.repository }}.git#branch=${{ github.base_ref }}"
+        run: |
+          if git fetch origin "${{ github.base_ref }}" --depth=1 && \
+             git show "origin/${{ github.base_ref }}:buf.yaml" >/dev/null 2>&1; then
+            buf breaking --against "https://github.com/${{ github.repository }}.git#branch=${{ github.base_ref }}"
+          else
+            echo "::warning::Base branch '${{ github.base_ref }}' has no buf.yaml — skipping breaking check (expected for initial buf-migration PR)."
+          fi
 
       - name: Verify generated code is up to date
         # Regenerates everything with pinned plugin versions from buf.gen.yaml,
