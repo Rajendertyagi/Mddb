@@ -11,10 +11,13 @@ on:
         required: true
 
 env:
-  GO_VERSION: '1.26'
+  GO_VERSION: '1.26.2'
   DOCKER_HUB_USERNAME: tradik
   IMAGE_NAME: mddb
   GHCR_REGISTRY: ghcr.io
+  # Disable Go workspace mode in CI so each module builds independently.
+  # go.work is for local development only — see go.work and README.md.
+  GOWORK: "off"
 
 jobs:
   build-server:

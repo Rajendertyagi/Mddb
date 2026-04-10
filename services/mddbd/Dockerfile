@@ -1,34 +1,27 @@
 # Multi-stage build for minimal image size
 # Stage 1: Build
-FROM golang:1.26-alpine AS builder
+FROM golang:1.26.2-alpine AS builder
 
-# Install build dependencies
-RUN apk add --no-cache git make protobuf protobuf-dev
-
-# Install protoc plugins
-RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
-    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+# Install build dependencies (git for VCS stamping, make for Makefile targets)
+RUN apk add --no-cache git make
 
 # Set working directory
 WORKDIR /build
 
-# Copy go mod files
+# Copy go mod files first for better layer caching
 COPY services/mddbd/go.mod services/mddbd/go.sum ./
 
 # Download dependencies
 RUN go mod download
 
-# Copy proto files
-COPY proto /proto
-
-# Copy source code
+# Copy source code — INCLUDING the committed services/mddbd/proto/*.pb.go
+# files. Proto code generation happens OUTSIDE the Docker build via
+# `buf generate` (see buf.gen.yaml at repo root), with plugin versions
+# pinned for reproducibility. CI enforces that committed .pb.go matches
+# what buf would produce via `git diff --exit-code` after regeneration.
+# Regenerating inside the Docker build with `go install @latest` plugins
+# would defeat those pinned versions.
 COPY services/mddbd/ ./
-
-# Create proto directory and generate code
-RUN mkdir -p proto && \
-    protoc --go_out=proto --go_opt=paths=source_relative \
-    --go-grpc_out=proto --go-grpc_opt=paths=source_relative \
-    -I /proto /proto/mddb.proto
 
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \

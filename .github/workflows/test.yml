@@ -7,6 +7,8 @@ on:
       - 'services/mddbd/**'
       - 'services/mddb-cli/**'
       - 'proto/**'
+      - 'buf.yaml'
+      - 'buf.gen.yaml'
       - '.github/workflows/test.yml'
   pull_request:
     branches: [main, develop]
@@ -14,10 +16,18 @@ on:
       - 'services/mddbd/**'
       - 'services/mddb-cli/**'
       - 'proto/**'
+      - 'buf.yaml'
+      - 'buf.gen.yaml'
       - '.github/workflows/test.yml'
 
 env:
-  GO_VERSION: "1.26"
+  GO_VERSION: "1.26.2"
+  # Disable Go workspace mode in CI so each module builds/tests in isolation.
+  # This catches missing `require` entries that go.work would hide by
+  # transparently resolving sibling modules. Developers get the workspace
+  # benefits locally (cross-module refactoring, unified `go build`);
+  # CI keeps modules strictly independent.
+  GOWORK: "off"
 
 jobs:
   test:
@@ -72,6 +82,63 @@ jobs:
           version: latest
           working-directory: services/mddbd
           args: --timeout=5m
+
+  proto:
+    name: Proto Lint & Breaking Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          # buf breaking needs the full history of the target branch to
+          # compare against.
+          fetch-depth: 0
+
+      - name: Set up buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          version: "1.50.0"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lint proto files
+        run: buf lint
+
+      - name: Detect breaking proto changes
+        # Only run on PRs — on push to main, this would compare against
+        # itself and always pass.
+        #
+        # Skip when the base branch has no buf.yaml yet (expected only
+        # for the initial buf-migration PR, where main still has the
+        # pre-migration layout — legacy duplicate `services/mddbd/proto/
+        # mddb.proto` alongside `proto/mddb.proto`, which buf cannot
+        # build as a single image because they define the same symbols).
+        # Once this PR merges, main gains buf.yaml and subsequent PRs
+        # run the check normally.
+        if: github.event_name == 'pull_request'
+        run: |
+          if git fetch origin "${{ github.base_ref }}" --depth=1 && \
+             git show "origin/${{ github.base_ref }}:buf.yaml" >/dev/null 2>&1; then
+            buf breaking --against "https://github.com/${{ github.repository }}.git#branch=${{ github.base_ref }}"
+          else
+            echo "::warning::Base branch '${{ github.base_ref }}' has no buf.yaml — skipping breaking check (expected for initial buf-migration PR)."
+          fi
+
+      - name: Verify generated code is up to date
+        # Regenerates everything with pinned plugin versions from buf.gen.yaml,
+        # then syncs the source .proto file to the Node.js client directory
+        # (required at runtime by @grpc/proto-loader). If any committed file
+        # drifts from what this produces, the git diff fails the job.
+        # Developers must run `./proto/generate.sh` locally and commit.
+        run: |
+          buf generate
+          cp proto/mddb.proto clients/nodejs/proto/mddb.proto
+          if ! git diff --exit-code services/mddbd/proto/ clients/python/mddb_client/ clients/nodejs/proto/ services/php-extension/proto/ 2>&1; then
+            echo ""
+            echo "❌ Generated proto code is out of date."
+            echo "   Run './proto/generate.sh' locally and commit the result."
+            exit 1
+          fi
 
   build:
     name: Build Binaries

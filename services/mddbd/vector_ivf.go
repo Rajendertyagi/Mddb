@@ -207,7 +207,7 @@ func (idx *IVFIndex) searchClusters(c *ivfCollection, query []float32, topK int,
 	}
 
 	// Parallel: one goroutine per cluster when enough data
-	if totalVectors >= parallelSearchConfig.minSize && len(probeIndices) >= 2 {
+	if totalVectors >= parallelSearchConfig.MinSize() && len(probeIndices) >= 2 {
 		partials := make([][]VectorResult, len(probeIndices))
 		var wg sync.WaitGroup
 		wg.Add(len(probeIndices))

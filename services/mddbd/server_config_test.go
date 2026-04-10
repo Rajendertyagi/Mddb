@@ -219,8 +219,14 @@ mcp:
 func TestApplyCLIFlags(t *testing.T) {
 	cfg := defaultServerConfig()
 
-	applyCLIFlags(&cfg, "false", ":8080", "false", ":50051", "true", ":9000", "false", "true", ":12443")
+	applyCLIFlags(&cfg, "/tmp/test.db", "read", "false", ":8080", "false", ":50051", "true", ":9000", "false", "true", ":12443")
 
+	if cfg.Database.Path != "/tmp/test.db" {
+		t.Errorf("expected database path /tmp/test.db, got %q", cfg.Database.Path)
+	}
+	if cfg.Database.Mode != "read" {
+		t.Errorf("expected database mode read, got %q", cfg.Database.Mode)
+	}
 	if cfg.HTTP.Enabled {
 		t.Error("HTTP should be disabled via CLI flag")
 	}

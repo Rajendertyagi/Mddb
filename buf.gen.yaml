@@ -1,0 +1,72 @@
+# buf.gen.yaml — generates code for all languages from proto/mddb.proto
+#
+# Usage:   buf generate
+# Fallback: ./proto/generate-legacy.sh  (uses local protoc + language plugins)
+#
+# IMPORTANT: Plugin versions are PINNED for reproducible builds.
+# When upgrading, update both the version here AND the corresponding
+# runtime library versions in the client packages (go.mod, package.json,
+# requirements.txt, composer.json) to keep them in lockstep.
+
+version: v2
+
+# NOTE: `clean: true` is intentionally OFF. It wipes the ENTIRE output
+# directory tree before generating — which would nuke services/mddbd/
+# and other mixed-content directories. Stale generated files must be
+# removed manually (`git clean -fd services/mddbd/proto/`) or caught
+# in CI via `git diff --exit-code` after `buf generate`.
+
+plugins:
+  # ────────────────────────────────────────────────────────────────────────
+  # Go (services/mddbd/proto)
+  # ────────────────────────────────────────────────────────────────────────
+  # With buf's module path `proto/`, paths=source_relative strips the
+  # `proto/` prefix from .proto files, so setting out to services/mddbd/proto
+  # places the generated files at services/mddbd/proto/mddb.pb.go —
+  # matching `option go_package = "mddb/proto"` in mddb.proto.
+  #
+  # Matches google.golang.org/protobuf in services/mddbd/go.mod (v1.36.11).
+  - remote: buf.build/protocolbuffers/go:v1.36.11
+    out: services/mddbd/proto
+    opt:
+      - paths=source_relative
+
+  # Matches google.golang.org/grpc in services/mddbd/go.mod (v1.79.2).
+  - remote: buf.build/grpc/go:v1.6.1
+    out: services/mddbd/proto
+    opt:
+      - paths=source_relative
+
+  # ────────────────────────────────────────────────────────────────────────
+  # Python client (clients/python/mddb_client)
+  # ────────────────────────────────────────────────────────────────────────
+  - remote: buf.build/protocolbuffers/python:v31.1
+    out: clients/python/mddb_client
+
+  - remote: buf.build/grpc/python:v1.71.0
+    out: clients/python/mddb_client
+
+  # ────────────────────────────────────────────────────────────────────────
+  # Node.js client (clients/nodejs/proto)
+  # ────────────────────────────────────────────────────────────────────────
+  # Node.js uses @grpc/proto-loader for dynamic loading at runtime,
+  # but we also generate static .js files for TypeScript typing.
+  - remote: buf.build/protocolbuffers/js:v3.21.4
+    out: clients/nodejs/proto
+    opt:
+      - import_style=commonjs
+      - binary
+
+  - remote: buf.build/grpc/node:v1.13.0
+    out: clients/nodejs/proto
+    opt:
+      - grpc_js
+
+  # ────────────────────────────────────────────────────────────────────────
+  # PHP extension (services/php-extension/proto)
+  # ────────────────────────────────────────────────────────────────────────
+  - remote: buf.build/protocolbuffers/php:v31.1
+    out: services/php-extension/proto
+
+  - remote: buf.build/grpc/php:v1.72.0
+    out: services/php-extension/proto

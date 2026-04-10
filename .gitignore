@@ -13,8 +13,10 @@
 coverage.html
 coverage.out
 gosec.json
-# Go workspace file
-go.work
+# Go workspace — go.work is committed for the monorepo (see README.md);
+# go.work.sum is a per-developer checksum file that causes merge conflicts
+# and is not needed when every module maintains its own go.sum.
+go.work.sum
 
 # Dependency directories
 vendor/
@@ -100,7 +102,9 @@ services/mddb-panel/dist/
 services/mddb-panel/.env
 services/mddb-panel/.env.local
 services/mddb-cli/mddb-cli
+services/mddbd/mddb
 services/mddbd/mddb-server
+tools/bench/mddb-bench
 
 # Rust build artifacts
 services/mddb-chat/target/

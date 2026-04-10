@@ -68,7 +68,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: "2.9.8"
+  version: "2.9.9"
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -1029,6 +1029,119 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Document"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Read-only mode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/import-wiki:
+    post:
+      tags:
+        - Import
+      summary: Import Wikipedia XML dump
+      description: |
+        Stream and import MediaWiki XML dumps (`.xml` or `.xml.bz2`) into a collection.
+        Automatically converts wikitext to Markdown. Streams the XML — does not load the entire file into memory.
+        Supports namespace filtering, redirect skipping, and batch processing with progress logging.
+      operationId: importWiki
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+                - collection
+                - lang
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Wikipedia XML dump file (.xml or .xml.bz2)
+                collection:
+                  type: string
+                  description: Target collection name
+                lang:
+                  type: string
+                  description: Language code (e.g. en, de, pl)
+                namespaces:
+                  type: string
+                  description: "Comma-separated namespace IDs (default: 0 = articles only)"
+                skipRedirects:
+                  type: string
+                  enum: ["true", "false"]
+                  description: Skip redirect pages
+                skipFts:
+                  type: string
+                  enum: ["true", "false"]
+                  description: Skip FTS indexing for faster bulk import
+                maxPages:
+                  type: string
+                  description: Maximum number of pages to import
+                batchSize:
+                  type: string
+                  description: "Pages per batch commit (default: 500)"
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+          application/x-bzip2:
+            schema:
+              type: string
+              format: binary
+      parameters:
+        - name: collection
+          in: query
+          schema:
+            type: string
+          description: Target collection (for octet-stream/bzip2 uploads)
+        - name: lang
+          in: query
+          schema:
+            type: string
+          description: Language code (for octet-stream/bzip2 uploads)
+        - name: namespaces
+          in: query
+          schema:
+            type: string
+          description: "Comma-separated namespace IDs (default: 0)"
+        - name: skipRedirects
+          in: query
+          schema:
+            type: string
+        - name: skipFts
+          in: query
+          schema:
+            type: string
+        - name: maxPages
+          in: query
+          schema:
+            type: integer
+        - name: batchSize
+          in: query
+          schema:
+            type: integer
+        - name: filename
+          in: query
+          schema:
+            type: string
+          description: Filename hint for compression detection (e.g. dump.xml.bz2)
+      responses:
+        "200":
+          description: Import completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WikiImportResponse"
         "400":
           description: Invalid request
           content:
@@ -4200,6 +4313,30 @@ paths:
 
 components:
   schemas:
+    WikiImportResponse:
+      type: object
+      properties:
+        imported:
+          type: integer
+          description: Number of pages successfully imported
+        skipped:
+          type: integer
+          description: Number of pages skipped (wrong namespace, redirects, empty)
+        failed:
+          type: integer
+          description: Number of pages that failed to import
+        errors:
+          type: array
+          items:
+            type: string
+          description: Error messages (capped at 10)
+        collection:
+          type: string
+          description: Target collection name
+        durationMs:
+          type: integer
+          format: int64
+          description: Total import duration in milliseconds
     TemporalEvent:
       type: object
       properties:
@@ -5672,11 +5809,11 @@ components:
         goVersion:
           type: string
           description: Go runtime version
-          example: go1.26.0
+          example: go1.26.2
         version:
           type: string
           description: MDDB server version
-          example: 2.9.8
+          example: 2.9.9
         uptimeSeconds:
           type: integer
           format: int64
@@ -5740,7 +5877,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.9.8
+          example: 2.9.9
         databasePath:
           type: string
           description: Path to the database file

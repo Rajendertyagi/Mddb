@@ -141,7 +141,7 @@ func euclideanDistSq(a, b []float32) float64 {
 // batchCosineSim computes cosine similarity of query against count vectors
 // packed contiguously in matrix (row-major, dims per row). Results written to out.
 func batchCosineSim(query []float32, matrix []float32, dims, count int, out []float32) {
-	if count == 0 || dims == 0 {
+	if count == 0 || dims == 0 || len(query) == 0 || len(matrix) == 0 || len(out) == 0 {
 		return
 	}
 	pq := (*C.float)(unsafe.Pointer(&query[0]))

@@ -38,8 +38,8 @@ Complete reference for all MDDB configuration parameters.
 | Env Var | Default | Type | Description |
 |---------|---------|------|-------------|
 | `MDDB_CONFIG` | `""` | string | Path to YAML config file (also `-config` / `-c` CLI flag) |
-| `MDDB_PATH` | `"mddb.db"` | string | Path to the BoltDB database file |
-| `MDDB_MODE` | `"wr"` | string | Access mode: `"read"`, `"write"`, or `"wr"` (read+write) |
+| `MDDB_PATH` | `"mddb.db"` | string | Path to the BoltDB database file (also `--db` CLI flag, `database.path` in YAML) |
+| `MDDB_MODE` | `"wr"` | string | Access mode: `"read"`, `"write"`, or `"wr"` (read+write) (also `--mode` CLI flag, `database.mode` in YAML) |
 | `MDDB_PANEL_MODE` | `"internal"` | string | Panel mode: `"internal"` (CORS enabled) or `"external"` (reverse proxy) |
 | `MDDB_CORS_ORIGIN` | `"*"` | string | CORS `Access-Control-Allow-Origin` header value |
 | `MDDB_METRICS` | `"true"` | bool | Enable Prometheus-compatible `/metrics` endpoint |

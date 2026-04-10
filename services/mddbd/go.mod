@@ -2,8 +2,11 @@ module mddb
 
 go 1.26
 
+toolchain go1.26.2
+
 require (
 	github.com/99designs/gqlgen v0.17.88
+	github.com/agnivade/levenshtein v1.2.1
 	github.com/bits-and-blooms/bloom/v3 v3.7.1
 	github.com/blevesearch/snowballstem v0.9.0
 	github.com/coder/hnsw v0.6.1
@@ -17,13 +20,12 @@ require (
 	github.com/vektah/gqlparser/v2 v2.5.32
 	go.etcd.io/bbolt v1.4.3
 	golang.org/x/crypto v0.49.0
-	google.golang.org/grpc v1.79.2
+	google.golang.org/grpc v1.80.0
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
-	github.com/agnivade/levenshtein v1.2.1 // indirect
 	github.com/bits-and-blooms/bitset v1.24.4 // indirect
 	github.com/chewxy/math32 v1.11.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect

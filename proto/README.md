@@ -6,29 +6,60 @@ This directory contains the shared Protocol Buffer definitions for MDDB. All ser
 
 ```
 proto/
-├── mddb.proto          # Main service definition
-├── generate.sh         # Code generation script for all languages
-└── README.md          # This file
+├── mddb.proto              # Main service definition
+├── generate.sh             # Wrapper — runs buf if available, falls back to legacy
+├── generate-legacy.sh      # Legacy protoc-based generator (fallback only)
+└── README.md               # This file
+
+buf.yaml                    # Buf module config + lint rules (repo root)
+buf.gen.yaml                # Buf generation config with PINNED plugin versions
 ```
 
 ## 🔧 Generating Code
 
-### All Languages
+Code generation is driven by [`buf`](https://buf.build), which pins all plugin versions in [`buf.gen.yaml`](../buf.gen.yaml) for reproducible builds across environments.
 
-Generate code for all supported languages:
+### Primary: `buf generate`
 
 ```bash
-# From project root
+# From project root — requires buf CLI (https://buf.build/docs/installation)
+buf generate
+
+# Or via the wrapper which also runs `buf lint` first
 ./proto/generate.sh
 ```
 
 This generates:
-- **Go** → `services/mddbd/proto/`
-- **Python** → `clients/python/mddb_client/`
-- **Node.js** → `clients/nodejs/proto/`
-- **PHP** → `services/php-extension/proto/`
+- **Go** → `services/mddbd/proto/` (`protoc-gen-go v1.36.11`, `grpc-go v1.6.1`)
+- **Python** → `clients/python/mddb_client/` (`protobuf v31.1`, `grpc-python v1.71.0`)
+- **Node.js** → `clients/nodejs/proto/` (`protobuf-js v3.21.4`, `grpc-node v1.13.0`)
+- **PHP** → `services/php-extension/proto/` (`protobuf v31.1`, `grpc-php v1.72.0`)
 
-### Individual Languages
+### Lint & Breaking Change Detection
+
+```bash
+# Lint proto files against the configured STANDARD rule set
+buf lint
+
+# Detect breaking changes vs main branch (what CI runs on PRs)
+buf breaking --against '.git#branch=main'
+```
+
+CI enforces all three on every PR: `buf lint`, `buf breaking`, and `git diff --exit-code` after `buf generate` to catch stale committed code.
+
+### Fallback: Legacy `protoc`
+
+If `buf` cannot be installed in your environment, the legacy `protoc`-based flow is preserved:
+
+```bash
+./proto/generate-legacy.sh
+```
+
+**Caveats:** plugin versions are not pinned (`go install ... @latest` at runtime), no lint checks, and the script has a known quirk where `-I proto` strips the path prefix. Prefer `buf` unless you have a specific reason not to.
+
+### Individual Languages (manual `protoc`)
+
+Only for reference / debugging the legacy flow:
 
 #### Go
 
@@ -75,10 +106,13 @@ protoc --php_out=services/php-extension/proto \
 ### Workflow
 
 1. **Edit** `proto/mddb.proto`
-2. **Regenerate** code: `./proto/generate.sh`
-3. **Update** implementations in services/clients
-4. **Test** all affected components
-5. **Document** changes in CHANGELOG.md
+2. **Lint** the changes: `buf lint`
+3. **Check for breaking changes:** `buf breaking --against '.git#branch=main'`
+4. **Regenerate** code: `buf generate` (or `./proto/generate.sh`)
+5. **Update** implementations in services/clients
+6. **Test** all affected components: `cd services/mddbd && go test ./...`
+7. **Document** changes in CHANGELOG.md
+8. **Commit** both the `.proto` file and the regenerated code — CI fails if they drift.
 
 ### Versioning Rules
 
@@ -167,30 +201,47 @@ message Document {
 Before committing changes:
 
 ```bash
-# Validate proto syntax
-protoc --descriptor_set_out=/dev/null proto/mddb.proto
+# Lint proto style (matches what CI enforces)
+buf lint
 
-# Generate code for all languages
-./proto/generate.sh
+# Ensure no breaking changes vs main
+buf breaking --against '.git#branch=main'
+
+# Generate code for all languages (with pinned plugin versions)
+buf generate
+
+# Verify generated code matches committed files (CI runs this)
+git diff --exit-code services/mddbd/proto/ clients/python/mddb_client/ \
+    clients/nodejs/proto/ services/php-extension/proto/
 
 # Run tests
-make test
+cd services/mddbd && go test ./...
 ```
 
 ## 📦 Dependencies
 
-### Required
+### Primary: `buf` (recommended)
+
+```bash
+# macOS
+brew install bufbuild/buf/buf
+
+# Linux (see https://buf.build/docs/installation for more options)
+curl -sSL "https://github.com/bufbuild/buf/releases/latest/download/buf-$(uname -s)-$(uname -m)" -o /usr/local/bin/buf
+chmod +x /usr/local/bin/buf
+```
+
+All language-specific plugins are executed remotely on the Buf Schema Registry with pinned versions — **no local plugin installation required**.
+
+### Fallback: local `protoc` + language plugins
+
+Only needed if using `./proto/generate-legacy.sh`:
 
 - **protoc** - Protocol Buffer Compiler
   ```bash
-  # macOS
-  brew install protobuf
-  
-  # Linux
-  apt-get install protobuf-compiler
+  brew install protobuf        # macOS
+  apt-get install protobuf-compiler  # Linux
   ```
-
-### Language-Specific
 
 #### Go
 ```bash

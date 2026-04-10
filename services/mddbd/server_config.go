@@ -11,9 +11,16 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// DatabaseConfig controls the BoltDB database file location and access mode.
+type DatabaseConfig struct {
+	Path string     `yaml:"path" json:"path"` // Database file path (default: "mddb.db")
+	Mode AccessMode `yaml:"mode" json:"mode"` // Access mode: "read", "write", or "wr" (default: "wr")
+}
+
 // ServerConfig holds all configurable server settings.
 // Precedence: CLI flags > env vars > config file > defaults.
 type ServerConfig struct {
+	Database    DatabaseConfig    `yaml:"database" json:"database"`
 	HTTP        HTTPConfig        `yaml:"http" json:"http"`
 	GRPC        GRPCConfig        `yaml:"grpc" json:"grpc"`
 	MCP         MCPConfig         `yaml:"mcp" json:"mcp"`
@@ -94,6 +101,7 @@ type HTTP3Config struct {
 // defaultServerConfig returns the default configuration.
 func defaultServerConfig() ServerConfig {
 	return ServerConfig{
+		Database:    DatabaseConfig{Path: "mddb.db", Mode: "wr"},
 		HTTP:        HTTPConfig{Enabled: true, Addr: ":11023"},
 		GRPC:        GRPCConfig{Enabled: true, Addr: ":11024"},
 		MCP:         MCPConfig{Enabled: true, Addr: ":9000", Stdio: false, ServerInfo: MCPServerInfo{Name: "mddbd"}},
@@ -112,6 +120,8 @@ func loadServerConfig() ServerConfig {
 	// 1. Parse CLI flags (but don't apply yet — need config file path first)
 	var (
 		configFile   string
+		dbPath       = flag.String("db", "", "Database file path (default: mddb.db)")
+		dbMode       = flag.String("mode", "", "Access mode: read, write, or wr (default: wr)")
 		httpEnabled  = flag.String("http-enabled", "", "Enable HTTP API server (true/false)")
 		httpAddr     = flag.String("http-addr", "", "HTTP API listen address (e.g. :11023)")
 		grpcEnabled  = flag.String("grpc-enabled", "", "Enable gRPC server (true/false)")
@@ -144,7 +154,7 @@ func loadServerConfig() ServerConfig {
 	applyEnvConfig(&cfg)
 
 	// 4. Apply CLI flags (highest priority)
-	applyCLIFlags(&cfg, *httpEnabled, *httpAddr, *grpcEnabled, *grpcAddr, *mcpEnabled, *mcpAddr, *mcpStdio, *http3Enabled, *http3Addr)
+	applyCLIFlags(&cfg, *dbPath, *dbMode, *httpEnabled, *httpAddr, *grpcEnabled, *grpcAddr, *mcpEnabled, *mcpAddr, *mcpStdio, *http3Enabled, *http3Addr)
 
 	return cfg
 }
@@ -152,6 +162,7 @@ func loadServerConfig() ServerConfig {
 // fileConfig mirrors ServerConfig for YAML unmarshalling with pointer fields
 // so we can distinguish "not set" from "set to zero value".
 type fileConfig struct {
+	Database    *fileDatabase    `yaml:"database"`
 	HTTP        *fileHTTP        `yaml:"http"`
 	GRPC        *fileGRPC        `yaml:"grpc"`
 	MCP         *fileMCP         `yaml:"mcp"`
@@ -160,6 +171,11 @@ type fileConfig struct {
 	FTS         *fileFTS         `yaml:"fts"`
 	Compression *fileCompression `yaml:"compression"`
 	Vector      *fileVector      `yaml:"vector"`
+}
+
+type fileDatabase struct {
+	Path *string `yaml:"path"`
+	Mode *string `yaml:"mode"`
 }
 
 type fileTLS struct {
@@ -235,6 +251,14 @@ func loadConfigFile(path string) (*fileConfig, error) {
 func mergeFileConfig(cfg ServerConfig, fc *fileConfig) ServerConfig {
 	if fc == nil {
 		return cfg
+	}
+	if fc.Database != nil {
+		if fc.Database.Path != nil {
+			cfg.Database.Path = *fc.Database.Path
+		}
+		if fc.Database.Mode != nil {
+			cfg.Database.Mode = AccessMode(*fc.Database.Mode)
+		}
 	}
 	if fc.HTTP != nil {
 		if fc.HTTP.Enabled != nil {
@@ -333,6 +357,14 @@ func mergeFileConfig(cfg ServerConfig, fc *fileConfig) ServerConfig {
 }
 
 func applyEnvConfig(cfg *ServerConfig) {
+	// Database
+	if v := os.Getenv("MDDB_PATH"); v != "" {
+		cfg.Database.Path = v
+	}
+	if v := os.Getenv("MDDB_MODE"); v != "" {
+		cfg.Database.Mode = AccessMode(v)
+	}
+
 	// HTTP
 	if v := os.Getenv("MDDB_HTTP_ENABLED"); v != "" {
 		cfg.HTTP.Enabled = parseBool(v, cfg.HTTP.Enabled)
@@ -466,7 +498,13 @@ func applyEnvConfig(cfg *ServerConfig) {
 	}
 }
 
-func applyCLIFlags(cfg *ServerConfig, httpEnabled, httpAddr, grpcEnabled, grpcAddr, mcpEnabled, mcpAddr, mcpStdio, http3Enabled, http3Addr string) {
+func applyCLIFlags(cfg *ServerConfig, dbPath, dbMode, httpEnabled, httpAddr, grpcEnabled, grpcAddr, mcpEnabled, mcpAddr, mcpStdio, http3Enabled, http3Addr string) {
+	if dbPath != "" {
+		cfg.Database.Path = dbPath
+	}
+	if dbMode != "" {
+		cfg.Database.Mode = AccessMode(dbMode)
+	}
 	if httpEnabled != "" {
 		cfg.HTTP.Enabled = parseBool(httpEnabled, cfg.HTTP.Enabled)
 	}

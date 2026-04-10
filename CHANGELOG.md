@@ -7,6 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.9] - 2026-04-11
+
+### Security
+- **Upgraded `google.golang.org/grpc` to v1.80.0** in `services/mddbd` — fixes GO-2026-4762 (authorization bypass via missing leading `/` in `:path` pseudo-header). Reached by `startGRPCServer` at [grpc_server.go:99](services/mddbd/grpc_server.go#L99).
+- **Pinned Go toolchain to 1.26.2** across all modules (`services/mddbd`, `services/mddb-cli`, `tools/bench`, `test`) and `go.work`, plus matching bumps in Dockerfiles (`golang:1.26.2-alpine`) and GitHub Actions workflows (`test.yml`, `release.yml`, `govulncheck.yml`). Fixes 5 stdlib vulnerabilities flagged by `govulncheck`:
+  - GO-2026-4947 — `crypto/x509` unexpected work during chain building
+  - GO-2026-4946 — `crypto/x509` inefficient policy validation
+  - GO-2026-4870 — `crypto/tls` unauthenticated TLS 1.3 KeyUpdate DoS
+  - GO-2026-4866 — `crypto/x509` case-sensitive `excludedSubtrees` auth bypass
+  - GO-2026-4865 — `html/template` JsBraceDepth XSS
+- **Added `govulncheck` GitHub Actions workflow** (`.github/workflows/govulncheck.yml`) — scans all three Go modules on push/PR and nightly (06:00 UTC) with `GOWORK=off` to mirror the isolation of the Tests workflow.
+
+### Fixed
+- **Wiki table row separator rendering** ([services/mddbd/wikitext.go](services/mddbd/wikitext.go)) — `|-` row separators in wiki tables were previously unreachable: the more-generic `|` data-row branch ran first and swallowed them as empty `| |` rows. Reordered so `|-` is checked first. Surfaced by `staticcheck SA4017` during the Go 1.26.2 upgrade.
+- **`TestCharsetReader_UTF8`** ([services/mddbd/wiki_import_test.go](services/mddbd/wiki_import_test.go)) — replaced an empty `if r != nil { /* comment */ }` branch with a real `t.Errorf` so UTF-8 pass-through regressions actually fail the test (`staticcheck SA9003`).
+- **`swapParallelConfig`/`MinSize`/`Workers` test helpers** ([services/mddbd/vector_parallel_test.go](services/mddbd/vector_parallel_test.go)) — take `int32` directly (matching the underlying `atomic.Int32`) instead of `int`+conversion, eliminating `gosec G115` overflow warnings.
+
+### Chore
+- **Untracked committed build binaries** — removed `services/mddbd/mddb` (34 MB), `services/mddb-cli/mddb-cli`, and `tools/bench/mddb-bench` from the repo and expanded `.gitignore` so `go build` artifacts cannot slip into history again.
+- **`buf breaking` CI guard** ([.github/workflows/test.yml](.github/workflows/test.yml)) — the breaking-change check now skips (with a GitHub Actions warning) when the base branch has no `buf.yaml`. Only applies to the one-shot buf-migration PR, where main's pre-migration layout with its legacy `services/mddbd/proto/mddb.proto` duplicate would otherwise break image building on the target side.
+
+### Added
+- **Wikipedia XML Dump Import** (`/v1/import-wiki`) — Stream and import MediaWiki XML dumps (including `.xml.bz2` compressed) directly into MDDB.
+  - Streaming XML parser — processes multi-GB dumps without loading into memory
+  - Automatic wikitext-to-Markdown conversion (headings, bold/italic, links, lists, tables, templates, references, categories)
+  - Namespace filtering (default: ns=0, articles only), redirect skipping, max page limit
+  - Batch processing with configurable batch size (default 500) and progress logging every 10K pages
+  - Supports multipart file upload or raw octet-stream with query params
+  - Metadata extraction: `wiki_id`, `wiki_title`, `wiki_ns`, `wiki_rev_id`, `wiki_timestamp`, `wiki_contributor`
+  - `skipFts` option for faster bulk imports (run `/v1/fts-reindex` after)
+  - New files: `wiki_import.go`, `wikitext.go`, `wikitext_test.go`, `wiki_import_test.go`
+- **Database Path Configuration** — Database file location now configurable via CLI flag, YAML config, or environment variable.
+  - CLI: `--db /path/to/mddb.db`, `--mode wr`
+  - YAML config: `database.path`, `database.mode`
+  - Env var: `MDDB_PATH`, `MDDB_MODE` (unchanged, still supported)
+  - Precedence: CLI flags > env vars > config file > defaults
+
+### Removed
+- **`services/mddbd/proto/mddb.proto`** — stale duplicate of the source-of-truth `proto/mddb.proto` at the repo root. Nothing actually referenced it: Go imports the generated `mddb/proto` package (the `.pb.go` files, which remain), Docker builds already read the root `proto/mddb.proto` via `COPY proto /proto`, and `buf generate` reads from the root too. The duplicate had drifted 2KB behind source.
+- **`services/mddbd/generate.sh`** — dead duplicate of `proto/generate.sh` using hardcoded relative paths to the stale copy above. Three competing code generators was two too many.
+
+### Changed
+- **Protobuf code generation now uses `buf`** — Replaces the `protoc`-based `proto/generate.sh` script as the primary code generator.
+  - New files: [buf.yaml](buf.yaml) (lint rules + module config), [buf.gen.yaml](buf.gen.yaml) (pinned plugin versions)
+  - Pinned plugins for reproducibility: `protocolbuffers/go:v1.36.11`, `grpc/go:v1.6.1`, `protocolbuffers/python:v31.1`, `grpc/python:v1.71.0`, `protocolbuffers/js:v3.21.4`, `grpc/node:v1.13.0`, `protocolbuffers/php:v31.1`, `grpc/php:v1.72.0`
+  - Legacy `protoc`-based script preserved as `proto/generate-legacy.sh`; the main `proto/generate.sh` now wraps `buf generate` and falls back to the legacy script if `buf` is not installed.
+  - `proto/generate.sh` also syncs `proto/mddb.proto` → `clients/nodejs/proto/mddb.proto` after generation — required because `@grpc/proto-loader` loads the file at runtime.
+  - CI now runs `buf lint`, `buf breaking` (on PRs, against base branch), and `git diff --exit-code` after `buf generate` + nodejs sync to catch drift between `.proto` source and committed generated code.
+  - Fixes the long-standing quirk documented in the repo memory where `generate.sh` placed files in the wrong directory due to `-I proto` stripping the path prefix.
+  - Fixes [docs/GRPC.md](docs/GRPC.md) broken link that pointed at the now-deleted `services/mddbd/proto/mddb.proto`.
+- **`services/mddbd` Docker images no longer regenerate proto** — [services/mddbd/Dockerfile](services/mddbd/Dockerfile) and [Dockerfile.dev](services/mddbd/Dockerfile.dev) used to install `protoc-gen-go@latest` + `protoc-gen-go-grpc@latest` at image build time and regenerate `.pb.go` files from scratch, **silently overriding the pinned plugin versions** from buf.gen.yaml and producing Docker images with different proto bindings than local builds.
+  - Fix: Dockerfile now just copies the already-committed `services/mddbd/proto/*.pb.go` files (CI enforces these match `buf generate` output via `git diff --exit-code`).
+  - Removes `protobuf` + `protobuf-dev` from Alpine apk packages and `go install protoc-gen-go*` steps — smaller image, faster build, reproducible across environments.
+  - `services/mddb-chat` Dockerfile is unchanged — Rust's `tonic-build` legitimately needs `protoc` at cargo build time (no committed Rust bindings equivalent to `.pb.go`), and the `tonic-build` crate version is pinned in `Cargo.lock`.
+- **`go mod tidy`** across all Go modules (`services/mddbd`, `services/mddb-cli`, `tools/bench`, `test`) — dependency lists now match actual imports after recent feature additions.
+- **Go workspace for the monorepo** — [`go.work`](go.work) committed at the repo root, listing `services/mddbd`, `services/mddb-cli`, and `tools/bench`.
+  - Enables cross-module refactoring, unified `go build ./...` from the repo root, and gopls "goto definition" across module boundaries.
+  - `test/` module intentionally excluded (pre-existing `package main` conflicts in benchmark scripts); its `replace mddb => ../services/mddbd` in `test/go.mod` remains as a standalone fallback.
+  - **CI runs with `GOWORK=off`** in both [test.yml](.github/workflows/test.yml) and [release.yml](.github/workflows/release.yml) — each module builds and tests in strict isolation so missing `require` entries (that workspace mode would hide) fail fast.
+  - `.gitignore` updated: `go.work` is now committed; `go.work.sum` is ignored (not needed when every module maintains its own `go.sum`).
+  - Docker builds are unaffected — `COPY services/mddbd/` never picks up the repo-root `go.work`, so containers naturally run in isolated mode.
+  - See README.md "Development with Go Workspace" section for details.
+
+### Fixed
+- **Vector search RLock regression from 2.9.8** — `VectorIndex.Search` and `SearchWithFilter` held the read lock for the entire multi-millisecond parallel scoring phase, serializing every writer (`Add`/`Remove`) against searches and partially defeating the 2.5x parallel speedup under write-heavy workloads.
+  - Fix: release `RLock` immediately after `snapshotMap()` copies slice headers; parallel scoring now runs lock-free on the owned snapshot.
+  - Impact: concurrent `/v1/add` / auto-embedding worker throughput restored during search traffic.
+- **`parallelSearchConfig` data race** — Global worker/minSize config was plain `int` fields, mutated directly by tests and read concurrently by searches — fragile if any test ever called `t.Parallel()`.
+  - Fix: both fields now `atomic.Int32` with `Workers()` / `MinSize()` accessors; tests use `swapParallelConfig`/`swapParallelWorkers`/`swapParallelMinSize` helpers that atomically swap and return a restore closure.
+  - Verified with `go test -race -count=10 ./services/mddbd/` — all parallel tests clean.
+- **`batchCosineSim` panic on empty input** — On ARM64 the CGo wrapper indexed `&query[0]` / `&matrix[0]` / `&out[0]` without guarding against empty slices, crashing the server instead of no-oping. Added length guards.
+- **`vector_parallel.go` memory model clarity** — Added comment above `partials[workerID]` write explaining why disjoint index writes are race-free per the Go memory model and `wg.Wait()` happens-before — prevents future "fix" attempts that would add unnecessary mutex.
+
 ## [2.9.8] - 2026-04-06
 
 ### Added
