@@ -246,17 +246,18 @@ func convertTables(s string) string {
 			continue
 		}
 
+		// Row separator |- (must be checked before the generic "|" prefix
+		// below, otherwise the data-row branch swallows it).
+		if strings.HasPrefix(trimmed, "|-") {
+			continue
+		}
+
 		// Data row
 		if strings.HasPrefix(trimmed, "|") {
 			cells := splitTableCells(trimmed[1:], "||")
 			result.WriteString("| ")
 			result.WriteString(strings.Join(cells, " | "))
 			result.WriteString(" |\n")
-			continue
-		}
-
-		// Row separator |-
-		if strings.HasPrefix(trimmed, "|-") {
 			continue
 		}
 	}

@@ -12,9 +12,11 @@ import (
 
 // swapParallelConfig atomically sets workers/minSize and returns a restore func.
 // Usage: defer swapParallelConfig(workers, minSize)()
-func swapParallelConfig(workers, minSize int) func() {
-	oldW := parallelSearchConfig.workers.Swap(int32(workers))
-	oldM := parallelSearchConfig.minSize.Swap(int32(minSize))
+// Accepts int32 directly to match the underlying atomic type and avoid
+// gosec G115 overflow warnings on int→int32 conversion.
+func swapParallelConfig(workers, minSize int32) func() {
+	oldW := parallelSearchConfig.workers.Swap(workers)
+	oldM := parallelSearchConfig.minSize.Swap(minSize)
 	return func() {
 		parallelSearchConfig.workers.Store(oldW)
 		parallelSearchConfig.minSize.Store(oldM)
@@ -22,14 +24,14 @@ func swapParallelConfig(workers, minSize int) func() {
 }
 
 // swapParallelMinSize only overrides minSize, keeping workers unchanged.
-func swapParallelMinSize(minSize int) func() {
-	oldM := parallelSearchConfig.minSize.Swap(int32(minSize))
+func swapParallelMinSize(minSize int32) func() {
+	oldM := parallelSearchConfig.minSize.Swap(minSize)
 	return func() { parallelSearchConfig.minSize.Store(oldM) }
 }
 
 // swapParallelWorkers only overrides workers, keeping minSize unchanged.
-func swapParallelWorkers(workers int) func() {
-	oldW := parallelSearchConfig.workers.Swap(int32(workers))
+func swapParallelWorkers(workers int32) func() {
+	oldW := parallelSearchConfig.workers.Swap(workers)
 	return func() { parallelSearchConfig.workers.Store(oldW) }
 }
 
@@ -454,7 +456,7 @@ func BenchmarkParallelWorkerScaling(b *testing.B) {
 
 	defer swapParallelMinSize(1)()
 
-	for _, workers := range []int{1, 2, 4, 8} {
+	for _, workers := range []int32{1, 2, 4, 8} {
 		b.Run(fmt.Sprintf("workers_%d", workers), func(b *testing.B) {
 			restore := swapParallelWorkers(workers)
 			defer restore()

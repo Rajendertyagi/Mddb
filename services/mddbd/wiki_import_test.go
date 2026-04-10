@@ -53,8 +53,9 @@ func TestCharsetReader_UTF8(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	// For UTF-8 with nil input, charsetReader should pass through and return nil.
 	if r != nil {
-		// nil input → nil reader back for utf-8
+		t.Errorf("expected nil reader for UTF-8 pass-through, got %T", r)
 	}
 }
 
