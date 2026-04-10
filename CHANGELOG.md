@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **Upgraded `google.golang.org/grpc` to v1.80.0** in `services/mddbd` — fixes GO-2026-4762 (authorization bypass via missing leading `/` in `:path` pseudo-header). Reached by `startGRPCServer` at [grpc_server.go:99](services/mddbd/grpc_server.go#L99).
 - **Pinned Go toolchain to 1.26.2** across all modules (`services/mddbd`, `services/mddb-cli`, `tools/bench`, `test`) and `go.work`, plus matching bumps in Dockerfiles (`golang:1.26.2-alpine`) and GitHub Actions workflows (`test.yml`, `release.yml`, `govulncheck.yml`). Fixes 5 stdlib vulnerabilities flagged by `govulncheck`:
   - GO-2026-4947 — `crypto/x509` unexpected work during chain building
   - GO-2026-4946 — `crypto/x509` inefficient policy validation
