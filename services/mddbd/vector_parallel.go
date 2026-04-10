@@ -6,31 +6,46 @@ import (
 	"sort"
 	"strconv"
 	"sync"
+	"sync/atomic"
 )
 
-// parallelSearchConfig holds runtime-resolved parallel search settings.
-var parallelSearchConfig struct {
-	workers int
-	minSize int
+// parallelConfig holds runtime-resolved parallel search settings.
+// Fields are read atomically so tests can mutate them without races against
+// concurrent searches — and so running tests with t.Parallel() stays safe.
+type parallelConfig struct {
+	workers atomic.Int32
+	minSize atomic.Int32
 }
 
-func init() {
-	parallelSearchConfig.workers = runtime.NumCPU()
-	if parallelSearchConfig.workers > 16 {
-		parallelSearchConfig.workers = 16
-	}
-	if v := os.Getenv("MDDB_VECTOR_PARALLEL_WORKERS"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			parallelSearchConfig.workers = n
-		}
-	}
+// Workers returns the configured worker count.
+func (c *parallelConfig) Workers() int { return int(c.workers.Load()) }
 
-	parallelSearchConfig.minSize = 2048
-	if v := os.Getenv("MDDB_VECTOR_PARALLEL_MIN_SIZE"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			parallelSearchConfig.minSize = n
+// MinSize returns the minimum collection size that triggers parallel scoring.
+func (c *parallelConfig) MinSize() int { return int(c.minSize.Load()) }
+
+// parallelSearchConfig is the global parallel search config.
+var parallelSearchConfig parallelConfig
+
+// maxParallelWorkers caps the worker count to a sensible upper bound,
+// keeping int → int32 conversions safe and protecting against misconfiguration.
+const maxParallelWorkers = 256
+
+func init() {
+	workers := min(runtime.NumCPU(), 16)
+	if v := os.Getenv("MDDB_VECTOR_PARALLEL_WORKERS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= maxParallelWorkers {
+			workers = n
 		}
 	}
+	parallelSearchConfig.workers.Store(int32(workers)) // #nosec G115 -- bounded by maxParallelWorkers
+
+	minSize := 2048
+	if v := os.Getenv("MDDB_VECTOR_PARALLEL_MIN_SIZE"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= (1<<30) {
+			minSize = n
+		}
+	}
+	parallelSearchConfig.minSize.Store(int32(minSize)) // #nosec G115 -- bounded by 1<<30
 }
 
 // vectorEntry is a snapshot of a map entry for parallel processing.
@@ -68,11 +83,10 @@ func parallelScore(
 	}
 
 	// Determine actual worker count, capped by data size
-	workers := parallelSearchConfig.workers
-	maxWorkers := (n + parallelSearchConfig.minSize - 1) / parallelSearchConfig.minSize
-	if workers > maxWorkers {
-		workers = maxWorkers
-	}
+	cfgWorkers := parallelSearchConfig.Workers()
+	cfgMinSize := parallelSearchConfig.MinSize()
+	maxWorkers := (n + cfgMinSize - 1) / cfgMinSize
+	workers := min(cfgWorkers, maxWorkers)
 	if workers < 1 {
 		workers = 1
 	}
@@ -93,6 +107,11 @@ func parallelScore(
 	}
 
 	chunkSize := (n + workers - 1) / workers
+
+	// partials: each worker writes EXCLUSIVELY to partials[workerID] exactly once.
+	// Disjoint index writes are race-free per the Go memory model, and the
+	// wg.Wait() below establishes a happens-before edge for the merge loop.
+	// Do NOT add a mutex or channel here — it would hurt perf without adding safety.
 	partials := make([][]VectorResult, workers)
 
 	var wg sync.WaitGroup
@@ -102,10 +121,7 @@ func parallelScore(
 		go func(workerID int) {
 			defer wg.Done()
 			start := workerID * chunkSize
-			end := start + chunkSize
-			if end > n {
-				end = n
-			}
+			end := min(start+chunkSize, n)
 			partials[workerID] = scoreRange(entries, start, end, query, topK, threshold, metric, filter)
 		}(w)
 	}

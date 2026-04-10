@@ -6,8 +6,35 @@ import (
 	"math/rand"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"testing"
 )
+
+// swapParallelConfig atomically sets workers/minSize and returns a restore func.
+// Usage: defer swapParallelConfig(workers, minSize)()
+func swapParallelConfig(workers, minSize int) func() {
+	oldW := parallelSearchConfig.workers.Swap(int32(workers))
+	oldM := parallelSearchConfig.minSize.Swap(int32(minSize))
+	return func() {
+		parallelSearchConfig.workers.Store(oldW)
+		parallelSearchConfig.minSize.Store(oldM)
+	}
+}
+
+// swapParallelMinSize only overrides minSize, keeping workers unchanged.
+func swapParallelMinSize(minSize int) func() {
+	oldM := parallelSearchConfig.minSize.Swap(int32(minSize))
+	return func() { parallelSearchConfig.minSize.Store(oldM) }
+}
+
+// swapParallelWorkers only overrides workers, keeping minSize unchanged.
+func swapParallelWorkers(workers int) func() {
+	oldW := parallelSearchConfig.workers.Swap(int32(workers))
+	return func() { parallelSearchConfig.workers.Store(oldW) }
+}
+
+// Compile-time assertion that atomic.Int32 is used (catches accidental revert to plain int).
+var _ = atomic.Int32{}
 
 // TestParallelScoreCorrectness verifies parallel results match sequential.
 func TestParallelScoreCorrectness(t *testing.T) {
@@ -25,18 +52,14 @@ func TestParallelScoreCorrectness(t *testing.T) {
 	}
 
 	// Sequential: force minSize above count so parallelScore uses single worker
-	old := parallelSearchConfig.workers
-	oldMin := parallelSearchConfig.minSize
-	parallelSearchConfig.minSize = count + 1
-	parallelSearchConfig.workers = 1
+	restore := swapParallelConfig(1, count+1)
 	sequential := parallelScore(entries, query, 10, 0.0, cosineSimilarity, nil)
+	restore()
 
 	// Parallel: force low minSize and multiple workers
-	parallelSearchConfig.minSize = 1
-	parallelSearchConfig.workers = 4
+	restore = swapParallelConfig(4, 1)
 	parallel := parallelScore(entries, query, 10, 0.0, cosineSimilarity, nil)
-	parallelSearchConfig.minSize = oldMin
-	parallelSearchConfig.workers = old
+	restore()
 
 	if len(sequential) != len(parallel) {
 		t.Fatalf("result count mismatch: sequential=%d, parallel=%d", len(sequential), len(parallel))
@@ -71,10 +94,8 @@ func TestParallelScoreWithFilter(t *testing.T) {
 
 	filter := func(docID string) bool { return allowed[docID] }
 
-	old := parallelSearchConfig.minSize
-	parallelSearchConfig.minSize = 1
+	defer swapParallelMinSize(1)()
 	results := parallelScore(entries, query, 5, 0.0, cosineSimilarity, filter)
-	parallelSearchConfig.minSize = old
 
 	for _, r := range results {
 		if !allowed[r.DocID] {
@@ -97,10 +118,8 @@ func TestParallelScoreChunkKeys(t *testing.T) {
 		return allowed[baseDocID(docID)]
 	}
 
-	old := parallelSearchConfig.minSize
-	parallelSearchConfig.minSize = 1
+	defer swapParallelMinSize(1)()
 	results := parallelScore(entries, query, 10, 0.0, cosineSimilarity, filter)
-	parallelSearchConfig.minSize = old
 
 	for _, r := range results {
 		base := baseDocID(r.DocID)
@@ -122,10 +141,8 @@ func TestParallelScoreThresholdFiltering(t *testing.T) {
 	}
 	query := []float32{1, 0, 0}
 
-	old := parallelSearchConfig.minSize
-	parallelSearchConfig.minSize = 1
+	defer swapParallelMinSize(1)()
 	results := parallelScore(entries, query, 10, 0.99, cosineSimilarity, nil)
-	parallelSearchConfig.minSize = old
 
 	if len(results) != 1 || results[0].DocID != "a" {
 		t.Errorf("expected only 'a' above 0.99 threshold, got %v", results)
@@ -165,10 +182,8 @@ func TestParallelScoreTopKLimit(t *testing.T) {
 	}
 	query := randVecP(dims, rng)
 
-	old := parallelSearchConfig.minSize
-	parallelSearchConfig.minSize = 1
+	defer swapParallelMinSize(1)()
 	results := parallelScore(entries, query, 3, 0.0, cosineSimilarity, nil)
-	parallelSearchConfig.minSize = old
 
 	if len(results) != 3 {
 		t.Errorf("expected 3 results, got %d", len(results))
@@ -185,10 +200,8 @@ func TestParallelScoreDeterministicOrder(t *testing.T) {
 	}
 	query := []float32{1, 0, 0}
 
-	old := parallelSearchConfig.minSize
-	parallelSearchConfig.minSize = 1
+	defer swapParallelMinSize(1)()
 	results := parallelScore(entries, query, 10, 0.0, cosineSimilarity, nil)
-	parallelSearchConfig.minSize = old
 
 	// Should be sorted by docID ascending (tiebreaker)
 	expected := []string{"alice", "bob", "charlie"}
@@ -216,15 +229,14 @@ func TestFlatSearchParallelIntegration(t *testing.T) {
 	query := randVecP(dims, rng)
 
 	// Force parallel
-	old := parallelSearchConfig.minSize
-	parallelSearchConfig.minSize = 1
+	restore := swapParallelMinSize(1)
 	parallel := idx.Search("test", query, 10, 0.0, nil)
-	parallelSearchConfig.minSize = old
+	restore()
 
 	// Force sequential
-	parallelSearchConfig.minSize = count + 1
+	restore = swapParallelMinSize(count + 1)
 	sequential := idx.Search("test", query, 10, 0.0, nil)
-	parallelSearchConfig.minSize = old
+	restore()
 
 	if len(parallel) != len(sequential) {
 		t.Fatalf("count mismatch: parallel=%d, sequential=%d", len(parallel), len(sequential))
@@ -263,10 +275,8 @@ func TestFlatSearchWithFilterParallel(t *testing.T) {
 
 	query := randVecP(dims, rng)
 
-	old := parallelSearchConfig.minSize
-	parallelSearchConfig.minSize = 1
+	defer swapParallelMinSize(1)()
 	results := idx.SearchWithFilter("test", query, 5, 0.0, allowed, nil)
-	parallelSearchConfig.minSize = old
 
 	for _, r := range results {
 		if !allowed[r.DocID] {
@@ -288,8 +298,7 @@ func TestParallelConcurrentSearchAndMutate(t *testing.T) {
 		idx.Add("test", fmt.Sprintf("doc-%d", i), randVecP(dims, rng))
 	}
 
-	old := parallelSearchConfig.minSize
-	parallelSearchConfig.minSize = 1
+	defer swapParallelMinSize(1)()
 
 	var wg sync.WaitGroup
 
@@ -318,7 +327,6 @@ func TestParallelConcurrentSearchAndMutate(t *testing.T) {
 	}
 
 	wg.Wait()
-	parallelSearchConfig.minSize = old
 }
 
 // TestSnapshotMap verifies snapshot correctness.
@@ -354,8 +362,7 @@ func TestParallelSearchAllMetrics(t *testing.T) {
 	}
 	query := []float32{1, 2, 3}
 
-	old := parallelSearchConfig.minSize
-	parallelSearchConfig.minSize = 1
+	defer swapParallelMinSize(1)()
 
 	metrics := []struct {
 		name string
@@ -378,8 +385,6 @@ func TestParallelSearchAllMetrics(t *testing.T) {
 			}
 		})
 	}
-
-	parallelSearchConfig.minSize = old
 }
 
 // --- Parallel benchmarks ---
@@ -397,16 +402,12 @@ func BenchmarkFlatSearchParallel_50K_1536(b *testing.B) {
 }
 
 func BenchmarkFlatSearchSequential_50K_768(b *testing.B) {
-	old := parallelSearchConfig.workers
-	parallelSearchConfig.workers = 1
-	defer func() { parallelSearchConfig.workers = old }()
+	defer swapParallelWorkers(1)()
 	benchmarkFlatSearchP(b, 50000, 768)
 }
 
 func BenchmarkFlatSearchSequential_50K_1536(b *testing.B) {
-	old := parallelSearchConfig.workers
-	parallelSearchConfig.workers = 1
-	defer func() { parallelSearchConfig.workers = old }()
+	defer swapParallelWorkers(1)()
 	benchmarkFlatSearchP(b, 50000, 1536)
 }
 
@@ -421,16 +422,13 @@ func benchmarkFlatSearchP(b *testing.B, count, dims int) {
 
 	query := randVecP(dims, rng)
 
-	old := parallelSearchConfig.minSize
-	parallelSearchConfig.minSize = 1
+	defer swapParallelMinSize(1)()
 
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		_ = idx.Search("bench", query, 10, 0.0, nil)
 	}
-
-	parallelSearchConfig.minSize = old
 }
 
 func randVecP(dims int, rng *rand.Rand) []float32 {
@@ -454,22 +452,18 @@ func BenchmarkParallelWorkerScaling(b *testing.B) {
 	}
 	query := randVecP(dims, rng)
 
-	old := parallelSearchConfig.minSize
-	parallelSearchConfig.minSize = 1
+	defer swapParallelMinSize(1)()
 
 	for _, workers := range []int{1, 2, 4, 8} {
 		b.Run(fmt.Sprintf("workers_%d", workers), func(b *testing.B) {
-			oldW := parallelSearchConfig.workers
-			parallelSearchConfig.workers = workers
+			restore := swapParallelWorkers(workers)
+			defer restore()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_ = idx.Search("bench", query, 10, 0.0, nil)
 			}
-			parallelSearchConfig.workers = oldW
 		})
 	}
-
-	parallelSearchConfig.minSize = old
 }
 
 func init() {

@@ -62,12 +62,18 @@ func (vi *VectorIndex) Remove(collection, docID string) {
 
 // Search finds the top-K most similar vectors to the query vector.
 // Uses goroutine parallelism for collections above parallelSearchConfig.minSize.
+//
+// IMPORTANT: The RLock is released BEFORE the parallel scoring phase.
+// snapshotMap() copies slice headers into an owned slice; subsequent
+// concurrent Add/Remove calls swap whole vector entries, so the snapshot
+// keeps old underlying arrays alive via their own references until
+// scoring finishes. Holding the lock through parallelScore would serialize
+// writers against every multi-millisecond search — defeating parallelism.
 func (vi *VectorIndex) Search(collection string, query []float32, topK int, threshold float64, metric SimilarityFunc) []VectorResult {
 	vi.mu.RLock()
-	defer vi.mu.RUnlock()
-
 	coll, ok := vi.collections[collection]
 	if !ok || len(coll) == 0 {
+		vi.mu.RUnlock()
 		return nil
 	}
 
@@ -78,13 +84,16 @@ func (vi *VectorIndex) Search(collection string, query []float32, topK int, thre
 		metric = cosineSimilarity
 	}
 
-	// Parallel path for large collections
-	if len(coll) >= parallelSearchConfig.minSize {
+	// Parallel path for large collections: snapshot under lock, score without it.
+	if len(coll) >= parallelSearchConfig.MinSize() {
 		entries := snapshotMap(coll)
+		vi.mu.RUnlock()
 		return parallelScore(entries, query, topK, threshold, metric, nil)
 	}
 
-	// Sequential path for small collections
+	// Sequential path for small collections — scoring runs under the read lock
+	// because the overhead of snapshotting + goroutine dispatch would dominate.
+	defer vi.mu.RUnlock()
 	results := make([]VectorResult, 0, len(coll))
 	for docID, vec := range coll {
 		score := metric(query, vec)
@@ -107,12 +116,12 @@ func (vi *VectorIndex) Search(collection string, query []float32, topK int, thre
 // SearchWithFilter performs vector search only on documents matching the given docID set.
 // Handles chunk keys: if the index has "docID#0" and allowed has "docID", it matches.
 // Uses goroutine parallelism for collections above parallelSearchConfig.minSize.
+// See Search() for the locking contract — RLock is released before parallel scoring.
 func (vi *VectorIndex) SearchWithFilter(collection string, query []float32, topK int, threshold float64, allowedDocIDs map[string]bool, metric SimilarityFunc) []VectorResult {
 	vi.mu.RLock()
-	defer vi.mu.RUnlock()
-
 	coll, ok := vi.collections[collection]
 	if !ok || len(coll) == 0 {
+		vi.mu.RUnlock()
 		return nil
 	}
 
@@ -127,13 +136,15 @@ func (vi *VectorIndex) SearchWithFilter(collection string, query []float32, topK
 		return allowedDocIDs[baseDocID(docID)]
 	}
 
-	// Parallel path for large collections
-	if len(coll) >= parallelSearchConfig.minSize {
+	// Parallel path for large collections: snapshot under lock, score without it.
+	if len(coll) >= parallelSearchConfig.MinSize() {
 		entries := snapshotMap(coll)
+		vi.mu.RUnlock()
 		return parallelScore(entries, query, topK, threshold, metric, filter)
 	}
 
-	// Sequential path for small collections
+	// Sequential path for small collections — scoring runs under the read lock.
+	defer vi.mu.RUnlock()
 	results := make([]VectorResult, 0, min(len(allowedDocIDs), len(coll)))
 	for docID, vec := range coll {
 		if !filter(docID) {

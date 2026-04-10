@@ -25,6 +25,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Env var: `MDDB_PATH`, `MDDB_MODE` (unchanged, still supported)
   - Precedence: CLI flags > env vars > config file > defaults
 
+### Fixed
+- **Vector search RLock regression from 2.9.8** — `VectorIndex.Search` and `SearchWithFilter` held the read lock for the entire multi-millisecond parallel scoring phase, serializing every writer (`Add`/`Remove`) against searches and partially defeating the 2.5x parallel speedup under write-heavy workloads.
+  - Fix: release `RLock` immediately after `snapshotMap()` copies slice headers; parallel scoring now runs lock-free on the owned snapshot.
+  - Impact: concurrent `/v1/add` / auto-embedding worker throughput restored during search traffic.
+- **`parallelSearchConfig` data race** — Global worker/minSize config was plain `int` fields, mutated directly by tests and read concurrently by searches — fragile if any test ever called `t.Parallel()`.
+  - Fix: both fields now `atomic.Int32` with `Workers()` / `MinSize()` accessors; tests use `swapParallelConfig`/`swapParallelWorkers`/`swapParallelMinSize` helpers that atomically swap and return a restore closure.
+  - Verified with `go test -race -count=10 ./services/mddbd/` — all parallel tests clean.
+- **`batchCosineSim` panic on empty input** — On ARM64 the CGo wrapper indexed `&query[0]` / `&matrix[0]` / `&out[0]` without guarding against empty slices, crashing the server instead of no-oping. Added length guards.
+- **`vector_parallel.go` memory model clarity** — Added comment above `partials[workerID]` write explaining why disjoint index writes are race-free per the Go memory model and `wg.Wait()` happens-before — prevents future "fix" attempts that would add unnecessary mutex.
+
 ## [2.9.8] - 2026-04-06
 
 ### Added
