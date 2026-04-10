@@ -5809,7 +5809,7 @@ components:
         goVersion:
           type: string
           description: Go runtime version
-          example: go1.26.0
+          example: go1.26.2
         version:
           type: string
           description: MDDB server version

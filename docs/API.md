@@ -2683,7 +2683,7 @@ curl http://localhost:11023/v1/system/info
   "os": "linux",
   "arch": "amd64",
   "numCPU": 4,
-  "goVersion": "go1.26.0",
+  "goVersion": "go1.26.2",
   "version": "2.9.9",
   "uptimeSeconds": 3600,
   "memoryTotal": 134217728,
