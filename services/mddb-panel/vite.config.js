@@ -19,6 +19,9 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true,
+    fs: {
+      allow: ['.', scriptsDir],
+    },
     proxy: {
       '/v1': {
         target: process.env.MDDB_SERVER || 'http://localhost:11023',
