@@ -55,7 +55,7 @@
         "priceCurrency": "USD"
       },
       "description": "AI-native knowledge base with built-in MCP server, vector search, RAG support, and semantic retrieval for AI agents and LLM workflows",
-      "softwareVersion": "2.9.9",
+      "softwareVersion": "2.9.10",
       "featureList": [
         "Built-in MCP server (2025-11-25) with 72 tools, tool annotations, prompts, completion, structured output — stdio, Streamable HTTP, SSE transports for Claude, Cursor, Windsurf, ChatGPT, Ollama, DeepSeek",
         "Vector/semantic search with 7 index algorithms: Flat, HNSW, IVF, PQ, OPQ, SQ, BQ + per-collection int8/int4 quantization (OpenAI, Ollama, Cohere, Voyage AI)",
@@ -146,7 +146,8 @@
                 <!-- Machine-readable feature summary (visually hidden, for crawlers and screen readers) -->
                 <div class="sr-only">
                     <p>MDDB is an AI-native embedded document database written in Go, using BoltDB for storage. It
-                        accepts Markdown, plain text, HTML, PDF, DOCX, ODT, RTF, LaTeX, YAML, and Wikipedia XML dump documents,
+                        accepts Markdown, plain text, HTML, PDF, DOCX, ODT, RTF, LaTeX, YAML, and Wikipedia XML dump
+                        documents,
                         auto-converting everything to Markdown. All documents are stored with full revision history.</p>
                     <h3>Core capabilities</h3>
                     <ul>
@@ -443,8 +444,8 @@ make docker-up
                                 <span class="terminal-title">bash — binary</span>
                             </div>
                             <pre><code id="binary-download-code" data-terminal="bash"># Download binary
-wget https://github.com/tradik/mddb/releases/download/v2.9.9/mddbd-v2.9.9-linux-amd64.tar.gz
-tar -xzf mddbd-v2.9.9-linux-amd64.tar.gz
+wget https://github.com/tradik/mddb/releases/download/v2.9.10/mddbd-v2.9.10-linux-amd64.tar.gz
+tar -xzf mddbd-v2.9.10-linux-amd64.tar.gz
 
 # Run server
 ./mddbd
@@ -559,14 +560,15 @@ sudo snap install mddb-cli</code></pre>
                     </div>
                 </div>
                 <div class="release-notes">
-                    <h3 id="whats-new-header">What's New in v2.9.9</h3>
+                    <h3 id="whats-new-header">What's New in v2.9.10</h3>
                     <ul>
                         <li><strong>Wikipedia XML Import</strong> - Stream and import MediaWiki XML dumps (.xml.bz2)
                             with wikitext-to-Markdown conversion, namespace filtering, and batch processing for
                             multi-million document imports</li>
                         <li><strong>Database Path Configuration</strong> - Database location now configurable via
                             <code>--db</code> CLI flag, YAML config (<code>database.path</code>), or
-                            <code>MDDB_PATH</code> env var</li>
+                            <code>MDDB_PATH</code> env var
+                        </li>
                         <li><strong>Goroutine Parallel Search</strong> - Multi-threaded Flat and IVF vector scoring with
                             ~2.5x speedup on 50K collections. Configurable via <code>MDDB_VECTOR_PARALLEL_WORKERS</code>
                         </li>
@@ -1023,7 +1025,7 @@ graph LR
                 <div class="footer-section">
                     <h4>MDDB</h4>
                     <p>AI-native knowledge base</p>
-                    <p class="footer-version" id="footer-version">Version 2.9.9</p>
+                    <p class="footer-version" id="footer-version">Version 2.9.10</p>
                 </div>
                 <div class="footer-section">
                     <h4>Documentation</h4>
@@ -1064,7 +1066,7 @@ graph LR
 
     <script defer>
         // Single source of truth for version — change here to update everywhere
-        const MDDB_VERSION = '2.9.9';
+        const MDDB_VERSION = '2.9.10';
         const MDDB_RELEASE_DATE = 'April 7, 2026';
 
         // Replace all version references in the page

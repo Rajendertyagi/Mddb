@@ -9523,6 +9523,949 @@ func (x *SpellCleanupResponse) GetCorrectionsApplied() int32 {
 	return 0
 }
 
+// GeoSearchRequest: find docs within radius_meters of (lat, lng).
+type GeoSearchRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Collection     string                 `protobuf:"bytes,1,opt,name=collection,proto3" json:"collection,omitempty"`
+	Lat            float64                `protobuf:"fixed64,2,opt,name=lat,proto3" json:"lat,omitempty"`
+	Lng            float64                `protobuf:"fixed64,3,opt,name=lng,proto3" json:"lng,omitempty"`
+	RadiusMeters   float64                `protobuf:"fixed64,4,opt,name=radius_meters,json=radiusMeters,proto3" json:"radius_meters,omitempty"`
+	TopK           int32                  `protobuf:"varint,5,opt,name=top_k,json=topK,proto3" json:"top_k,omitempty"`
+	FilterMeta     map[string]*MetaValues `protobuf:"bytes,6,rep,name=filter_meta,json=filterMeta,proto3" json:"filter_meta,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	IncludeContent bool                   `protobuf:"varint,7,opt,name=include_content,json=includeContent,proto3" json:"include_content,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *GeoSearchRequest) Reset() {
+	*x = GeoSearchRequest{}
+	mi := &file_mddb_proto_msgTypes[148]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GeoSearchRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GeoSearchRequest) ProtoMessage() {}
+
+func (x *GeoSearchRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mddb_proto_msgTypes[148]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GeoSearchRequest.ProtoReflect.Descriptor instead.
+func (*GeoSearchRequest) Descriptor() ([]byte, []int) {
+	return file_mddb_proto_rawDescGZIP(), []int{148}
+}
+
+func (x *GeoSearchRequest) GetCollection() string {
+	if x != nil {
+		return x.Collection
+	}
+	return ""
+}
+
+func (x *GeoSearchRequest) GetLat() float64 {
+	if x != nil {
+		return x.Lat
+	}
+	return 0
+}
+
+func (x *GeoSearchRequest) GetLng() float64 {
+	if x != nil {
+		return x.Lng
+	}
+	return 0
+}
+
+func (x *GeoSearchRequest) GetRadiusMeters() float64 {
+	if x != nil {
+		return x.RadiusMeters
+	}
+	return 0
+}
+
+func (x *GeoSearchRequest) GetTopK() int32 {
+	if x != nil {
+		return x.TopK
+	}
+	return 0
+}
+
+func (x *GeoSearchRequest) GetFilterMeta() map[string]*MetaValues {
+	if x != nil {
+		return x.FilterMeta
+	}
+	return nil
+}
+
+func (x *GeoSearchRequest) GetIncludeContent() bool {
+	if x != nil {
+		return x.IncludeContent
+	}
+	return false
+}
+
+// GeoSearchResultItem: one result, ordered by ascending distance.
+type GeoSearchResultItem struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Document       *Document              `protobuf:"bytes,1,opt,name=document,proto3" json:"document,omitempty"`
+	DistanceMeters float64                `protobuf:"fixed64,2,opt,name=distance_meters,json=distanceMeters,proto3" json:"distance_meters,omitempty"`
+	Rank           int32                  `protobuf:"varint,3,opt,name=rank,proto3" json:"rank,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *GeoSearchResultItem) Reset() {
+	*x = GeoSearchResultItem{}
+	mi := &file_mddb_proto_msgTypes[149]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GeoSearchResultItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GeoSearchResultItem) ProtoMessage() {}
+
+func (x *GeoSearchResultItem) ProtoReflect() protoreflect.Message {
+	mi := &file_mddb_proto_msgTypes[149]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GeoSearchResultItem.ProtoReflect.Descriptor instead.
+func (*GeoSearchResultItem) Descriptor() ([]byte, []int) {
+	return file_mddb_proto_rawDescGZIP(), []int{149}
+}
+
+func (x *GeoSearchResultItem) GetDocument() *Document {
+	if x != nil {
+		return x.Document
+	}
+	return nil
+}
+
+func (x *GeoSearchResultItem) GetDistanceMeters() float64 {
+	if x != nil {
+		return x.DistanceMeters
+	}
+	return 0
+}
+
+func (x *GeoSearchResultItem) GetRank() int32 {
+	if x != nil {
+		return x.Rank
+	}
+	return 0
+}
+
+type GeoSearchResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Results       []*GeoSearchResultItem `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	RadiusMeters  float64                `protobuf:"fixed64,3,opt,name=radius_meters,json=radiusMeters,proto3" json:"radius_meters,omitempty"`
+	Algorithm     string                 `protobuf:"bytes,4,opt,name=algorithm,proto3" json:"algorithm,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GeoSearchResponse) Reset() {
+	*x = GeoSearchResponse{}
+	mi := &file_mddb_proto_msgTypes[150]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GeoSearchResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GeoSearchResponse) ProtoMessage() {}
+
+func (x *GeoSearchResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_mddb_proto_msgTypes[150]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GeoSearchResponse.ProtoReflect.Descriptor instead.
+func (*GeoSearchResponse) Descriptor() ([]byte, []int) {
+	return file_mddb_proto_rawDescGZIP(), []int{150}
+}
+
+func (x *GeoSearchResponse) GetResults() []*GeoSearchResultItem {
+	if x != nil {
+		return x.Results
+	}
+	return nil
+}
+
+func (x *GeoSearchResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *GeoSearchResponse) GetRadiusMeters() float64 {
+	if x != nil {
+		return x.RadiusMeters
+	}
+	return 0
+}
+
+func (x *GeoSearchResponse) GetAlgorithm() string {
+	if x != nil {
+		return x.Algorithm
+	}
+	return ""
+}
+
+// GeoWithinRequest: find docs inside the axis-aligned bbox
+// [min_lat, max_lat] × [min_lng, max_lng].
+type GeoWithinRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Collection     string                 `protobuf:"bytes,1,opt,name=collection,proto3" json:"collection,omitempty"`
+	MinLat         float64                `protobuf:"fixed64,2,opt,name=min_lat,json=minLat,proto3" json:"min_lat,omitempty"`
+	MaxLat         float64                `protobuf:"fixed64,3,opt,name=max_lat,json=maxLat,proto3" json:"max_lat,omitempty"`
+	MinLng         float64                `protobuf:"fixed64,4,opt,name=min_lng,json=minLng,proto3" json:"min_lng,omitempty"`
+	MaxLng         float64                `protobuf:"fixed64,5,opt,name=max_lng,json=maxLng,proto3" json:"max_lng,omitempty"`
+	FilterMeta     map[string]*MetaValues `protobuf:"bytes,6,rep,name=filter_meta,json=filterMeta,proto3" json:"filter_meta,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	IncludeContent bool                   `protobuf:"varint,7,opt,name=include_content,json=includeContent,proto3" json:"include_content,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *GeoWithinRequest) Reset() {
+	*x = GeoWithinRequest{}
+	mi := &file_mddb_proto_msgTypes[151]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GeoWithinRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GeoWithinRequest) ProtoMessage() {}
+
+func (x *GeoWithinRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mddb_proto_msgTypes[151]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GeoWithinRequest.ProtoReflect.Descriptor instead.
+func (*GeoWithinRequest) Descriptor() ([]byte, []int) {
+	return file_mddb_proto_rawDescGZIP(), []int{151}
+}
+
+func (x *GeoWithinRequest) GetCollection() string {
+	if x != nil {
+		return x.Collection
+	}
+	return ""
+}
+
+func (x *GeoWithinRequest) GetMinLat() float64 {
+	if x != nil {
+		return x.MinLat
+	}
+	return 0
+}
+
+func (x *GeoWithinRequest) GetMaxLat() float64 {
+	if x != nil {
+		return x.MaxLat
+	}
+	return 0
+}
+
+func (x *GeoWithinRequest) GetMinLng() float64 {
+	if x != nil {
+		return x.MinLng
+	}
+	return 0
+}
+
+func (x *GeoWithinRequest) GetMaxLng() float64 {
+	if x != nil {
+		return x.MaxLng
+	}
+	return 0
+}
+
+func (x *GeoWithinRequest) GetFilterMeta() map[string]*MetaValues {
+	if x != nil {
+		return x.FilterMeta
+	}
+	return nil
+}
+
+func (x *GeoWithinRequest) GetIncludeContent() bool {
+	if x != nil {
+		return x.IncludeContent
+	}
+	return false
+}
+
+type GeoWithinResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Results       []*GeoSearchResultItem `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	Algorithm     string                 `protobuf:"bytes,3,opt,name=algorithm,proto3" json:"algorithm,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GeoWithinResponse) Reset() {
+	*x = GeoWithinResponse{}
+	mi := &file_mddb_proto_msgTypes[152]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GeoWithinResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GeoWithinResponse) ProtoMessage() {}
+
+func (x *GeoWithinResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_mddb_proto_msgTypes[152]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GeoWithinResponse.ProtoReflect.Descriptor instead.
+func (*GeoWithinResponse) Descriptor() ([]byte, []int) {
+	return file_mddb_proto_rawDescGZIP(), []int{152}
+}
+
+func (x *GeoWithinResponse) GetResults() []*GeoSearchResultItem {
+	if x != nil {
+		return x.Results
+	}
+	return nil
+}
+
+func (x *GeoWithinResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *GeoWithinResponse) GetAlgorithm() string {
+	if x != nil {
+		return x.Algorithm
+	}
+	return ""
+}
+
+// GeoPostcodeLoadProto instructs GeoReindex to load an optional postcode CSV.
+type GeoPostcodeLoadProto struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Country       string                 `protobuf:"bytes,1,opt,name=country,proto3" json:"country,omitempty"`
+	CsvPath       string                 `protobuf:"bytes,2,opt,name=csv_path,json=csvPath,proto3" json:"csv_path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GeoPostcodeLoadProto) Reset() {
+	*x = GeoPostcodeLoadProto{}
+	mi := &file_mddb_proto_msgTypes[153]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GeoPostcodeLoadProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GeoPostcodeLoadProto) ProtoMessage() {}
+
+func (x *GeoPostcodeLoadProto) ProtoReflect() protoreflect.Message {
+	mi := &file_mddb_proto_msgTypes[153]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GeoPostcodeLoadProto.ProtoReflect.Descriptor instead.
+func (*GeoPostcodeLoadProto) Descriptor() ([]byte, []int) {
+	return file_mddb_proto_rawDescGZIP(), []int{153}
+}
+
+func (x *GeoPostcodeLoadProto) GetCountry() string {
+	if x != nil {
+		return x.Country
+	}
+	return ""
+}
+
+func (x *GeoPostcodeLoadProto) GetCsvPath() string {
+	if x != nil {
+		return x.CsvPath
+	}
+	return ""
+}
+
+// GeoReindexRequest: force-rebuild the in-memory R-tree and optionally load
+// postcode lookup CSVs. An empty collection means "rebuild all".
+type GeoReindexRequest struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	Collection    string                  `protobuf:"bytes,1,opt,name=collection,proto3" json:"collection,omitempty"`
+	LoadPostcodes []*GeoPostcodeLoadProto `protobuf:"bytes,2,rep,name=load_postcodes,json=loadPostcodes,proto3" json:"load_postcodes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GeoReindexRequest) Reset() {
+	*x = GeoReindexRequest{}
+	mi := &file_mddb_proto_msgTypes[154]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GeoReindexRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GeoReindexRequest) ProtoMessage() {}
+
+func (x *GeoReindexRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mddb_proto_msgTypes[154]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GeoReindexRequest.ProtoReflect.Descriptor instead.
+func (*GeoReindexRequest) Descriptor() ([]byte, []int) {
+	return file_mddb_proto_rawDescGZIP(), []int{154}
+}
+
+func (x *GeoReindexRequest) GetCollection() string {
+	if x != nil {
+		return x.Collection
+	}
+	return ""
+}
+
+func (x *GeoReindexRequest) GetLoadPostcodes() []*GeoPostcodeLoadProto {
+	if x != nil {
+		return x.LoadPostcodes
+	}
+	return nil
+}
+
+type GeoReindexResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Points          int32                  `protobuf:"varint,1,opt,name=points,proto3" json:"points,omitempty"`
+	Collection      string                 `protobuf:"bytes,2,opt,name=collection,proto3" json:"collection,omitempty"`
+	PostcodesLoaded map[string]int32       `protobuf:"bytes,3,rep,name=postcodes_loaded,json=postcodesLoaded,proto3" json:"postcodes_loaded,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	DurationMs      int64                  `protobuf:"varint,4,opt,name=duration_ms,json=durationMs,proto3" json:"duration_ms,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *GeoReindexResponse) Reset() {
+	*x = GeoReindexResponse{}
+	mi := &file_mddb_proto_msgTypes[155]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GeoReindexResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GeoReindexResponse) ProtoMessage() {}
+
+func (x *GeoReindexResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_mddb_proto_msgTypes[155]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GeoReindexResponse.ProtoReflect.Descriptor instead.
+func (*GeoReindexResponse) Descriptor() ([]byte, []int) {
+	return file_mddb_proto_rawDescGZIP(), []int{155}
+}
+
+func (x *GeoReindexResponse) GetPoints() int32 {
+	if x != nil {
+		return x.Points
+	}
+	return 0
+}
+
+func (x *GeoReindexResponse) GetCollection() string {
+	if x != nil {
+		return x.Collection
+	}
+	return ""
+}
+
+func (x *GeoReindexResponse) GetPostcodesLoaded() map[string]int32 {
+	if x != nil {
+		return x.PostcodesLoaded
+	}
+	return nil
+}
+
+func (x *GeoReindexResponse) GetDurationMs() int64 {
+	if x != nil {
+		return x.DurationMs
+	}
+	return 0
+}
+
+// GeoStatsRequest is an empty request for the stats RPC.
+type GeoStatsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GeoStatsRequest) Reset() {
+	*x = GeoStatsRequest{}
+	mi := &file_mddb_proto_msgTypes[156]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GeoStatsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GeoStatsRequest) ProtoMessage() {}
+
+func (x *GeoStatsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mddb_proto_msgTypes[156]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GeoStatsRequest.ProtoReflect.Descriptor instead.
+func (*GeoStatsRequest) Descriptor() ([]byte, []int) {
+	return file_mddb_proto_rawDescGZIP(), []int{156}
+}
+
+// GeoCollectionStatProto mirrors GeoCollectionStat on the HTTP side.
+type GeoCollectionStatProto struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Points          int32                  `protobuf:"varint,1,opt,name=points,proto3" json:"points,omitempty"`
+	LastRebuildUnix int64                  `protobuf:"varint,2,opt,name=last_rebuild_unix,json=lastRebuildUnix,proto3" json:"last_rebuild_unix,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *GeoCollectionStatProto) Reset() {
+	*x = GeoCollectionStatProto{}
+	mi := &file_mddb_proto_msgTypes[157]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GeoCollectionStatProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GeoCollectionStatProto) ProtoMessage() {}
+
+func (x *GeoCollectionStatProto) ProtoReflect() protoreflect.Message {
+	mi := &file_mddb_proto_msgTypes[157]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GeoCollectionStatProto.ProtoReflect.Descriptor instead.
+func (*GeoCollectionStatProto) Descriptor() ([]byte, []int) {
+	return file_mddb_proto_rawDescGZIP(), []int{157}
+}
+
+func (x *GeoCollectionStatProto) GetPoints() int32 {
+	if x != nil {
+		return x.Points
+	}
+	return 0
+}
+
+func (x *GeoCollectionStatProto) GetLastRebuildUnix() int64 {
+	if x != nil {
+		return x.LastRebuildUnix
+	}
+	return 0
+}
+
+type GeoStatsResponse struct {
+	state            protoimpl.MessageState             `protogen:"open.v1"`
+	Collections      map[string]*GeoCollectionStatProto `protobuf:"bytes,1,rep,name=collections,proto3" json:"collections,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	PostcodeDatasets map[string]int32                   `protobuf:"bytes,2,rep,name=postcode_datasets,json=postcodeDatasets,proto3" json:"postcode_datasets,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	Ready            bool                               `protobuf:"varint,3,opt,name=ready,proto3" json:"ready,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *GeoStatsResponse) Reset() {
+	*x = GeoStatsResponse{}
+	mi := &file_mddb_proto_msgTypes[158]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GeoStatsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GeoStatsResponse) ProtoMessage() {}
+
+func (x *GeoStatsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_mddb_proto_msgTypes[158]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GeoStatsResponse.ProtoReflect.Descriptor instead.
+func (*GeoStatsResponse) Descriptor() ([]byte, []int) {
+	return file_mddb_proto_rawDescGZIP(), []int{158}
+}
+
+func (x *GeoStatsResponse) GetCollections() map[string]*GeoCollectionStatProto {
+	if x != nil {
+		return x.Collections
+	}
+	return nil
+}
+
+func (x *GeoStatsResponse) GetPostcodeDatasets() map[string]int32 {
+	if x != nil {
+		return x.PostcodeDatasets
+	}
+	return nil
+}
+
+func (x *GeoStatsResponse) GetReady() bool {
+	if x != nil {
+		return x.Ready
+	}
+	return false
+}
+
+// GeoEncodeRequest: convert (lat, lng) → geohash string.
+type GeoEncodeRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Lat           float64                `protobuf:"fixed64,1,opt,name=lat,proto3" json:"lat,omitempty"`
+	Lng           float64                `protobuf:"fixed64,2,opt,name=lng,proto3" json:"lng,omitempty"`
+	Precision     int32                  `protobuf:"varint,3,opt,name=precision,proto3" json:"precision,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GeoEncodeRequest) Reset() {
+	*x = GeoEncodeRequest{}
+	mi := &file_mddb_proto_msgTypes[159]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GeoEncodeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GeoEncodeRequest) ProtoMessage() {}
+
+func (x *GeoEncodeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mddb_proto_msgTypes[159]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GeoEncodeRequest.ProtoReflect.Descriptor instead.
+func (*GeoEncodeRequest) Descriptor() ([]byte, []int) {
+	return file_mddb_proto_rawDescGZIP(), []int{159}
+}
+
+func (x *GeoEncodeRequest) GetLat() float64 {
+	if x != nil {
+		return x.Lat
+	}
+	return 0
+}
+
+func (x *GeoEncodeRequest) GetLng() float64 {
+	if x != nil {
+		return x.Lng
+	}
+	return 0
+}
+
+func (x *GeoEncodeRequest) GetPrecision() int32 {
+	if x != nil {
+		return x.Precision
+	}
+	return 0
+}
+
+type GeoEncodeResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Geohash       string                 `protobuf:"bytes,1,opt,name=geohash,proto3" json:"geohash,omitempty"`
+	Precision     int32                  `protobuf:"varint,2,opt,name=precision,proto3" json:"precision,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GeoEncodeResponse) Reset() {
+	*x = GeoEncodeResponse{}
+	mi := &file_mddb_proto_msgTypes[160]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GeoEncodeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GeoEncodeResponse) ProtoMessage() {}
+
+func (x *GeoEncodeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_mddb_proto_msgTypes[160]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GeoEncodeResponse.ProtoReflect.Descriptor instead.
+func (*GeoEncodeResponse) Descriptor() ([]byte, []int) {
+	return file_mddb_proto_rawDescGZIP(), []int{160}
+}
+
+func (x *GeoEncodeResponse) GetGeohash() string {
+	if x != nil {
+		return x.Geohash
+	}
+	return ""
+}
+
+func (x *GeoEncodeResponse) GetPrecision() int32 {
+	if x != nil {
+		return x.Precision
+	}
+	return 0
+}
+
+// GeoDecodeRequest: convert geohash → centroid + bbox.
+type GeoDecodeRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Geohash       string                 `protobuf:"bytes,1,opt,name=geohash,proto3" json:"geohash,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GeoDecodeRequest) Reset() {
+	*x = GeoDecodeRequest{}
+	mi := &file_mddb_proto_msgTypes[161]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GeoDecodeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GeoDecodeRequest) ProtoMessage() {}
+
+func (x *GeoDecodeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_mddb_proto_msgTypes[161]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GeoDecodeRequest.ProtoReflect.Descriptor instead.
+func (*GeoDecodeRequest) Descriptor() ([]byte, []int) {
+	return file_mddb_proto_rawDescGZIP(), []int{161}
+}
+
+func (x *GeoDecodeRequest) GetGeohash() string {
+	if x != nil {
+		return x.Geohash
+	}
+	return ""
+}
+
+type GeoDecodeResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Lat           float64                `protobuf:"fixed64,1,opt,name=lat,proto3" json:"lat,omitempty"`
+	Lng           float64                `protobuf:"fixed64,2,opt,name=lng,proto3" json:"lng,omitempty"`
+	MinLat        float64                `protobuf:"fixed64,3,opt,name=min_lat,json=minLat,proto3" json:"min_lat,omitempty"`
+	MaxLat        float64                `protobuf:"fixed64,4,opt,name=max_lat,json=maxLat,proto3" json:"max_lat,omitempty"`
+	MinLng        float64                `protobuf:"fixed64,5,opt,name=min_lng,json=minLng,proto3" json:"min_lng,omitempty"`
+	MaxLng        float64                `protobuf:"fixed64,6,opt,name=max_lng,json=maxLng,proto3" json:"max_lng,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GeoDecodeResponse) Reset() {
+	*x = GeoDecodeResponse{}
+	mi := &file_mddb_proto_msgTypes[162]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GeoDecodeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GeoDecodeResponse) ProtoMessage() {}
+
+func (x *GeoDecodeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_mddb_proto_msgTypes[162]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GeoDecodeResponse.ProtoReflect.Descriptor instead.
+func (*GeoDecodeResponse) Descriptor() ([]byte, []int) {
+	return file_mddb_proto_rawDescGZIP(), []int{162}
+}
+
+func (x *GeoDecodeResponse) GetLat() float64 {
+	if x != nil {
+		return x.Lat
+	}
+	return 0
+}
+
+func (x *GeoDecodeResponse) GetLng() float64 {
+	if x != nil {
+		return x.Lng
+	}
+	return 0
+}
+
+func (x *GeoDecodeResponse) GetMinLat() float64 {
+	if x != nil {
+		return x.MinLat
+	}
+	return 0
+}
+
+func (x *GeoDecodeResponse) GetMaxLat() float64 {
+	if x != nil {
+		return x.MaxLat
+	}
+	return 0
+}
+
+func (x *GeoDecodeResponse) GetMinLng() float64 {
+	if x != nil {
+		return x.MinLng
+	}
+	return 0
+}
+
+func (x *GeoDecodeResponse) GetMaxLng() float64 {
+	if x != nil {
+		return x.MaxLng
+	}
+	return 0
+}
+
 var File_mddb_proto protoreflect.FileDescriptor
 
 const file_mddb_proto_rawDesc = "" +
@@ -10455,7 +11398,97 @@ const file_mddb_proto_rawDesc = "" +
 	"\x14SpellCleanupResponse\x12\x1a\n" +
 	"\boriginal\x18\x01 \x01(\tR\boriginal\x12\x18\n" +
 	"\acleaned\x18\x02 \x01(\tR\acleaned\x12/\n" +
-	"\x13corrections_applied\x18\x03 \x01(\x05R\x12correctionsApplied2\x95 \n" +
+	"\x13corrections_applied\x18\x03 \x01(\x05R\x12correctionsApplied\"\xd3\x02\n" +
+	"\x10GeoSearchRequest\x12\x1e\n" +
+	"\n" +
+	"collection\x18\x01 \x01(\tR\n" +
+	"collection\x12\x10\n" +
+	"\x03lat\x18\x02 \x01(\x01R\x03lat\x12\x10\n" +
+	"\x03lng\x18\x03 \x01(\x01R\x03lng\x12#\n" +
+	"\rradius_meters\x18\x04 \x01(\x01R\fradiusMeters\x12\x13\n" +
+	"\x05top_k\x18\x05 \x01(\x05R\x04topK\x12G\n" +
+	"\vfilter_meta\x18\x06 \x03(\v2&.mddb.GeoSearchRequest.FilterMetaEntryR\n" +
+	"filterMeta\x12'\n" +
+	"\x0finclude_content\x18\a \x01(\bR\x0eincludeContent\x1aO\n" +
+	"\x0fFilterMetaEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12&\n" +
+	"\x05value\x18\x02 \x01(\v2\x10.mddb.MetaValuesR\x05value:\x028\x01\"~\n" +
+	"\x13GeoSearchResultItem\x12*\n" +
+	"\bdocument\x18\x01 \x01(\v2\x0e.mddb.DocumentR\bdocument\x12'\n" +
+	"\x0fdistance_meters\x18\x02 \x01(\x01R\x0edistanceMeters\x12\x12\n" +
+	"\x04rank\x18\x03 \x01(\x05R\x04rank\"\xa1\x01\n" +
+	"\x11GeoSearchResponse\x123\n" +
+	"\aresults\x18\x01 \x03(\v2\x19.mddb.GeoSearchResultItemR\aresults\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\x12#\n" +
+	"\rradius_meters\x18\x03 \x01(\x01R\fradiusMeters\x12\x1c\n" +
+	"\talgorithm\x18\x04 \x01(\tR\talgorithm\"\xd9\x02\n" +
+	"\x10GeoWithinRequest\x12\x1e\n" +
+	"\n" +
+	"collection\x18\x01 \x01(\tR\n" +
+	"collection\x12\x17\n" +
+	"\amin_lat\x18\x02 \x01(\x01R\x06minLat\x12\x17\n" +
+	"\amax_lat\x18\x03 \x01(\x01R\x06maxLat\x12\x17\n" +
+	"\amin_lng\x18\x04 \x01(\x01R\x06minLng\x12\x17\n" +
+	"\amax_lng\x18\x05 \x01(\x01R\x06maxLng\x12G\n" +
+	"\vfilter_meta\x18\x06 \x03(\v2&.mddb.GeoWithinRequest.FilterMetaEntryR\n" +
+	"filterMeta\x12'\n" +
+	"\x0finclude_content\x18\a \x01(\bR\x0eincludeContent\x1aO\n" +
+	"\x0fFilterMetaEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12&\n" +
+	"\x05value\x18\x02 \x01(\v2\x10.mddb.MetaValuesR\x05value:\x028\x01\"|\n" +
+	"\x11GeoWithinResponse\x123\n" +
+	"\aresults\x18\x01 \x03(\v2\x19.mddb.GeoSearchResultItemR\aresults\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\x12\x1c\n" +
+	"\talgorithm\x18\x03 \x01(\tR\talgorithm\"K\n" +
+	"\x14GeoPostcodeLoadProto\x12\x18\n" +
+	"\acountry\x18\x01 \x01(\tR\acountry\x12\x19\n" +
+	"\bcsv_path\x18\x02 \x01(\tR\acsvPath\"v\n" +
+	"\x11GeoReindexRequest\x12\x1e\n" +
+	"\n" +
+	"collection\x18\x01 \x01(\tR\n" +
+	"collection\x12A\n" +
+	"\x0eload_postcodes\x18\x02 \x03(\v2\x1a.mddb.GeoPostcodeLoadProtoR\rloadPostcodes\"\x8b\x02\n" +
+	"\x12GeoReindexResponse\x12\x16\n" +
+	"\x06points\x18\x01 \x01(\x05R\x06points\x12\x1e\n" +
+	"\n" +
+	"collection\x18\x02 \x01(\tR\n" +
+	"collection\x12X\n" +
+	"\x10postcodes_loaded\x18\x03 \x03(\v2-.mddb.GeoReindexResponse.PostcodesLoadedEntryR\x0fpostcodesLoaded\x12\x1f\n" +
+	"\vduration_ms\x18\x04 \x01(\x03R\n" +
+	"durationMs\x1aB\n" +
+	"\x14PostcodesLoadedEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01\"\x11\n" +
+	"\x0fGeoStatsRequest\"\\\n" +
+	"\x16GeoCollectionStatProto\x12\x16\n" +
+	"\x06points\x18\x01 \x01(\x05R\x06points\x12*\n" +
+	"\x11last_rebuild_unix\x18\x02 \x01(\x03R\x0flastRebuildUnix\"\xf1\x02\n" +
+	"\x10GeoStatsResponse\x12I\n" +
+	"\vcollections\x18\x01 \x03(\v2'.mddb.GeoStatsResponse.CollectionsEntryR\vcollections\x12Y\n" +
+	"\x11postcode_datasets\x18\x02 \x03(\v2,.mddb.GeoStatsResponse.PostcodeDatasetsEntryR\x10postcodeDatasets\x12\x14\n" +
+	"\x05ready\x18\x03 \x01(\bR\x05ready\x1a\\\n" +
+	"\x10CollectionsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x122\n" +
+	"\x05value\x18\x02 \x01(\v2\x1c.mddb.GeoCollectionStatProtoR\x05value:\x028\x01\x1aC\n" +
+	"\x15PostcodeDatasetsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01\"T\n" +
+	"\x10GeoEncodeRequest\x12\x10\n" +
+	"\x03lat\x18\x01 \x01(\x01R\x03lat\x12\x10\n" +
+	"\x03lng\x18\x02 \x01(\x01R\x03lng\x12\x1c\n" +
+	"\tprecision\x18\x03 \x01(\x05R\tprecision\"K\n" +
+	"\x11GeoEncodeResponse\x12\x18\n" +
+	"\ageohash\x18\x01 \x01(\tR\ageohash\x12\x1c\n" +
+	"\tprecision\x18\x02 \x01(\x05R\tprecision\",\n" +
+	"\x10GeoDecodeRequest\x12\x18\n" +
+	"\ageohash\x18\x01 \x01(\tR\ageohash\"\x9b\x01\n" +
+	"\x11GeoDecodeResponse\x12\x10\n" +
+	"\x03lat\x18\x01 \x01(\x01R\x03lat\x12\x10\n" +
+	"\x03lng\x18\x02 \x01(\x01R\x03lng\x12\x17\n" +
+	"\amin_lat\x18\x03 \x01(\x01R\x06minLat\x12\x17\n" +
+	"\amax_lat\x18\x04 \x01(\x01R\x06maxLat\x12\x17\n" +
+	"\amin_lng\x18\x05 \x01(\x01R\x06minLng\x12\x17\n" +
+	"\amax_lng\x18\x06 \x01(\x01R\x06maxLng2\x89#\n" +
 	"\x04MDDB\x12'\n" +
 	"\x03Add\x12\x10.mddb.AddRequest\x1a\x0e.mddb.Document\x129\n" +
 	"\bAddBatch\x12\x15.mddb.AddBatchRequest\x1a\x16.mddb.AddBatchResponse\x12B\n" +
@@ -10470,7 +11503,14 @@ const file_mddb_proto_rawDesc = "" +
 	"\x05Stats\x12\x12.mddb.StatsRequest\x1a\x13.mddb.StatsResponse\x12E\n" +
 	"\fVectorSearch\x12\x19.mddb.VectorSearchRequest\x1a\x1a.mddb.VectorSearchResponse\x12H\n" +
 	"\rVectorReindex\x12\x1a.mddb.VectorReindexRequest\x1a\x1b.mddb.VectorReindexResponse\x12B\n" +
-	"\vVectorStats\x12\x18.mddb.VectorStatsRequest\x1a\x19.mddb.VectorStatsResponse\x123\n" +
+	"\vVectorStats\x12\x18.mddb.VectorStatsRequest\x1a\x19.mddb.VectorStatsResponse\x12<\n" +
+	"\tGeoSearch\x12\x16.mddb.GeoSearchRequest\x1a\x17.mddb.GeoSearchResponse\x12<\n" +
+	"\tGeoWithin\x12\x16.mddb.GeoWithinRequest\x1a\x17.mddb.GeoWithinResponse\x12?\n" +
+	"\n" +
+	"GeoReindex\x12\x17.mddb.GeoReindexRequest\x1a\x18.mddb.GeoReindexResponse\x129\n" +
+	"\bGeoStats\x12\x15.mddb.GeoStatsRequest\x1a\x16.mddb.GeoStatsResponse\x12<\n" +
+	"\tGeoEncode\x12\x16.mddb.GeoEncodeRequest\x1a\x17.mddb.GeoEncodeResponse\x12<\n" +
+	"\tGeoDecode\x12\x16.mddb.GeoDecodeRequest\x1a\x17.mddb.GeoDecodeResponse\x123\n" +
 	"\tImportURL\x12\x16.mddb.ImportURLRequest\x1a\x0e.mddb.Document\x12-\n" +
 	"\x06SetTTL\x12\x13.mddb.SetTTLRequest\x1a\x0e.mddb.Document\x12*\n" +
 	"\x03FTS\x12\x10.mddb.FTSRequest\x1a\x11.mddb.FTSResponse\x12?\n" +
@@ -10538,7 +11578,7 @@ func file_mddb_proto_rawDescGZIP() []byte {
 	return file_mddb_proto_rawDescData
 }
 
-var file_mddb_proto_msgTypes = make([]protoimpl.MessageInfo, 171)
+var file_mddb_proto_msgTypes = make([]protoimpl.MessageInfo, 191)
 var file_mddb_proto_goTypes = []any{
 	(*Document)(nil),                      // 0: mddb.Document
 	(*MetaValues)(nil),                    // 1: mddb.MetaValues
@@ -10688,244 +11728,288 @@ var file_mddb_proto_goTypes = []any{
 	(*SpellSuggestResponse)(nil),          // 145: mddb.SpellSuggestResponse
 	(*SpellCleanupRequest)(nil),           // 146: mddb.SpellCleanupRequest
 	(*SpellCleanupResponse)(nil),          // 147: mddb.SpellCleanupResponse
-	nil,                                   // 148: mddb.Document.MetaEntry
-	nil,                                   // 149: mddb.AddRequest.MetaEntry
-	nil,                                   // 150: mddb.BatchDocument.MetaEntry
-	nil,                                   // 151: mddb.GetRequest.EnvEntry
-	nil,                                   // 152: mddb.SearchRequest.FilterMetaEntry
-	nil,                                   // 153: mddb.ExportRequest.FilterMetaEntry
-	nil,                                   // 154: mddb.UpdateDocument.MetaEntry
-	nil,                                   // 155: mddb.VectorSearchRequest.FilterMetaEntry
-	nil,                                   // 156: mddb.VectorStatsResponse.CollectionsEntry
-	nil,                                   // 157: mddb.ImportURLRequest.MetaEntry
-	nil,                                   // 158: mddb.FTSRequest.FilterMetaEntry
-	nil,                                   // 159: mddb.HybridSearchRequest.FilterMetaEntry
-	nil,                                   // 160: mddb.HybridSearchRequest.FieldWeightsEntry
-	nil,                                   // 161: mddb.ValidateDocumentRequest.MetaEntry
-	nil,                                   // 162: mddb.UpdateDocumentRequest.MetaEntry
-	nil,                                   // 163: mddb.GetDocumentMetaResponse.MetaEntry
-	nil,                                   // 164: mddb.GetMetaKeysResponse.MetaEntry
-	nil,                                   // 165: mddb.AutomationRuleProto.HeadersEntry
-	nil,                                   // 166: mddb.CollectionConfigProto.CustomMetaEntry
-	nil,                                   // 167: mddb.SetCollectionConfigRequest.CustomMetaEntry
-	nil,                                   // 168: mddb.CrossSearchRequest.FilterMetaEntry
-	nil,                                   // 169: mddb.IngestDocument.MetaEntry
-	nil,                                   // 170: mddb.RevisionEntryProto.MetaEntry
+	(*GeoSearchRequest)(nil),              // 148: mddb.GeoSearchRequest
+	(*GeoSearchResultItem)(nil),           // 149: mddb.GeoSearchResultItem
+	(*GeoSearchResponse)(nil),             // 150: mddb.GeoSearchResponse
+	(*GeoWithinRequest)(nil),              // 151: mddb.GeoWithinRequest
+	(*GeoWithinResponse)(nil),             // 152: mddb.GeoWithinResponse
+	(*GeoPostcodeLoadProto)(nil),          // 153: mddb.GeoPostcodeLoadProto
+	(*GeoReindexRequest)(nil),             // 154: mddb.GeoReindexRequest
+	(*GeoReindexResponse)(nil),            // 155: mddb.GeoReindexResponse
+	(*GeoStatsRequest)(nil),               // 156: mddb.GeoStatsRequest
+	(*GeoCollectionStatProto)(nil),        // 157: mddb.GeoCollectionStatProto
+	(*GeoStatsResponse)(nil),              // 158: mddb.GeoStatsResponse
+	(*GeoEncodeRequest)(nil),              // 159: mddb.GeoEncodeRequest
+	(*GeoEncodeResponse)(nil),             // 160: mddb.GeoEncodeResponse
+	(*GeoDecodeRequest)(nil),              // 161: mddb.GeoDecodeRequest
+	(*GeoDecodeResponse)(nil),             // 162: mddb.GeoDecodeResponse
+	nil,                                   // 163: mddb.Document.MetaEntry
+	nil,                                   // 164: mddb.AddRequest.MetaEntry
+	nil,                                   // 165: mddb.BatchDocument.MetaEntry
+	nil,                                   // 166: mddb.GetRequest.EnvEntry
+	nil,                                   // 167: mddb.SearchRequest.FilterMetaEntry
+	nil,                                   // 168: mddb.ExportRequest.FilterMetaEntry
+	nil,                                   // 169: mddb.UpdateDocument.MetaEntry
+	nil,                                   // 170: mddb.VectorSearchRequest.FilterMetaEntry
+	nil,                                   // 171: mddb.VectorStatsResponse.CollectionsEntry
+	nil,                                   // 172: mddb.ImportURLRequest.MetaEntry
+	nil,                                   // 173: mddb.FTSRequest.FilterMetaEntry
+	nil,                                   // 174: mddb.HybridSearchRequest.FilterMetaEntry
+	nil,                                   // 175: mddb.HybridSearchRequest.FieldWeightsEntry
+	nil,                                   // 176: mddb.ValidateDocumentRequest.MetaEntry
+	nil,                                   // 177: mddb.UpdateDocumentRequest.MetaEntry
+	nil,                                   // 178: mddb.GetDocumentMetaResponse.MetaEntry
+	nil,                                   // 179: mddb.GetMetaKeysResponse.MetaEntry
+	nil,                                   // 180: mddb.AutomationRuleProto.HeadersEntry
+	nil,                                   // 181: mddb.CollectionConfigProto.CustomMetaEntry
+	nil,                                   // 182: mddb.SetCollectionConfigRequest.CustomMetaEntry
+	nil,                                   // 183: mddb.CrossSearchRequest.FilterMetaEntry
+	nil,                                   // 184: mddb.IngestDocument.MetaEntry
+	nil,                                   // 185: mddb.RevisionEntryProto.MetaEntry
+	nil,                                   // 186: mddb.GeoSearchRequest.FilterMetaEntry
+	nil,                                   // 187: mddb.GeoWithinRequest.FilterMetaEntry
+	nil,                                   // 188: mddb.GeoReindexResponse.PostcodesLoadedEntry
+	nil,                                   // 189: mddb.GeoStatsResponse.CollectionsEntry
+	nil,                                   // 190: mddb.GeoStatsResponse.PostcodeDatasetsEntry
 }
 var file_mddb_proto_depIdxs = []int32{
-	148, // 0: mddb.Document.meta:type_name -> mddb.Document.MetaEntry
-	149, // 1: mddb.AddRequest.meta:type_name -> mddb.AddRequest.MetaEntry
+	163, // 0: mddb.Document.meta:type_name -> mddb.Document.MetaEntry
+	164, // 1: mddb.AddRequest.meta:type_name -> mddb.AddRequest.MetaEntry
 	4,   // 2: mddb.AddBatchRequest.documents:type_name -> mddb.BatchDocument
-	150, // 3: mddb.BatchDocument.meta:type_name -> mddb.BatchDocument.MetaEntry
-	151, // 4: mddb.GetRequest.env:type_name -> mddb.GetRequest.EnvEntry
-	152, // 5: mddb.SearchRequest.filter_meta:type_name -> mddb.SearchRequest.FilterMetaEntry
+	165, // 3: mddb.BatchDocument.meta:type_name -> mddb.BatchDocument.MetaEntry
+	166, // 4: mddb.GetRequest.env:type_name -> mddb.GetRequest.EnvEntry
+	167, // 5: mddb.SearchRequest.filter_meta:type_name -> mddb.SearchRequest.FilterMetaEntry
 	0,   // 6: mddb.SearchResponse.documents:type_name -> mddb.Document
-	153, // 7: mddb.ExportRequest.filter_meta:type_name -> mddb.ExportRequest.FilterMetaEntry
+	168, // 7: mddb.ExportRequest.filter_meta:type_name -> mddb.ExportRequest.FilterMetaEntry
 	19,  // 8: mddb.StatsResponse.collections:type_name -> mddb.CollectionStats
 	21,  // 9: mddb.DeleteBatchRequest.documents:type_name -> mddb.DeleteDocument
 	24,  // 10: mddb.UpdateBatchRequest.documents:type_name -> mddb.UpdateDocument
-	154, // 11: mddb.UpdateDocument.meta:type_name -> mddb.UpdateDocument.MetaEntry
-	155, // 12: mddb.VectorSearchRequest.filter_meta:type_name -> mddb.VectorSearchRequest.FilterMetaEntry
+	169, // 11: mddb.UpdateDocument.meta:type_name -> mddb.UpdateDocument.MetaEntry
+	170, // 12: mddb.VectorSearchRequest.filter_meta:type_name -> mddb.VectorSearchRequest.FilterMetaEntry
 	0,   // 13: mddb.VectorSearchResult.document:type_name -> mddb.Document
 	27,  // 14: mddb.VectorSearchResponse.results:type_name -> mddb.VectorSearchResult
-	156, // 15: mddb.VectorStatsResponse.collections:type_name -> mddb.VectorStatsResponse.CollectionsEntry
-	157, // 16: mddb.ImportURLRequest.meta:type_name -> mddb.ImportURLRequest.MetaEntry
-	158, // 17: mddb.FTSRequest.filter_meta:type_name -> mddb.FTSRequest.FilterMetaEntry
+	171, // 15: mddb.VectorStatsResponse.collections:type_name -> mddb.VectorStatsResponse.CollectionsEntry
+	172, // 16: mddb.ImportURLRequest.meta:type_name -> mddb.ImportURLRequest.MetaEntry
+	173, // 17: mddb.FTSRequest.filter_meta:type_name -> mddb.FTSRequest.FilterMetaEntry
 	0,   // 18: mddb.FTSResult.document:type_name -> mddb.Document
 	37,  // 19: mddb.FTSResponse.results:type_name -> mddb.FTSResult
 	42,  // 20: mddb.FTSLanguagesResponse.languages:type_name -> mddb.FTSLanguageInfo
-	159, // 21: mddb.HybridSearchRequest.filter_meta:type_name -> mddb.HybridSearchRequest.FilterMetaEntry
-	160, // 22: mddb.HybridSearchRequest.field_weights:type_name -> mddb.HybridSearchRequest.FieldWeightsEntry
+	174, // 21: mddb.HybridSearchRequest.filter_meta:type_name -> mddb.HybridSearchRequest.FilterMetaEntry
+	175, // 22: mddb.HybridSearchRequest.field_weights:type_name -> mddb.HybridSearchRequest.FieldWeightsEntry
 	0,   // 23: mddb.HybridSearchResult.document:type_name -> mddb.Document
 	45,  // 24: mddb.HybridSearchResponse.results:type_name -> mddb.HybridSearchResult
 	47,  // 25: mddb.ListWebhooksResponse.webhooks:type_name -> mddb.WebhookProto
 	61,  // 26: mddb.ListSchemasResponse.schemas:type_name -> mddb.SchemaInfo
-	161, // 27: mddb.ValidateDocumentRequest.meta:type_name -> mddb.ValidateDocumentRequest.MetaEntry
-	162, // 28: mddb.UpdateDocumentRequest.meta:type_name -> mddb.UpdateDocumentRequest.MetaEntry
-	163, // 29: mddb.GetDocumentMetaResponse.meta:type_name -> mddb.GetDocumentMetaResponse.MetaEntry
+	176, // 27: mddb.ValidateDocumentRequest.meta:type_name -> mddb.ValidateDocumentRequest.MetaEntry
+	177, // 28: mddb.UpdateDocumentRequest.meta:type_name -> mddb.UpdateDocumentRequest.MetaEntry
+	178, // 29: mddb.GetDocumentMetaResponse.meta:type_name -> mddb.GetDocumentMetaResponse.MetaEntry
 	68,  // 30: mddb.ClassifyResponse.results:type_name -> mddb.ClassifyLabelScore
 	74,  // 31: mddb.ListSynonymsResponse.entries:type_name -> mddb.SynonymEntry
 	81,  // 32: mddb.ListStopwordsResponse.entries:type_name -> mddb.StopwordEntry
-	164, // 33: mddb.GetMetaKeysResponse.meta:type_name -> mddb.GetMetaKeysResponse.MetaEntry
-	165, // 34: mddb.AutomationRuleProto.headers:type_name -> mddb.AutomationRuleProto.HeadersEntry
+	179, // 33: mddb.GetMetaKeysResponse.meta:type_name -> mddb.GetMetaKeysResponse.MetaEntry
+	180, // 34: mddb.AutomationRuleProto.headers:type_name -> mddb.AutomationRuleProto.HeadersEntry
 	92,  // 35: mddb.ListAutomationResponse.rules:type_name -> mddb.AutomationRuleProto
 	92,  // 36: mddb.CreateAutomationRequest.rule:type_name -> mddb.AutomationRuleProto
 	92,  // 37: mddb.UpdateAutomationRequest.rule:type_name -> mddb.AutomationRuleProto
 	92,  // 38: mddb.TestAutomationResponse.trigger:type_name -> mddb.AutomationRuleProto
 	0,   // 39: mddb.TestAutomationResponse.matches:type_name -> mddb.Document
 	102, // 40: mddb.GetAutomationLogsResponse.logs:type_name -> mddb.AutomationLogEntryProto
-	166, // 41: mddb.CollectionConfigProto.custom_meta:type_name -> mddb.CollectionConfigProto.CustomMetaEntry
+	181, // 41: mddb.CollectionConfigProto.custom_meta:type_name -> mddb.CollectionConfigProto.CustomMetaEntry
 	105, // 42: mddb.GetCollectionConfigResponse.config:type_name -> mddb.CollectionConfigProto
-	167, // 43: mddb.SetCollectionConfigRequest.custom_meta:type_name -> mddb.SetCollectionConfigRequest.CustomMetaEntry
+	182, // 43: mddb.SetCollectionConfigRequest.custom_meta:type_name -> mddb.SetCollectionConfigRequest.CustomMetaEntry
 	105, // 44: mddb.CollectionConfigEntry.config:type_name -> mddb.CollectionConfigProto
 	111, // 45: mddb.ListCollectionConfigsResponse.configs:type_name -> mddb.CollectionConfigEntry
-	168, // 46: mddb.CrossSearchRequest.filter_meta:type_name -> mddb.CrossSearchRequest.FilterMetaEntry
+	183, // 46: mddb.CrossSearchRequest.filter_meta:type_name -> mddb.CrossSearchRequest.FilterMetaEntry
 	0,   // 47: mddb.CrossSearchResultItem.document:type_name -> mddb.Document
 	114, // 48: mddb.CrossSearchResponse.results:type_name -> mddb.CrossSearchResultItem
 	117, // 49: mddb.DuplicateGroupProto.documents:type_name -> mddb.DuplicateDocInfoProto
 	118, // 50: mddb.FindDuplicatesResponse.exact_groups:type_name -> mddb.DuplicateGroupProto
 	118, // 51: mddb.FindDuplicatesResponse.similar_groups:type_name -> mddb.DuplicateGroupProto
-	169, // 52: mddb.IngestDocument.meta:type_name -> mddb.IngestDocument.MetaEntry
+	184, // 52: mddb.IngestDocument.meta:type_name -> mddb.IngestDocument.MetaEntry
 	120, // 53: mddb.IngestRequest.documents:type_name -> mddb.IngestDocument
 	121, // 54: mddb.IngestRequest.options:type_name -> mddb.IngestOptions
-	170, // 55: mddb.RevisionEntryProto.meta:type_name -> mddb.RevisionEntryProto.MetaEntry
+	185, // 55: mddb.RevisionEntryProto.meta:type_name -> mddb.RevisionEntryProto.MetaEntry
 	125, // 56: mddb.ListRevisionsResponse.revisions:type_name -> mddb.RevisionEntryProto
 	134, // 57: mddb.ReplicationStatusResponse.followers:type_name -> mddb.FollowerInfo
 	138, // 58: mddb.TemporalQueryResponse.events:type_name -> mddb.TemporalEventProto
 	0,   // 59: mddb.TemporalHotEntry.document:type_name -> mddb.Document
 	141, // 60: mddb.TemporalHotResponse.entries:type_name -> mddb.TemporalHotEntry
 	144, // 61: mddb.SpellSuggestResponse.token_suggestions:type_name -> mddb.SpellSuggestionProto
-	1,   // 62: mddb.Document.MetaEntry.value:type_name -> mddb.MetaValues
-	1,   // 63: mddb.AddRequest.MetaEntry.value:type_name -> mddb.MetaValues
-	1,   // 64: mddb.BatchDocument.MetaEntry.value:type_name -> mddb.MetaValues
-	1,   // 65: mddb.SearchRequest.FilterMetaEntry.value:type_name -> mddb.MetaValues
-	1,   // 66: mddb.ExportRequest.FilterMetaEntry.value:type_name -> mddb.MetaValues
-	1,   // 67: mddb.UpdateDocument.MetaEntry.value:type_name -> mddb.MetaValues
-	1,   // 68: mddb.VectorSearchRequest.FilterMetaEntry.value:type_name -> mddb.MetaValues
-	33,  // 69: mddb.VectorStatsResponse.CollectionsEntry.value:type_name -> mddb.VectorCollectionStats
-	1,   // 70: mddb.ImportURLRequest.MetaEntry.value:type_name -> mddb.MetaValues
-	1,   // 71: mddb.FTSRequest.FilterMetaEntry.value:type_name -> mddb.MetaValues
-	1,   // 72: mddb.HybridSearchRequest.FilterMetaEntry.value:type_name -> mddb.MetaValues
-	1,   // 73: mddb.ValidateDocumentRequest.MetaEntry.value:type_name -> mddb.MetaValues
-	1,   // 74: mddb.UpdateDocumentRequest.MetaEntry.value:type_name -> mddb.MetaValues
-	1,   // 75: mddb.GetDocumentMetaResponse.MetaEntry.value:type_name -> mddb.MetaValues
-	1,   // 76: mddb.GetMetaKeysResponse.MetaEntry.value:type_name -> mddb.MetaValues
-	1,   // 77: mddb.CrossSearchRequest.FilterMetaEntry.value:type_name -> mddb.MetaValues
-	1,   // 78: mddb.IngestDocument.MetaEntry.value:type_name -> mddb.MetaValues
-	1,   // 79: mddb.RevisionEntryProto.MetaEntry.value:type_name -> mddb.MetaValues
-	2,   // 80: mddb.MDDB.Add:input_type -> mddb.AddRequest
-	3,   // 81: mddb.MDDB.AddBatch:input_type -> mddb.AddBatchRequest
-	20,  // 82: mddb.MDDB.DeleteBatch:input_type -> mddb.DeleteBatchRequest
-	23,  // 83: mddb.MDDB.UpdateBatch:input_type -> mddb.UpdateBatchRequest
-	6,   // 84: mddb.MDDB.Get:input_type -> mddb.GetRequest
-	7,   // 85: mddb.MDDB.Search:input_type -> mddb.SearchRequest
-	9,   // 86: mddb.MDDB.Export:input_type -> mddb.ExportRequest
-	11,  // 87: mddb.MDDB.Backup:input_type -> mddb.BackupRequest
-	13,  // 88: mddb.MDDB.Restore:input_type -> mddb.RestoreRequest
-	15,  // 89: mddb.MDDB.Truncate:input_type -> mddb.TruncateRequest
-	17,  // 90: mddb.MDDB.Stats:input_type -> mddb.StatsRequest
-	26,  // 91: mddb.MDDB.VectorSearch:input_type -> mddb.VectorSearchRequest
-	29,  // 92: mddb.MDDB.VectorReindex:input_type -> mddb.VectorReindexRequest
-	31,  // 93: mddb.MDDB.VectorStats:input_type -> mddb.VectorStatsRequest
-	34,  // 94: mddb.MDDB.ImportURL:input_type -> mddb.ImportURLRequest
-	35,  // 95: mddb.MDDB.SetTTL:input_type -> mddb.SetTTLRequest
-	36,  // 96: mddb.MDDB.FTS:input_type -> mddb.FTSRequest
-	39,  // 97: mddb.MDDB.FTSReindex:input_type -> mddb.FTSReindexRequest
-	41,  // 98: mddb.MDDB.FTSLanguages:input_type -> mddb.FTSLanguagesRequest
-	44,  // 99: mddb.MDDB.HybridSearch:input_type -> mddb.HybridSearchRequest
-	48,  // 100: mddb.MDDB.RegisterWebhook:input_type -> mddb.RegisterWebhookRequest
-	49,  // 101: mddb.MDDB.ListWebhooks:input_type -> mddb.ListWebhooksRequest
-	51,  // 102: mddb.MDDB.DeleteWebhook:input_type -> mddb.DeleteWebhookRequest
-	53,  // 103: mddb.MDDB.SetSchema:input_type -> mddb.SetSchemaRequest
-	55,  // 104: mddb.MDDB.GetSchema:input_type -> mddb.GetSchemaRequest
-	57,  // 105: mddb.MDDB.DeleteSchema:input_type -> mddb.DeleteSchemaRequest
-	59,  // 106: mddb.MDDB.ListSchemas:input_type -> mddb.ListSchemasRequest
-	62,  // 107: mddb.MDDB.ValidateDocument:input_type -> mddb.ValidateDocumentRequest
-	64,  // 108: mddb.MDDB.UpdateDocument:input_type -> mddb.UpdateDocumentRequest
-	65,  // 109: mddb.MDDB.GetDocumentMeta:input_type -> mddb.GetDocumentMetaRequest
-	67,  // 110: mddb.MDDB.Classify:input_type -> mddb.ClassifyRequest
-	70,  // 111: mddb.MDDB.DeleteDocument:input_type -> mddb.DeleteDocumentRequest
-	72,  // 112: mddb.MDDB.DeleteCollection:input_type -> mddb.DeleteCollectionRequest
-	75,  // 113: mddb.MDDB.ListSynonyms:input_type -> mddb.ListSynonymsRequest
-	77,  // 114: mddb.MDDB.AddSynonym:input_type -> mddb.AddSynonymRequest
-	79,  // 115: mddb.MDDB.DeleteSynonym:input_type -> mddb.DeleteSynonymRequest
-	82,  // 116: mddb.MDDB.ListStopwords:input_type -> mddb.ListStopwordsRequest
-	84,  // 117: mddb.MDDB.AddStopwords:input_type -> mddb.AddStopwordsRequest
-	86,  // 118: mddb.MDDB.DeleteStopwords:input_type -> mddb.DeleteStopwordsRequest
-	88,  // 119: mddb.MDDB.GetMetaKeys:input_type -> mddb.GetMetaKeysRequest
-	90,  // 120: mddb.MDDB.GetChecksum:input_type -> mddb.GetChecksumRequest
-	93,  // 121: mddb.MDDB.ListAutomation:input_type -> mddb.ListAutomationRequest
-	95,  // 122: mddb.MDDB.CreateAutomation:input_type -> mddb.CreateAutomationRequest
-	96,  // 123: mddb.MDDB.GetAutomation:input_type -> mddb.GetAutomationRequest
-	97,  // 124: mddb.MDDB.UpdateAutomation:input_type -> mddb.UpdateAutomationRequest
-	99,  // 125: mddb.MDDB.DeleteAutomation:input_type -> mddb.DeleteAutomationRequest
-	100, // 126: mddb.MDDB.TestAutomation:input_type -> mddb.TestAutomationRequest
-	103, // 127: mddb.MDDB.GetAutomationLogs:input_type -> mddb.GetAutomationLogsRequest
-	106, // 128: mddb.MDDB.GetCollectionConfig:input_type -> mddb.GetCollectionConfigRequest
-	108, // 129: mddb.MDDB.SetCollectionConfig:input_type -> mddb.SetCollectionConfigRequest
-	110, // 130: mddb.MDDB.ListCollectionConfigs:input_type -> mddb.ListCollectionConfigsRequest
-	113, // 131: mddb.MDDB.CrossSearch:input_type -> mddb.CrossSearchRequest
-	116, // 132: mddb.MDDB.FindDuplicates:input_type -> mddb.FindDuplicatesRequest
-	122, // 133: mddb.MDDB.Ingest:input_type -> mddb.IngestRequest
-	124, // 134: mddb.MDDB.ListRevisions:input_type -> mddb.ListRevisionsRequest
-	127, // 135: mddb.MDDB.RestoreRevision:input_type -> mddb.RestoreRevisionRequest
-	137, // 136: mddb.MDDB.TemporalQuery:input_type -> mddb.TemporalQueryRequest
-	140, // 137: mddb.MDDB.TemporalHot:input_type -> mddb.TemporalHotRequest
-	143, // 138: mddb.MDDB.SpellSuggest:input_type -> mddb.SpellSuggestRequest
-	146, // 139: mddb.MDDB.SpellCleanup:input_type -> mddb.SpellCleanupRequest
-	128, // 140: mddb.MDDBReplication.RequestSnapshot:input_type -> mddb.SnapshotRequest
-	130, // 141: mddb.MDDBReplication.StreamBinlog:input_type -> mddb.StreamBinlogRequest
-	132, // 142: mddb.MDDBReplication.ReplicationStatus:input_type -> mddb.ReplicationStatusRequest
-	135, // 143: mddb.MDDBReplication.AcknowledgeLSN:input_type -> mddb.AcknowledgeLSNRequest
-	0,   // 144: mddb.MDDB.Add:output_type -> mddb.Document
-	5,   // 145: mddb.MDDB.AddBatch:output_type -> mddb.AddBatchResponse
-	22,  // 146: mddb.MDDB.DeleteBatch:output_type -> mddb.DeleteBatchResponse
-	25,  // 147: mddb.MDDB.UpdateBatch:output_type -> mddb.UpdateBatchResponse
-	0,   // 148: mddb.MDDB.Get:output_type -> mddb.Document
-	8,   // 149: mddb.MDDB.Search:output_type -> mddb.SearchResponse
-	10,  // 150: mddb.MDDB.Export:output_type -> mddb.ExportChunk
-	12,  // 151: mddb.MDDB.Backup:output_type -> mddb.BackupResponse
-	14,  // 152: mddb.MDDB.Restore:output_type -> mddb.RestoreResponse
-	16,  // 153: mddb.MDDB.Truncate:output_type -> mddb.TruncateResponse
-	18,  // 154: mddb.MDDB.Stats:output_type -> mddb.StatsResponse
-	28,  // 155: mddb.MDDB.VectorSearch:output_type -> mddb.VectorSearchResponse
-	30,  // 156: mddb.MDDB.VectorReindex:output_type -> mddb.VectorReindexResponse
-	32,  // 157: mddb.MDDB.VectorStats:output_type -> mddb.VectorStatsResponse
-	0,   // 158: mddb.MDDB.ImportURL:output_type -> mddb.Document
-	0,   // 159: mddb.MDDB.SetTTL:output_type -> mddb.Document
-	38,  // 160: mddb.MDDB.FTS:output_type -> mddb.FTSResponse
-	40,  // 161: mddb.MDDB.FTSReindex:output_type -> mddb.FTSReindexResponse
-	43,  // 162: mddb.MDDB.FTSLanguages:output_type -> mddb.FTSLanguagesResponse
-	46,  // 163: mddb.MDDB.HybridSearch:output_type -> mddb.HybridSearchResponse
-	47,  // 164: mddb.MDDB.RegisterWebhook:output_type -> mddb.WebhookProto
-	50,  // 165: mddb.MDDB.ListWebhooks:output_type -> mddb.ListWebhooksResponse
-	52,  // 166: mddb.MDDB.DeleteWebhook:output_type -> mddb.DeleteWebhookResponse
-	54,  // 167: mddb.MDDB.SetSchema:output_type -> mddb.SetSchemaResponse
-	56,  // 168: mddb.MDDB.GetSchema:output_type -> mddb.GetSchemaResponse
-	58,  // 169: mddb.MDDB.DeleteSchema:output_type -> mddb.DeleteSchemaResponse
-	60,  // 170: mddb.MDDB.ListSchemas:output_type -> mddb.ListSchemasResponse
-	63,  // 171: mddb.MDDB.ValidateDocument:output_type -> mddb.ValidateDocumentResponse
-	0,   // 172: mddb.MDDB.UpdateDocument:output_type -> mddb.Document
-	66,  // 173: mddb.MDDB.GetDocumentMeta:output_type -> mddb.GetDocumentMetaResponse
-	69,  // 174: mddb.MDDB.Classify:output_type -> mddb.ClassifyResponse
-	71,  // 175: mddb.MDDB.DeleteDocument:output_type -> mddb.DeleteDocumentResponse
-	73,  // 176: mddb.MDDB.DeleteCollection:output_type -> mddb.DeleteCollectionResponse
-	76,  // 177: mddb.MDDB.ListSynonyms:output_type -> mddb.ListSynonymsResponse
-	78,  // 178: mddb.MDDB.AddSynonym:output_type -> mddb.AddSynonymResponse
-	80,  // 179: mddb.MDDB.DeleteSynonym:output_type -> mddb.DeleteSynonymResponse
-	83,  // 180: mddb.MDDB.ListStopwords:output_type -> mddb.ListStopwordsResponse
-	85,  // 181: mddb.MDDB.AddStopwords:output_type -> mddb.AddStopwordsResponse
-	87,  // 182: mddb.MDDB.DeleteStopwords:output_type -> mddb.DeleteStopwordsResponse
-	89,  // 183: mddb.MDDB.GetMetaKeys:output_type -> mddb.GetMetaKeysResponse
-	91,  // 184: mddb.MDDB.GetChecksum:output_type -> mddb.GetChecksumResponse
-	94,  // 185: mddb.MDDB.ListAutomation:output_type -> mddb.ListAutomationResponse
-	92,  // 186: mddb.MDDB.CreateAutomation:output_type -> mddb.AutomationRuleProto
-	92,  // 187: mddb.MDDB.GetAutomation:output_type -> mddb.AutomationRuleProto
-	92,  // 188: mddb.MDDB.UpdateAutomation:output_type -> mddb.AutomationRuleProto
-	98,  // 189: mddb.MDDB.DeleteAutomation:output_type -> mddb.DeleteAutomationResponse
-	101, // 190: mddb.MDDB.TestAutomation:output_type -> mddb.TestAutomationResponse
-	104, // 191: mddb.MDDB.GetAutomationLogs:output_type -> mddb.GetAutomationLogsResponse
-	107, // 192: mddb.MDDB.GetCollectionConfig:output_type -> mddb.GetCollectionConfigResponse
-	109, // 193: mddb.MDDB.SetCollectionConfig:output_type -> mddb.SetCollectionConfigResponse
-	112, // 194: mddb.MDDB.ListCollectionConfigs:output_type -> mddb.ListCollectionConfigsResponse
-	115, // 195: mddb.MDDB.CrossSearch:output_type -> mddb.CrossSearchResponse
-	119, // 196: mddb.MDDB.FindDuplicates:output_type -> mddb.FindDuplicatesResponse
-	123, // 197: mddb.MDDB.Ingest:output_type -> mddb.IngestResponse
-	126, // 198: mddb.MDDB.ListRevisions:output_type -> mddb.ListRevisionsResponse
-	0,   // 199: mddb.MDDB.RestoreRevision:output_type -> mddb.Document
-	139, // 200: mddb.MDDB.TemporalQuery:output_type -> mddb.TemporalQueryResponse
-	142, // 201: mddb.MDDB.TemporalHot:output_type -> mddb.TemporalHotResponse
-	145, // 202: mddb.MDDB.SpellSuggest:output_type -> mddb.SpellSuggestResponse
-	147, // 203: mddb.MDDB.SpellCleanup:output_type -> mddb.SpellCleanupResponse
-	129, // 204: mddb.MDDBReplication.RequestSnapshot:output_type -> mddb.SnapshotChunk
-	131, // 205: mddb.MDDBReplication.StreamBinlog:output_type -> mddb.BinlogEntryProto
-	133, // 206: mddb.MDDBReplication.ReplicationStatus:output_type -> mddb.ReplicationStatusResponse
-	136, // 207: mddb.MDDBReplication.AcknowledgeLSN:output_type -> mddb.AcknowledgeLSNResponse
-	144, // [144:208] is the sub-list for method output_type
-	80,  // [80:144] is the sub-list for method input_type
-	80,  // [80:80] is the sub-list for extension type_name
-	80,  // [80:80] is the sub-list for extension extendee
-	0,   // [0:80] is the sub-list for field type_name
+	186, // 62: mddb.GeoSearchRequest.filter_meta:type_name -> mddb.GeoSearchRequest.FilterMetaEntry
+	0,   // 63: mddb.GeoSearchResultItem.document:type_name -> mddb.Document
+	149, // 64: mddb.GeoSearchResponse.results:type_name -> mddb.GeoSearchResultItem
+	187, // 65: mddb.GeoWithinRequest.filter_meta:type_name -> mddb.GeoWithinRequest.FilterMetaEntry
+	149, // 66: mddb.GeoWithinResponse.results:type_name -> mddb.GeoSearchResultItem
+	153, // 67: mddb.GeoReindexRequest.load_postcodes:type_name -> mddb.GeoPostcodeLoadProto
+	188, // 68: mddb.GeoReindexResponse.postcodes_loaded:type_name -> mddb.GeoReindexResponse.PostcodesLoadedEntry
+	189, // 69: mddb.GeoStatsResponse.collections:type_name -> mddb.GeoStatsResponse.CollectionsEntry
+	190, // 70: mddb.GeoStatsResponse.postcode_datasets:type_name -> mddb.GeoStatsResponse.PostcodeDatasetsEntry
+	1,   // 71: mddb.Document.MetaEntry.value:type_name -> mddb.MetaValues
+	1,   // 72: mddb.AddRequest.MetaEntry.value:type_name -> mddb.MetaValues
+	1,   // 73: mddb.BatchDocument.MetaEntry.value:type_name -> mddb.MetaValues
+	1,   // 74: mddb.SearchRequest.FilterMetaEntry.value:type_name -> mddb.MetaValues
+	1,   // 75: mddb.ExportRequest.FilterMetaEntry.value:type_name -> mddb.MetaValues
+	1,   // 76: mddb.UpdateDocument.MetaEntry.value:type_name -> mddb.MetaValues
+	1,   // 77: mddb.VectorSearchRequest.FilterMetaEntry.value:type_name -> mddb.MetaValues
+	33,  // 78: mddb.VectorStatsResponse.CollectionsEntry.value:type_name -> mddb.VectorCollectionStats
+	1,   // 79: mddb.ImportURLRequest.MetaEntry.value:type_name -> mddb.MetaValues
+	1,   // 80: mddb.FTSRequest.FilterMetaEntry.value:type_name -> mddb.MetaValues
+	1,   // 81: mddb.HybridSearchRequest.FilterMetaEntry.value:type_name -> mddb.MetaValues
+	1,   // 82: mddb.ValidateDocumentRequest.MetaEntry.value:type_name -> mddb.MetaValues
+	1,   // 83: mddb.UpdateDocumentRequest.MetaEntry.value:type_name -> mddb.MetaValues
+	1,   // 84: mddb.GetDocumentMetaResponse.MetaEntry.value:type_name -> mddb.MetaValues
+	1,   // 85: mddb.GetMetaKeysResponse.MetaEntry.value:type_name -> mddb.MetaValues
+	1,   // 86: mddb.CrossSearchRequest.FilterMetaEntry.value:type_name -> mddb.MetaValues
+	1,   // 87: mddb.IngestDocument.MetaEntry.value:type_name -> mddb.MetaValues
+	1,   // 88: mddb.RevisionEntryProto.MetaEntry.value:type_name -> mddb.MetaValues
+	1,   // 89: mddb.GeoSearchRequest.FilterMetaEntry.value:type_name -> mddb.MetaValues
+	1,   // 90: mddb.GeoWithinRequest.FilterMetaEntry.value:type_name -> mddb.MetaValues
+	157, // 91: mddb.GeoStatsResponse.CollectionsEntry.value:type_name -> mddb.GeoCollectionStatProto
+	2,   // 92: mddb.MDDB.Add:input_type -> mddb.AddRequest
+	3,   // 93: mddb.MDDB.AddBatch:input_type -> mddb.AddBatchRequest
+	20,  // 94: mddb.MDDB.DeleteBatch:input_type -> mddb.DeleteBatchRequest
+	23,  // 95: mddb.MDDB.UpdateBatch:input_type -> mddb.UpdateBatchRequest
+	6,   // 96: mddb.MDDB.Get:input_type -> mddb.GetRequest
+	7,   // 97: mddb.MDDB.Search:input_type -> mddb.SearchRequest
+	9,   // 98: mddb.MDDB.Export:input_type -> mddb.ExportRequest
+	11,  // 99: mddb.MDDB.Backup:input_type -> mddb.BackupRequest
+	13,  // 100: mddb.MDDB.Restore:input_type -> mddb.RestoreRequest
+	15,  // 101: mddb.MDDB.Truncate:input_type -> mddb.TruncateRequest
+	17,  // 102: mddb.MDDB.Stats:input_type -> mddb.StatsRequest
+	26,  // 103: mddb.MDDB.VectorSearch:input_type -> mddb.VectorSearchRequest
+	29,  // 104: mddb.MDDB.VectorReindex:input_type -> mddb.VectorReindexRequest
+	31,  // 105: mddb.MDDB.VectorStats:input_type -> mddb.VectorStatsRequest
+	148, // 106: mddb.MDDB.GeoSearch:input_type -> mddb.GeoSearchRequest
+	151, // 107: mddb.MDDB.GeoWithin:input_type -> mddb.GeoWithinRequest
+	154, // 108: mddb.MDDB.GeoReindex:input_type -> mddb.GeoReindexRequest
+	156, // 109: mddb.MDDB.GeoStats:input_type -> mddb.GeoStatsRequest
+	159, // 110: mddb.MDDB.GeoEncode:input_type -> mddb.GeoEncodeRequest
+	161, // 111: mddb.MDDB.GeoDecode:input_type -> mddb.GeoDecodeRequest
+	34,  // 112: mddb.MDDB.ImportURL:input_type -> mddb.ImportURLRequest
+	35,  // 113: mddb.MDDB.SetTTL:input_type -> mddb.SetTTLRequest
+	36,  // 114: mddb.MDDB.FTS:input_type -> mddb.FTSRequest
+	39,  // 115: mddb.MDDB.FTSReindex:input_type -> mddb.FTSReindexRequest
+	41,  // 116: mddb.MDDB.FTSLanguages:input_type -> mddb.FTSLanguagesRequest
+	44,  // 117: mddb.MDDB.HybridSearch:input_type -> mddb.HybridSearchRequest
+	48,  // 118: mddb.MDDB.RegisterWebhook:input_type -> mddb.RegisterWebhookRequest
+	49,  // 119: mddb.MDDB.ListWebhooks:input_type -> mddb.ListWebhooksRequest
+	51,  // 120: mddb.MDDB.DeleteWebhook:input_type -> mddb.DeleteWebhookRequest
+	53,  // 121: mddb.MDDB.SetSchema:input_type -> mddb.SetSchemaRequest
+	55,  // 122: mddb.MDDB.GetSchema:input_type -> mddb.GetSchemaRequest
+	57,  // 123: mddb.MDDB.DeleteSchema:input_type -> mddb.DeleteSchemaRequest
+	59,  // 124: mddb.MDDB.ListSchemas:input_type -> mddb.ListSchemasRequest
+	62,  // 125: mddb.MDDB.ValidateDocument:input_type -> mddb.ValidateDocumentRequest
+	64,  // 126: mddb.MDDB.UpdateDocument:input_type -> mddb.UpdateDocumentRequest
+	65,  // 127: mddb.MDDB.GetDocumentMeta:input_type -> mddb.GetDocumentMetaRequest
+	67,  // 128: mddb.MDDB.Classify:input_type -> mddb.ClassifyRequest
+	70,  // 129: mddb.MDDB.DeleteDocument:input_type -> mddb.DeleteDocumentRequest
+	72,  // 130: mddb.MDDB.DeleteCollection:input_type -> mddb.DeleteCollectionRequest
+	75,  // 131: mddb.MDDB.ListSynonyms:input_type -> mddb.ListSynonymsRequest
+	77,  // 132: mddb.MDDB.AddSynonym:input_type -> mddb.AddSynonymRequest
+	79,  // 133: mddb.MDDB.DeleteSynonym:input_type -> mddb.DeleteSynonymRequest
+	82,  // 134: mddb.MDDB.ListStopwords:input_type -> mddb.ListStopwordsRequest
+	84,  // 135: mddb.MDDB.AddStopwords:input_type -> mddb.AddStopwordsRequest
+	86,  // 136: mddb.MDDB.DeleteStopwords:input_type -> mddb.DeleteStopwordsRequest
+	88,  // 137: mddb.MDDB.GetMetaKeys:input_type -> mddb.GetMetaKeysRequest
+	90,  // 138: mddb.MDDB.GetChecksum:input_type -> mddb.GetChecksumRequest
+	93,  // 139: mddb.MDDB.ListAutomation:input_type -> mddb.ListAutomationRequest
+	95,  // 140: mddb.MDDB.CreateAutomation:input_type -> mddb.CreateAutomationRequest
+	96,  // 141: mddb.MDDB.GetAutomation:input_type -> mddb.GetAutomationRequest
+	97,  // 142: mddb.MDDB.UpdateAutomation:input_type -> mddb.UpdateAutomationRequest
+	99,  // 143: mddb.MDDB.DeleteAutomation:input_type -> mddb.DeleteAutomationRequest
+	100, // 144: mddb.MDDB.TestAutomation:input_type -> mddb.TestAutomationRequest
+	103, // 145: mddb.MDDB.GetAutomationLogs:input_type -> mddb.GetAutomationLogsRequest
+	106, // 146: mddb.MDDB.GetCollectionConfig:input_type -> mddb.GetCollectionConfigRequest
+	108, // 147: mddb.MDDB.SetCollectionConfig:input_type -> mddb.SetCollectionConfigRequest
+	110, // 148: mddb.MDDB.ListCollectionConfigs:input_type -> mddb.ListCollectionConfigsRequest
+	113, // 149: mddb.MDDB.CrossSearch:input_type -> mddb.CrossSearchRequest
+	116, // 150: mddb.MDDB.FindDuplicates:input_type -> mddb.FindDuplicatesRequest
+	122, // 151: mddb.MDDB.Ingest:input_type -> mddb.IngestRequest
+	124, // 152: mddb.MDDB.ListRevisions:input_type -> mddb.ListRevisionsRequest
+	127, // 153: mddb.MDDB.RestoreRevision:input_type -> mddb.RestoreRevisionRequest
+	137, // 154: mddb.MDDB.TemporalQuery:input_type -> mddb.TemporalQueryRequest
+	140, // 155: mddb.MDDB.TemporalHot:input_type -> mddb.TemporalHotRequest
+	143, // 156: mddb.MDDB.SpellSuggest:input_type -> mddb.SpellSuggestRequest
+	146, // 157: mddb.MDDB.SpellCleanup:input_type -> mddb.SpellCleanupRequest
+	128, // 158: mddb.MDDBReplication.RequestSnapshot:input_type -> mddb.SnapshotRequest
+	130, // 159: mddb.MDDBReplication.StreamBinlog:input_type -> mddb.StreamBinlogRequest
+	132, // 160: mddb.MDDBReplication.ReplicationStatus:input_type -> mddb.ReplicationStatusRequest
+	135, // 161: mddb.MDDBReplication.AcknowledgeLSN:input_type -> mddb.AcknowledgeLSNRequest
+	0,   // 162: mddb.MDDB.Add:output_type -> mddb.Document
+	5,   // 163: mddb.MDDB.AddBatch:output_type -> mddb.AddBatchResponse
+	22,  // 164: mddb.MDDB.DeleteBatch:output_type -> mddb.DeleteBatchResponse
+	25,  // 165: mddb.MDDB.UpdateBatch:output_type -> mddb.UpdateBatchResponse
+	0,   // 166: mddb.MDDB.Get:output_type -> mddb.Document
+	8,   // 167: mddb.MDDB.Search:output_type -> mddb.SearchResponse
+	10,  // 168: mddb.MDDB.Export:output_type -> mddb.ExportChunk
+	12,  // 169: mddb.MDDB.Backup:output_type -> mddb.BackupResponse
+	14,  // 170: mddb.MDDB.Restore:output_type -> mddb.RestoreResponse
+	16,  // 171: mddb.MDDB.Truncate:output_type -> mddb.TruncateResponse
+	18,  // 172: mddb.MDDB.Stats:output_type -> mddb.StatsResponse
+	28,  // 173: mddb.MDDB.VectorSearch:output_type -> mddb.VectorSearchResponse
+	30,  // 174: mddb.MDDB.VectorReindex:output_type -> mddb.VectorReindexResponse
+	32,  // 175: mddb.MDDB.VectorStats:output_type -> mddb.VectorStatsResponse
+	150, // 176: mddb.MDDB.GeoSearch:output_type -> mddb.GeoSearchResponse
+	152, // 177: mddb.MDDB.GeoWithin:output_type -> mddb.GeoWithinResponse
+	155, // 178: mddb.MDDB.GeoReindex:output_type -> mddb.GeoReindexResponse
+	158, // 179: mddb.MDDB.GeoStats:output_type -> mddb.GeoStatsResponse
+	160, // 180: mddb.MDDB.GeoEncode:output_type -> mddb.GeoEncodeResponse
+	162, // 181: mddb.MDDB.GeoDecode:output_type -> mddb.GeoDecodeResponse
+	0,   // 182: mddb.MDDB.ImportURL:output_type -> mddb.Document
+	0,   // 183: mddb.MDDB.SetTTL:output_type -> mddb.Document
+	38,  // 184: mddb.MDDB.FTS:output_type -> mddb.FTSResponse
+	40,  // 185: mddb.MDDB.FTSReindex:output_type -> mddb.FTSReindexResponse
+	43,  // 186: mddb.MDDB.FTSLanguages:output_type -> mddb.FTSLanguagesResponse
+	46,  // 187: mddb.MDDB.HybridSearch:output_type -> mddb.HybridSearchResponse
+	47,  // 188: mddb.MDDB.RegisterWebhook:output_type -> mddb.WebhookProto
+	50,  // 189: mddb.MDDB.ListWebhooks:output_type -> mddb.ListWebhooksResponse
+	52,  // 190: mddb.MDDB.DeleteWebhook:output_type -> mddb.DeleteWebhookResponse
+	54,  // 191: mddb.MDDB.SetSchema:output_type -> mddb.SetSchemaResponse
+	56,  // 192: mddb.MDDB.GetSchema:output_type -> mddb.GetSchemaResponse
+	58,  // 193: mddb.MDDB.DeleteSchema:output_type -> mddb.DeleteSchemaResponse
+	60,  // 194: mddb.MDDB.ListSchemas:output_type -> mddb.ListSchemasResponse
+	63,  // 195: mddb.MDDB.ValidateDocument:output_type -> mddb.ValidateDocumentResponse
+	0,   // 196: mddb.MDDB.UpdateDocument:output_type -> mddb.Document
+	66,  // 197: mddb.MDDB.GetDocumentMeta:output_type -> mddb.GetDocumentMetaResponse
+	69,  // 198: mddb.MDDB.Classify:output_type -> mddb.ClassifyResponse
+	71,  // 199: mddb.MDDB.DeleteDocument:output_type -> mddb.DeleteDocumentResponse
+	73,  // 200: mddb.MDDB.DeleteCollection:output_type -> mddb.DeleteCollectionResponse
+	76,  // 201: mddb.MDDB.ListSynonyms:output_type -> mddb.ListSynonymsResponse
+	78,  // 202: mddb.MDDB.AddSynonym:output_type -> mddb.AddSynonymResponse
+	80,  // 203: mddb.MDDB.DeleteSynonym:output_type -> mddb.DeleteSynonymResponse
+	83,  // 204: mddb.MDDB.ListStopwords:output_type -> mddb.ListStopwordsResponse
+	85,  // 205: mddb.MDDB.AddStopwords:output_type -> mddb.AddStopwordsResponse
+	87,  // 206: mddb.MDDB.DeleteStopwords:output_type -> mddb.DeleteStopwordsResponse
+	89,  // 207: mddb.MDDB.GetMetaKeys:output_type -> mddb.GetMetaKeysResponse
+	91,  // 208: mddb.MDDB.GetChecksum:output_type -> mddb.GetChecksumResponse
+	94,  // 209: mddb.MDDB.ListAutomation:output_type -> mddb.ListAutomationResponse
+	92,  // 210: mddb.MDDB.CreateAutomation:output_type -> mddb.AutomationRuleProto
+	92,  // 211: mddb.MDDB.GetAutomation:output_type -> mddb.AutomationRuleProto
+	92,  // 212: mddb.MDDB.UpdateAutomation:output_type -> mddb.AutomationRuleProto
+	98,  // 213: mddb.MDDB.DeleteAutomation:output_type -> mddb.DeleteAutomationResponse
+	101, // 214: mddb.MDDB.TestAutomation:output_type -> mddb.TestAutomationResponse
+	104, // 215: mddb.MDDB.GetAutomationLogs:output_type -> mddb.GetAutomationLogsResponse
+	107, // 216: mddb.MDDB.GetCollectionConfig:output_type -> mddb.GetCollectionConfigResponse
+	109, // 217: mddb.MDDB.SetCollectionConfig:output_type -> mddb.SetCollectionConfigResponse
+	112, // 218: mddb.MDDB.ListCollectionConfigs:output_type -> mddb.ListCollectionConfigsResponse
+	115, // 219: mddb.MDDB.CrossSearch:output_type -> mddb.CrossSearchResponse
+	119, // 220: mddb.MDDB.FindDuplicates:output_type -> mddb.FindDuplicatesResponse
+	123, // 221: mddb.MDDB.Ingest:output_type -> mddb.IngestResponse
+	126, // 222: mddb.MDDB.ListRevisions:output_type -> mddb.ListRevisionsResponse
+	0,   // 223: mddb.MDDB.RestoreRevision:output_type -> mddb.Document
+	139, // 224: mddb.MDDB.TemporalQuery:output_type -> mddb.TemporalQueryResponse
+	142, // 225: mddb.MDDB.TemporalHot:output_type -> mddb.TemporalHotResponse
+	145, // 226: mddb.MDDB.SpellSuggest:output_type -> mddb.SpellSuggestResponse
+	147, // 227: mddb.MDDB.SpellCleanup:output_type -> mddb.SpellCleanupResponse
+	129, // 228: mddb.MDDBReplication.RequestSnapshot:output_type -> mddb.SnapshotChunk
+	131, // 229: mddb.MDDBReplication.StreamBinlog:output_type -> mddb.BinlogEntryProto
+	133, // 230: mddb.MDDBReplication.ReplicationStatus:output_type -> mddb.ReplicationStatusResponse
+	136, // 231: mddb.MDDBReplication.AcknowledgeLSN:output_type -> mddb.AcknowledgeLSNResponse
+	162, // [162:232] is the sub-list for method output_type
+	92,  // [92:162] is the sub-list for method input_type
+	92,  // [92:92] is the sub-list for extension type_name
+	92,  // [92:92] is the sub-list for extension extendee
+	0,   // [0:92] is the sub-list for field type_name
 }
 
 func init() { file_mddb_proto_init() }
@@ -10939,7 +12023,7 @@ func file_mddb_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_mddb_proto_rawDesc), len(file_mddb_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   171,
+			NumMessages:   191,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

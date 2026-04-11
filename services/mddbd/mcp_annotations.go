@@ -69,6 +69,13 @@ var mcpToolAnnotations = map[string]*MCPToolAnnotations{
 	"cross_search":      readOnlyOpenWorld(),
 	"classify_document": readOnlyOpenWorld(),
 
+	// --- Geo search (read-only, closed world) ---
+	"geo_search": readOnly(),
+	"geo_within": readOnly(),
+	"geo_stats":  readOnly(),
+	"geo_encode": readOnly(),
+	"geo_decode": readOnly(),
+
 	// --- Write, idempotent (upserts) ---
 	"add_document":          writeIdempotent(),
 	"update_document":       writeIdempotent(),

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.10] - 2026-04-11
+
+### Added
+- **Geosearch** ([docs/GEOSEARCH.md](docs/GEOSEARCH.md)) — Point-in-radius and bounding-box queries pulled forward from the v2.11 roadmap. Documents attach coordinates via reserved metadata keys (`geo_lat`/`geo_lng`, `geo_hash`, or `geo_postcode`+`geo_country` with an opt-in CSV lookup), which MDDB indexes into both an in-memory R-tree (default, best overall) and a geohash prefix index (alternative, selectable per-query). Shared `geo` bucket in BoltDB, Binlog-replicated, async startup rebuild identical to the vector index lifecycle.
+  - New HTTP endpoints: `POST /v1/geo-search`, `POST /v1/geo-within`, `POST /v1/geo-reindex`, `GET /v1/geo-stats`, `POST /v1/geo-encode`, `POST /v1/geo-decode`.
+  - gRPC parity: `GeoSearch`, `GeoWithin`, `GeoReindex`, `GeoStats` RPCs with new proto messages; existing `Document` message untouched.
+  - MCP tool surface: `geo_search`, `geo_within`, `geo_stats`, `geo_encode`, `geo_decode` (all read-only).
+  - **`/v1/hybrid-search` extended** with an optional `geo: {lat, lng, radiusMeters}` field that spatially pre-filters the FTS+vector candidate pool and attaches `distanceMeters` to each result item.
+  - **Panel UI**: new "Geo Search" tab with a Leaflet + OpenStreetMap map, click-to-set query center, radius slider, algorithm switch (R-tree / geohash), metadata filter composition, and result pins that open documents in the shared viewer. Adds `leaflet` as a panel dep.
+  - **New files**: [services/mddbd/geo_index.go](services/mddbd/geo_index.go), [geo_store.go](services/mddbd/geo_store.go), [geo_postcodes.go](services/mddbd/geo_postcodes.go), [geo_hash.go](services/mddbd/geo_hash.go), [geohash_index.go](services/mddbd/geohash_index.go), [geo_handlers.go](services/mddbd/geo_handlers.go), [geo_grpc.go](services/mddbd/geo_grpc.go), [mcp_direct_client_geo.go](services/mddbd/mcp_direct_client_geo.go), [mcp_tools_geo.go](services/mddbd/mcp_tools_geo.go), + tests for each.
+  - **Dependency**: `github.com/tidwall/rtree v1.10.0` (pure Go, no cgo).
+  - Reserved metadata keys: `geo_lat`, `geo_lng`, `geo_hash`, `geo_postcode`, `geo_country`.
+  - Out of scope (deferred to a follow-up): anti-meridian crossing bboxes, 3D/altitude, automatic postcode dataset downloads, GeoJSON ingest.
+  - **GraphQL not wired up**: geo queries are *not* exposed via `/graphql` in this release. The GraphQL subsystem in this project is a pre-existing stub — every query resolver panics `not implemented` and `SimpleGraphQLAdapter` returns `"not yet implemented - use REST API"` for every method. This is independent of geosearch and will be addressed in a dedicated follow-up PR `graphql: wire up query resolvers` that implements the adapter for all queries, including geo. Until then, use REST (`/v1/geo-*`), gRPC, or MCP.
+
 ## [2.9.9] - 2026-04-11
 
 ### Security

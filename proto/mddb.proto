@@ -48,6 +48,24 @@ service MDDB {
   // Get vector/embedding statistics
   rpc VectorStats(VectorStatsRequest) returns (VectorStatsResponse);
 
+  // Geo search: documents within N meters of a (lat, lng) point
+  rpc GeoSearch(GeoSearchRequest) returns (GeoSearchResponse);
+
+  // Geo within: documents inside an axis-aligned bounding box
+  rpc GeoWithin(GeoWithinRequest) returns (GeoWithinResponse);
+
+  // Force-rebuild the in-memory geo R-tree from BoltDB
+  rpc GeoReindex(GeoReindexRequest) returns (GeoReindexResponse);
+
+  // Geo index statistics
+  rpc GeoStats(GeoStatsRequest) returns (GeoStatsResponse);
+
+  // Encode a (lat, lng) pair into a geohash string
+  rpc GeoEncode(GeoEncodeRequest) returns (GeoEncodeResponse);
+
+  // Decode a geohash back to (lat, lng) centroid + bbox
+  rpc GeoDecode(GeoDecodeRequest) returns (GeoDecodeResponse);
+
   // Import document from URL
   rpc ImportURL(ImportURLRequest) returns (Document);
 
@@ -1245,4 +1263,110 @@ message SpellCleanupResponse {
   string original = 1;
   string cleaned = 2;
   int32 corrections_applied = 3;
+}
+
+// --- Geo search ---
+
+// GeoSearchRequest: find docs within radius_meters of (lat, lng).
+message GeoSearchRequest {
+  string collection = 1;
+  double lat = 2;
+  double lng = 3;
+  double radius_meters = 4;
+  int32 top_k = 5;
+  map<string, MetaValues> filter_meta = 6;
+  bool include_content = 7;
+}
+
+// GeoSearchResultItem: one result, ordered by ascending distance.
+message GeoSearchResultItem {
+  Document document = 1;
+  double distance_meters = 2;
+  int32 rank = 3;
+}
+
+message GeoSearchResponse {
+  repeated GeoSearchResultItem results = 1;
+  int32 total = 2;
+  double radius_meters = 3;
+  string algorithm = 4;
+}
+
+// GeoWithinRequest: find docs inside the axis-aligned bbox
+// [min_lat, max_lat] × [min_lng, max_lng].
+message GeoWithinRequest {
+  string collection = 1;
+  double min_lat = 2;
+  double max_lat = 3;
+  double min_lng = 4;
+  double max_lng = 5;
+  map<string, MetaValues> filter_meta = 6;
+  bool include_content = 7;
+}
+
+message GeoWithinResponse {
+  repeated GeoSearchResultItem results = 1;
+  int32 total = 2;
+  string algorithm = 3;
+}
+
+// GeoPostcodeLoadProto instructs GeoReindex to load an optional postcode CSV.
+message GeoPostcodeLoadProto {
+  string country = 1;
+  string csv_path = 2;
+}
+
+// GeoReindexRequest: force-rebuild the in-memory R-tree and optionally load
+// postcode lookup CSVs. An empty collection means "rebuild all".
+message GeoReindexRequest {
+  string collection = 1;
+  repeated GeoPostcodeLoadProto load_postcodes = 2;
+}
+
+message GeoReindexResponse {
+  int32 points = 1;
+  string collection = 2;
+  map<string, int32> postcodes_loaded = 3;
+  int64 duration_ms = 4;
+}
+
+// GeoStatsRequest is an empty request for the stats RPC.
+message GeoStatsRequest {}
+
+// GeoCollectionStatProto mirrors GeoCollectionStat on the HTTP side.
+message GeoCollectionStatProto {
+  int32 points = 1;
+  int64 last_rebuild_unix = 2;
+}
+
+message GeoStatsResponse {
+  map<string, GeoCollectionStatProto> collections = 1;
+  map<string, int32> postcode_datasets = 2;
+  bool ready = 3;
+}
+
+// GeoEncodeRequest: convert (lat, lng) → geohash string.
+message GeoEncodeRequest {
+  double lat = 1;
+  double lng = 2;
+  int32 precision = 3;
+}
+
+message GeoEncodeResponse {
+  string geohash = 1;
+  int32 precision = 2;
+}
+
+// GeoDecodeRequest: convert geohash → centroid + bbox.
+message GeoDecodeRequest {
+  string geohash = 1;
+}
+
+message GeoDecodeResponse {
+  double lat = 1;
+  double lng = 2;
+  double min_lat = 3;
+  double max_lat = 4;
+  double min_lng = 5;
+  double max_lng = 6;
 }

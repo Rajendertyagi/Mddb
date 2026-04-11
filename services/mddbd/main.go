@@ -24,7 +24,7 @@ import (
 )
 
 // VERSION is the current release version of the MDDB server.
-const VERSION = "2.9.9"
+const VERSION = "2.9.10"
 
 // AccessMode defines the database access mode (read, write, or both).
 type AccessMode string
@@ -65,6 +65,10 @@ type Server struct {
 	QuantizedVecIndex *QuantizedVectorIndex     // In-memory quantized vector index (int8/int4)
 	EmbeddingWorker   *EmbeddingWorker          // Background embedding processor
 	Embedding         EmbeddingProvider         // Embedding generation provider
+	// Geo search
+	GeoStore     *GeoStore     // Persistent geo points in BoltDB ("geo" bucket)
+	GeoIndex     *GeoIndex     // In-memory R-tree geo index (default)
+	GeoHashIndex *GeoHashIndex // Alternative geohash-prefix index
 	// New features
 	TTLManager         *TTLManager          // Document TTL / auto-expiry
 	FTSIndex           *FTSIndex            // Full-text search index
@@ -290,6 +294,18 @@ func main() {
 		log.Fatal(err)
 	}
 	s.VectorIndex = NewVectorIndex()
+
+	// Initialize geo search. Startup rebuild from BoltDB happens asynchronously
+	// below so mddbd can start serving non-geo requests immediately.
+	// Both indexes share the same "geo" bucket in BoltDB — they're two views
+	// of the same underlying data, picked by the /v1/geo-search?algorithm=...
+	// parameter at query time.
+	s.GeoStore = NewGeoStore(db)
+	if err := s.GeoStore.EnsureBucket(); err != nil {
+		log.Fatal(err)
+	}
+	s.GeoIndex = NewGeoIndex()
+	s.GeoHashIndex = NewGeoHashIndex()
 	bqRerank := srvCfg.Vector.BQRerankFactor
 	if bqRerank <= 0 {
 		bqRerank = 10
@@ -337,6 +353,30 @@ func main() {
 
 	// Load vectors into memory asynchronously
 	go s.loadVectorIndex()
+
+	// Load geo indexes from BoltDB asynchronously. Both R-tree and geohash
+	// are populated from the same "geo" bucket so the /v1/geo-search
+	// algorithm switch is a pure runtime decision — no per-algorithm
+	// persistence layers. Handlers reject requests with 503 while !IsReady,
+	// matching the vector-index startup contract.
+	go func() {
+		start := time.Now()
+		n, err := s.GeoStore.Rebuild(s.GeoIndex, "")
+		if err != nil {
+			log.Printf("Geo index rebuild failed: %v", err)
+		}
+		s.GeoIndex.SetReady()
+		log.Printf("Geo R-tree loaded: %d points across %d collections in %v",
+			n, len(s.GeoIndex.Collections()), time.Since(start))
+
+		start = time.Now()
+		nh, err := s.GeoStore.RebuildHash(s.GeoHashIndex, "")
+		if err != nil {
+			log.Printf("Geohash index rebuild failed: %v", err)
+		}
+		s.GeoHashIndex.SetReady()
+		log.Printf("Geohash index loaded: %d points in %v", nh, time.Since(start))
+	}()
 
 	// Initialize TTL manager
 	s.TTLManager = NewTTLManager(db, s)
@@ -539,6 +579,7 @@ func main() {
 	// Set binlog on all subsystems
 	if s.Binlog != nil {
 		s.VectorStore.SetBinlog(s.Binlog)
+		s.GeoStore.SetBinlog(s.Binlog)
 		s.FTSIndex.SetBinlog(s.Binlog)
 		s.TTLManager.SetBinlog(s.Binlog)
 		s.WebhookManager.SetBinlog(s.Binlog)
@@ -653,6 +694,12 @@ func main() {
 	mux.HandleFunc("/v1/vector-search", s.handleVectorSearch)
 	mux.HandleFunc("/v1/vector-reindex", s.guardWrite(s.handleVectorReindex))
 	mux.HandleFunc("/v1/vector-stats", s.handleVectorStats)
+	mux.HandleFunc("/v1/geo-search", s.handleGeoSearch)
+	mux.HandleFunc("/v1/geo-within", s.handleGeoWithin)
+	mux.HandleFunc("/v1/geo-reindex", s.guardWrite(s.handleGeoReindex))
+	mux.HandleFunc("/v1/geo-stats", s.handleGeoStats)
+	mux.HandleFunc("/v1/geo-encode", s.handleGeoEncode)
+	mux.HandleFunc("/v1/geo-decode", s.handleGeoDecode)
 	mux.HandleFunc("/v1/embedding-configs", s.handleEmbeddingConfigs)
 	mux.HandleFunc("/v1/embedding-configs/", s.handleEmbeddingConfigDetail)
 	mux.HandleFunc("/v1/embedding-configs/set-default", s.guardWrite(s.handleSetDefaultEmbeddingConfig))
@@ -1142,6 +1189,27 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 		_ = s.FTSIndex.IndexFieldsWithLang(collection, saved.ID, fields, saved.Lang)
 	}
 
+	// Geo indexing: persist resolved lat/lng to BoltDB and mirror into
+	// BOTH in-memory indexes (R-tree + geohash). Coordinates are extracted
+	// from meta via AddFromMeta, which tries explicit geo_lat/geo_lng,
+	// then geo_hash, then the optional postcode lookup — silent no-op if
+	// the doc has none of those.
+	if s.GeoIndex != nil && s.GeoStore != nil {
+		if lat, lng, ok := s.GeoIndex.AddFromMeta(collection, saved.ID, saved.Meta); ok {
+			_ = s.GeoStore.Put(collection, saved.ID, lat, lng)
+			if s.GeoHashIndex != nil {
+				s.GeoHashIndex.Add(collection, saved.ID, lat, lng)
+			}
+		} else if !isNew {
+			// Update may have dropped the geo fields — remove any stale entry.
+			s.GeoIndex.Remove(collection, saved.ID)
+			if s.GeoHashIndex != nil {
+				s.GeoHashIndex.Remove(collection, saved.ID)
+			}
+			_ = s.GeoStore.Delete(collection, saved.ID)
+		}
+	}
+
 	// Temporal tracking
 	if s.TemporalManager != nil {
 		et := EventUpdate
@@ -1267,6 +1335,17 @@ func (s *Server) deleteDocumentInternal(collection, key, lang string) error {
 	// Clean up FTS index
 	if s.FTSIndex != nil {
 		_ = s.FTSIndex.Remove(collection, docID)
+	}
+
+	// Clean up both geo indexes (no-op if this doc had no point).
+	if s.GeoIndex != nil {
+		s.GeoIndex.Remove(collection, docID)
+	}
+	if s.GeoHashIndex != nil {
+		s.GeoHashIndex.Remove(collection, docID)
+	}
+	if s.GeoStore != nil {
+		_ = s.GeoStore.Delete(collection, docID)
 	}
 
 	// Fire webhook + SSE
@@ -1998,6 +2077,24 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		_ = s.FTSIndex.IndexFieldsWithLang(collection, saved.ID, fields, saved.Lang)
 	}
 
+	// Geo re-index on partial update. Mirrors the Add/Upsert path above:
+	// if meta now contains a usable point, upsert it into both indexes;
+	// otherwise drop any stale points.
+	if s.GeoIndex != nil && s.GeoStore != nil {
+		if lat, lng, ok := s.GeoIndex.AddFromMeta(collection, saved.ID, saved.Meta); ok {
+			_ = s.GeoStore.Put(collection, saved.ID, lat, lng)
+			if s.GeoHashIndex != nil {
+				s.GeoHashIndex.Add(collection, saved.ID, lat, lng)
+			}
+		} else {
+			s.GeoIndex.Remove(collection, saved.ID)
+			if s.GeoHashIndex != nil {
+				s.GeoHashIndex.Remove(collection, saved.ID)
+			}
+			_ = s.GeoStore.Delete(collection, saved.ID)
+		}
+	}
+
 	if s.WebhookManager != nil {
 		s.WebhookManager.Fire("doc.updated", collection, key, lang, &saved)
 	}
@@ -2587,6 +2684,17 @@ func (s *Server) handleDeleteCollection(w http.ResponseWriter, r *http.Request) 
 	// Clean up collection config
 	if s.CollectionManager != nil {
 		_ = s.CollectionManager.Delete(req.Collection)
+	}
+
+	// Clean up both geo indexes and persisted geo points for this collection.
+	if s.GeoIndex != nil {
+		s.GeoIndex.Clear(req.Collection)
+	}
+	if s.GeoHashIndex != nil {
+		s.GeoHashIndex.Clear(req.Collection)
+	}
+	if s.GeoStore != nil {
+		_ = s.GeoStore.DeleteCollection(req.Collection)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

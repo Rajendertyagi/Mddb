@@ -90,6 +90,7 @@ func TestHandleEndpoints_ContainsCoreEndpoints(t *testing.T) {
 		"/v1/search":        false,
 		"/v1/delete":        false,
 		"/v1/vector-search": false,
+		"/v1/geo-search":    false,
 		"/v1/endpoints":     false,
 		"/v1/system/info":   false,
 		"/v1/config":        false,

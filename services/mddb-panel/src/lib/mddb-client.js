@@ -215,6 +215,64 @@ class MDDBClient {
   }
 
   /**
+   * Geo radius search: find docs within N meters of (lat, lng).
+   * @param {object} opts
+   * @param {string} opts.collection
+   * @param {number} opts.lat
+   * @param {number} opts.lng
+   * @param {number} opts.radiusMeters
+   * @param {number} [opts.topK=10]
+   * @param {'rtree'|'geohash'} [opts.algorithm='rtree']
+   * @param {object} [opts.filterMeta]
+   * @param {boolean} [opts.includeContent=false]
+   */
+  async geoSearch({ collection, lat, lng, radiusMeters, topK = 10, algorithm = 'rtree', filterMeta = {}, includeContent = false, signal }) {
+    return this.request('/geo-search', {
+      method: 'POST',
+      body: JSON.stringify({ collection, lat, lng, radiusMeters, topK, algorithm, filterMeta, includeContent }),
+      signal,
+    });
+  }
+
+  /** Geo bbox search. */
+  async geoWithin({ collection, minLat, maxLat, minLng, maxLng, filterMeta = {}, includeContent = false, signal }) {
+    return this.request('/geo-within', {
+      method: 'POST',
+      body: JSON.stringify({ collection, minLat, maxLat, minLng, maxLng, filterMeta, includeContent }),
+      signal,
+    });
+  }
+
+  /** Geo index statistics. */
+  async geoStats() {
+    return this.request('/geo-stats', { method: 'GET' });
+  }
+
+  /** Encode (lat, lng) → geohash string. */
+  async geoEncode({ lat, lng, precision = 12 }) {
+    return this.request('/geo-encode', {
+      method: 'POST',
+      body: JSON.stringify({ lat, lng, precision }),
+    });
+  }
+
+  /** Decode geohash → (lat, lng) centroid + bbox. */
+  async geoDecode({ geohash }) {
+    return this.request('/geo-decode', {
+      method: 'POST',
+      body: JSON.stringify({ geohash }),
+    });
+  }
+
+  /** Force-rebuild geo index and optionally load postcode CSVs. */
+  async geoReindex({ collection = '', loadPostcodes = [] } = {}) {
+    return this.request('/geo-reindex', {
+      method: 'POST',
+      body: JSON.stringify({ collection, loadPostcodes }),
+    });
+  }
+
+  /**
    * Import document from URL
    */
   async importURL({ collection, url, lang, key, meta = {}, ttl = 0 }) {
