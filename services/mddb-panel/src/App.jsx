@@ -26,6 +26,7 @@ import AutomationPanel from './components/AutomationPanel';
 import CrossSearchPanel from './components/CrossSearchPanel';
 import TemporalPanel from './components/TemporalPanel';
 import SpellCheckPanel from './components/SpellCheckPanel';
+import GeoPanel from './components/GeoPanel';
 import SSEToast from './components/SSEToast';
 import { useSSE } from './lib/useSSE';
 
@@ -247,6 +248,18 @@ function App() {
             <>
               <div className="flex-1 border-l border-gray-200">
                 <CrossSearchPanel />
+              </div>
+              {currentDocument && (
+                <div className="flex-1 border-l border-gray-200">
+                  <DocumentViewer />
+                </div>
+              )}
+            </>
+          )}
+          {viewMode === 'geo' && (
+            <>
+              <div className="flex-1 border-l border-gray-200">
+                <GeoPanel />
               </div>
               {currentDocument && (
                 <div className="flex-1 border-l border-gray-200">

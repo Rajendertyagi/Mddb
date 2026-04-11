@@ -19,6 +19,7 @@ MDDB gives your AI agents a persistent, searchable knowledge base:
 - **Wikipedia Import** - Stream and import MediaWiki XML dumps (`.xml.bz2`) — wikitext auto-converted to Markdown, namespace filtering, handles multi-GB files
 - **Built-in MCP Server** - 72 tools for Claude Desktop, Cursor, Windsurf, or any MCP client
 - **Vector Search** - Auto-embed documents, semantic similarity with 7 index algorithms (Flat, HNSW, IVF, PQ, OPQ, SQ, BQ) + per-collection quantization (int8/int4) + ARM NEON/SME hardware acceleration + goroutine parallel search
+- **[Geo Search](docs/GEOSEARCH.md)** - R-tree and geohash indexes for radius/bounding-box queries, composable with FTS/vector via `hybrid-search`, optional postcode lookup
 - **RAG-Ready** - Hybrid search (BM25 + vector) for retrieval-augmented generation
 - **Memory RAG** - Conversational memory system: store, recall, and summarize chat sessions with semantic search
 - **Integrations** - [Docling](docs/INTEGRATIONS.md), [Langflow](docs/INTEGRATIONS.md), [OpenSearch](docs/INTEGRATIONS.md), [SSG](docs/INTEGRATIONS.md), [wpexporter](docs/INTEGRATIONS.md) for production pipelines

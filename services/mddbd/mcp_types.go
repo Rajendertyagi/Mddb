@@ -361,6 +361,51 @@ type MCPHybridSearchResponse struct {
 	DistanceMetric  string                  `json:"distanceMetric"`
 }
 
+// MCPGeoSearchRequest represents a geo radius search.
+type MCPGeoSearchRequest struct {
+	Collection     string              `json:"collection"`
+	Lat            float64             `json:"lat"`
+	Lng            float64             `json:"lng"`
+	RadiusMeters   float64             `json:"radiusMeters"`
+	TopK           int                 `json:"topK,omitempty"`
+	Algorithm      string              `json:"algorithm,omitempty"` // rtree (default) or geohash
+	FilterMeta     map[string][]string `json:"filterMeta,omitempty"`
+	IncludeContent bool                `json:"includeContent,omitempty"`
+}
+
+// MCPGeoWithinRequest represents a geo bbox search.
+type MCPGeoWithinRequest struct {
+	Collection     string              `json:"collection"`
+	MinLat         float64             `json:"minLat"`
+	MaxLat         float64             `json:"maxLat"`
+	MinLng         float64             `json:"minLng"`
+	MaxLng         float64             `json:"maxLng"`
+	FilterMeta     map[string][]string `json:"filterMeta,omitempty"`
+	IncludeContent bool                `json:"includeContent,omitempty"`
+}
+
+// MCPGeoSearchResult is a single geo search result item.
+type MCPGeoSearchResult struct {
+	Document       MCPDocument `json:"document"`
+	DistanceMeters float64     `json:"distanceMeters,omitempty"`
+	Rank           int         `json:"rank"`
+}
+
+// MCPGeoSearchResponse is returned from GeoSearch/GeoWithin.
+type MCPGeoSearchResponse struct {
+	Results      []MCPGeoSearchResult `json:"results"`
+	Total        int                  `json:"total"`
+	RadiusMeters float64              `json:"radiusMeters,omitempty"`
+	Algorithm    string               `json:"algorithm"`
+}
+
+// MCPGeoStatsResponse is returned from GeoStats.
+type MCPGeoStatsResponse struct {
+	Collections      map[string]int `json:"collections"`
+	PostcodeDatasets map[string]int `json:"postcodeDatasets,omitempty"`
+	Ready            bool           `json:"ready"`
+}
+
 // MCPWebhook represents a webhook subscription.
 type MCPWebhook struct {
 	ID         string   `json:"id"`
@@ -682,6 +727,12 @@ type MCPClient interface {
 	FTSReindex(ctx context.Context, req *MCPFTSReindexRequest) (*MCPFTSReindexResponse, error)
 	FTSLanguages(ctx context.Context) (*MCPFTSLanguagesResponse, error)
 	HybridSearch(ctx context.Context, req *MCPHybridSearchRequest) (*MCPHybridSearchResponse, error)
+	// Geo search
+	GeoSearch(ctx context.Context, req *MCPGeoSearchRequest) (*MCPGeoSearchResponse, error)
+	GeoWithin(ctx context.Context, req *MCPGeoWithinRequest) (*MCPGeoSearchResponse, error)
+	GeoStats(ctx context.Context) (*MCPGeoStatsResponse, error)
+	GeoEncode(ctx context.Context, lat, lng float64, precision int) (string, error)
+	GeoDecode(ctx context.Context, hash string) (float64, float64, error)
 	RegisterWebhook(ctx context.Context, req *MCPRegisterWebhookRequest) (*MCPWebhook, error)
 	ListWebhooks(ctx context.Context) ([]MCPWebhook, error)
 	DeleteWebhook(ctx context.Context, req *MCPDeleteWebhookRequest) error

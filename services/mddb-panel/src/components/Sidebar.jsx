@@ -301,6 +301,7 @@ export default function Sidebar({ stats, statsError, onStatsRefresh, onCollapse 
             </>
           )}
           <NavButton mode="crossSearch" icon={Shuffle} label="Cross Search" />
+          <NavButton mode="geo" icon={Globe} label="Geo Search" />
           <NavButton mode="vectors" icon={Database} label="Vector Search" />
           <NavButton mode="embeddings" icon={Brain} label="Embedding Models" />
           <NavButton mode="synonyms" icon={BookOpen} label="Synonyms" />
@@ -317,7 +318,7 @@ export default function Sidebar({ stats, statsError, onStatsRefresh, onCollapse 
       {/* Version Footer */}
       <div className="px-4 py-2 border-t border-gray-200 text-center">
         <span className="text-[10px] text-gray-400">
-          Server v{config?.version || '...'} · Panel v2.9.9
+          Server v{config?.version || '...'} · Panel v2.9.10
         </span>
       </div>
 

@@ -33,6 +33,12 @@ const (
 	MDDB_VectorSearch_FullMethodName          = "/mddb.MDDB/VectorSearch"
 	MDDB_VectorReindex_FullMethodName         = "/mddb.MDDB/VectorReindex"
 	MDDB_VectorStats_FullMethodName           = "/mddb.MDDB/VectorStats"
+	MDDB_GeoSearch_FullMethodName             = "/mddb.MDDB/GeoSearch"
+	MDDB_GeoWithin_FullMethodName             = "/mddb.MDDB/GeoWithin"
+	MDDB_GeoReindex_FullMethodName            = "/mddb.MDDB/GeoReindex"
+	MDDB_GeoStats_FullMethodName              = "/mddb.MDDB/GeoStats"
+	MDDB_GeoEncode_FullMethodName             = "/mddb.MDDB/GeoEncode"
+	MDDB_GeoDecode_FullMethodName             = "/mddb.MDDB/GeoDecode"
 	MDDB_ImportURL_FullMethodName             = "/mddb.MDDB/ImportURL"
 	MDDB_SetTTL_FullMethodName                = "/mddb.MDDB/SetTTL"
 	MDDB_FTS_FullMethodName                   = "/mddb.MDDB/FTS"
@@ -115,6 +121,18 @@ type MDDBClient interface {
 	VectorReindex(ctx context.Context, in *VectorReindexRequest, opts ...grpc.CallOption) (*VectorReindexResponse, error)
 	// Get vector/embedding statistics
 	VectorStats(ctx context.Context, in *VectorStatsRequest, opts ...grpc.CallOption) (*VectorStatsResponse, error)
+	// Geo search: documents within N meters of a (lat, lng) point
+	GeoSearch(ctx context.Context, in *GeoSearchRequest, opts ...grpc.CallOption) (*GeoSearchResponse, error)
+	// Geo within: documents inside an axis-aligned bounding box
+	GeoWithin(ctx context.Context, in *GeoWithinRequest, opts ...grpc.CallOption) (*GeoWithinResponse, error)
+	// Force-rebuild the in-memory geo R-tree from BoltDB
+	GeoReindex(ctx context.Context, in *GeoReindexRequest, opts ...grpc.CallOption) (*GeoReindexResponse, error)
+	// Geo index statistics
+	GeoStats(ctx context.Context, in *GeoStatsRequest, opts ...grpc.CallOption) (*GeoStatsResponse, error)
+	// Encode a (lat, lng) pair into a geohash string
+	GeoEncode(ctx context.Context, in *GeoEncodeRequest, opts ...grpc.CallOption) (*GeoEncodeResponse, error)
+	// Decode a geohash back to (lat, lng) centroid + bbox
+	GeoDecode(ctx context.Context, in *GeoDecodeRequest, opts ...grpc.CallOption) (*GeoDecodeResponse, error)
 	// Import document from URL
 	ImportURL(ctx context.Context, in *ImportURLRequest, opts ...grpc.CallOption) (*Document, error)
 	// Set TTL on a document
@@ -360,6 +378,66 @@ func (c *mDDBClient) VectorStats(ctx context.Context, in *VectorStatsRequest, op
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(VectorStatsResponse)
 	err := c.cc.Invoke(ctx, MDDB_VectorStats_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) GeoSearch(ctx context.Context, in *GeoSearchRequest, opts ...grpc.CallOption) (*GeoSearchResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GeoSearchResponse)
+	err := c.cc.Invoke(ctx, MDDB_GeoSearch_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) GeoWithin(ctx context.Context, in *GeoWithinRequest, opts ...grpc.CallOption) (*GeoWithinResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GeoWithinResponse)
+	err := c.cc.Invoke(ctx, MDDB_GeoWithin_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) GeoReindex(ctx context.Context, in *GeoReindexRequest, opts ...grpc.CallOption) (*GeoReindexResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GeoReindexResponse)
+	err := c.cc.Invoke(ctx, MDDB_GeoReindex_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) GeoStats(ctx context.Context, in *GeoStatsRequest, opts ...grpc.CallOption) (*GeoStatsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GeoStatsResponse)
+	err := c.cc.Invoke(ctx, MDDB_GeoStats_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) GeoEncode(ctx context.Context, in *GeoEncodeRequest, opts ...grpc.CallOption) (*GeoEncodeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GeoEncodeResponse)
+	err := c.cc.Invoke(ctx, MDDB_GeoEncode_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) GeoDecode(ctx context.Context, in *GeoDecodeRequest, opts ...grpc.CallOption) (*GeoDecodeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GeoDecodeResponse)
+	err := c.cc.Invoke(ctx, MDDB_GeoDecode_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -860,6 +938,18 @@ type MDDBServer interface {
 	VectorReindex(context.Context, *VectorReindexRequest) (*VectorReindexResponse, error)
 	// Get vector/embedding statistics
 	VectorStats(context.Context, *VectorStatsRequest) (*VectorStatsResponse, error)
+	// Geo search: documents within N meters of a (lat, lng) point
+	GeoSearch(context.Context, *GeoSearchRequest) (*GeoSearchResponse, error)
+	// Geo within: documents inside an axis-aligned bounding box
+	GeoWithin(context.Context, *GeoWithinRequest) (*GeoWithinResponse, error)
+	// Force-rebuild the in-memory geo R-tree from BoltDB
+	GeoReindex(context.Context, *GeoReindexRequest) (*GeoReindexResponse, error)
+	// Geo index statistics
+	GeoStats(context.Context, *GeoStatsRequest) (*GeoStatsResponse, error)
+	// Encode a (lat, lng) pair into a geohash string
+	GeoEncode(context.Context, *GeoEncodeRequest) (*GeoEncodeResponse, error)
+	// Decode a geohash back to (lat, lng) centroid + bbox
+	GeoDecode(context.Context, *GeoDecodeRequest) (*GeoDecodeResponse, error)
 	// Import document from URL
 	ImportURL(context.Context, *ImportURLRequest) (*Document, error)
 	// Set TTL on a document
@@ -1003,6 +1093,24 @@ func (UnimplementedMDDBServer) VectorReindex(context.Context, *VectorReindexRequ
 }
 func (UnimplementedMDDBServer) VectorStats(context.Context, *VectorStatsRequest) (*VectorStatsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method VectorStats not implemented")
+}
+func (UnimplementedMDDBServer) GeoSearch(context.Context, *GeoSearchRequest) (*GeoSearchResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GeoSearch not implemented")
+}
+func (UnimplementedMDDBServer) GeoWithin(context.Context, *GeoWithinRequest) (*GeoWithinResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GeoWithin not implemented")
+}
+func (UnimplementedMDDBServer) GeoReindex(context.Context, *GeoReindexRequest) (*GeoReindexResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GeoReindex not implemented")
+}
+func (UnimplementedMDDBServer) GeoStats(context.Context, *GeoStatsRequest) (*GeoStatsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GeoStats not implemented")
+}
+func (UnimplementedMDDBServer) GeoEncode(context.Context, *GeoEncodeRequest) (*GeoEncodeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GeoEncode not implemented")
+}
+func (UnimplementedMDDBServer) GeoDecode(context.Context, *GeoDecodeRequest) (*GeoDecodeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GeoDecode not implemented")
 }
 func (UnimplementedMDDBServer) ImportURL(context.Context, *ImportURLRequest) (*Document, error) {
 	return nil, status.Error(codes.Unimplemented, "method ImportURL not implemented")
@@ -1404,6 +1512,114 @@ func _MDDB_VectorStats_Handler(srv interface{}, ctx context.Context, dec func(in
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MDDBServer).VectorStats(ctx, req.(*VectorStatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_GeoSearch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GeoSearchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).GeoSearch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_GeoSearch_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).GeoSearch(ctx, req.(*GeoSearchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_GeoWithin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GeoWithinRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).GeoWithin(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_GeoWithin_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).GeoWithin(ctx, req.(*GeoWithinRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_GeoReindex_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GeoReindexRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).GeoReindex(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_GeoReindex_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).GeoReindex(ctx, req.(*GeoReindexRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_GeoStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GeoStatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).GeoStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_GeoStats_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).GeoStats(ctx, req.(*GeoStatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_GeoEncode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GeoEncodeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).GeoEncode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_GeoEncode_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).GeoEncode(ctx, req.(*GeoEncodeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_GeoDecode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GeoDecodeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).GeoDecode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_GeoDecode_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).GeoDecode(ctx, req.(*GeoDecodeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2294,6 +2510,30 @@ var MDDB_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "VectorStats",
 			Handler:    _MDDB_VectorStats_Handler,
+		},
+		{
+			MethodName: "GeoSearch",
+			Handler:    _MDDB_GeoSearch_Handler,
+		},
+		{
+			MethodName: "GeoWithin",
+			Handler:    _MDDB_GeoWithin_Handler,
+		},
+		{
+			MethodName: "GeoReindex",
+			Handler:    _MDDB_GeoReindex_Handler,
+		},
+		{
+			MethodName: "GeoStats",
+			Handler:    _MDDB_GeoStats_Handler,
+		},
+		{
+			MethodName: "GeoEncode",
+			Handler:    _MDDB_GeoEncode_Handler,
+		},
+		{
+			MethodName: "GeoDecode",
+			Handler:    _MDDB_GeoDecode_Handler,
 		},
 		{
 			MethodName: "ImportURL",

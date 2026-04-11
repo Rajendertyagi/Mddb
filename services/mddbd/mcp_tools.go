@@ -88,6 +88,16 @@ func (s *MCPToolServer) mcpCallTool(ctx context.Context, name string, args map[s
 		return s.toolFTSLanguages(ctx, args)
 	case "hybrid_search":
 		return s.toolHybridSearch(ctx, args)
+	case "geo_search":
+		return s.toolGeoSearch(ctx, args)
+	case "geo_within":
+		return s.toolGeoWithin(ctx, args)
+	case "geo_stats":
+		return s.toolGeoStats(ctx, args)
+	case "geo_encode":
+		return s.toolGeoEncode(ctx, args)
+	case "geo_decode":
+		return s.toolGeoDecode(ctx, args)
 	case "register_webhook":
 		return s.toolRegisterWebhook(ctx, args)
 	case "list_webhooks":

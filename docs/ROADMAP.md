@@ -101,10 +101,10 @@ Detailed roadmap showing implemented features and future plans.
 
 ### v2.11 — Search & AI (Q3 2026)
 
-**Geosearch**
-- ⏳ Postcode/GPS-based distance search
-- ⏳ Geo-bounding box queries
-- ⏳ Geospatial index
+**Geosearch** — *delivered in v2.9.10*
+- ✅ Postcode/GPS-based distance search (moved to v2.9.10)
+- ✅ Geo-bounding box queries (moved to v2.9.10)
+- ✅ Geospatial index — R-tree + geohash (moved to v2.9.10)
 
 **Advanced Vector Search**
 - ⏳ Cross-encoder re-ranking (two-stage retrieval)

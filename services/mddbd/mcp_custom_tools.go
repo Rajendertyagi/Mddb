@@ -377,6 +377,71 @@ func mcpBuiltinTools() []MCPTool {
 			},
 		},
 		{
+			Name:        "geo_search",
+			Description: "Find documents within a given radius (in meters) of a latitude/longitude point. Documents must have geo_lat+geo_lng, geo_hash, or a resolvable geo_postcode+geo_country in their metadata. Results are sorted by ascending distance. Use this for 'nearest venues', 'places within 5km' style queries.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection":    map[string]interface{}{"type": "string", "description": "Collection to search"},
+					"lat":           map[string]interface{}{"type": "number", "description": "Query latitude in decimal degrees (-90..90)"},
+					"lng":           map[string]interface{}{"type": "number", "description": "Query longitude in decimal degrees (-180..180)"},
+					"radius_meters": map[string]interface{}{"type": "number", "description": "Search radius in meters (max 50_000_000)"},
+					"top_k":         map[string]interface{}{"type": "integer", "description": "Max results to return (default: 10)"},
+					"algorithm":     map[string]interface{}{"type": "string", "description": "Index algorithm: rtree (default, best for general use) or geohash (alternative, prefix-based)"},
+					"filter_meta":   map[string]interface{}{"type": "object", "description": "Optional metadata filter combined with the spatial query"},
+				},
+				"required": []string{"collection", "lat", "lng", "radius_meters"},
+			},
+		},
+		{
+			Name:        "geo_within",
+			Description: "Find documents inside an axis-aligned bounding box (minLat..maxLat × minLng..maxLng). Does not cross the anti-meridian — split the query into two halves if needed. Returns results in no particular order.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection":  map[string]interface{}{"type": "string", "description": "Collection to search"},
+					"min_lat":     map[string]interface{}{"type": "number", "description": "South edge of the bbox"},
+					"max_lat":     map[string]interface{}{"type": "number", "description": "North edge of the bbox"},
+					"min_lng":     map[string]interface{}{"type": "number", "description": "West edge of the bbox"},
+					"max_lng":     map[string]interface{}{"type": "number", "description": "East edge of the bbox"},
+					"filter_meta": map[string]interface{}{"type": "object", "description": "Optional metadata filter"},
+				},
+				"required": []string{"collection", "min_lat", "max_lat", "min_lng", "max_lng"},
+			},
+		},
+		{
+			Name:        "geo_stats",
+			Description: "Report per-collection indexed-point counts plus any loaded postcode datasets. Use to confirm that a collection is geo-enabled before running geo_search.",
+			InputSchema: map[string]interface{}{
+				"type":       "object",
+				"properties": map[string]interface{}{},
+			},
+		},
+		{
+			Name:        "geo_encode",
+			Description: "Convert a (lat, lng) pair into a geohash string of the requested precision (1..12, default 12). Useful when writing document metadata with a geo_hash field.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"lat":       map[string]interface{}{"type": "number", "description": "Latitude in decimal degrees"},
+					"lng":       map[string]interface{}{"type": "number", "description": "Longitude in decimal degrees"},
+					"precision": map[string]interface{}{"type": "integer", "description": "Geohash length (1..12, default 12)"},
+				},
+				"required": []string{"lat", "lng"},
+			},
+		},
+		{
+			Name:        "geo_decode",
+			Description: "Convert a geohash string back to the (lat, lng) centroid of its cell.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"geohash": map[string]interface{}{"type": "string", "description": "Geohash to decode (case-insensitive)"},
+				},
+				"required": []string{"geohash"},
+			},
+		},
+		{
 			Name:        "hybrid_search",
 			Description: "Combined sparse (FTS) + dense (vector) search with alpha blending or Reciprocal Rank Fusion. Requires both FTS index and embedding provider.",
 			InputSchema: map[string]interface{}{

@@ -66,7 +66,9 @@ func TestMCPToolServerGlobalReadPerProtocolRW(t *testing.T) {
 
 func TestMCPToolServerReadOnlyAllowsReads(t *testing.T) {
 	readOnlyTools := []string{"get_stats", "search_documents", "semantic_search", "full_text_search",
-		"hybrid_search", "vector_stats", "list_webhooks", "get_schema", "list_schemas",
+		"hybrid_search", "vector_stats",
+		"geo_search", "geo_within", "geo_stats", "geo_encode", "geo_decode",
+		"list_webhooks", "get_schema", "list_schemas",
 		"find_duplicates", "aggregate", "export_documents"}
 
 	for _, name := range readOnlyTools {

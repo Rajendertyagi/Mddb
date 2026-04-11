@@ -26,6 +26,7 @@ type HybridSearchRequest struct {
 	Threshold       float64             `json:"threshold"`       // min vector similarity 0-1
 	DistanceMetric  string              `json:"distanceMetric"`  // "cosine" (default), "dot_product", "euclidean"
 	FilterMeta      map[string][]string `json:"filterMeta"`
+	Geo             *HybridGeoFilter    `json:"geo,omitempty"` // optional spatial pre-filter
 	IncludeContent  bool                `json:"includeContent"`
 	FieldWeights    map[string]float64  `json:"fieldWeights,omitempty"`
 	DisableStem     bool                `json:"disableStem"`
@@ -33,14 +34,25 @@ type HybridSearchRequest struct {
 	Lang            string              `json:"lang,omitempty"`
 }
 
+// HybridGeoFilter restricts hybrid search to docs within radius of a point.
+// When set, only documents present in the in-memory R-tree AND within the
+// given radius are considered by FTS and vector search; the distance is
+// attached to each result item.
+type HybridGeoFilter struct {
+	Lat          float64 `json:"lat"`
+	Lng          float64 `json:"lng"`
+	RadiusMeters float64 `json:"radiusMeters"`
+}
+
 // HybridSearchResultItem represents a single hybrid search result.
 type HybridSearchResultItem struct {
-	Document      Doc      `json:"document"`
-	CombinedScore float64  `json:"combinedScore"`
-	FTSScore      float64  `json:"ftsScore"`
-	VectorScore   float64  `json:"vectorScore"`
-	MatchedTerms  []string `json:"matchedTerms,omitempty"`
-	Rank          int      `json:"rank"`
+	Document       Doc      `json:"document"`
+	CombinedScore  float64  `json:"combinedScore"`
+	FTSScore       float64  `json:"ftsScore"`
+	VectorScore    float64  `json:"vectorScore"`
+	DistanceMeters float64  `json:"distanceMeters,omitempty"`
+	MatchedTerms   []string `json:"matchedTerms,omitempty"`
+	Rank           int      `json:"rank"`
 }
 
 // HybridSearchResponse represents the response from hybrid search.
@@ -101,6 +113,46 @@ func (s *Server) handleHybridSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// ---- Step 0: Geo pre-filter ----
+	// If the request has a geo filter, ask the in-memory R-tree for docIDs
+	// within the radius and remember each one's exact distance. We don't
+	// inject these into FilterMeta (which is backed by on-disk meta indices);
+	// instead we keep them as a set used both to short-circuit and to
+	// attach distanceMeters to the final result items.
+	var geoAllowed map[string]bool
+	var geoDist map[string]float64
+	if req.Geo != nil {
+		if s.GeoIndex == nil || !s.GeoIndex.IsReady() {
+			bad(w, errors.New("geo index not ready"))
+			return
+		}
+		if !validLatLng(req.Geo.Lat, req.Geo.Lng) || req.Geo.RadiusMeters <= 0 {
+			bad(w, errors.New("invalid geo filter: lat/lng/radiusMeters"))
+			return
+		}
+		// A large topK is intentional — we want every candidate in the radius,
+		// not just the TopK by distance, so the FTS/vector ranking can reorder
+		// freely within the spatial envelope.
+		hits := s.GeoIndex.Search(req.Collection, req.Geo.Lat, req.Geo.Lng, req.Geo.RadiusMeters, 1_000_000, nil)
+		if len(hits) == 0 {
+			ok(w, HybridSearchResponse{
+				Results:         []HybridSearchResultItem{},
+				Total:           0,
+				Strategy:        req.Strategy,
+				FTSAlgorithm:    req.Algorithm,
+				VectorAlgorithm: req.VectorAlgorithm,
+				DistanceMetric:  "cosine",
+			})
+			return
+		}
+		geoAllowed = make(map[string]bool, len(hits))
+		geoDist = make(map[string]float64, len(hits))
+		for _, h := range hits {
+			geoAllowed[h.DocID] = true
+			geoDist[h.DocID] = h.DistanceMeters
+		}
+	}
+
 	// ---- Step 1: Run FTS search ----
 	ftsResults, err := s.runFTSSearch(req)
 	if err != nil {
@@ -116,16 +168,52 @@ func (s *Server) handleHybridSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ---- Step 3: Merge results ----
+	// When a geo filter is active, merge with an inflated TopK so the spatial
+	// intersection below still has enough candidates. The caller-requested
+	// TopK is applied again after the spatial pass.
+	mergeTopK := req.TopK
+	if geoAllowed != nil {
+		mergeTopK = req.TopK * 10
+		if mergeTopK < 50 {
+			mergeTopK = 50
+		}
+	}
 	var merged []HybridSearchResultItem
 	switch req.Strategy {
 	case "rrf":
-		merged = mergeRRF(ftsResults, vectorResults, req.RRFK, req.TopK)
+		merged = mergeRRF(ftsResults, vectorResults, req.RRFK, mergeTopK)
 	default: // "alpha"
-		merged = mergeAlpha(ftsResults, vectorResults, req.Alpha, req.TopK)
+		merged = mergeAlpha(ftsResults, vectorResults, req.Alpha, mergeTopK)
+	}
+
+	// Spatial post-filter: keep only results inside the geo radius, attach
+	// distanceMeters from the pre-computed lookup, and truncate back to TopK.
+	if geoAllowed != nil {
+		filtered := merged[:0]
+		for _, m := range merged {
+			if !geoAllowed[m.Document.ID] {
+				continue
+			}
+			m.DistanceMeters = geoDist[m.Document.ID]
+			filtered = append(filtered, m)
+		}
+		merged = filtered
+		if len(merged) > req.TopK {
+			merged = merged[:req.TopK]
+		}
+		for i := range merged {
+			merged[i].Rank = i + 1
+		}
 	}
 
 	// ---- Step 4: Load full documents ----
 	items := s.loadHybridDocs(req.Collection, merged, req.IncludeContent)
+	// loadHybridDocs copies merged items but may drop DistanceMeters; re-attach.
+	if geoAllowed != nil {
+		for i := range items {
+			items[i].DistanceMeters = geoDist[items[i].Document.ID]
+		}
+	}
 
 	distMetric := req.DistanceMetric
 	if distMetric == "" {

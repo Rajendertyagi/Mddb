@@ -85,6 +85,14 @@ func (s *Server) handleEndpoints(w http.ResponseWriter, r *http.Request) {
 		{Method: "POST", Path: "/v1/vector-reindex", Description: "Re-embed collection documents", RequiresAuth: authEnabled},
 		{Method: "GET", Path: "/v1/vector-stats", Description: "Vector/embedding statistics", RequiresAuth: authEnabled},
 
+		// Geo search
+		{Method: "POST", Path: "/v1/geo-search", Description: "Radius search (R-tree or geohash)", RequiresAuth: authEnabled},
+		{Method: "POST", Path: "/v1/geo-within", Description: "Bounding-box search", RequiresAuth: authEnabled},
+		{Method: "POST", Path: "/v1/geo-reindex", Description: "Force-rebuild geo indexes from BoltDB", RequiresAuth: authEnabled},
+		{Method: "GET", Path: "/v1/geo-stats", Description: "Geo index statistics", RequiresAuth: authEnabled},
+		{Method: "POST", Path: "/v1/geo-encode", Description: "Encode (lat, lng) → geohash", RequiresAuth: authEnabled},
+		{Method: "POST", Path: "/v1/geo-decode", Description: "Decode geohash → (lat, lng) + bbox", RequiresAuth: authEnabled},
+
 		// Search features
 		{Method: "POST", Path: "/v1/upload", Description: "Upload files (md/txt/html/pdf/docx/odt/rtf/yaml/tex/log) with auto-conversion to markdown", RequiresAuth: authEnabled},
 		{Method: "POST", Path: "/v1/import-url", Description: "Import markdown from URL", RequiresAuth: authEnabled},

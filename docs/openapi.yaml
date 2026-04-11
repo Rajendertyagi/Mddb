@@ -68,7 +68,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: "2.9.9"
+  version: "2.9.10"
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -855,6 +855,135 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/VectorStatsResponse"
+
+  /v1/geo-search:
+    post:
+      tags:
+        - Geo Search
+      summary: Radius search (R-tree or geohash)
+      description: |
+        Find documents within `radiusMeters` of a (lat, lng) point. Documents
+        must have `geo_lat`+`geo_lng`, `geo_hash`, or a resolvable
+        `geo_postcode`+`geo_country` in their metadata. Results are sorted by
+        ascending distance and composable with `filterMeta`.
+      operationId: geoSearch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [collection, lat, lng, radiusMeters]
+              properties:
+                collection: {type: string}
+                lat: {type: number, format: double}
+                lng: {type: number, format: double}
+                radiusMeters: {type: number, format: double}
+                topK: {type: integer, default: 10}
+                algorithm: {type: string, enum: [rtree, geohash], default: rtree}
+                filterMeta: {type: object, additionalProperties: {type: array, items: {type: string}}}
+                includeContent: {type: boolean, default: false}
+      responses:
+        "200": {description: OK}
+        "400": {description: Invalid request}
+        "503": {description: Index still loading}
+
+  /v1/geo-within:
+    post:
+      tags:
+        - Geo Search
+      summary: Bounding-box search
+      description: Find documents inside an axis-aligned bbox. Does not cross the anti-meridian.
+      operationId: geoWithin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [collection, minLat, maxLat, minLng, maxLng]
+              properties:
+                collection: {type: string}
+                minLat: {type: number}
+                maxLat: {type: number}
+                minLng: {type: number}
+                maxLng: {type: number}
+                filterMeta: {type: object, additionalProperties: {type: array, items: {type: string}}}
+                includeContent: {type: boolean}
+      responses:
+        "200": {description: OK}
+
+  /v1/geo-reindex:
+    post:
+      tags:
+        - Geo Search
+      summary: Force-rebuild geo indexes
+      description: Rebuild both R-tree and geohash indexes from the persisted `geo` bucket. Optionally load one or more postcode CSVs first.
+      operationId: geoReindex
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                collection: {type: string, description: "Empty = rebuild all collections"}
+                loadPostcodes:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      country: {type: string}
+                      csvPath: {type: string}
+      responses:
+        "200": {description: OK}
+
+  /v1/geo-stats:
+    get:
+      tags:
+        - Geo Search
+      summary: Geo index statistics
+      operationId: geoStats
+      responses:
+        "200": {description: OK}
+
+  /v1/geo-encode:
+    post:
+      tags:
+        - Geo Search
+      summary: Encode (lat, lng) → geohash string
+      operationId: geoEncode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lat, lng]
+              properties:
+                lat: {type: number}
+                lng: {type: number}
+                precision: {type: integer, minimum: 1, maximum: 12, default: 12}
+      responses:
+        "200": {description: OK}
+
+  /v1/geo-decode:
+    post:
+      tags:
+        - Geo Search
+      summary: Decode geohash → centroid + bbox
+      operationId: geoDecode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [geohash]
+              properties:
+                geohash: {type: string}
+      responses:
+        "200": {description: OK}
 
   /v1/fts:
     post:
@@ -5813,7 +5942,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.9.9
+          example: 2.9.10
         uptimeSeconds:
           type: integer
           format: int64
@@ -5877,7 +6006,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.9.9
+          example: 2.9.10
         databasePath:
           type: string
           description: Path to the database file
