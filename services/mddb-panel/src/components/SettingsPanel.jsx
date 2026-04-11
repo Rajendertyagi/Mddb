@@ -128,12 +128,17 @@ export default function SettingsPanel() {
             <div className="ml-3">
               <h4 className="text-sm font-semibold text-gray-900">Current Mode</h4>
               <p className="text-xs text-gray-600 mt-1">
-                Using <strong className="text-gray-900">{apiMode.toUpperCase()}</strong> API
-                for all requests. Changes apply immediately without reloading the page.
+                Selected: <strong className="text-gray-900">{apiMode.toUpperCase()}</strong>.
               </p>
               {apiMode === 'graphql' && (
                 <p className="text-xs text-orange-600 mt-2">
-                  ⚠️ Make sure GraphQL is enabled on the server or requests will fail.
+                  ⚠️ The MDDB server now serves a fully-functional GraphQL endpoint at
+                  <code> /graphql</code> (and Playground at <code>/playground</code>) — enabled by
+                  default in MDDB 2.9.11+. The panel UI itself, however, still issues every
+                  request through the REST client; full panel routing through GraphQL is
+                  scheduled for a follow-up release. Use this toggle as a preference marker
+                  for now and call <code>/graphql</code> directly from your own GraphQL client
+                  (Apollo, urql, curl) to take advantage of the new resolvers.
                 </p>
               )}
             </div>

@@ -7,9 +7,15 @@ status: publish
 
 # MDDB Architecture
 
+> **Note**: This document describes the foundational architecture (storage layout, request flow). For an up-to-date list of every shipped subsystem (vector search, FTS, geo, MCP, GraphQL, auth, replication, TLS, UDS, etc.) see [FEATURES.md](FEATURES.md) and the canonical version table in the root [README.md](../README.md).
+
 ## Overview
 
-MDDB is a lightweight, embedded markdown database built on top of BoltDB. It provides a RESTful HTTP API for managing markdown documents with metadata, revisions, and full-text capabilities.
+MDDB is an AI-native embedded document database built on top of BoltDB. It serves a triple-protocol surface — **HTTP/JSON REST**, **gRPC/Protobuf**, and **GraphQL** — over either TCP or Unix Domain Sockets, with optional TLS / mTLS. A built-in **MCP server** (67 tools, MCP 2025-11-25) exposes the same operations to LLM agents over stdio, Streamable HTTP, and SSE transports.
+
+Search is a layered stack: metadata indexes for filter pre-pruning, **full-text search** (TF-IDF / BM25 / BM25F / PMISparse, 7 modes, 18-language stemming, fuzzy / proximity), **vector / semantic search** (Flat / HNSW / IVF / PQ / OPQ / SQ / BQ + per-collection int8/int4 quantization, plug-in OpenAI / Ollama / Cohere / Voyage embeddings), **geospatial search** (R-tree + geohash), and **hybrid search** that combines BM25 and dense vectors via alpha blending or Reciprocal Rank Fusion.
+
+Beyond storage and search, MDDB ships **JWT authentication + RBAC**, **mTLS client-cert auth**, **leader-follower binlog replication**, **automation** (triggers / crons / webhooks / sentiment / template variables), **document TTL**, **revisions**, **schema validation**, **aggregations**, and a **React admin panel**.
 
 ## High-Level Architecture
 
@@ -31,22 +37,11 @@ graph TB
 
 ## Components
 
-### 1. HTTP Server Layer
+### 1. Protocol layer (HTTP / gRPC / GraphQL / MCP)
 
-**Responsibilities**:
-- Handle incoming HTTP requests
-- Route requests to appropriate handlers
-- Middleware for JSON responses
-- Access mode enforcement (read/write/rw)
+Routes requests to handlers, applies middleware (JSON, CORS, auth, rate limit, logging), enforces access modes.
 
-**Endpoints**:
-- `/v1/add` - Add/update documents
-- `/v1/get` - Retrieve documents
-- `/v1/search` - Search with filters
-- `/v1/export` - Export data (NDJSON/ZIP)
-- `/v1/backup` - Create database backup
-- `/v1/restore` - Restore from backup
-- `/v1/truncate` - Clean up revisions
+For the **full endpoint catalogue** see [API.md](API.md) (HTTP/REST), [GRPC.md](GRPC.md) (gRPC), [GRAPHQL.md](GRAPHQL.md) (GraphQL schema), [MCP.md](MCP.md) (MCP tools), and the live Swagger UI at `/docs/api/swagger.html`. The endpoint list lives in [services/mddbd/endpoints_handlers.go](../services/mddbd/endpoints_handlers.go) and is queryable at `GET /v1/endpoints`.
 
 ### 2. Storage Layer (BoltDB)
 
@@ -64,26 +59,14 @@ mddb.db
     └── bykey|{collection}|{key}|{lang} → docID
 ```
 
-**Buckets**:
+**Foundational buckets** (the four every collection always uses):
 
-1. **`docs`**: Stores the latest version of each document
-   - Key format: `doc|{collection}|{docID}`
-   - Value: JSON-encoded document
+1. **`docs`** — latest document version. Key: `doc|{collection}|{docID}`. Value: protobuf-encoded `Doc` (compressed via the configured codec).
+2. **`idxmeta`** — metadata index for fast filter pre-pruning. Key: `meta|{collection}|{metaKey}|{metaValue}|{docID}`. Value: existence marker. Enables prefix scans.
+3. **`rev`** — revision history. Key: `rev|{collection}|{docID}|{timestamp}`. Value: encoded document snapshot, sorted by timestamp.
+4. **`bykey`** — key/lang → docID lookup. Key: `bykey|{collection}|{key}|{lang}`.
 
-2. **`idxmeta`**: Metadata index for fast searching
-   - Key format: `meta|{collection}|{metaKey}|{metaValue}|{docID}`
-   - Value: `1` (existence marker)
-   - Enables prefix scans for metadata queries
-
-3. **`rev`**: Revision history
-   - Key format: `rev|{collection}|{docID}|{timestamp}`
-   - Value: JSON-encoded document snapshot
-   - Sorted by timestamp for easy traversal
-
-4. **`bykey`**: Key-to-ID lookup
-   - Key format: `bykey|{collection}|{key}|{lang}`
-   - Value: Document ID
-   - Enables fast retrieval by key+lang
+Subsystems add their own buckets on top: `vectors`, `vector_meta` (vector store), `fts_*` (full-text inverted index, stop words, synonyms, BM25 stats), `geo` (R-tree + geohash), `webhooks`, `schemas`, `auth_users` / `auth_apikeys` / `auth_perms` / `auth_groups`, `automation`, `automation_log`, `binlog` (replication), `mcp_apikeys`, `memory_*` (RAG sessions), and `ttl_*`. Each is initialised by its owning module's `EnsureBucket()` call at startup.
 
 ## Data Flow
 
@@ -133,18 +116,15 @@ sequenceDiagram
     S->>C: Return documents
 ```
 
-### Hybrid Search (Sparse + Dense)
+### Hybrid / FTS / Vector / Geo search
 
-MDDB supports hybrid search that merges BM25 full-text results with vector semantic results in a single request. Two fusion strategies are available:
+These four search subsystems each have a dedicated guide — this file does not duplicate the algorithm or API details:
 
-- **Alpha Blending** -- linearly interpolates normalised BM25 and vector scores: `combined = (1-a) * BM25 + a * vector`.
-- **RRF (Reciprocal Rank Fusion)** -- rank-based fusion that is robust to different score distributions across the two result sets.
-
-The `/v1/hybrid-search` endpoint accepts `strategy` (`alpha` or `rrf`), `alpha` (blending weight, 0-1), and standard search parameters (`collection`, `query`, `topK`, `threshold`).
-
-### Full-Text Search with Metadata Filtering
-
-The FTS engine supports an optional `filterMeta` parameter that pre-filters the candidate document set by metadata **before** scoring. This allows scoping keyword search to specific categories, tags, or any indexed metadata field without a separate search-then-filter step.
+- **[SEARCH.md](SEARCH.md)** — full-text search modes, BM25/BM25F/PMISparse scoring, multi-language stemming, fuzzy/proximity, vector index algorithms (Flat, HNSW, IVF, PQ, OPQ, SQ, BQ), quantization
+- **[PMISPARSE.md](PMISPARSE.md)** — the BM25 + PPMI two-phase ranker
+- **[RAG-PIPELINE.md](RAG-PIPELINE.md)** — hybrid search (alpha blending and Reciprocal Rank Fusion), retrieval-augmented generation patterns
+- **[GEOSEARCH.md](GEOSEARCH.md)** — R-tree and geohash indexes, radius / bbox queries, composition with FTS and vector
+- **[EMBEDDING_PROVIDERS.md](EMBEDDING_PROVIDERS.md)** — OpenAI / Ollama / Cohere / Voyage configuration
 
 ### Get Document with Templating
 
@@ -235,23 +215,13 @@ Every update creates a new revision with timestamp.
 
 ## Extension Points
 
-### Hooks System
+### Webhooks, Automation, Custom MCP tools
 
-```go
-type Hooks struct {
-    PostAddWebhookURL    string   // HTTP webhook after add
-    PostAddExec          []string // Command to execute after add
-    PostUpdateWebhookURL string   // HTTP webhook after update
-    PostUpdateExec       []string // Command to execute after update
-}
-```
+MDDB exposes three layered extension mechanisms — each documented in its own file:
 
-**Use Cases**:
-- Trigger builds after content updates
-- Send notifications
-- Sync to external systems
-- Generate static sites
-- Update search indices
+- **[WEBHOOKS.md](WEBHOOKS.md)** — HTTP webhooks fired on document events (`doc.added`, `doc.updated`, `doc.deleted`, batch events). Per-collection scoping, retry with backoff, payload signing.
+- **[AUTOMATIONS.md](AUTOMATIONS.md)** — triggers, crons, conditional rules, sentiment analysis, template variables. Configurable via REST/gRPC/MCP.
+- **[CUSTOM-TOOLS.md](CUSTOM-TOOLS.md)** — YAML-defined custom MCP tools that wrap built-in actions (`semantic_search`, `search_documents`, `full_text_search`, `fts_languages`) with domain-specific defaults so AI agents see purpose-built tools instead of generic primitives.
 
 ## Performance Characteristics
 
@@ -291,27 +261,21 @@ type Hooks struct {
 
 ## Security Considerations
 
-### Current State
-- No built-in authentication
-- No authorization
-- No encryption at rest
-- No TLS/HTTPS
+### What ships in MDDB today (2.9.11+)
+- **JWT authentication** with bcrypt password hashes — see [services/mddbd/auth_manager.go](../services/mddbd/auth_manager.go) and [AUTHENTICATION.md](AUTHENTICATION.md)
+- **API keys** with optional expiry, per-user issuance, scoped permissions
+- **RBAC**: per-collection Read/Write/Admin permissions with user and group resolution
+- **Per-protocol access modes**: `MDDB_MCP_MODE`, `MDDB_API_MODE`, `MDDB_GRPC_MODE`, `MDDB_HTTP3_MODE` to lock individual protocols to read-only without disabling them
+- **TLS / HTTPS**: built-in `MDDB_TLS_ENABLED=true` with user-supplied PEM cert + key, TLS 1.2 minimum — see [TLS.md](TLS.md)
+- **Mutual TLS (mTLS)**: `MDDB_TLS_CLIENT_CA` + `MDDB_TLS_CLIENT_AUTH=require|request` for certificate-based client authentication
+- **Unix Domain Socket transport**: `MDDB_HTTP_ADDR=unix:/var/run/mddb/http.sock` (and `MDDB_GRPC_ADDR=unix:...`) for zero-network local deployments. UDS is created with `0600` filesystem perms — peer is authenticated by file ownership before any application-level auth runs
+- **MCP API key middleware**: separate key store and rate-limit chain for the MCP HTTP transport ([services/mddbd/mcp_apikeys.go](../services/mddbd/mcp_apikeys.go))
 
-### Recommendations
-1. **Network Security**:
-   - Run behind reverse proxy (nginx, Caddy)
-   - Use firewall rules
-   - Bind to localhost only
-
-2. **Authentication**:
-   - Add auth middleware
-   - Use API keys
-   - Implement JWT tokens
-
-3. **Encryption**:
-   - Use TLS termination at proxy
-   - Encrypt database file at filesystem level
-   - Consider encrypted BoltDB fork
+### What's still on the user
+- **Encryption at rest** — BoltDB stores plaintext on disk. Encrypt the underlying filesystem (LUKS, FileVault, dm-crypt) or the volume.
+- **Network exposure** — even with TLS + JWT enabled, prefer to bind MDDB to a private interface or a UDS path and front it with a reverse proxy that adds WAF / rate limit / DDoS protection if it's reachable from the public internet.
+- **Backup encryption** — `/v1/backup` produces a plaintext copy of the BoltDB file. Encrypt the resulting blob (age, gpg) before uploading to remote storage.
+- **Cert / key rotation** — TLS certs are loaded once at startup. Restart the process on rotation; there is no SIGHUP reloader yet.
 
 4. **Access Control**:
    - Implement collection-level permissions
@@ -340,25 +304,8 @@ type Hooks struct {
 - Memory usage
 - Response time
 
-## Future Enhancements
+## Roadmap
 
-### Planned Features
-1. **Full-Text Search**: Integration with Bleve or Meilisearch
-2. **Authentication**: Built-in API key support
-3. **Compression**: Compress old revisions
-4. **Streaming**: Stream large exports
-5. **Replication**: Built-in replication support
-6. **GraphQL**: GraphQL API alongside REST
-7. **WebSockets**: Real-time updates
-8. **Plugins**: Plugin system for extensions
+The roadmap lives in its own file and is updated per release: see [ROADMAP.md](ROADMAP.md) for current and planned work.
 
-### Potential Improvements
-- Batch operations API
-- Transactions API
-- Schema validation (JSON Schema)
-- Content versioning (git-like)
-- Multi-language search
-- Markdown rendering API
-- Image/asset storage
-- Rate limiting
-- Caching layer
+> **Note**: a previous version of this document listed "Full-Text Search", "Authentication", "Replication", "GraphQL", "Schema validation", "Compression", "Multi-language search" and "Rate limiting" as *future* enhancements. **All of those have shipped** — see [FEATURES.md](FEATURES.md) for the current capability matrix. The list was removed in the 2.9.11 docs cleanup.

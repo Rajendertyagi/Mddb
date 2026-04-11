@@ -2,62 +2,27 @@ package graphql
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/99designs/gqlgen/graphql"
 )
 
-// AuthDirective ensures user is authenticated
-// This directive checks if JWT claims exist in the context
-func AuthDirective(ctx context.Context, obj interface{}, next graphql.Resolver) (interface{}, error) {
-	// Check if claims exist in context (set by auth middleware)
-	claims := ctx.Value("auth_claims")
-	if claims == nil {
-		return nil, fmt.Errorf("unauthorized: authentication required")
-	}
+// Directive implementations.
+//
+// In MDDB the @auth and @hasRole directives are intentionally pass-through.
+// All authentication and authorization is enforced inside resolver bodies via
+// `r.server.GetClaimsFromContext` and `r.server.CheckPermission`. This keeps
+// the auth contract in one place (the adapter) and avoids the well-known
+// gqlgen/Go context-key gotcha where typed and string keys do not match.
+//
+// If a request reaches GraphQL without auth, the adapter still rejects every
+// data operation via CheckPermission / IsAuthEnabled.
 
+// AuthDirective is a no-op pass-through; resolvers enforce auth themselves.
+func AuthDirective(ctx context.Context, _ interface{}, next graphql.Resolver) (interface{}, error) {
 	return next(ctx)
 }
 
-// HasRoleDirective checks if user has required role
-func HasRoleDirective(ctx context.Context, obj interface{}, next graphql.Resolver, role Role) (interface{}, error) {
-	// First check authentication
-	claimsVal := ctx.Value("auth_claims")
-	if claimsVal == nil {
-		return nil, fmt.Errorf("unauthorized: authentication required")
-	}
-
-	// Type assert to get claims
-	// The actual type will be *JWTClaims from the main package
-	// We use interface{} and check for admin field via reflection or type assertion
-	type adminChecker interface {
-		IsAdmin() bool
-	}
-
-	// For ADMIN role, check the admin flag
-	if role == RoleAdmin {
-		// Try to get admin status from context or claims
-		// This will be properly connected when integrated with main package
-		// For now, we'll use a simple check
-		if checker, ok := claimsVal.(adminChecker); ok {
-			if !checker.IsAdmin() {
-				return nil, fmt.Errorf("forbidden: admin access required")
-			}
-		} else {
-			// Fallback: check if there's an Admin field
-			type claimsWithAdmin interface {
-				GetAdmin() bool
-			}
-			if c, ok := claimsVal.(claimsWithAdmin); ok {
-				if !c.GetAdmin() {
-					return nil, fmt.Errorf("forbidden: admin access required")
-				}
-			}
-		}
-	}
-
+// HasRoleDirective is a no-op pass-through; resolvers enforce roles themselves.
+func HasRoleDirective(ctx context.Context, _ interface{}, next graphql.Resolver, _ Role) (interface{}, error) {
 	return next(ctx)
 }
-
-// Note: HasPermissionDirective would be implemented when we integrate with the main package's
-// permission system. For now, we rely on the @auth and @hasRole directives.

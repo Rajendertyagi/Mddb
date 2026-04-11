@@ -205,13 +205,44 @@ mcp:
 
 ---
 
-## TLS / HTTPS
+## TLS / HTTPS / mTLS
+
+See [TLS.md](TLS.md) for the full setup guide (cert generation, recipes, troubleshooting).
 
 | Env Var | Default | Type | Description |
 |---------|---------|------|-------------|
-| `MDDB_TLS_ENABLED` | `false` | bool | Enable built-in TLS (HTTPS) |
-| `MDDB_TLS_CERT` | `""` | string | Path to TLS certificate file (PEM) |
-| `MDDB_TLS_KEY` | `""` | string | Path to TLS private key file (PEM) |
+| `MDDB_TLS_ENABLED` | `false` | bool | Enable built-in TLS (HTTPS) on the HTTP listener |
+| `MDDB_TLS_CERT` | `""` | string | Path to server TLS certificate (PEM) |
+| `MDDB_TLS_KEY` | `""` | string | Path to server TLS private key (PEM) |
+| `MDDB_TLS_CLIENT_CA` | `""` | string | Path to PEM bundle of trusted client CAs — enables **mTLS** when set |
+| `MDDB_TLS_CLIENT_AUTH` | `"require"` | string | mTLS mode when `MDDB_TLS_CLIENT_CA` is set: `require` (reject anonymous clients) or `request` (verify only if cert presented) |
+
+`MinVersion` is pinned to TLS 1.2. mTLS is automatically skipped on UDS listeners (filesystem permissions already authenticate the local peer).
+
+---
+
+## Unix Domain Socket transport
+
+`MDDB_HTTP_ADDR` and `MDDB_GRPC_ADDR` accept either a TCP `host:port` (default) or a Unix Domain Socket address of the form `unix:/absolute/path.sock`. The server creates the socket with owner-only `0600` permissions, removes any stale socket file from a previous run, and unlinks the socket on graceful shutdown.
+
+```bash
+# HTTP API on a UDS, gRPC on TCP, no public HTTP port
+MDDB_HTTP_ADDR=unix:/var/run/mddb/http.sock \
+MDDB_GRPC_ADDR=:11024 \
+./mddbd
+```
+
+TLS is automatically disabled on UDS listeners (peer is authenticated by filesystem permissions; API keys / JWT still apply on top). Per-IP rate limits in SSE collapse to a single bucket on UDS — apply application-level rate limiting if you need to differentiate clients.
+
+Clients with native UDS support:
+
+| Client | Address form |
+|--------|--------------|
+| Python (`services/python-extension/mddb.py`) | `MDDB.connect('unix:/var/run/mddb/http.sock')` |
+| PHP (`services/php-extension/mddb.php`) | `mddb::connect('unix:/var/run/mddb/http.sock')` |
+| Python gRPC (`clients/python/`) | `grpc.insecure_channel('unix:/var/run/mddb/grpc.sock')` |
+| Node gRPC (`clients/nodejs/`) | `new MDDBClient('unix:/var/run/mddb/grpc.sock', creds)` |
+| `curl` | `curl --unix-socket /var/run/mddb/http.sock http://localhost/v1/healthz` |
 
 ---
 

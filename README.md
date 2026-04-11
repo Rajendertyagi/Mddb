@@ -283,8 +283,8 @@ Proto definitions at `proto/mddb.proto` - generate clients for any language supp
 - ✅ **MCP Tool Control** - `MDDB_MCP_BUILTIN_TOOLS=false` to expose only custom YAML tools
 - ✅ **User Management** - Multi-user with admin roles
 - ✅ **Group Permissions** - Organize users into groups
-- ✅ **TLS / HTTPS** - `MDDB_TLS_ENABLED=true`, `MDDB_TLS_CERT`, `MDDB_TLS_KEY` — user-supplied PEM cert + key, TLS 1.2 minimum
-- ✅ **Mutual TLS (mTLS)** - `MDDB_TLS_CLIENT_CA` points to a PEM bundle of trusted client CAs; `MDDB_TLS_CLIENT_AUTH=require` (default) or `request`. Rejects unauthenticated clients when `require`
+- ✅ **[TLS / HTTPS](docs/TLS.md)** - `MDDB_TLS_ENABLED=true`, `MDDB_TLS_CERT`, `MDDB_TLS_KEY` — user-supplied PEM cert + key, TLS 1.2 minimum
+- ✅ **[Mutual TLS (mTLS)](docs/TLS.md#quick-start-mtls--clients-must-present-certificates)** - `MDDB_TLS_CLIENT_CA` points to a PEM bundle of trusted client CAs; `MDDB_TLS_CLIENT_AUTH=require` (default) or `request`. Rejects unauthenticated clients when `require`
 - ✅ **Unix Domain Socket transport** - `MDDB_HTTP_ADDR=unix:/tmp/mddb-http.sock` and `MDDB_GRPC_ADDR=unix:/tmp/mddb-grpc.sock` — zero-network local transport with `0600` filesystem perms. Clients in Python (`MDDB.connect('unix:/tmp/mddb-http.sock')`), PHP (`mddb::connect('unix:/tmp/mddb-http.sock')`), Node/Python gRPC (`unix:/tmp/mddb-grpc.sock` channel target)
 
 ### Replication & High Availability

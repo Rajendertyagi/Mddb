@@ -796,7 +796,7 @@ func main() {
 	}
 
 	// GraphQL endpoint (disabled by default)
-	graphqlEnabled := env("MDDB_GRAPHQL_ENABLED", "false") == "true"
+	graphqlEnabled := env("MDDB_GRAPHQL_ENABLED", "true") != "false"
 	if graphqlEnabled {
 		graphqlHandler := s.newGraphQLHandler()
 

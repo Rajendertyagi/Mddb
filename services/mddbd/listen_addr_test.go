@@ -7,6 +7,21 @@ import (
 	"testing"
 )
 
+// shortSocketDir returns a short temp directory suitable for Unix Domain
+// Socket paths. macOS caps `sun_path` at 104 bytes, and `t.TempDir()` on
+// macOS returns `/var/folders/...` which is ~80+ chars before adding the
+// test name, easily blowing the budget. Falling through to /tmp keeps the
+// path short on every supported platform.
+func shortSocketDir(t *testing.T) string {
+	t.Helper()
+	dir, err := os.MkdirTemp("/tmp", "mddb-uds-")
+	if err != nil {
+		t.Fatalf("mkdtemp: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	return dir
+}
+
 func TestParseListenAddr(t *testing.T) {
 	cases := []struct {
 		in       string
@@ -42,7 +57,7 @@ func TestIsUnixAddr(t *testing.T) {
 }
 
 func TestOpenListenerUDS(t *testing.T) {
-	dir := t.TempDir()
+	dir := shortSocketDir(t)
 	path := filepath.Join(dir, "test.sock")
 	lis, err := openListener("unix:" + path)
 	if err != nil {
@@ -65,7 +80,7 @@ func TestOpenListenerUDS(t *testing.T) {
 }
 
 func TestOpenListenerUDSStale(t *testing.T) {
-	dir := t.TempDir()
+	dir := shortSocketDir(t)
 	path := filepath.Join(dir, "stale.sock")
 	// Create a stale file first — openListener should remove it before binding.
 	if err := os.WriteFile(path, []byte("stale"), 0o600); err != nil {
@@ -79,7 +94,7 @@ func TestOpenListenerUDSStale(t *testing.T) {
 }
 
 func TestCloseListenerRemovesSocket(t *testing.T) {
-	dir := t.TempDir()
+	dir := shortSocketDir(t)
 	path := filepath.Join(dir, "cleanup.sock")
 	lis, err := openListener("unix:" + path)
 	if err != nil {
