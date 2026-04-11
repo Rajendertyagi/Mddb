@@ -28,11 +28,13 @@ apps:
 
 parts:
   panel:
-    plugin: npm
+    plugin: nil
     source: .
     source-type: local
-    npm-include-node: true
-    npm-node-version: "22.x"
+    # core24 dropped the old `npm-include-node`/`npm-node-version` keys;
+    # pull Node.js 22 LTS (+ npm) directly from the Canonical node snap.
+    build-snaps:
+      - node/22/stable
     override-build: |
       cd $CRAFT_PART_SRC
       npm ci
