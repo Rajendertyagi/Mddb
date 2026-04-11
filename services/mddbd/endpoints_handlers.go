@@ -168,7 +168,7 @@ func (s *Server) handleEndpoints(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add GraphQL endpoint if enabled
-	graphqlEnabled := env("MDDB_GRAPHQL_ENABLED", "false") == "true"
+	graphqlEnabled := env("MDDB_GRAPHQL_ENABLED", "true") != "false"
 	if graphqlEnabled {
 		httpEndpoints = append(httpEndpoints,
 			HTTPEndpoint{Method: "POST", Path: "/graphql", Description: "GraphQL API endpoint", RequiresAuth: authEnabled},

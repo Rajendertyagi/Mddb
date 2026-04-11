@@ -9,32 +9,49 @@ status: publish
 
 ## Overview
 
-MDDB provides a modern GraphQL API alongside its REST and gRPC interfaces. The GraphQL endpoint offers flexible querying, type safety, and schema introspection.
+MDDB provides a fully-functional GraphQL API alongside its REST and gRPC interfaces. The GraphQL endpoint offers flexible querying, type safety, and schema introspection — every operation declared in [services/mddbd/graphql/schema.graphql](../services/mddbd/graphql/schema.graphql) is wired to the in-process MCP DirectClient (the same code path REST/gRPC use), so behaviour is identical across protocols.
 
 **Endpoint:** `POST /graphql`
-**Playground:** `GET /playground` (development tool)
+**Playground:** `GET /playground` (development tool, served alongside the endpoint)
+
+> **Status (MDDB 2.9.11+)**: GraphQL is now **enabled by default**. Prior to 2.9.11, the resolvers were scaffolding stubs that panicked with `not implemented` for every query and mutation except `login`. As of 2.9.11 every query and mutation in `schema.graphql` has a real implementation that delegates through the same adapter as REST and gRPC. To opt out, set `MDDB_GRAPHQL_ENABLED=false`.
 
 ## Quick Start
 
-### Enable GraphQL
-
-GraphQL is **disabled by default**. Enable it via environment variable or CLI flag:
+### Enable / disable GraphQL
 
 ```bash
-# Environment variable
-export MDDB_GRAPHQL_ENABLED=true
+# Default — GraphQL on
 ./mddbd
 
-# CLI flag
-./mddbd --graphql
+# Explicit on
+MDDB_GRAPHQL_ENABLED=true ./mddbd
+
+# Disable (saves a few MB of resident memory + a route)
+MDDB_GRAPHQL_ENABLED=false ./mddbd
 
 # Docker
-docker run -e MDDB_GRAPHQL_ENABLED=true tradik/mddb
+docker run tradik/mddb                                      # GraphQL on
+docker run -e MDDB_GRAPHQL_ENABLED=false tradik/mddb        # GraphQL off
 ```
 
 ### Access GraphQL Playground
 
-Visit `http://localhost:11023/playground` to explore the API interactively.
+Visit `http://localhost:11023/playground` to explore the API interactively. Introspection (`{__schema{queryType{fields{name}}}}`) is enabled.
+
+### Smoke test
+
+```bash
+# List supported queries
+curl -X POST http://localhost:11023/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query":"{__schema{queryType{fields{name}}}}"}'
+
+# Real query (search documents in collection 'blog')
+curl -X POST http://localhost:11023/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query":"{search(input:{collection:\"blog\",limit:5}){totalCount edges{node{key lang}}}}"}'
+```
 
 ## Authentication
 
@@ -538,10 +555,10 @@ GraphQL returns structured errors:
 ```
 
 Common error messages:
-- `"unauthorized: authentication required"` - Missing or invalid token
-- `"permission denied"` - Insufficient permissions
-- `"not yet implemented - use REST API"` - Feature pending implementation
-- `"authentication failed"` - Invalid credentials
+- `"unauthenticated: missing or invalid credentials"` — no JWT/API key in the request and auth is enabled
+- `"forbidden: admin privileges required"` — admin-only operation called without admin claims
+- `"permission denied"` — caller authenticated but lacks read/write/admin on the target collection
+- `"authentication failed"` / `"invalid credentials"` — `login` mutation rejected the username/password
 
 ## Performance Considerations
 

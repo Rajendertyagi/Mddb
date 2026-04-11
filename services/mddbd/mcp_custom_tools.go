@@ -91,6 +91,29 @@ func mcpBuiltinTools() []MCPTool {
 			},
 		},
 		{
+			Name:        "aggregate",
+			Description: "Compute metadata facets (value counts) and date histograms over a collection, with optional metadata pre-filtering. Useful for dashboards and exploratory analytics.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection":  map[string]interface{}{"type": "string", "description": "Collection to aggregate over"},
+					"filter_meta": map[string]interface{}{"type": "object", "description": "Optional metadata filter applied before aggregation"},
+					"facets": map[string]interface{}{
+						"type":        "array",
+						"description": "Fields to compute value-count facets on. Each item may be a string (field name) or an object {field, order_by}",
+						"items":       map[string]interface{}{"type": "object"},
+					},
+					"histograms": map[string]interface{}{
+						"type":        "array",
+						"description": "Date histograms to compute. Each item may be a string (field name) or an object {field, interval} where interval is e.g. 'day', 'week', 'month'",
+						"items":       map[string]interface{}{"type": "object"},
+					},
+					"max_facet_size": map[string]interface{}{"type": "integer", "description": "Maximum number of facet values to return per field (default: 50)"},
+				},
+				"required": []string{"collection"},
+			},
+		},
+		{
 			Name:        "semantic_search",
 			Description: "Search documents by meaning using semantic similarity. Use this when you need to find documents related to a concept or question, rather than filtering by exact metadata tags. Requires embedding provider to be configured on the server.",
 			InputSchema: map[string]interface{}{

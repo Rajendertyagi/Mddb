@@ -1,0 +1,104 @@
+{{define "index_documentation"}}
+<!-- Documentation Section -->
+<section id="docs" class="documentation">
+    <div class="container">
+        <h2>Documentation <a href="#docs" class="anchor-link" aria-label="Link to Documentation section">#</a>
+        </h2>
+        <div class="docs-columns">
+            <div class="docs-col">
+                <h3 class="docs-group-title">Getting Started</h3>
+                <ul class="docs-list">
+                    <li><a href="/docs/quickstart/">Quick Start</a><span class="docs-desc">Get up
+                            and running in 5 minutes</span></li>
+                    <li><a href="/docs/api/swagger.html">API Documentation</a><span
+                            class="docs-badge">Interactive</span><span class="docs-desc">Swagger UI for all
+                            endpoints</span></li>
+                    <li><a href="/docs/api/openapi.yaml">OpenAPI Spec</a><span
+                            class="docs-desc">Machine-readable API
+                            specification</span></li>
+                    <li><a href="/docs/examples/">Examples</a><span class="docs-desc">Code
+                            examples and patterns</span></li>
+                    <li><a href="/docs/docker/">Docker Guide</a><span class="docs-desc">Container
+                            deployment</span></li>
+                    <li><a href="/docs/architecture/">Architecture</a><span class="docs-desc">System design and
+                            internals</span></li>
+                </ul>
+
+                <h3 class="docs-group-title">Search & AI</h3>
+                <ul class="docs-list">
+                    <li><a href="/docs/search/">Search Algorithms</a><span class="docs-badge">New</span><span
+                            class="docs-desc">TF-IDF, BM25, BM25F, Flat,
+                            HNSW, IVF, PQ, OPQ, SQ, BQ</span></li>
+                    <li><a href="/docs/pmisparse/">PMISparse</a><span class="docs-badge">New</span><span
+                            class="docs-desc">BM25 + PPMI query expansion
+                            (Tradik Limited)</span></li>
+                    <li><a href="/docs/geosearch/">Geosearch</a><span class="docs-badge">New</span><span
+                            class="docs-desc">R-tree + geohash radius/bbox
+                            queries</span></li>
+                    <li><a href="/docs/rag-pipeline/">RAG Pipeline</a><span class="docs-badge">New</span><span
+                            class="docs-desc">WordPress → MDDB → LLM
+                            guide</span></li>
+                    <li><a href="/docs/llm-connections/">LLM Connections</a><span
+                            class="docs-badge">New</span><span class="docs-desc">Claude, ChatGPT, Ollama,
+                            DeepSeek, Manus, Bielik.ai</span></li>
+                    <li><a href="/docs/mcp/">MCP Server Config</a><span class="docs-badge">New</span><span
+                            class="docs-desc">API keys, rate limits, logging,
+                            access modes</span></li>
+                    <li><a href="/docs/custom-tools/">Custom MCP Tools</a><span
+                            class="docs-badge">New</span><span class="docs-desc">YAML-defined website-specific
+                            AI tools</span></li>
+                    <li><a href="/docs/integrations/">Integrations</a><span class="docs-badge">New</span><span
+                            class="docs-desc">Docling, Langflow, OpenSearch
+                            pipelines</span></li>
+                </ul>
+            </div>
+            <div class="docs-col">
+                <h3 class="docs-group-title">Security & Operations</h3>
+                <ul class="docs-list">
+                    <li><a href="/docs/authentication/">Authentication & RBAC</a><span
+                            class="docs-badge">New</span><span class="docs-desc">JWT tokens, API keys,
+                            role-based access</span></li>
+                    <li><a href="/docs/auth-quickstart/">Auth Quick Start</a><span class="docs-desc">5-minute
+                            authentication setup</span></li>
+                    <li><a href="/docs/replication/">Replication</a><span class="docs-badge">New</span><span
+                            class="docs-desc">Leader-follower, Docker
+                            Compose, monitoring</span></li>
+                    <li><a href="/docs/telemetry/">Telemetry & Monitoring</a><span
+                            class="docs-badge">New</span><span class="docs-desc">Prometheus metrics, Grafana
+                            dashboards</span></li>
+                    <li><a href="/docs/healthcheck/">Health Checks</a><span class="docs-desc">Docker &
+                            Kubernetes
+                            monitoring</span></li>
+                    <li><a href="/docs/license-audit/">License Audit</a><span class="docs-desc">Dependency
+                            license
+                            compliance (Trivy)</span></li>
+                </ul>
+
+                <h3 class="docs-group-title">Protocols & Advanced</h3>
+                <ul class="docs-list">
+                    <li><a href="/docs/grpc/">gRPC Guide</a><span class="docs-desc">High-performance
+                            protocol</span>
+                    </li>
+                    <li><a href="/docs/schema-validation/">Schema Validation</a><span class="docs-desc">Enforce
+                            metadata structure per collection</span></li>
+                    <li><a href="/docs/automations/">Automations</a><span class="docs-badge">New</span><span
+                            class="docs-desc">Triggers, crons, webhooks,
+                            sentiment</span></li>
+                    <li><a href="/docs/temporal-track/">Temporal Tracking</a><span
+                            class="docs-badge">New</span><span class="docs-desc">Event history, hot-docs
+                            leaderboard,
+                            activity histograms</span></li>
+                    <li><a href="/docs/symspell/">Spell Correction</a><span class="docs-badge">New</span><span
+                            class="docs-desc">SymSpell FTS corrections, custom
+                            dictionaries</span></li>
+                    <li><a href="/docs/wordpress-agent/">WordPress AI Agent</a><span
+                            class="docs-badge">New</span><span class="docs-desc">Build a chatbot for your WP
+                            site</span></li>
+                    <li><a href="/docs/chat/">Chat Widget</a><span class="docs-badge">New</span><span
+                            class="docs-desc">Embeddable AI chatbot powered by MDDB</span></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+{{end}}

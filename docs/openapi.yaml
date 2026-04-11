@@ -68,7 +68,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: "2.9.10"
+  version: "2.9.11"
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -875,18 +875,24 @@ paths:
               type: object
               required: [collection, lat, lng, radiusMeters]
               properties:
-                collection: {type: string}
-                lat: {type: number, format: double}
-                lng: {type: number, format: double}
-                radiusMeters: {type: number, format: double}
-                topK: {type: integer, default: 10}
-                algorithm: {type: string, enum: [rtree, geohash], default: rtree}
-                filterMeta: {type: object, additionalProperties: {type: array, items: {type: string}}}
-                includeContent: {type: boolean, default: false}
+                collection: { type: string }
+                lat: { type: number, format: double }
+                lng: { type: number, format: double }
+                radiusMeters: { type: number, format: double }
+                topK: { type: integer, default: 10 }
+                algorithm:
+                  { type: string, enum: [rtree, geohash], default: rtree }
+                filterMeta:
+                  {
+                    type: object,
+                    additionalProperties:
+                      { type: array, items: { type: string } },
+                  }
+                includeContent: { type: boolean, default: false }
       responses:
-        "200": {description: OK}
-        "400": {description: Invalid request}
-        "503": {description: Index still loading}
+        "200": { description: OK }
+        "400": { description: Invalid request }
+        "503": { description: Index still loading }
 
   /v1/geo-within:
     post:
@@ -903,15 +909,20 @@ paths:
               type: object
               required: [collection, minLat, maxLat, minLng, maxLng]
               properties:
-                collection: {type: string}
-                minLat: {type: number}
-                maxLat: {type: number}
-                minLng: {type: number}
-                maxLng: {type: number}
-                filterMeta: {type: object, additionalProperties: {type: array, items: {type: string}}}
-                includeContent: {type: boolean}
+                collection: { type: string }
+                minLat: { type: number }
+                maxLat: { type: number }
+                minLng: { type: number }
+                maxLng: { type: number }
+                filterMeta:
+                  {
+                    type: object,
+                    additionalProperties:
+                      { type: array, items: { type: string } },
+                  }
+                includeContent: { type: boolean }
       responses:
-        "200": {description: OK}
+        "200": { description: OK }
 
   /v1/geo-reindex:
     post:
@@ -927,16 +938,20 @@ paths:
             schema:
               type: object
               properties:
-                collection: {type: string, description: "Empty = rebuild all collections"}
+                collection:
+                  {
+                    type: string,
+                    description: "Empty = rebuild all collections",
+                  }
                 loadPostcodes:
                   type: array
                   items:
                     type: object
                     properties:
-                      country: {type: string}
-                      csvPath: {type: string}
+                      country: { type: string }
+                      csvPath: { type: string }
       responses:
-        "200": {description: OK}
+        "200": { description: OK }
 
   /v1/geo-stats:
     get:
@@ -945,7 +960,7 @@ paths:
       summary: Geo index statistics
       operationId: geoStats
       responses:
-        "200": {description: OK}
+        "200": { description: OK }
 
   /v1/geo-encode:
     post:
@@ -961,11 +976,12 @@ paths:
               type: object
               required: [lat, lng]
               properties:
-                lat: {type: number}
-                lng: {type: number}
-                precision: {type: integer, minimum: 1, maximum: 12, default: 12}
+                lat: { type: number }
+                lng: { type: number }
+                precision:
+                  { type: integer, minimum: 1, maximum: 12, default: 12 }
       responses:
-        "200": {description: OK}
+        "200": { description: OK }
 
   /v1/geo-decode:
     post:
@@ -981,9 +997,9 @@ paths:
               type: object
               required: [geohash]
               properties:
-                geohash: {type: string}
+                geohash: { type: string }
       responses:
-        "200": {description: OK}
+        "200": { description: OK }
 
   /v1/fts:
     post:
@@ -5942,7 +5958,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.9.10
+          example: 2.9.11
         uptimeSeconds:
           type: integer
           format: int64
@@ -6006,7 +6022,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.9.10
+          example: 2.9.11
         databasePath:
           type: string
           description: Path to the database file

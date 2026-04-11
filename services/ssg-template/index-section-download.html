@@ -1,0 +1,119 @@
+{{define "index_download"}}
+<!-- Download Section -->
+<section id="download" class="download">
+    <div class="container">
+        <h2>Download <a href="#download" class="anchor-link" aria-label="Link to Download section">#</a></h2>
+        <div class="download-grid">
+            <div class="download-card">
+                <h3>Latest Release</h3>
+                <div class="version" data-v>v{v}</div>
+                <p class="release-date" id="release-date">Released: April 11, 2026</p>
+                <div class="download-links">
+                    <a href="#"
+                        data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-v{v}-linux-amd64.tar.gz"
+                        class="download-link">
+                        <span class="platform">Linux AMD64</span>
+                        <span class="size">~29MB</span>
+                    </a>
+                    <a href="#"
+                        data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-v{v}-linux-arm64.tar.gz"
+                        class="download-link">
+                        <span class="platform">Linux ARM64</span>
+                        <span class="size">~29MB</span>
+                    </a>
+                    <a href="#"
+                        data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-v{v}-darwin-amd64.tar.gz"
+                        class="download-link">
+                        <span class="platform">macOS AMD64</span>
+                        <span class="size">~29MB</span>
+                    </a>
+                    <a href="#"
+                        data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-v{v}-darwin-arm64.tar.gz"
+                        class="download-link">
+                        <span class="platform">macOS ARM64</span>
+                        <span class="size">~29MB</span>
+                    </a>
+                    <a href="#"
+                        data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-v{v}-freebsd-amd64.tar.gz"
+                        class="download-link">
+                        <span class="platform">FreeBSD AMD64</span>
+                        <span class="size">~29MB</span>
+                    </a>
+                </div>
+                <div class="package-links">
+                    <a href="#"
+                        data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-{v}-linux-amd64.deb"
+                        class="package-link">
+                        📦 Debian/Ubuntu (.deb)
+                    </a>
+                    <a href="#"
+                        data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-{v}-linux-amd64.rpm"
+                        class="package-link">
+                        📦 RedHat/CentOS (.rpm)
+                    </a>
+                    <a href="https://snapcraft.io/mddbd" class="package-link" target="_blank" rel="noopener">
+                        🐧 Snap (Linux)
+                    </a>
+                </div>
+            </div>
+            <div class="download-card">
+                <h3>Package Managers</h3>
+                <div class="pkg-section">
+                    <p class="pkg-label">🍺 Homebrew <span class="pkg-platform">macOS &amp; Linux</span></p>
+                    <pre><code>brew tap tradik/tap
+brew install tradik/tap/mddb</code></pre>
+                    <a href="https://github.com/tradik/homebrew-tap" class="package-link" target="_blank"
+                        rel="noopener">View Tap on GitHub →</a>
+                </div>
+                <div class="pkg-section">
+                    <p class="pkg-label">🐧 Snap <span class="pkg-platform">Linux</span></p>
+                    <pre><code>sudo snap install mddbd
+sudo snap install mddb-cli</code></pre>
+                    <a href="https://snapcraft.io/mddbd" class="package-link" target="_blank"
+                        rel="noopener">View on Snap Store →</a>
+                </div>
+                <div class="pkg-section">
+                    <p class="pkg-label">🐳 Docker <span class="pkg-platform">All platforms</span></p>
+                    <pre><code id="docker-pull-code">docker pull tradik/mddb:latest</code></pre>
+                    <a href="https://hub.docker.com/r/tradik/mddb" class="package-link" target="_blank"
+                        rel="noopener">View on Docker Hub →</a>
+                </div>
+            </div>
+        </div>
+        <div class="release-notes">
+            <h3 id="whats-new-header">What's New in v2.9.11</h3>
+            <ul>
+                <li><strong>Unix Domain Socket transport</strong> — HTTP and gRPC servers now accept
+                    <code>MDDB_HTTP_ADDR=unix:/tmp/mddb.sock</code> /
+                    <code>MDDB_GRPC_ADDR=unix:/tmp/mddb-grpc.sock</code>. Zero-network local transport with
+                    <code>0600</code> filesystem perms. Python and PHP clients gain matching <code>unix:</code>
+                    scheme support — stdlib-only on Python, libcurl <code>CURLOPT_UNIX_SOCKET_PATH</code> on PHP.
+                </li>
+                <li><strong>Mutual TLS (mTLS)</strong> — new <code>MDDB_TLS_CLIENT_CA</code> +
+                    <code>MDDB_TLS_CLIENT_AUTH=require|request</code> configure client-cert verification on the
+                    HTTPS listener. <code>tls.Config.MinVersion</code> pinned to TLS 1.2.
+                </li>
+                <li><strong>MCP tool count audit</strong> — discovered the long-claimed "72 tools" was a
+                    documentation-only number that never matched code. Audited <code>mcpBuiltinTools()</code> vs
+                    the dispatch switch and surfaced one orphan tool (<code>aggregate</code>) that had a working
+                    handler but no declaration, so MCP clients could not see or call it. Declared it. Authoritative
+                    count is now <strong>67 tools</strong>.
+                </li>
+                <li><strong>Landing page Mermaid fix</strong> — replication diagram was rendering "Syntax error in
+                    text" on mermaid 10.9.5. Switched to <code>&lt;div class="mermaid"&gt;</code>, upgraded to
+                    mermaid@11, explicit <code>mermaid.run()</code>.
+                </li>
+                <li><strong>Geosearch docs 404 fix</strong> — <code>docs/GEOSEARCH.md</code> was missing SSG
+                    frontmatter, so <code>/docs/geosearch/</code> never built. Frontmatter added.
+                </li>
+                <li><strong>Landing page split into includes</strong> — the monolithic <code>index.html</code>
+                    (~1500 lines) is now composed of <code>index-section-*.html</code> files via Go template
+                    <code>{{"{{template ...}}"}}</code>. Easier to edit, easier to review.
+                </li>
+            </ul>
+            <a href="https://github.com/tradik/mddb/blob/main/CHANGELOG.md" target="_blank" rel="noopener">View
+                Full Changelog →</a>
+        </div>
+    </div>
+</section>
+{{end}}

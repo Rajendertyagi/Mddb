@@ -87,15 +87,22 @@ Welcome to the MDDB documentation! This guide will help you understand, deploy, 
 
 ## 📚 What is MDDB?
 
-MDDB (Markdown Database) is a lightweight, embedded database specifically designed for storing and managing markdown documents with metadata. It provides:
+MDDB (Markdown Database) is an **AI-native embedded document database** for markdown content. Single ~29 MB binary, embedded BoltDB storage, zero external dependencies. Core capabilities at a glance (full list in [FEATURES.md](FEATURES.md) and the root [README.md](../README.md)):
 
-- **RESTful API** - Simple HTTP/JSON interface
-- **Metadata Search** - Fast filtering and sorting
-- **Version History** - Complete revision tracking
-- **Multi-language** - Built-in language support
-- **Template Engine** - Variable substitution
-- **Easy Backup** - Simple backup/restore operations
-- **Single Binary** - No external dependencies
+- **Triple protocol** — HTTP/JSON REST, gRPC/Protobuf, GraphQL, all over TCP or Unix Domain Sockets
+- **Built-in [MCP server](MCP.md)** — 67 tools, MCP 2025-11-25 compliant, stdio + Streamable HTTP + SSE transports for Claude / Cursor / Windsurf / ChatGPT / Ollama / DeepSeek
+- **[Vector / semantic search](SEARCH.md)** — 7 index algorithms (Flat / HNSW / IVF / PQ / OPQ / SQ / BQ) with per-collection int8/int4 quantization; OpenAI / Ollama / Cohere / Voyage embeddings
+- **[Full-text search](SEARCH.md)** — TF-IDF / BM25 / BM25F / PMISparse, 7 modes (simple / boolean / phrase / wildcard / proximity / range / fuzzy), 18-language stemming, typo tolerance
+- **[Hybrid search](RAG-PIPELINE.md)** — sparse BM25 + dense vector via alpha blending or Reciprocal Rank Fusion
+- **[Geosearch](GEOSEARCH.md)** — R-tree + geohash radius / bounding-box queries, composable with FTS and vector
+- **[Memory RAG](RAG-PIPELINE.md)** — conversational memory with session management and semantic recall
+- **Multi-format upload** — `.md`, `.txt`, `.html`, `.pdf`, `.docx`, `.odt`, `.rtf`, `.tex`, `.yaml` auto-converted to Markdown; URL import; Wikipedia XML dump streaming
+- **[Authentication](AUTHENTICATION.md)** — JWT, API keys, per-collection RBAC, per-protocol access modes
+- **[TLS / mTLS](TLS.md)** — built-in HTTPS with optional client certificate authentication
+- **[Replication](REPLICATION.md)** — leader-follower binlog streaming for read scaling
+- **[Automation](AUTOMATIONS.md)** — triggers, crons, webhooks, sentiment analysis, template variables
+- **Document TTL** with auto-expiry, full **revision history**, **schema validation**, **aggregations** (facets + histograms)
+- **[Web Admin Panel](PANEL.md)** — React UI for documents, users, search, geo, settings
 
 ## 🎯 Common Use Cases
 
@@ -118,60 +125,22 @@ MDDB (Markdown Database) is a lightweight, embedded database specifically design
 
 ## 🔧 Key Features
 
-### Storage
-- **BoltDB** - Fast, embedded key-value store
-- **ACID** - Transactional guarantees
-- **Single File** - Easy to backup and move
-- **No Setup** - No database server required
-
-### API
-- **RESTful** - Standard HTTP methods
-- **JSON** - Simple request/response format
-- **Versioned** - API version in URL path
-- **Documented** - Complete API reference
-
-### Search
-- **Metadata Filtering** - Fast indexed searches
-- **Sorting** - By date or key
-- **Pagination** - Efficient large result sets
-- **Boolean Logic** - AND/OR combinations
-
-### Operations
-- **Backup/Restore** - Simple file-based backups
-- **Export** - NDJSON or ZIP formats
-- **Truncate** - Manage revision history
-- **Access Modes** - Read-only or read-write
+The full feature matrix is maintained in [FEATURES.md](FEATURES.md). Storage internals (buckets, data flow, design decisions) are in [ARCHITECTURE.md](ARCHITECTURE.md). Don't duplicate them here.
 
 ## 📊 Performance
 
-### Typical Performance
-- **Reads**: 1000+ ops/sec
-- **Writes**: 500+ ops/sec
-- **Search**: 100+ queries/sec
-- **Database Size**: Up to 10 GB recommended
-
-### Scalability
-- **Documents**: 10K - 1M documents
-- **Document Size**: < 1 MB each
-- **Concurrent Reads**: Unlimited
-- **Concurrent Writes**: Single writer (BoltDB)
+Numbers, methodology and benchmarks live in their own document — see **[BENCHMARK.md](../BENCHMARK.md)** (if present in this repo) or run the bench suite under `tools/bench/`. This index intentionally does not pin throughput targets that would drift from reality.
 
 ## 🔒 Security
 
-### Current State
-- No built-in authentication
-- No authorization
-- No encryption at rest
-- No TLS/HTTPS
+For the security model (the layers a request passes through, trust boundaries, what's deliberately out of scope) see the [Security Model](ARCHITECTURE.md#security-model) section in ARCHITECTURE.md. For practical setup:
 
-### Recommendations
-- Use reverse proxy (Nginx, Caddy)
-- Implement authentication at proxy level
-- Use firewall rules
-- Enable TLS at proxy
-- Run on private network
+- **[AUTHENTICATION.md](AUTHENTICATION.md)** — JWT, API keys, RBAC, group permissions
+- **[TLS.md](TLS.md)** — HTTPS + mTLS setup, openssl recipes, deployment patterns
+- **[config.md](config.md#unix-domain-socket-transport)** — Unix Domain Socket transport
+- **[DEPLOYMENT.md](DEPLOYMENT.md)** — production hardening checklist
 
-See [Deployment Guide](DEPLOYMENT.md) for security hardening.
+Version-by-version changes for any of these layers live in [CHANGELOG.md](../CHANGELOG.md), not here.
 
 ## 🛠️ Development
 
@@ -261,17 +230,8 @@ See [LICENSE](../LICENSE) file for details.
 
 ## 🗺️ Roadmap
 
-### Planned Features
-- Full-text search (Bleve/Meilisearch)
-- Built-in authentication
-- GraphQL API
-- WebSocket support
-- Replication
-- Plugin system
-- Compression
-- Metrics/monitoring
+The roadmap is maintained per release in [ROADMAP.md](ROADMAP.md). Past releases live in [CHANGELOG.md](../CHANGELOG.md).
 
-See [CHANGELOG.md](../CHANGELOG.md) for version history.
 
 ---
 

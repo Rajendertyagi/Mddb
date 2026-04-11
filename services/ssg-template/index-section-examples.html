@@ -1,0 +1,279 @@
+{{define "index_examples"}}
+<!-- Examples Section -->
+<section id="examples" class="examples">
+    <div class="container">
+        <h2>Code Examples <a href="#examples" class="anchor-link" aria-label="Link to Examples section">#</a>
+        </h2>
+        <div class="example-tabs">
+            <button class="example-tab active" data-example="add" id="example-add">Add Document <a
+                    href="#example-add" class="anchor-link"
+                    aria-label="Link to Add Document example">#</a></button>
+            <button class="example-tab" data-example="vector" id="example-vector">Vector Search <a
+                    href="#example-vector" class="anchor-link"
+                    aria-label="Link to Vector Search example">#</a></button>
+            <button class="example-tab" data-example="fts" id="example-fts">Full-Text Search <a
+                    href="#example-fts" class="anchor-link"
+                    aria-label="Link to Full-Text Search example">#</a></button>
+            <button class="example-tab" data-example="search" id="example-search">Metadata Search <a
+                    href="#example-search" class="anchor-link"
+                    aria-label="Link to Metadata Search example">#</a></button>
+            <button class="example-tab" data-example="python" id="example-python">Python <a
+                    href="#example-python" class="anchor-link"
+                    aria-label="Link to Python example">#</a></button>
+            <button class="example-tab" data-example="php" id="example-php">PHP <a href="#example-php"
+                    class="anchor-link" aria-label="Link to PHP example">#</a></button>
+            <button class="example-tab" data-example="mcp" id="example-mcp">MCP Setup <a href="#example-mcp"
+                    class="anchor-link" aria-label="Link to MCP Setup example">#</a></button>
+        </div>
+        <div class="example-content">
+            <div class="example-pane active" id="add">
+                <div class="terminal">
+                    <div class="terminal-header">
+                        <div class="terminal-dots">
+                            <span class="terminal-dot red"></span>
+                            <span class="terminal-dot yellow"></span>
+                            <span class="terminal-dot green"></span>
+                        </div>
+                        <span class="terminal-title">bash — mddb</span>
+                    </div>
+                    <pre><code data-terminal="bash"># Add document with TTL (expires in 1 hour)
+curl -X POST http://localhost:11023/v1/add \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "blog",
+    "key": "hello-world",
+    "lang": "en_US",
+    "ttl": 3600,
+    "meta": {
+      "category": ["tutorial"],
+      "author": ["John Doe"]
+    },
+    "contentMd": "# Hello World\n\nWelcome to MDDB!"
+  }'
+
+# Import directly from URL
+curl -X POST http://localhost:11023/v1/import-url \
+  -d '{"collection":"docs", "url":"https://example.com/guide.md", "lang":"en_US"}'</code></pre>
+                </div>
+            </div>
+            <div class="example-pane" id="vector">
+                <div class="terminal">
+                    <div class="terminal-header">
+                        <div class="terminal-dots">
+                            <span class="terminal-dot red"></span>
+                            <span class="terminal-dot yellow"></span>
+                            <span class="terminal-dot green"></span>
+                        </div>
+                        <span class="terminal-title">bash — vector search</span>
+                    </div>
+                    <pre><code data-terminal="bash"># Semantic search - flat (exact, default)
+curl -X POST http://localhost:11023/v1/vector-search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "kb",
+    "query": "how do I cancel my subscription?",
+    "topK": 5,
+    "threshold": 0.7,
+    "includeContent": true
+  }'
+
+# HNSW - fast approximate nearest neighbor
+curl -X POST http://localhost:11023/v1/vector-search \
+  -d '{"collection":"kb", "query":"refund", "topK":5, "algorithm":"hnsw"}'
+
+# IVF - clustered search for large collections
+curl -X POST http://localhost:11023/v1/vector-search \
+  -d '{"collection":"kb", "query":"refund", "topK":5, "algorithm":"ivf"}'
+
+# PQ - compressed, memory-efficient search
+curl -X POST http://localhost:11023/v1/vector-search \
+  -d '{"collection":"kb", "query":"refund", "topK":5, "algorithm":"pq"}'</code></pre>
+                </div>
+            </div>
+            <div class="example-pane" id="fts">
+                <div class="terminal">
+                    <div class="terminal-header">
+                        <div class="terminal-dots">
+                            <span class="terminal-dot red"></span>
+                            <span class="terminal-dot yellow"></span>
+                            <span class="terminal-dot green"></span>
+                        </div>
+                        <span class="terminal-title">bash — full-text search</span>
+                    </div>
+                    <pre><code data-terminal="bash"># Simple search with BM25 scoring
+curl -X POST http://localhost:11023/v1/fts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "blog",
+    "query": "markdown database tutorial",
+    "limit": 10,
+    "algorithm": "bm25"
+  }'
+
+# Boolean search (AND, OR, NOT, +required, -excluded)
+curl -X POST http://localhost:11023/v1/fts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "blog",
+    "query": "rust AND performance NOT garbage",
+    "mode": "boolean"
+  }'
+
+# Phrase search — exact word sequence
+curl -X POST http://localhost:11023/v1/fts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "blog",
+    "query": "\"machine learning\"",
+    "mode": "phrase"
+  }'
+
+# Proximity search — terms within 5 words
+curl -X POST http://localhost:11023/v1/fts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "blog",
+    "query": "\"database performance\"~5",
+    "mode": "proximity",
+    "distance": 5
+  }'</code></pre>
+                </div>
+            </div>
+            <div class="example-pane" id="search">
+                <div class="terminal">
+                    <div class="terminal-header">
+                        <div class="terminal-dots">
+                            <span class="terminal-dot red"></span>
+                            <span class="terminal-dot yellow"></span>
+                            <span class="terminal-dot green"></span>
+                        </div>
+                        <span class="terminal-title">bash — metadata search</span>
+                    </div>
+                    <pre><code data-terminal="bash">curl -X POST http://localhost:11023/v1/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "blog",
+    "filterMeta": {
+      "category": ["tutorial"],
+      "status": ["published"]
+    },
+    "sort": "updatedAt",
+    "limit": 10
+  }'</code></pre>
+                </div>
+            </div>
+            <div class="example-pane" id="python">
+                <div class="terminal">
+                    <div class="terminal-header">
+                        <div class="terminal-dots">
+                            <span class="terminal-dot red"></span>
+                            <span class="terminal-dot yellow"></span>
+                            <span class="terminal-dot green"></span>
+                        </div>
+                        <span class="terminal-title">python3 — mddb client</span>
+                    </div>
+                    <pre><code data-terminal="python">from mddb import MDDB
+
+# TCP connection
+db = MDDB.connect('localhost:11023', 'write').collection('kb')
+
+# Unix Domain Socket (MDDB 2.9.11+, zero-network local transport)
+# db = MDDB.connect('unix:/tmp/mddb.sock', 'write').collection('kb')
+
+# Add document
+db.add('faq', 'en_US', {'category': ['billing']}, '# Billing FAQ\n\nCancel in Settings.')
+
+# Vector search (RAG pipeline step 1)
+results = db.vector_search('how to cancel?', top_k=3, include_content=True)
+
+# Full-text search
+results = db.fts_search('billing refund', limit=10)
+
+# Webhooks
+db.register_webhook('https://app.com/hook', ['doc.added'], 'kb')
+
+# Import from URL
+db.import_url('https://example.com/docs.md', 'en_US')
+
+# TTL
+db.set_ttl('temp-key', 'en', 3600)  # expires in 1h</code></pre>
+                </div>
+            </div>
+            <div class="example-pane" id="php">
+                <div class="terminal">
+                    <div class="terminal-header">
+                        <div class="terminal-dots">
+                            <span class="terminal-dot red"></span>
+                            <span class="terminal-dot yellow"></span>
+                            <span class="terminal-dot green"></span>
+                        </div>
+                        <span class="terminal-title">php — mddb client</span>
+                    </div>
+                    <pre><code data-terminal="php">&lt;?php
+require_once 'mddb.php';
+
+// TCP connection
+$db = mddb::connect('localhost:11023', 'write');
+
+// Unix Domain Socket (MDDB 2.9.11+)
+// $db = mddb::connect('unix:/tmp/mddb.sock', 'write');
+
+// Add document
+$db->collection('blog')->add('hello', 'en_US', ['category' => ['tutorial']], '# Hello');
+
+// Vector search
+$results = $db->collection('kb')->vectorSearch('cancel subscription', 5, 0.7, true);
+
+// Full-text search
+$results = $db->collection('blog')->ftsSearch('database tutorial', 10);
+
+// Webhooks
+$db->registerWebhook('https://app.com/hook', ['doc.added', 'doc.updated']);
+
+// Import from URL
+$db->collection('docs')->importUrl('https://example.com/post.md', 'en_US');
+
+// TTL
+$db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
+                </div>
+            </div>
+            <div class="example-pane" id="mcp">
+                <div class="terminal">
+                    <div class="terminal-header">
+                        <div class="terminal-dots">
+                            <span class="terminal-dot red"></span>
+                            <span class="terminal-dot yellow"></span>
+                            <span class="terminal-dot green"></span>
+                        </div>
+                        <span class="terminal-title">json — mcp.json</span>
+                    </div>
+                    <pre><code data-terminal="json"># Docker (Easiest) - for Windsurf / Claude Desktop
+# Configure ~/.windsurf/mcp.json:
+{
+  "mcpServers": {
+    "mddb": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm", "--network", "host",
+        "-e", "MDDB_GRPC_ADDRESS=localhost:11024",
+        "-e", "MDDB_REST_BASE_URL=http://localhost:11023",
+        "-e", "MDDB_MCP_STDIO=true",
+        "tradik/mddb:latest"
+      ]
+    }
+  }
+}
+
+# MCP provides 67 built-in tools including:
+# - add_document, search_documents, semantic_search
+# - full_text_search, hybrid_search, cross_search
+# - classify_document, find_duplicates
+# - geo_search, geo_within, geo_encode, geo_decode, geo_stats
+# - automation, webhooks, schemas, backups
+# - collection config, revisions, aggregate, and more</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{{end}}

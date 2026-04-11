@@ -7,200 +7,233 @@ import (
 	"time"
 )
 
-// Mock ServerInterface for testing
-type mockServer struct {
-	authenticateFn    func(username, password string) (UserInfo, error)
-	generateJWTFn     func(username string, isAdmin bool) (string, int64, error)
-	getClaimsFn       func(ctx context.Context) (Claims, bool)
-	checkPermissionFn func(ctx context.Context, collection string, perm int) error
-	getDocumentFn     func(ctx context.Context, collection, key, lang string, env map[string]string) (interface{}, error)
-	deleteDocumentFn  func(ctx context.Context, collection, key, lang string) error
+// stubServer is a no-op implementation of ServerInterface used by resolver
+// unit tests. Each test overrides only the function fields it needs; all
+// other methods return errors so an unexpected call surfaces immediately.
+type stubServer struct {
+	authenticate    func(username, password string) (UserInfo, error)
+	generateJWT     func(username string, isAdmin bool) (string, int64, error)
+	getClaims       func(ctx context.Context) (Claims, bool)
+	checkPermission func(ctx context.Context, collection string, perm int) error
+	deleteDocument  func(ctx context.Context, collection, key, lang string) error
 }
 
-func (m *mockServer) Authenticate(username, password string) (UserInfo, error) {
-	if m.authenticateFn != nil {
-		return m.authenticateFn(username, password)
+func (s *stubServer) Authenticate(username, password string) (UserInfo, error) {
+	if s.authenticate != nil {
+		return s.authenticate(username, password)
 	}
 	return UserInfo{}, errors.New("not implemented")
 }
-
-func (m *mockServer) GenerateJWT(username string, isAdmin bool) (string, int64, error) {
-	if m.generateJWTFn != nil {
-		return m.generateJWTFn(username, isAdmin)
+func (s *stubServer) GenerateJWT(username string, isAdmin bool) (string, int64, error) {
+	if s.generateJWT != nil {
+		return s.generateJWT(username, isAdmin)
 	}
 	return "", 0, errors.New("not implemented")
 }
-
-func (m *mockServer) GetClaimsFromContext(ctx context.Context) (Claims, bool) {
-	if m.getClaimsFn != nil {
-		return m.getClaimsFn(ctx)
+func (s *stubServer) GetClaimsFromContext(ctx context.Context) (Claims, bool) {
+	if s.getClaims != nil {
+		return s.getClaims(ctx)
 	}
 	return Claims{}, false
 }
-
-func (m *mockServer) CheckPermission(ctx context.Context, collection string, perm int) error {
-	if m.checkPermissionFn != nil {
-		return m.checkPermissionFn(ctx, collection, perm)
+func (s *stubServer) CheckPermission(ctx context.Context, collection string, perm int) error {
+	if s.checkPermission != nil {
+		return s.checkPermission(ctx, collection, perm)
 	}
 	return nil
 }
+func (s *stubServer) IsAuthEnabled() bool { return false }
 
-func (m *mockServer) GetDocument(ctx context.Context, collection, key, lang string, env map[string]string) (interface{}, error) {
-	if m.getDocumentFn != nil {
-		return m.getDocumentFn(ctx, collection, key, lang, env)
-	}
+func (s *stubServer) GetDocument(_ context.Context, _, _, _ string, _ map[string]string) (*Document, error) {
 	return nil, errors.New("not implemented")
 }
-
-func (m *mockServer) SearchDocuments(ctx context.Context, collection string, filterMeta map[string][]string, sort string, asc bool, limit, offset int) (interface{}, error) {
-	return nil, errors.New("not yet implemented - use REST API")
+func (s *stubServer) SearchDocuments(_ context.Context, _ SearchInput) (*DocumentConnection, error) {
+	return nil, errors.New("not implemented")
 }
-
-func (m *mockServer) AddDocument(ctx context.Context, collection, key, lang string, meta map[string][]string, contentMd string, ttl int64) (interface{}, bool, error) {
-	return nil, false, errors.New("not yet implemented - use REST API")
+func (s *stubServer) AddDocument(_ context.Context, _ AddDocumentInput) (*Document, error) {
+	return nil, errors.New("not implemented")
 }
-
-func (m *mockServer) DeleteDocument(ctx context.Context, collection, key, lang string) error {
-	if m.deleteDocumentFn != nil {
-		return m.deleteDocumentFn(ctx, collection, key, lang)
+func (s *stubServer) UpdateDocument(_ context.Context, _ UpdateDocumentInput) (*Document, error) {
+	return nil, errors.New("not implemented")
+}
+func (s *stubServer) DeleteDocument(ctx context.Context, collection, key, lang string) error {
+	if s.deleteDocument != nil {
+		return s.deleteDocument(ctx, collection, key, lang)
 	}
 	return errors.New("not implemented")
 }
-
-func (m *mockServer) GetStats(ctx context.Context) (interface{}, error) {
-	return nil, errors.New("not yet implemented - use REST API")
+func (s *stubServer) DeleteCollection(_ context.Context, _ string) (int, error) {
+	return 0, errors.New("not implemented")
+}
+func (s *stubServer) AddBatch(_ context.Context, _ string, _ []*AddBatchDocumentInput) (*BatchAddResult, error) {
+	return nil, errors.New("not implemented")
+}
+func (s *stubServer) IngestDocuments(_ context.Context, _ string, _ []*IngestDocumentInput, _ *IngestOptionsInput) (*IngestResult, error) {
+	return nil, errors.New("not implemented")
+}
+func (s *stubServer) SetTTL(_ context.Context, _, _, _ string, _ int) (*Document, error) {
+	return nil, errors.New("not implemented")
+}
+func (s *stubServer) ImportURL(_ context.Context, _, _ string, _ *string, _ string, _ []*MetaInput, _ *int) (*Document, error) {
+	return nil, errors.New("not implemented")
+}
+func (s *stubServer) VectorSearch(_ context.Context, _ VectorSearchInput) (*VectorSearchResponse, error) {
+	return nil, errors.New("not implemented")
+}
+func (s *stubServer) VectorStats(_ context.Context) (*VectorStats, error) {
+	return nil, errors.New("not implemented")
+}
+func (s *stubServer) VectorReindex(_ context.Context, _ string, _ *bool) (*VectorStats, error) {
+	return nil, errors.New("not implemented")
+}
+func (s *stubServer) FullTextSearch(_ context.Context, _ FTSInput) (*FTSResponse, error) {
+	return nil, errors.New("not implemented")
+}
+func (s *stubServer) GetStats(_ context.Context) (*Stats, error) {
+	return nil, errors.New("not implemented")
+}
+func (s *stubServer) GetSchema(_ context.Context, _ string) (*Schema, error) {
+	return nil, errors.New("not implemented")
+}
+func (s *stubServer) ListSchemas(_ context.Context) ([]*Schema, error) {
+	return nil, errors.New("not implemented")
+}
+func (s *stubServer) SetSchema(_ context.Context, _ SetSchemaInput) error {
+	return errors.New("not implemented")
+}
+func (s *stubServer) DeleteSchema(_ context.Context, _ string) error {
+	return errors.New("not implemented")
+}
+func (s *stubServer) ValidateDocument(_ context.Context, _ string, _ []*MetaInput) (*ValidationResult, error) {
+	return nil, errors.New("not implemented")
+}
+func (s *stubServer) ListWebhooks(_ context.Context, _ *string) ([]*Webhook, error) {
+	return nil, errors.New("not implemented")
+}
+func (s *stubServer) RegisterWebhook(_ context.Context, _ RegisterWebhookInput) (*Webhook, error) {
+	return nil, errors.New("not implemented")
+}
+func (s *stubServer) DeleteWebhook(_ context.Context, _ string) error {
+	return errors.New("not implemented")
+}
+func (s *stubServer) Me(_ context.Context) (*User, error) {
+	return nil, errors.New("not implemented")
+}
+func (s *stubServer) ListUsers(_ context.Context) ([]*User, error) {
+	return nil, errors.New("not implemented")
+}
+func (s *stubServer) Register(_ context.Context, _, _ string) (*User, error) {
+	return nil, errors.New("not implemented")
+}
+func (s *stubServer) CreateAPIKey(_ context.Context, _ CreateAPIKeyInput) (*APIKey, error) {
+	return nil, errors.New("not implemented")
+}
+func (s *stubServer) SetPermission(_ context.Context, _ SetPermissionInput) error {
+	return errors.New("not implemented")
+}
+func (s *stubServer) UserPermissionsList(_ context.Context, _ string) ([]*UserPermission, error) {
+	return nil, errors.New("not implemented")
+}
+func (s *stubServer) ListGroups(_ context.Context) ([]*Group, error) {
+	return nil, errors.New("not implemented")
+}
+func (s *stubServer) GroupPermissionsList(_ context.Context, _ string) ([]*GroupPermission, error) {
+	return nil, errors.New("not implemented")
+}
+func (s *stubServer) CreateGroup(_ context.Context, _ CreateGroupInput) (*Group, error) {
+	return nil, errors.New("not implemented")
+}
+func (s *stubServer) UpdateGroup(_ context.Context, _, _ string, _ []string) (*Group, error) {
+	return nil, errors.New("not implemented")
+}
+func (s *stubServer) DeleteGroup(_ context.Context, _ string) error {
+	return errors.New("not implemented")
+}
+func (s *stubServer) SetGroupPermission(_ context.Context, _ SetGroupPermissionInput) error {
+	return errors.New("not implemented")
 }
 
-func (m *mockServer) VectorSearch(ctx context.Context, collection, query string, queryVector []float32, topK int, threshold float64, filterMeta map[string][]string, includeContent bool) (interface{}, error) {
-	return nil, errors.New("not yet implemented - use REST API")
-}
-
+// =============================================================================
 // Tests
+// =============================================================================
 
 func TestLogin_Success(t *testing.T) {
-	mock := &mockServer{
-		authenticateFn: func(username, password string) (UserInfo, error) {
+	stub := &stubServer{
+		authenticate: func(username, password string) (UserInfo, error) {
 			if username == "admin" && password == "secret" {
-				return UserInfo{
-					Username:  "admin",
-					Admin:     true,
-					CreatedAt: time.Now().Unix(),
-				}, nil
+				return UserInfo{Username: "admin", Admin: true, CreatedAt: time.Now().Unix()}, nil
 			}
 			return UserInfo{}, errors.New("invalid credentials")
 		},
-		generateJWTFn: func(username string, isAdmin bool) (string, int64, error) {
+		generateJWT: func(username string, isAdmin bool) (string, int64, error) {
 			return "mock-jwt-token", time.Now().Add(24 * time.Hour).Unix(), nil
 		},
 	}
+	mut := &mutationResolver{&Resolver{server: stub}}
 
-	resolver := &Resolver{server: mock}
-	mutResolver := &mutationResolver{resolver}
-
-	result, err := mutResolver.Login(context.Background(), "admin", "secret")
+	result, err := mut.Login(context.Background(), "admin", "secret")
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
-
 	if result.Token != "mock-jwt-token" {
 		t.Errorf("Expected token 'mock-jwt-token', got %s", result.Token)
 	}
-
 	if result.ExpiresAt <= time.Now().Unix() {
 		t.Errorf("Expected future expiration time, got %d", result.ExpiresAt)
 	}
 }
 
 func TestLogin_InvalidCredentials(t *testing.T) {
-	mock := &mockServer{
-		authenticateFn: func(username, password string) (UserInfo, error) {
+	stub := &stubServer{
+		authenticate: func(username, password string) (UserInfo, error) {
 			return UserInfo{}, errors.New("invalid credentials")
 		},
 	}
+	mut := &mutationResolver{&Resolver{server: stub}}
 
-	resolver := &Resolver{server: mock}
-	mutResolver := &mutationResolver{resolver}
-
-	_, err := mutResolver.Login(context.Background(), "admin", "wrongpass")
+	_, err := mut.Login(context.Background(), "admin", "wrongpass")
 	if err == nil {
-		t.Fatal("Expected error for invalid credentials, got nil")
+		t.Fatal("Expected error for invalid credentials")
 	}
-
-	if err.Error() != "authentication failed: invalid credentials" {
-		t.Errorf("Expected 'authentication failed: invalid credentials', got %s", err.Error())
+	if err.Error() != "invalid credentials" {
+		t.Errorf("Expected 'invalid credentials', got %q", err.Error())
 	}
 }
 
 func TestDeleteDocument_Success(t *testing.T) {
-	mock := &mockServer{
-		checkPermissionFn: func(ctx context.Context, collection string, perm int) error {
-			// Allow delete (write permission = 1)
-			if perm == 1 {
-				return nil
-			}
-			return errors.New("permission denied")
-		},
-		deleteDocumentFn: func(ctx context.Context, collection, key, lang string) error {
+	stub := &stubServer{
+		deleteDocument: func(_ context.Context, collection, key, lang string) error {
 			if collection == "blog" && key == "post1" && lang == "en" {
 				return nil
 			}
 			return errors.New("not found")
 		},
 	}
+	mut := &mutationResolver{&Resolver{server: stub}}
 
-	resolver := &Resolver{server: mock}
-	mutResolver := &mutationResolver{resolver}
-
-	result, err := mutResolver.DeleteDocument(context.Background(), "blog", "post1", "en")
+	ok, err := mut.DeleteDocument(context.Background(), "blog", "post1", "en")
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
-
-	if !result {
+	if !ok {
 		t.Error("Expected true, got false")
 	}
 }
 
-func TestDeleteDocument_PermissionDenied(t *testing.T) {
-	mock := &mockServer{
-		checkPermissionFn: func(ctx context.Context, collection string, perm int) error {
-			return errors.New("insufficient permissions")
+func TestDeleteDocument_PropagatesError(t *testing.T) {
+	stub := &stubServer{
+		deleteDocument: func(_ context.Context, _, _, _ string) error {
+			return errors.New("permission denied")
 		},
 	}
+	mut := &mutationResolver{&Resolver{server: stub}}
 
-	resolver := &Resolver{server: mock}
-	mutResolver := &mutationResolver{resolver}
-
-	_, err := mutResolver.DeleteDocument(context.Background(), "blog", "post1", "en")
+	ok, err := mut.DeleteDocument(context.Background(), "blog", "post1", "en")
 	if err == nil {
-		t.Fatal("Expected permission error, got nil")
+		t.Fatal("Expected error")
 	}
-
-	if err.Error() != "permission denied: insufficient permissions" {
-		t.Errorf("Expected permission error, got %s", err.Error())
-	}
-}
-
-func TestDeleteDocument_NotFound(t *testing.T) {
-	mock := &mockServer{
-		checkPermissionFn: func(ctx context.Context, collection string, perm int) error {
-			return nil
-		},
-		deleteDocumentFn: func(ctx context.Context, collection, key, lang string) error {
-			return errors.New("document not found")
-		},
-	}
-
-	resolver := &Resolver{server: mock}
-	mutResolver := &mutationResolver{resolver}
-
-	result, err := mutResolver.DeleteDocument(context.Background(), "blog", "nonexistent", "en")
-	if err == nil {
-		t.Fatal("Expected error, got nil")
-	}
-
-	if result {
-		t.Error("Expected false when error occurs, got true")
+	if ok {
+		t.Error("Expected false on error")
 	}
 }
 
@@ -211,13 +244,9 @@ func TestMapMetaInputToInternal(t *testing.T) {
 		expected map[string][]string
 	}{
 		{
-			name: "single meta",
-			input: []*MetaInput{
-				{Key: "author", Values: []string{"John"}},
-			},
-			expected: map[string][]string{
-				"author": {"John"},
-			},
+			name:     "single meta",
+			input:    []*MetaInput{{Key: "author", Values: []string{"John"}}},
+			expected: map[string][]string{"author": {"John"}},
 		},
 		{
 			name: "multiple meta",
@@ -236,40 +265,33 @@ func TestMapMetaInputToInternal(t *testing.T) {
 			expected: map[string][]string{},
 		},
 		{
-			name: "nil value in slice",
+			name: "nil entry",
 			input: []*MetaInput{
 				{Key: "author", Values: []string{"John"}},
 				nil,
 			},
-			expected: map[string][]string{
-				"author": {"John"},
-			},
+			expected: map[string][]string{"author": {"John"}},
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := MapMetaInputToInternal(tt.input)
-
 			if len(result) != len(tt.expected) {
 				t.Errorf("Expected %d keys, got %d", len(tt.expected), len(result))
 			}
-
 			for key, expectedVals := range tt.expected {
 				actualVals, ok := result[key]
 				if !ok {
-					t.Errorf("Missing key %s in result", key)
+					t.Errorf("Missing key %s", key)
 					continue
 				}
-
 				if len(actualVals) != len(expectedVals) {
-					t.Errorf("For key %s: expected %d values, got %d", key, len(expectedVals), len(actualVals))
+					t.Errorf("For %s: expected %d values, got %d", key, len(expectedVals), len(actualVals))
 					continue
 				}
-
-				for i, expectedVal := range expectedVals {
-					if actualVals[i] != expectedVal {
-						t.Errorf("For key %s at index %d: expected %s, got %s", key, i, expectedVal, actualVals[i])
+				for i, v := range expectedVals {
+					if actualVals[i] != v {
+						t.Errorf("For %s[%d]: expected %s, got %s", key, i, v, actualVals[i])
 					}
 				}
 			}

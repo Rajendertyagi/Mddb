@@ -1,15 +1,31 @@
 <?php
 
+/**
+ * MDDB PHP client.
+ *
+ * TCP:   mddb::connect('localhost:11023', 'read')
+ * UDS:   mddb::connect('unix:/tmp/mddb.sock', 'read')   // MDDB 2.9.11+
+ */
 class mddb {
   private string $base;
   private string $mode;
   private string $collection = '';
   private array $env = [];
+  private ?string $unixSocket = null;
 
   public static function connect(string $addr, string $mode = 'read'): self {
     $i = new self;
-    $i->base = "http://$addr/v1";
     $i->mode = $mode;
+    if (strncmp($addr, 'unix:', 5) === 0) {
+      $path = substr($addr, 5);
+      if (strncmp($path, '//', 2) === 0) {
+        $path = substr($path, 2);
+      }
+      $i->unixSocket = $path;
+      $i->base = 'http://localhost/v1';
+    } else {
+      $i->base = "http://$addr/v1";
+    }
     return $i;
   }
 
@@ -176,6 +192,9 @@ class mddb {
   private function httpGet(string $path) {
     $ch = curl_init($this->base . $path);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    if ($this->unixSocket !== null) {
+      curl_setopt($ch, CURLOPT_UNIX_SOCKET_PATH, $this->unixSocket);
+    }
     $res = curl_exec($ch);
     if ($res === false) throw new Exception(curl_error($ch));
     $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -190,6 +209,9 @@ class mddb {
     curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    if ($this->unixSocket !== null) {
+      curl_setopt($ch, CURLOPT_UNIX_SOCKET_PATH, $this->unixSocket);
+    }
     $res = curl_exec($ch);
     if ($res === false) throw new Exception(curl_error($ch));
     $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);

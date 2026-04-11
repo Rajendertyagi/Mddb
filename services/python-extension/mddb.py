@@ -3,17 +3,51 @@ MDDB Python Client - HTTP REST client for MDDB (Markdown Database).
 
 Zero external dependencies - uses only Python stdlib.
 
-Usage:
+Usage (TCP):
     from mddb import MDDB
 
     db = MDDB.connect('localhost:11023', 'read')
     db = db.collection('blog')
     doc = db.get('homepage', 'en_GB')
+
+Usage (Unix Domain Socket, MDDB 2.9.11+):
+    db = MDDB.connect('unix:/tmp/mddb.sock', 'read')
+    db = db.collection('blog')
+    doc = db.get('homepage', 'en_GB')
 """
 
+import http.client
 import json
-import urllib.request
+import socket
 import urllib.error
+import urllib.request
+
+
+class _UnixHTTPConnection(http.client.HTTPConnection):
+    """HTTPConnection that dials a Unix Domain Socket instead of TCP."""
+
+    def __init__(self, socket_path: str, timeout=None):
+        super().__init__('localhost', timeout=timeout)
+        self._socket_path = socket_path
+
+    def connect(self):
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        if self.timeout is not None and self.timeout is not socket._GLOBAL_DEFAULT_TIMEOUT:
+            sock.settimeout(self.timeout)
+        sock.connect(self._socket_path)
+        self.sock = sock
+
+
+class _UnixHTTPHandler(urllib.request.HTTPHandler):
+    """urllib HTTP handler that routes every request through a UDS path."""
+
+    def __init__(self, socket_path: str):
+        super().__init__()
+        self._socket_path = socket_path
+
+    def http_open(self, req):
+        sp = self._socket_path
+        return self.do_open(lambda host, timeout=None: _UnixHTTPConnection(sp, timeout), req)
 
 
 class MDDB:
@@ -22,13 +56,29 @@ class MDDB:
         self._mode = 'read'
         self._collection = ''
         self._env = {}
+        self._opener = urllib.request.build_opener()
 
     @staticmethod
     def connect(addr: str, mode: str = 'read') -> 'MDDB':
-        """Connect to MDDB server. Mode: 'read' or 'write'."""
+        """Connect to MDDB server.
+
+        addr forms:
+          * 'host:port'        — plain TCP HTTP (default MDDB listener)
+          * 'unix:/path.sock'  — Unix Domain Socket (MDDB 2.9.11+)
+
+        mode: 'read' (default) or 'write'.
+        """
         db = MDDB()
-        db._base = f'http://{addr}/v1'
         db._mode = mode
+        if addr.startswith('unix:'):
+            # Tolerate both 'unix:/path' and 'unix:///path' forms.
+            path = addr[len('unix:'):]
+            if path.startswith('//'):
+                path = path[2:]
+            db._base = 'http://localhost/v1'
+            db._opener = urllib.request.build_opener(_UnixHTTPHandler(path))
+        else:
+            db._base = f'http://{addr}/v1'
         return db
 
     def collection(self, name: str) -> 'MDDB':
@@ -287,7 +337,7 @@ class MDDB:
 
     def _do(self, req):
         try:
-            with urllib.request.urlopen(req) as resp:
+            with self._opener.open(req) as resp:
                 return json.loads(resp.read().decode('utf-8'))
         except urllib.error.HTTPError as e:
             body = e.read().decode('utf-8')
