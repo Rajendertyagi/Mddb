@@ -384,4 +384,4 @@ sudo rm /usr/local/share/man/man1/mddb-cli.1
 
 ## License
 
-MIT License - see [LICENSE](../../LICENSE) for details.
+BSD 3-Clause License - see [LICENSE](../../LICENSE) for details.

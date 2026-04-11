@@ -130,12 +130,12 @@ Contributions are welcome! Please read our contributing guidelines.
 
 ## License
 
-MIT License - see LICENSE file for details.
+BSD 3-Clause License - see LICENSE file for details.
 `,
 
   readme: `# Project Name
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-1.0.0-green.svg)](https://github.com/user/repo)
 
 **Brief description of your project**
@@ -204,7 +204,7 @@ Description of what this method does.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the BSD 3-Clause License - see the [LICENSE](LICENSE) file for details.
 
 ## Contact
 

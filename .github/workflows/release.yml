@@ -223,7 +223,7 @@ jobs:
           Version:        ${VERSION_NUM}
           Release:        1%{?dist}
           Summary:        High-performance markdown database server
-          License:        MIT
+          License:        BSD-3-Clause
           URL:            https://github.com/tradik/mddb
           Source0:        mddbd-${VERSION_NUM}.tar.gz
 
@@ -464,7 +464,7 @@ jobs:
           Version:        ${VERSION_NUM}
           Release:        1%{?dist}
           Summary:        Command-line client for MDDB
-          License:        MIT
+          License:        BSD-3-Clause
           URL:            https://github.com/tradik/mddb
           Source0:        mddb-cli-${VERSION_NUM}.tar.gz
 

@@ -9,7 +9,7 @@ status: publish
 
 ![Performance](https://img.shields.io/badge/performance-29.8k%20docs%2Fs-brightgreen.svg)
 ![Go Version](https://img.shields.io/badge/Go-1.25-blue.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
+![License](https://img.shields.io/badge/license-BSD--3--Clause-green.svg)
 
 **The fastest markdown database with gRPC and HTTP/3 support**
 
@@ -325,7 +325,7 @@ curl http://localhost:11023/stats
 
 ## 📄 License
 
-MIT License - see [LICENSE](https://github.com/tradik/mddb/blob/main/LICENSE)
+BSD 3-Clause License - see [LICENSE](https://github.com/tradik/mddb/blob/main/LICENSE)
 
 ## 🌟 Why MDDB?
 
@@ -335,7 +335,7 @@ MIT License - see [LICENSE](https://github.com/tradik/mddb/blob/main/LICENSE)
 - **Zero Dependencies**: Embedded database, no external services
 - **Modern Protocols**: HTTP/3, gRPC, Protobuf
 - **Rich Features**: Metadata, revisions, search, backup
-- **Open Source**: MIT licensed, community driven
+- **Open Source**: BSD 3-Clause licensed, community driven
 
 ---
 

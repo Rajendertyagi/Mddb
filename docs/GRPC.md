@@ -748,4 +748,4 @@ All HTTP endpoints have equivalent gRPC methods with the same functionality.
 
 ## License
 
-MIT License - see [LICENSE](../LICENSE) for details.
+BSD 3-Clause License - see [LICENSE](../LICENSE) for details.

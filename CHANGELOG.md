@@ -25,6 +25,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`swapParallelConfig`/`MinSize`/`Workers` test helpers** ([services/mddbd/vector_parallel_test.go](services/mddbd/vector_parallel_test.go)) — take `int32` directly (matching the underlying `atomic.Int32`) instead of `int`+conversion, eliminating `gosec G115` overflow warnings.
 
 ### Chore
+- **License consistency sweep — BSD-3-Clause everywhere** — the canonical `LICENSE` file at the repo root declares BSD-3-Clause, but documentation, packaging metadata, and even distributed artifacts had drifted to claim MIT in several places. Audited and fixed all of them in one pass:
+  - **Distributed artifacts (critical — these ship to end users)**:
+    - [.github/workflows/release.yml](.github/workflows/release.yml) — RPM spec for both `mddbd` and `mddb-cli` changed from `License: MIT` to `License: BSD-3-Clause`. Affects every `.rpm` package built from a release tag.
+    - [scripts/mddb_model.py](scripts/mddb_model.py) — Open WebUI module frontmatter changed from `license: MIT` to `license: BSD-3-Clause`. This file is published to the Open WebUI Community registry and imported as a RAG model by end users.
+    - [services/mddb-cli/mddb-cli.1](services/mddb-cli/mddb-cli.1) — manpage copyright line changed from `Copyright (c) 2024 MDDB Project. License MIT.` to `Copyright (c) 2025-2026 Tradik Limited. License BSD-3-Clause.`. Installed by `.deb`, `.rpm`, and Homebrew packages into `/usr/share/man/`.
+  - **Documentation (medium — user-visible docs)**:
+    - [docs/DOCKER_HUB.md](docs/DOCKER_HUB.md) — badge URL, License section, and "MIT licensed, community driven" tagline — this file is pushed as the Docker Hub repository README.
+    - [docs/DOCKER.md](docs/DOCKER.md), [docs/GRPC.md](docs/GRPC.md), [docs/PANEL.md](docs/PANEL.md), [proto/README.md](proto/README.md) — License footers.
+    - [services/mddb-panel/README.md](services/mddb-panel/README.md), [services/mddb-cli/README.md](services/mddb-cli/README.md) — License sections.
+  - **Package metadata (low — missing fields added)**:
+    - [services/mddb-panel/package.json](services/mddb-panel/package.json), [services/mddb-chat-widget/package.json](services/mddb-chat-widget/package.json) — added `"license": "BSD-3-Clause"` (were missing the field entirely).
+    - [services/mddb-chat/Cargo.toml](services/mddb-chat/Cargo.toml) — added `license = "BSD-3-Clause"` and `repository` URL (both were missing, `cargo publish` would have failed).
+  - **Template cleanup**:
+    - [services/mddb-panel/src/lib/markdown-templates.js](services/mddb-panel/src/lib/markdown-templates.js) — the "blog" and "readme" markdown templates offered to panel users now default to BSD-3-Clause instead of MIT, for consistency (these are placeholders users edit, but nudging the default matters).
 - **Untracked committed build binaries** — removed `services/mddbd/mddb` (34 MB), `services/mddb-cli/mddb-cli`, and `tools/bench/mddb-bench` from the repo and expanded `.gitignore` so `go build` artifacts cannot slip into history again.
 - **`buf breaking` CI guard** ([.github/workflows/test.yml](.github/workflows/test.yml)) — the breaking-change check now skips (with a GitHub Actions warning) when the base branch has no `buf.yaml`. Only applies to the one-shot buf-migration PR, where main's pre-migration layout with its legacy `services/mddbd/proto/mddb.proto` duplicate would otherwise break image building on the target side.
 
