@@ -16,12 +16,16 @@ trusted-CA bundle to require client certificates.
 This document covers config, generating certs with `openssl`, common
 deployment recipes, and the most frequent gotchas.
 
-> **Scope**: TLS is currently configured on the HTTP listener
-> ([services/mddbd/main.go](../services/mddbd/main.go) — `ServeTLS`). The gRPC
-> listener inherits TLS only when fronted by a TLS-terminating proxy. The
+> **Scope**: TLS is configured on **both** the HTTP listener
+> ([services/mddbd/main.go](../services/mddbd/main.go) — `ServeTLS`) and the
+> gRPC listener (`grpc.Creds(credentials.NewTLS(...))` in the same file).
+> Both reuse the same `tls.Config` built by `buildServerTLSConfig` in
+> [services/mddbd/tls_config.go](../services/mddbd/tls_config.go), so a single
+> `tls.*` config block enables HTTPS and TLS-secured gRPC simultaneously, and
+> the same `clientCAFile` / `clientAuth` settings enable mTLS on both. The
 > Unix Domain Socket listener (see [config.md](config.md#unix-domain-socket-transport))
-> always runs in plaintext — filesystem permissions authenticate the local
-> peer, and API keys / JWT still apply on top.
+> always runs in plaintext on either protocol — filesystem permissions
+> authenticate the local peer, and API keys / JWT still apply on top.
 
 ## Quick start (HTTPS only)
 
@@ -243,13 +247,95 @@ proxy.
 MDDB does not support certificate pinning out of the box. If you need it,
 terminate TLS at a proxy (Envoy, nginx) and let it enforce the pin.
 
+## TLS on the gRPC listener
+
+The gRPC server reuses the same `tls.Config` as the HTTP listener, so a single
+`tls.*` config block enables HTTPS and TLS-secured gRPC at the same time, and
+`MDDB_TLS_CLIENT_CA` enables mTLS on both. Startup log line:
+
+```
+mddb gRPC listening on :11024 (mode=wr, db=mddb.db, tls=on, mtls=on (clientAuth=require))
+```
+
+### Go client (`google.golang.org/grpc`)
+
+```go
+import (
+    "crypto/tls"
+    "crypto/x509"
+    "os"
+
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/credentials"
+)
+
+caPEM, _ := os.ReadFile("/etc/mddb/ca.crt")
+caPool := x509.NewCertPool()
+caPool.AppendCertsFromPEM(caPEM)
+
+// HTTPS-only (no client cert)
+creds := credentials.NewTLS(&tls.Config{RootCAs: caPool})
+
+// mTLS (client cert + key)
+clientCert, _ := tls.LoadX509KeyPair("/etc/mddb/clients/alice.crt", "/etc/mddb/clients/alice.key")
+creds = credentials.NewTLS(&tls.Config{
+    RootCAs:      caPool,
+    Certificates: []tls.Certificate{clientCert},
+})
+
+conn, _ := grpc.NewClient("mddb.example.com:11024", grpc.WithTransportCredentials(creds))
+```
+
+### Python client (`grpcio`)
+
+```python
+import grpc
+
+with open("/etc/mddb/ca.crt", "rb") as f: ca = f.read()
+with open("/etc/mddb/clients/alice.crt", "rb") as f: cert = f.read()
+with open("/etc/mddb/clients/alice.key", "rb") as f: key = f.read()
+
+creds = grpc.ssl_channel_credentials(
+    root_certificates=ca,
+    private_key=key,           # omit for HTTPS-only
+    certificate_chain=cert,    # omit for HTTPS-only
+)
+channel = grpc.secure_channel("mddb.example.com:11024", creds)
+```
+
+### Node client (`@grpc/grpc-js`)
+
+```js
+const grpc = require('@grpc/grpc-js');
+const fs = require('fs');
+
+const creds = grpc.credentials.createSsl(
+    fs.readFileSync('/etc/mddb/ca.crt'),
+    fs.readFileSync('/etc/mddb/clients/alice.key'),     // null for HTTPS-only
+    fs.readFileSync('/etc/mddb/clients/alice.crt'),     // null for HTTPS-only
+);
+const client = new MDDBClient('mddb.example.com:11024', creds);
+```
+
+### `grpcurl`
+
+```bash
+# HTTPS-only
+grpcurl -cacert /etc/mddb/ca.crt mddb.example.com:11024 list
+
+# mTLS
+grpcurl -cacert /etc/mddb/ca.crt \
+        -cert /etc/mddb/clients/alice.crt \
+        -key  /etc/mddb/clients/alice.key \
+        mddb.example.com:11024 mddb.MDDB/Stats
+```
+
 ## What's not covered yet
 
 These are deliberate omissions in the current implementation:
 
 - **Hot reload of certs** without restart. Plan: SIGHUP-driven reloader. PR welcome.
 - **Built-in CRL / OCSP checking**. Use a proxy or revoke at the CA bundle level.
-- **TLS on the gRPC listener**. The current `startGRPCServer` creates a plaintext gRPC server. Use a TLS-terminating proxy in front.
 - **TLS on UDS**. Intentional — UDS is local-only and authenticated by filesystem permissions.
 
 See also:

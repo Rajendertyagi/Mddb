@@ -21,6 +21,7 @@ import (
 	json "github.com/goccy/go-json"
 	bolt "go.etcd.io/bbolt"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 // VERSION is the current release version of the MDDB server.
@@ -1007,8 +1008,28 @@ func main() {
 		if authEnabled && s.AuthManager != nil {
 			grpcOpts = append(grpcOpts, grpc.UnaryInterceptor(s.AuthManager.GRPCUnaryInterceptor()))
 		}
+		// TLS / mTLS — same buildServerTLSConfig as the HTTP listener.
+		// Skipped on UDS (filesystem perms authenticate the local peer).
+		grpcTLSLog := ""
+		if !isUnixAddr(grpcAddr) {
+			tlsCfg, terr := buildServerTLSConfig(srvCfg.TLS)
+			if terr != nil {
+				log.Fatalf("gRPC TLS config: %v", terr)
+			}
+			if tlsCfg != nil {
+				grpcOpts = append(grpcOpts, grpc.Creds(credentials.NewTLS(tlsCfg)))
+				grpcTLSLog = ", tls=on"
+				if srvCfg.TLS.ClientCAFile != "" {
+					mode := srvCfg.TLS.ClientAuth
+					if mode == "" {
+						mode = "require"
+					}
+					grpcTLSLog = fmt.Sprintf(", tls=on, mtls=on (clientAuth=%s)", mode)
+				}
+			}
+		}
 		go func() {
-			log.Printf("mddb gRPC listening on %s (mode=%s, db=%s)", grpcAddr, s.Mode, dbPath)
+			log.Printf("mddb gRPC listening on %s (mode=%s, db=%s%s)", grpcAddr, s.Mode, dbPath, grpcTLSLog)
 			if err := startGRPCServer(s, grpcAddr, grpcOpts...); err != nil {
 				log.Fatal(err)
 			}
