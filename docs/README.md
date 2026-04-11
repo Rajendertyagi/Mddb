@@ -89,7 +89,7 @@ Welcome to the MDDB documentation! This guide will help you understand, deploy, 
 
 MDDB (Markdown Database) is an **AI-native embedded document database** for markdown content. Single ~29 MB binary, embedded BoltDB storage, zero external dependencies. Core capabilities at a glance (full list in [FEATURES.md](FEATURES.md) and the root [README.md](../README.md)):
 
-- **Triple protocol** — HTTP/JSON REST, gRPC/Protobuf, **GraphQL** (default-on in 2.9.11+), all over TCP or Unix Domain Sockets
+- **Triple protocol** — HTTP/JSON REST, gRPC/Protobuf, GraphQL, all over TCP or Unix Domain Sockets
 - **Built-in [MCP server](MCP.md)** — 67 tools, MCP 2025-11-25 compliant, stdio + Streamable HTTP + SSE transports for Claude / Cursor / Windsurf / ChatGPT / Ollama / DeepSeek
 - **[Vector / semantic search](SEARCH.md)** — 7 index algorithms (Flat / HNSW / IVF / PQ / OPQ / SQ / BQ) with per-collection int8/int4 quantization; OpenAI / Ollama / Cohere / Voyage embeddings
 - **[Full-text search](SEARCH.md)** — TF-IDF / BM25 / BM25F / PMISparse, 7 modes (simple / boolean / phrase / wildcard / proximity / range / fuzzy), 18-language stemming, typo tolerance
@@ -133,22 +133,14 @@ Numbers, methodology and benchmarks live in their own document — see **[BENCHM
 
 ## 🔒 Security
 
-### What ships in MDDB today (2.9.11+)
-- **JWT authentication** + bcrypt password hashes — [AUTHENTICATION.md](AUTHENTICATION.md)
-- **API keys** with optional expiry and per-user issuance
-- **RBAC**: per-collection Read/Write/Admin via users *and* groups
-- **Per-protocol access modes**: `MDDB_MCP_MODE`, `MDDB_API_MODE`, `MDDB_GRPC_MODE` lock individual protocols to read-only
-- **Built-in TLS / HTTPS** with user-supplied cert + key — [TLS.md](TLS.md)
-- **Mutual TLS (mTLS)** via `MDDB_TLS_CLIENT_CA` for certificate-based client auth
-- **Unix Domain Socket transport** with `0600` filesystem perms — bind MDDB to `unix:/var/run/mddb/http.sock` and skip the network entirely
+For the security model (the layers a request passes through, trust boundaries, what's deliberately out of scope) see the [Security Model](ARCHITECTURE.md#security-model) section in ARCHITECTURE.md. For practical setup:
 
-### Still on the operator
-- **Encryption at rest** — encrypt the underlying filesystem (LUKS, FileVault) or volume; BoltDB stores plaintext
-- **Backup encryption** — `/v1/backup` produces plaintext; encrypt the blob before uploading to remote storage
-- **Public-facing deployments** — even with TLS + JWT, prefer a reverse proxy (nginx, Caddy, Cloudflare) for WAF / rate-limit / DDoS protection on top
-- **Cert rotation** — restart the process; there is no in-process SIGHUP reloader yet
+- **[AUTHENTICATION.md](AUTHENTICATION.md)** — JWT, API keys, RBAC, group permissions
+- **[TLS.md](TLS.md)** — HTTPS + mTLS setup, openssl recipes, deployment patterns
+- **[config.md](config.md#unix-domain-socket-transport)** — Unix Domain Socket transport
+- **[DEPLOYMENT.md](DEPLOYMENT.md)** — production hardening checklist
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) and [TLS.md](TLS.md) for hardening recipes.
+Version-by-version changes for any of these layers live in [CHANGELOG.md](../CHANGELOG.md), not here.
 
 ## 🛠️ Development
 
@@ -240,7 +232,6 @@ See [LICENSE](../LICENSE) file for details.
 
 The roadmap is maintained per release in [ROADMAP.md](ROADMAP.md). Past releases live in [CHANGELOG.md](../CHANGELOG.md).
 
-> **Note**: a previous version of this section listed full-text search, authentication, GraphQL, replication, compression and metrics as *planned features*. **All of those have shipped** — see [FEATURES.md](FEATURES.md) for the current capability matrix. Removed in the 2.9.11 docs cleanup.
 
 ---
 

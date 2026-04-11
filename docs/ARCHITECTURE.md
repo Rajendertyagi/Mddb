@@ -259,23 +259,38 @@ MDDB exposes three layered extension mechanisms — each documented in its own f
 - Total DB size: < 10 GB recommended
 - Regular revision truncation important
 
-## Security Considerations
+## Security Model
 
-### What ships in MDDB today (2.9.11+)
-- **JWT authentication** with bcrypt password hashes — see [services/mddbd/auth_manager.go](../services/mddbd/auth_manager.go) and [AUTHENTICATION.md](AUTHENTICATION.md)
-- **API keys** with optional expiry, per-user issuance, scoped permissions
-- **RBAC**: per-collection Read/Write/Admin permissions with user and group resolution
-- **Per-protocol access modes**: `MDDB_MCP_MODE`, `MDDB_API_MODE`, `MDDB_GRPC_MODE`, `MDDB_HTTP3_MODE` to lock individual protocols to read-only without disabling them
-- **TLS / HTTPS**: built-in `MDDB_TLS_ENABLED=true` with user-supplied PEM cert + key, TLS 1.2 minimum — see [TLS.md](TLS.md)
-- **Mutual TLS (mTLS)**: `MDDB_TLS_CLIENT_CA` + `MDDB_TLS_CLIENT_AUTH=require|request` for certificate-based client authentication
-- **Unix Domain Socket transport**: `MDDB_HTTP_ADDR=unix:/var/run/mddb/http.sock` (and `MDDB_GRPC_ADDR=unix:...`) for zero-network local deployments. UDS is created with `0600` filesystem perms — peer is authenticated by file ownership before any application-level auth runs
-- **MCP API key middleware**: separate key store and rate-limit chain for the MCP HTTP transport ([services/mddbd/mcp_apikeys.go](../services/mddbd/mcp_apikeys.go))
+This section describes the *layers* that gate every request reaching the storage engine. Per-feature usage (env vars, config files, recipes) lives in the dedicated guides linked at the bottom — and the version history for each layer lives in [CHANGELOG.md](../CHANGELOG.md), not here.
 
-### What's still on the user
-- **Encryption at rest** — BoltDB stores plaintext on disk. Encrypt the underlying filesystem (LUKS, FileVault, dm-crypt) or the volume.
-- **Network exposure** — even with TLS + JWT enabled, prefer to bind MDDB to a private interface or a UDS path and front it with a reverse proxy that adds WAF / rate limit / DDoS protection if it's reachable from the public internet.
-- **Backup encryption** — `/v1/backup` produces a plaintext copy of the BoltDB file. Encrypt the resulting blob (age, gpg) before uploading to remote storage.
-- **Cert / key rotation** — TLS certs are loaded once at startup. Restart the process on rotation; there is no SIGHUP reloader yet.
+### Trust boundaries
+
+A request hitting MDDB passes through up to four trust gates in order; each is independently configurable and may be disabled:
+
+1. **Transport** — TCP+TLS, TCP plaintext, or Unix Domain Socket. TLS terminates inside MDDB (`buildServerTLSConfig` in [services/mddbd/tls_config.go](../services/mddbd/tls_config.go)). UDS is authenticated by filesystem ownership (`0600`) instead of TLS.
+2. **Peer authentication** *(optional)* — mTLS verifies the client certificate against a configured CA bundle. The server only learns "this peer's cert chains to a trusted CA"; it does not impose identity semantics on the cert subject.
+3. **Application authentication** — JWT bearer token or API key. Validated in HTTP / gRPC / GraphQL middleware ([services/mddbd/auth_middleware.go](../services/mddbd/auth_middleware.go), [auth_grpc.go](../services/mddbd/auth_grpc.go), [graphql_handler.go](../services/mddbd/graphql_handler.go)). On success, claims are written to the request context.
+4. **Authorization** — every handler / resolver that touches a collection calls `AuthManager.CheckPermission(ctx, collection, op)`, which resolves the caller's effective permissions through both direct user grants and group membership. Operation modes are also gated *per protocol* (`MDDB_MCP_MODE`, `MDDB_API_MODE`, `MDDB_GRPC_MODE`, `MDDB_HTTP3_MODE`) — a single deployment can serve read-write to gRPC and read-only to MCP, for example.
+
+The MCP transport adds a fifth gate above its protocol entry point — its own API-key store and per-key rate limiter ([services/mddbd/mcp_apikeys.go](../services/mddbd/mcp_apikeys.go)) — so an MCP client can be issued credentials independently from the main JWT/API-key store.
+
+When `AuthManager` is `nil` (auth disabled, the default for an unconfigured deployment) gates 3 and 4 short-circuit to allow-all. mTLS (gate 2) is independent and can be enabled without enabling JWT.
+
+### Out of scope for the engine
+
+Three things MDDB *deliberately* does not do; they are the operator's responsibility:
+
+- **Encryption at rest** — BoltDB writes plaintext to disk. Use filesystem-level encryption (LUKS, FileVault, dm-crypt) or full-volume encryption.
+- **Backup blob encryption** — `/v1/backup` produces a plaintext copy of the database file. Encrypt the resulting blob before uploading to remote storage.
+- **Public-internet hardening** — even with TLS and JWT enabled, prefer to bind to a private interface or a UDS path and front MDDB with a reverse proxy that adds WAF, rate limit, and DDoS protection.
+
+### Reference docs
+
+- [AUTHENTICATION.md](AUTHENTICATION.md) — JWT, API keys, RBAC, group permissions, env vars, recipes
+- [TLS.md](TLS.md) — HTTPS + mTLS setup, openssl recipes, deployment patterns, troubleshooting
+- [config.md](config.md#unix-domain-socket-transport) — UDS transport, env-var reference for `MDDB_HTTP_ADDR=unix:...`
+- [DEPLOYMENT.md](DEPLOYMENT.md) — production hardening checklist
+- [CHANGELOG.md](../CHANGELOG.md) — when each layer landed and how it has evolved
 
 4. **Access Control**:
    - Implement collection-level permissions
@@ -308,4 +323,3 @@ MDDB exposes three layered extension mechanisms — each documented in its own f
 
 The roadmap lives in its own file and is updated per release: see [ROADMAP.md](ROADMAP.md) for current and planned work.
 
-> **Note**: a previous version of this document listed "Full-Text Search", "Authentication", "Replication", "GraphQL", "Schema validation", "Compression", "Multi-language search" and "Rate limiting" as *future* enhancements. **All of those have shipped** — see [FEATURES.md](FEATURES.md) for the current capability matrix. The list was removed in the 2.9.11 docs cleanup.
