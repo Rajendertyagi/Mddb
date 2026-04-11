@@ -734,106 +734,104 @@ jobs:
           name: homebrew-formulas
           path: homebrew-formula/*.rb
 
+  # Snap publish jobs use `snapcore/action-build@v1` to build natively on
+  # the runner via LXD (no Launchpad OAuth handshake, which was timing out
+  # in the previous `snapcraft remote-build` approach after 900s). Each
+  # architecture gets its own matrix entry on the matching native runner:
+  #   amd64 → ubuntu-latest
+  #   arm64 → ubuntu-24.04-arm (GitHub-hosted native ARM runner)
+  # Only `SNAPCRAFT_STORE_CREDENTIALS` is required — no Launchpad creds.
   publish-snap-mddbd:
-    name: Publish mddbd Snap (amd64 + arm64)
+    name: Publish mddbd Snap (${{ matrix.arch }})
     needs: [create-release]
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Install snapcraft
-        run: sudo snap install snapcraft --classic
+      - name: Build snap
+        id: build
+        uses: snapcore/action-build@v1
+        with:
+          path: services/mddbd
 
-      - name: Build snaps for amd64 and arm64
-        working-directory: services/mddbd
-        env:
-          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
-        run: snapcraft remote-build --launchpad-accept-public-upload
-
-      - name: Publish amd64 snap
+      - name: Publish snap
         uses: snapcore/action-publish@v1
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
         with:
-          snap: services/mddbd/mddbd_*_amd64.snap
-          release: stable
-
-      - name: Publish arm64 snap
-        uses: snapcore/action-publish@v1
-        env:
-          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
-        with:
-          snap: services/mddbd/mddbd_*_arm64.snap
+          snap: ${{ steps.build.outputs.snap }}
           release: stable
 
   publish-snap-mddb-cli:
-    name: Publish mddb-cli Snap (amd64 + arm64)
+    name: Publish mddb-cli Snap (${{ matrix.arch }})
     needs: [create-release]
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Install snapcraft
-        run: sudo snap install snapcraft --classic
+      - name: Build snap
+        id: build
+        uses: snapcore/action-build@v1
+        with:
+          path: services/mddb-cli
 
-      - name: Build snaps for amd64 and arm64
-        working-directory: services/mddb-cli
-        env:
-          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
-        run: snapcraft remote-build --launchpad-accept-public-upload
-
-      - name: Publish amd64 snap
+      - name: Publish snap
         uses: snapcore/action-publish@v1
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
         with:
-          snap: services/mddb-cli/mddb-cli_*_amd64.snap
-          release: stable
-
-      - name: Publish arm64 snap
-        uses: snapcore/action-publish@v1
-        env:
-          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
-        with:
-          snap: services/mddb-cli/mddb-cli_*_arm64.snap
+          snap: ${{ steps.build.outputs.snap }}
           release: stable
 
   publish-snap-mddb-panel:
-    name: Publish mddb-panel Snap (amd64 + arm64)
+    name: Publish mddb-panel Snap (${{ matrix.arch }})
     needs: [create-release]
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Install snapcraft
-        run: sudo snap install snapcraft --classic
+      - name: Build snap
+        id: build
+        uses: snapcore/action-build@v1
+        with:
+          path: services/mddb-panel
 
-      - name: Build snaps for amd64 and arm64
-        working-directory: services/mddb-panel
-        env:
-          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
-        run: snapcraft remote-build --launchpad-accept-public-upload
-
-      - name: Publish amd64 snap
+      - name: Publish snap
         uses: snapcore/action-publish@v1
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
         with:
-          snap: services/mddb-panel/mddb-panel_*_amd64.snap
-          release: stable
-
-      - name: Publish arm64 snap
-        uses: snapcore/action-publish@v1
-        env:
-          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
-        with:
-          snap: services/mddb-panel/mddb-panel_*_arm64.snap
+          snap: ${{ steps.build.outputs.snap }}
           release: stable
 
   docker-server:
