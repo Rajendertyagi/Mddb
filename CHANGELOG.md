@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.11] - 2026-04-11
+
+### Added
+- **Unix Domain Socket (UDS) transport** for HTTP and gRPC servers. `MDDB_HTTP_ADDR` and `MDDB_GRPC_ADDR` (and the equivalent CLI flags / config fields) now accept `unix:/absolute/path.sock` in addition to classic `host:port`. The server creates the socket with `0600` permissions (owner-only), removes any stale socket file left by a prior run, and cleans up the socket on graceful shutdown. TLS is automatically skipped on UDS listeners — filesystem permissions already authenticate the peer.
+  - New helper [services/mddbd/listen_addr.go](services/mddbd/listen_addr.go) with `parseListenAddr`, `openListener`, `closeListener`, `isUnixAddr` — used by both the HTTP listener in [services/mddbd/main.go](services/mddbd/main.go) and the gRPC listener in [services/mddbd/grpc_server.go](services/mddbd/grpc_server.go).
+  - Unit tests in [services/mddbd/listen_addr_test.go](services/mddbd/listen_addr_test.go) cover TCP / UDS / stale-socket / cleanup paths.
+  - **Python client** ([services/python-extension/mddb.py](services/python-extension/mddb.py)) gains `unix:` scheme support via a zero-dependency `_UnixHTTPConnection` / `_UnixHTTPHandler` backed by `socket.AF_UNIX` — stdlib-only, no new deps.
+  - **PHP client** ([services/php-extension/mddb.php](services/php-extension/mddb.php)) gains `unix:` scheme support via libcurl's `CURLOPT_UNIX_SOCKET_PATH`.
+  - **Rationale**: replaces a previously considered FFI / `libmddb.so` path. UDS delivers the same "zero-network, embedded-ish" UX for PHP/Python/Node sidecars at ~5 % of the cost — no C ABI to maintain, no cgo in the host process, no Go runtime leaking into PHP-FPM workers.
+
+- **Mutual TLS (mTLS) / client certificate authentication** for the HTTP(S) listener. New config fields `tls.clientCAFile` and `tls.clientAuth` (env: `MDDB_TLS_CLIENT_CA`, `MDDB_TLS_CLIENT_AUTH`). When `clientCAFile` points to a PEM bundle of trusted CAs, MDDB will verify client certificates chaining to those CAs. `clientAuth` may be `require` (default, reject unauthenticated clients) or `request` (verify only if client presents a cert).
+  - New helper [services/mddbd/tls_config.go](services/mddbd/tls_config.go) (`buildServerTLSConfig`) builds the full `crypto/tls.Config` once at startup, so the HTTP server now uses `ServeTLS(lis, "", "")` with a pre-built config. `MinVersion` pinned to TLS 1.2.
+  - mTLS is ignored on UDS listeners (a UDS socket already authenticates the peer by filesystem permissions).
+  - [services/mddbd/server_config.go](services/mddbd/server_config.go) adds `ClientCAFile` / `ClientAuth` to `TLSConfig` with YAML and env bindings.
+
+### Fixed
+- **Landing page — Mermaid diagram rendering** ([services/ssg-template/index.html](services/ssg-template/index.html)). The Replication section's Mermaid `graph LR` was rendered into a `<pre>` with `mermaid@10` and `startOnLoad: true`, which produced `Syntax error in text` in mermaid 10.9.5. Switched to `<div class="mermaid">` with inline content, upgraded to `mermaid@11` (matching [page.html](services/ssg-template/page.html)), and explicitly call `mermaid.run()` after init.
+- **Landing page — stale MCP tool count**. Hero badge, feature card, sr-only feature list, JSON-LD `featureList`, meta description and the "Quick Start" terminal comment all claimed "72 MCP Tools". Audited the real count against the dispatch switch in [services/mddbd/mcp_tools.go](services/mddbd/mcp_tools.go) (67 top-level `case` branches in `mcpCallTool`) vs the declarations in [services/mddbd/mcp_custom_tools.go](services/mddbd/mcp_custom_tools.go)'s `mcpBuiltinTools()` (66). Found one orphan — `aggregate` — that was dispatchable but not declared, so it was invisible to MCP clients (`tools/list` never returned it, so clients could not call it). Added the missing declaration, bringing the authoritative count to **67**. Updated landing page and README accordingly.
+- **Landing page — missing geosearch mention**. The landing page made zero reference to geospatial search despite it shipping in 2.9.10. Added a dedicated feature-strip chip, an sr-only bullet, and a JSON-LD `featureList` entry.
+- **`/docs/geosearch/` 404** ([docs/GEOSEARCH.md](docs/GEOSEARCH.md)). The file was missing SSG frontmatter (`title`, `slug: "docs/geosearch"`, `description`, `status`), so the static site generator never emitted the corresponding output directory — the sidebar link in [services/ssg-template/base.html](services/ssg-template/base.html#L78) and any inbound link from a prior PR both 404'd. Added frontmatter.
+- **Landing page — stale JSON-LD metadata**. `softwareVersion` bumped to `2.9.11`, `datePublished` bumped to `2026-04-11`, `featureList` expanded with geosearch, UDS and mTLS.
+
+### Known issues / deferred
+- **GraphQL is still largely non-functional**. All 11 queries and 19 of 21 mutations in [services/mddbd/graphql/](services/mddbd/graphql/) panic `not implemented`; only `login` and a partial `deleteDocument` work. The panel's GraphQL client ([services/mddb-panel/src/lib/graphql.js](services/mddb-panel/src/lib/graphql.js)) is defined but never imported, so the Settings REST/GraphQL toggle is decorative. A full fix is planned as a dedicated PR — see the GraphQL plan section in the 2.9.11 planning document. This is a pre-existing issue, not a regression in 2.9.11.
+
 ## [2.9.10] - 2026-04-11
 
 ### Added

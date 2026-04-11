@@ -1,0 +1,103 @@
+{{define "index_quick_start"}}
+<!-- Quick Start Section -->
+<section id="quick-start" class="quick-start">
+    <div class="container">
+        <h2>Quick Start <a href="#quick-start" class="anchor-link"
+                aria-label="Link to Quick Start section">#</a></h2>
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="docker">Docker (Recommended)</button>
+            <button class="tab-btn" data-tab="docker-compose">Docker Compose</button>
+            <button class="tab-btn" data-tab="binary">Binary</button>
+            <button class="tab-btn" data-tab="source">From Source</button>
+        </div>
+        <div class="tab-content">
+            <div class="tab-pane active" id="docker">
+                <div class="terminal">
+                    <div class="terminal-header">
+                        <div class="terminal-dots">
+                            <span class="terminal-dot red"></span>
+                            <span class="terminal-dot yellow"></span>
+                            <span class="terminal-dot green"></span>
+                        </div>
+                        <span class="terminal-title">bash — docker</span>
+                    </div>
+                    <pre><code data-terminal="bash"># Run MDDB server
+docker run -d \
+  -p 11023:11023 \
+  -p 11024:11024 \
+  -v mddb-data:/data \
+  tradik/mddb:latest
+
+# Test the API
+curl http://localhost:11023/health</code></pre>
+                </div>
+            </div>
+            <div class="tab-pane" id="docker-compose">
+                <div class="terminal">
+                    <div class="terminal-header">
+                        <div class="terminal-dots">
+                            <span class="terminal-dot red"></span>
+                            <span class="terminal-dot yellow"></span>
+                            <span class="terminal-dot green"></span>
+                        </div>
+                        <span class="terminal-title">bash — docker compose</span>
+                    </div>
+                    <pre><code data-terminal="bash"># Clone repository
+git clone https://github.com/tradik/mddb.git
+cd mddb
+
+# Start all services (MDDB + Panel + MCP)
+make docker-up
+
+# Services available:
+# - MDDB HTTP: http://localhost:11023
+# - MDDB gRPC: localhost:11024
+# - Web Panel: http://localhost:3000
+# - MCP Server: http://localhost:9000</code></pre>
+                </div>
+            </div>
+            <div class="tab-pane" id="binary">
+                <div class="terminal">
+                    <div class="terminal-header">
+                        <div class="terminal-dots">
+                            <span class="terminal-dot red"></span>
+                            <span class="terminal-dot yellow"></span>
+                            <span class="terminal-dot green"></span>
+                        </div>
+                        <span class="terminal-title">bash — binary</span>
+                    </div>
+                    <pre><code id="binary-download-code" data-terminal="bash"># Download binary
+wget https://github.com/tradik/mddb/releases/download/v2.9.11/mddbd-v2.9.11-linux-amd64.tar.gz
+tar -xzf mddbd-v2.9.11-linux-amd64.tar.gz
+
+# Run server
+./mddbd
+
+# Server starts on http://localhost:11023</code></pre>
+                </div>
+            </div>
+            <div class="tab-pane" id="source">
+                <div class="terminal">
+                    <div class="terminal-header">
+                        <div class="terminal-dots">
+                            <span class="terminal-dot red"></span>
+                            <span class="terminal-dot yellow"></span>
+                            <span class="terminal-dot green"></span>
+                        </div>
+                        <span class="terminal-title">bash — build from source</span>
+                    </div>
+                    <pre><code data-terminal="bash"># Clone repository
+git clone https://github.com/tradik/mddb.git
+cd mddb
+
+# Build
+make build
+
+# Run
+./bin/mddbd</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{{end}}

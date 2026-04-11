@@ -1,6 +1,13 @@
+---
+title: "Geosearch"
+slug: "docs/geosearch"
+description: "Geospatial search in MDDB — R-tree and geohash indexes, radius and bounding-box queries, composition with full-text and vector search."
+status: publish
+---
+
 # Geosearch
 
-MDDB 2.9.10 ships a full geospatial search subsystem: radius and
+MDDB 2.9.11 ships a full geospatial search subsystem: radius and
 bounding-box queries, two pluggable index algorithms, composition with
 full-text and vector search, and a Leaflet-backed panel UI. This
 document describes the data model, the HTTP/MCP/gRPC surfaces, and the

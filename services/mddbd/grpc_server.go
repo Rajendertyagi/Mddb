@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"sort"
 	"strconv"
@@ -66,12 +65,15 @@ func (g *GRPCServer) isReadOnly() bool {
 	return mode == ModeRead
 }
 
-// startGRPCServer starts the gRPC server on the specified address
+// startGRPCServer starts the gRPC server on the specified address.
+// addr may be a TCP host:port or a Unix Domain Socket (unix:/path/to/sock) —
+// see openListener in listen_addr.go.
 func startGRPCServer(s *Server, addr string, opts ...grpc.ServerOption) error {
-	lis, err := net.Listen("tcp", addr)
+	lis, err := openListener(addr)
 	if err != nil {
 		return err
 	}
+	defer func() { _ = closeListener(lis, addr) }()
 
 	// Default options
 	defaultOpts := []grpc.ServerOption{

@@ -24,7 +24,7 @@ import (
 )
 
 // VERSION is the current release version of the MDDB server.
-const VERSION = "2.9.10"
+const VERSION = "2.9.11"
 
 // AccessMode defines the database access mode (read, write, or both).
 type AccessMode string
@@ -844,7 +844,8 @@ func main() {
 	s.Ready = true
 	log.Println("Server initialization complete — ready to serve")
 
-	// Start HTTP server (with optional TLS)
+	// Start HTTP server (with optional TLS). httpAddr may be a TCP host:port
+	// or a Unix Domain Socket (unix:/path/to/sock) — see listen_addr.go.
 	if srvCfg.HTTP.Enabled {
 		go func() {
 			server := &http.Server{
@@ -855,14 +856,37 @@ func main() {
 				WriteTimeout:      30 * time.Second,
 				IdleTimeout:       120 * time.Second,
 			}
-			if srvCfg.TLS.Enabled && srvCfg.TLS.CertFile != "" && srvCfg.TLS.KeyFile != "" {
-				log.Printf("mddb HTTPS listening on %s (mode=%s, db=%s, tls=on)", httpAddr, s.Mode, dbPath)
-				if err := server.ListenAndServeTLS(srvCfg.TLS.CertFile, srvCfg.TLS.KeyFile); err != nil && err != http.ErrServerClosed {
+			lis, err := openListener(httpAddr)
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer func() { _ = closeListener(lis, httpAddr) }()
+			tlsOn := srvCfg.TLS.Enabled && srvCfg.TLS.CertFile != "" && srvCfg.TLS.KeyFile != ""
+			if tlsOn && isUnixAddr(httpAddr) {
+				log.Printf("mddb: TLS ignored on UDS listener %s (filesystem perms authenticate the peer)", httpAddr)
+				tlsOn = false
+			}
+			if tlsOn {
+				tlsCfg, terr := buildServerTLSConfig(srvCfg.TLS)
+				if terr != nil {
+					log.Fatalf("TLS config: %v", terr)
+				}
+				server.TLSConfig = tlsCfg
+				mtls := ""
+				if srvCfg.TLS.ClientCAFile != "" {
+					mode := srvCfg.TLS.ClientAuth
+					if mode == "" {
+						mode = "require"
+					}
+					mtls = fmt.Sprintf(", mtls=on (clientAuth=%s)", mode)
+				}
+				log.Printf("mddb HTTPS listening on %s (mode=%s, db=%s, tls=on%s)", httpAddr, s.Mode, dbPath, mtls)
+				if err := server.ServeTLS(lis, "", ""); err != nil && err != http.ErrServerClosed {
 					log.Fatal(err)
 				}
 			} else {
 				log.Printf("mddb HTTP listening on %s (mode=%s, db=%s)", httpAddr, s.Mode, dbPath)
-				if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				if err := server.Serve(lis); err != nil && err != http.ErrServerClosed {
 					log.Fatal(err)
 				}
 			}

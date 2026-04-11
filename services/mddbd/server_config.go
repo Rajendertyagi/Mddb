@@ -52,10 +52,18 @@ type VectorExtConfig struct {
 }
 
 // TLSConfig controls built-in TLS/HTTPS support.
+//
+// Set Enabled=true with CertFile+KeyFile to serve HTTPS. To additionally
+// require client certificates (mTLS), set ClientCAFile to a PEM bundle of
+// trusted CAs; MDDB will then reject any TCP client that does not present a
+// certificate chaining to one of those CAs. mTLS is ignored on UDS listeners
+// (filesystem permissions already authenticate the peer).
 type TLSConfig struct {
-	Enabled  bool   `yaml:"enabled" json:"enabled"`
-	CertFile string `yaml:"certFile" json:"certFile"` // Path to TLS certificate file (PEM)
-	KeyFile  string `yaml:"keyFile" json:"keyFile"`   // Path to TLS private key file (PEM)
+	Enabled      bool   `yaml:"enabled" json:"enabled"`
+	CertFile     string `yaml:"certFile" json:"certFile"`         // Path to TLS certificate file (PEM)
+	KeyFile      string `yaml:"keyFile" json:"keyFile"`           // Path to TLS private key file (PEM)
+	ClientCAFile string `yaml:"clientCAFile" json:"clientCAFile"` // Optional: PEM bundle of trusted client CAs (enables mTLS)
+	ClientAuth   string `yaml:"clientAuth" json:"clientAuth"`     // Optional: "require" (default when ClientCAFile set) or "request" (verify if presented)
 }
 
 // HTTPConfig controls the HTTP/JSON API server.
@@ -179,9 +187,11 @@ type fileDatabase struct {
 }
 
 type fileTLS struct {
-	Enabled  *bool   `yaml:"enabled"`
-	CertFile *string `yaml:"certFile"`
-	KeyFile  *string `yaml:"keyFile"`
+	Enabled      *bool   `yaml:"enabled"`
+	CertFile     *string `yaml:"certFile"`
+	KeyFile      *string `yaml:"keyFile"`
+	ClientCAFile *string `yaml:"clientCAFile"`
+	ClientAuth   *string `yaml:"clientAuth"`
 }
 
 type fileFTS struct {
@@ -322,6 +332,12 @@ func mergeFileConfig(cfg ServerConfig, fc *fileConfig) ServerConfig {
 		if fc.TLS.KeyFile != nil {
 			cfg.TLS.KeyFile = *fc.TLS.KeyFile
 		}
+		if fc.TLS.ClientCAFile != nil {
+			cfg.TLS.ClientCAFile = *fc.TLS.ClientCAFile
+		}
+		if fc.TLS.ClientAuth != nil {
+			cfg.TLS.ClientAuth = *fc.TLS.ClientAuth
+		}
 	}
 	if fc.FTS != nil {
 		if fc.FTS.StemmingEnabled != nil {
@@ -441,6 +457,12 @@ func applyEnvConfig(cfg *ServerConfig) {
 	}
 	if v := os.Getenv("MDDB_TLS_KEY"); v != "" {
 		cfg.TLS.KeyFile = v
+	}
+	if v := os.Getenv("MDDB_TLS_CLIENT_CA"); v != "" {
+		cfg.TLS.ClientCAFile = v
+	}
+	if v := os.Getenv("MDDB_TLS_CLIENT_AUTH"); v != "" {
+		cfg.TLS.ClientAuth = v
 	}
 
 	// HTTP/3

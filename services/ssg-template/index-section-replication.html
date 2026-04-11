@@ -1,0 +1,34 @@
+{{define "index_replication"}}
+<!-- Replication Section -->
+<section id="replication" class="replication" style="background-color: #f8fafc; padding: 80px 0;">
+    <div class="container">
+        <div style="text-align: center; margin-bottom: 40px;">
+            <h2 style="font-size: 2.5rem; margin-bottom: 20px;">🔄 Leader-Follower Replication <a
+                    href="#replication" class="anchor-link" aria-label="Link to Replication section">#</a></h2>
+            <p style="font-size: 1.2rem; max-width: 700px; margin: 0 auto;">
+                Scale reads horizontally with binlog-based streaming replication.
+                A single leader handles writes and streams transactions in real-time to read-only followers via
+                gRPC.
+            </p>
+        </div>
+        <div style="max-width: 700px; margin: 0 auto; text-align: center;">
+            <div class="mermaid"
+                style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">graph LR
+    C[Clients] -->|Writes/Reads| L[Leader]
+    C -->|Reads| F1[Follower 1]
+    C -->|Reads| F2[Follower 2]
+    L -->|gRPC binlog stream| F1
+    L -->|gRPC binlog stream| F2</div>
+            <div style="margin-top: 30px;">
+                <a href="/docs/replication/" class="btn btn-primary">Read Replication Guide</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: false, theme: 'base' });
+    mermaid.run({ querySelector: '.mermaid' });
+</script>
+{{end}}

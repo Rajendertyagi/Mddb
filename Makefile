@@ -131,7 +131,7 @@ widget-dev: ## Run widget dev server
 	cd services/mddb-chat-widget && npm run dev
 
 version: ## Show current version
-	@echo "MDDB Version: 2.9.10"
+	@echo "MDDB Version: 2.9.11"
 
 docs-prep: ## Generate SSG content from docs/ (adds frontmatter to all .md files)
 	@bash scripts/ssg-prep.sh
