@@ -820,6 +820,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
+      # The panel's src/components/MCPConfigPanel.jsx does
+      #   import mddbModelPyRaw from '@scripts/mddb_model.py?raw'
+      # and vite.config.js resolves `@scripts` from `services/mddb-panel/scripts/`
+      # (Docker layout) or `../../scripts/` (local dev). snapcraft's build
+      # context is the single services/mddb-panel/ directory, so stage the
+      # file into the Docker-style location before the build.
+      - name: Stage scripts/mddb_model.py for vite alias
+        run: |
+          mkdir -p services/mddb-panel/scripts
+          cp scripts/mddb_model.py services/mddb-panel/scripts/mddb_model.py
+
       - name: Build snap
         id: build
         uses: snapcore/action-build@v1
