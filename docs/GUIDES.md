@@ -11,7 +11,7 @@ Practical step-by-step guides for common MDDB use cases. Each guide walks throug
 
 ## AI & Chat
 
-### [AI Chat Widget for Any Website](/uses-website-chat/)
+### [AI Chat Widget for Any Website](/docs/uses-website-chat/)
 
 Add a RAG-powered AI chatbot to any website. Runs entirely locally with Docker and Ollama — no cloud API fees.
 
@@ -19,13 +19,13 @@ Add a RAG-powered AI chatbot to any website. Runs entirely locally with Docker a
 **Time:** ~30 minutes  
 **Cost:** Free (local LLM)
 
-→ [Read the Website Chat Guide](/uses-website-chat/)
+→ [Read the Website Chat Guide](/docs/uses-website-chat/)
 
 ---
 
 ## Content Analysis
 
-### [WordPress Content Analyzer](/uses-wordpress-analyzer/)
+### [WordPress Content Analyzer](/docs/uses-wordpress-analyzer/)
 
 Export your WordPress site into MDDB, then use Claude or any LLM to analyze it. Find broken links, missing meta descriptions, duplicate content, and SEO gaps — all from a single conversation.
 
@@ -33,11 +33,11 @@ Export your WordPress site into MDDB, then use Claude or any LLM to analyze it. 
 **Time:** ~45 minutes  
 **Use when:** You have a WordPress site and want AI-assisted content auditing
 
-→ [Read the WordPress Analyzer Guide](/uses-wordpress-analyzer/)
+→ [Read the WordPress Analyzer Guide](/docs/uses-wordpress-analyzer/)
 
 ---
 
-### [YouTube Channel Transcriber](/uses-youtube-transcribe/)
+### [YouTube Channel Transcriber](/docs/uses-youtube-transcribe/)
 
 Scrape transcripts from an entire YouTube channel, load them into MDDB, then query them with an LLM. Ask questions across hundreds of videos without watching them.
 
@@ -45,7 +45,7 @@ Scrape transcripts from an entire YouTube channel, load them into MDDB, then que
 **Time:** ~30 minutes  
 **Use when:** You want to search and analyze video transcripts with AI
 
-→ [Read the YouTube Transcriber Guide](/uses-youtube-transcribe/)
+→ [Read the YouTube Transcriber Guide](/docs/uses-youtube-transcribe/)
 
 ---
 
@@ -67,7 +67,7 @@ curl -X POST http://localhost:11023/v1/vector-search \
   -d '{"collection":"memory","query":"billing questions","topK":5}'
 ```
 
-See [MCP Server Config](/mcp/) for the full memory MCP tools reference.
+See [MCP Server Config](/docs/mcp/) for the full memory MCP tools reference.
 
 ---
 
@@ -86,7 +86,7 @@ curl -X POST http://localhost:11023/v1/hybrid-search \
   -d '{"collection":"kb","query":"how to configure auth","topK":5,"alpha":0.5}'
 ```
 
-See [RAG Pipeline](/rag-pipeline/) for the complete guide.
+See [RAG Pipeline](/docs/rag-pipeline/) for the complete guide.
 
 ---
 
@@ -99,7 +99,7 @@ Import documentation, embed automatically, expose via MCP — instant AI-powered
 3. Connect via MCP: add MDDB to your Claude/Cursor/Windsurf config
 4. Ask questions directly in your AI client
 
-See [Chat Widget](/chat/) to embed a chatbot on your website.
+See [Chat Widget](/docs/chat/) to embed a chatbot on your website.
 
 ---
 
@@ -125,4 +125,4 @@ curl -X POST http://localhost:11023/v1/get \
 
 ## More Examples
 
-See the [Examples page](/examples/) for code samples in curl, Python, PHP, and MCP configurations.
+See the [Examples page](/docs/examples/) for code samples in curl, Python, PHP, and MCP configurations.

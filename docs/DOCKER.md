@@ -571,4 +571,4 @@ services:
 
 ## License
 
-BSD 3-Clause License - see [LICENSE](../LICENSE) for details.
+BSD 3-Clause License - see [LICENSE](https://github.com/tradik/mddb/blob/main/LICENSE) for details.

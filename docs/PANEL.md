@@ -605,11 +605,11 @@ npm run lint -- --fix
 
 ## See Also
 
-- [MDDB Documentation](../docs/)
+- [MDDB Documentation](/docs/readme/)
 - [API Documentation](API.md)
-- [Server Documentation](../services/mddbd/README.md)
-- [CLI Documentation](../services/mddb-cli/README.md)
+- [Architecture](ARCHITECTURE.md)
+- [Installation & CLI](INSTALLATION.md)
 
 ## License
 
-BSD 3-Clause License - see [LICENSE](../LICENSE) for details.
+BSD 3-Clause License - see [LICENSE](https://github.com/tradik/mddb/blob/main/LICENSE) for details.

@@ -219,7 +219,7 @@ Every update creates a new revision with timestamp.
 
 MDDB exposes three layered extension mechanisms — each documented in its own file:
 
-- **[WEBHOOKS.md](WEBHOOKS.md)** — HTTP webhooks fired on document events (`doc.added`, `doc.updated`, `doc.deleted`, batch events). Per-collection scoping, retry with backoff, payload signing.
+- **Webhooks** — HTTP webhooks fired on document events (`doc.added`, `doc.updated`, `doc.deleted`, batch events). Per-collection scoping, retry with backoff, payload signing. See [Automations](AUTOMATIONS.md) for configuration.
 - **[AUTOMATIONS.md](AUTOMATIONS.md)** — triggers, crons, conditional rules, sentiment analysis, template variables. Configurable via REST/gRPC/MCP.
 - **[CUSTOM-TOOLS.md](CUSTOM-TOOLS.md)** — YAML-defined custom MCP tools that wrap built-in actions (`semantic_search`, `search_documents`, `full_text_search`, `fts_languages`) with domain-specific defaults so AI agents see purpose-built tools instead of generic primitives.
 
@@ -261,7 +261,7 @@ MDDB exposes three layered extension mechanisms — each documented in its own f
 
 ## Security Model
 
-This section describes the *layers* that gate every request reaching the storage engine. Per-feature usage (env vars, config files, recipes) lives in the dedicated guides linked at the bottom — and the version history for each layer lives in [CHANGELOG.md](../CHANGELOG.md), not here.
+This section describes the *layers* that gate every request reaching the storage engine. Per-feature usage (env vars, config files, recipes) lives in the dedicated guides linked at the bottom — and the version history for each layer lives in [CHANGELOG.md](https://github.com/tradik/mddb/blob/main/CHANGELOG.md), not here.
 
 ### Trust boundaries
 
@@ -290,7 +290,7 @@ Three things MDDB *deliberately* does not do; they are the operator's responsibi
 - [TLS.md](TLS.md) — HTTPS + mTLS setup, openssl recipes, deployment patterns, troubleshooting
 - [config.md](config.md#unix-domain-socket-transport) — UDS transport, env-var reference for `MDDB_HTTP_ADDR=unix:...`
 - [DEPLOYMENT.md](DEPLOYMENT.md) — production hardening checklist
-- [CHANGELOG.md](../CHANGELOG.md) — when each layer landed and how it has evolved
+- [CHANGELOG.md](https://github.com/tradik/mddb/blob/main/CHANGELOG.md) — when each layer landed and how it has evolved
 
 4. **Access Control**:
    - Implement collection-level permissions

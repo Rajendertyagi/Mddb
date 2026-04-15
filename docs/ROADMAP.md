@@ -187,8 +187,8 @@ Detailed roadmap showing implemented features and future plans.
 
 - **Feature Requests:** [GitHub Discussions](https://github.com/tradik/mddb/discussions/categories/ideas)
 - **Bug Reports:** [GitHub Issues](https://github.com/tradik/mddb/issues)
-- **Contribute:** See [CONTRIBUTING.md](../CONTRIBUTING.md)
+- **Contribute:** See [CONTRIBUTING.md](https://github.com/tradik/mddb/blob/main/CONTRIBUTING.md)
 
 ---
 
-**[← Back to README](../README.md)** | **[See changelog →](../CHANGELOG.md)**
+**[← Back to README](README.md)** | **[See changelog →](https://github.com/tradik/mddb/blob/main/CHANGELOG.md)**

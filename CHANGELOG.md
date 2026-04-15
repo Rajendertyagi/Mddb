@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **26 broken documentation links** producing 404s on mddb.tradik.com. Root causes:
+  - `docs/GUIDES.md` — absolute links missing `/docs/` prefix (e.g. `/uses-website-chat/` → `/docs/uses-website-chat/`)
+  - `docs/EMBEDDING_PROVIDERS.md` — links to non-existent files (`VECTOR_SEARCH.md`, `API_ENDPOINTS.md`, `ADMIN_PANEL.md`, `MCP_CONFIG.md`, `SEARCH.md`) replaced with correct slugs
+  - `docs/ARCHITECTURE.md` — `WEBHOOKS.md` link (file doesn't exist) replaced with reference to `AUTOMATIONS.md`; `../CHANGELOG.md` → GitHub URL
+  - `docs/COMPARISON.md` — `PERFORMANCE.md` → `BENCHMARK.md`
+  - `docs/BULK-IMPORT.md` — `CLI.md` (doesn't exist) replaced with `INSTALLATION.md`
+  - `docs/FEATURES.md` — `TEMPORAL_TRACK.md` → `TEMPORAL-TRACK.md` (underscore/dash mismatch)
+  - `docs/INSTALLATION.md` — `../services/mddb-mcp/WSL_SETUP.md` → `/docs/mcp/`
+  - `docs/PANEL.md` — `../docs/` and `../services/mddbd/README.md` → valid site URLs
+  - `docs/README.md` — `../BENCHMARK.md` → `BENCHMARK.md`; `openapi.yaml` / `swagger.html` → `/docs/api/swagger.html`
+  - `docs/GRPC.md` — `../proto/mddb.proto` → GitHub blob URL
+  - `docs/ROADMAP.md` — `../CONTRIBUTING.md`, `../CHANGELOG.md` → GitHub blob URLs
+  - `docs/LLM_CONNECTIONS.md` — `openapi.yaml` → `/docs/api/swagger.html`
+  - `docs/examples/sample-with-frontmatter.md` — `../docs/` double-nesting fixed
+  - All `../LICENSE` links across docs → GitHub blob URL
+- **Footer branding** — added "Made by tradik" link and JSON-LD Organization schema to [services/ssg-template/base.html](services/ssg-template/base.html)
+
 ## [2.9.11] - 2026-04-11
 
 ### Added

@@ -87,7 +87,7 @@ grpcurl -plaintext -d '{"collection":"blog","key":"test","lang":"en_US"}' \
 
 ## Service Definition
 
-The complete service definition is in [`proto/mddb.proto`](../proto/mddb.proto).
+The complete service definition is in [`proto/mddb.proto`](https://github.com/tradik/mddb/blob/main/proto/mddb.proto).
 
 ### Available RPCs (58 total)
 
@@ -148,7 +148,7 @@ The complete service definition is in [`proto/mddb.proto`](../proto/mddb.proto).
 | | `ListCollectionConfigs` | `ListCollectionConfigsRequest` → `ListCollectionConfigsResponse` |
 | **System** | `Stats` | `StatsRequest` → `StatsResponse` |
 
-Full service definition: [`proto/mddb.proto`](../proto/mddb.proto)
+Full service definition: [`proto/mddb.proto`](https://github.com/tradik/mddb/blob/main/proto/mddb.proto)
 
 ### Message Types
 
@@ -748,4 +748,4 @@ All HTTP endpoints have equivalent gRPC methods with the same functionality.
 
 ## License
 
-BSD 3-Clause License - see [LICENSE](../LICENSE) for details.
+BSD 3-Clause License - see [LICENSE](https://github.com/tradik/mddb/blob/main/LICENSE) for details.

@@ -16,7 +16,7 @@ Complete list of MDDB features organized by category.
 - **Activity Histogram** - Day/week/month event-frequency charts
 - **Hot Documents** - Top-N most-accessed document leaderboard
 - **Async writes** - Zero overhead on the read/write path; events batched with BoltDB `Batch()`
-- See [TEMPORAL_TRACK.md](TEMPORAL_TRACK.md)
+- See [TEMPORAL-TRACK.md](TEMPORAL-TRACK.md)
 
 ### Spell Correction
 - **FTS Auto-correction** - Optionally correct FTS queries before execution (per-collection)

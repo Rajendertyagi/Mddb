@@ -497,7 +497,7 @@ import-docs:
 
 ## See Also
 
-- [CLI Documentation](CLI.md)
 - [API Documentation](API.md)
 - [Examples](EXAMPLES.md)
+- [Installation & CLI](INSTALLATION.md)
 - [Deployment Guide](DEPLOYMENT.md)

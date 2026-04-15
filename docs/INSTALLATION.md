@@ -284,7 +284,7 @@ sudo systemctl start mddbd
 
 Access from Windows: `http://localhost:11023`
 
-**See also:** [WSL Setup Guide](../services/mddb-mcp/WSL_SETUP.md)
+**See also:** [MCP Configuration](/docs/mcp/) for setting up MDDB MCP on WSL
 
 ---
 

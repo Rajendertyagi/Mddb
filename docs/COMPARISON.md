@@ -212,7 +212,7 @@ Benchmark: 3000 documents, batch inserts
 | MySQL | 1,214 docs/s | 822µs | ~300MB |
 | CouchDB | 312 docs/s | 3,185µs | ~180MB |
 
-**See also:** [Performance Benchmarks](PERFORMANCE.md)
+**See also:** [Performance Benchmarks](BENCHMARK.md)
 
 ---
 

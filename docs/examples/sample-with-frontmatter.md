@@ -54,9 +54,9 @@ mddb-cli search blog -f "category=tutorial"
 
 ## Next Steps
 
-- Read the [API Documentation](../docs/API.md)
-- Try the [Examples](../docs/EXAMPLES.md)
-- Learn about [Performance](../docs/PERFORMANCE.md)
+- Read the [API Documentation](../API.md)
+- Try the [Examples](../EXAMPLES.md)
+- Learn about [Benchmarks](../BENCHMARK.md)
 
 ## Conclusion
 

@@ -345,16 +345,16 @@ If you're using environment variables and want to migrate to database config:
 
 ## Classification
 
-All embedding providers support zero-shot classification via `POST /v1/classify`. This feature embeds candidate labels and computes similarity to your documents — no training data required. See [Search Algorithms](SEARCH.md#zero-shot-classification) for details.
+All embedding providers support zero-shot classification via `POST /v1/classify`. This feature embeds candidate labels and computes similarity to your documents — no training data required. See [Search Algorithms](/docs/search/#zero-shot-classification) for details.
 
 ---
 
 ## Related Documentation
 
-- [Vector Search Guide](VECTOR_SEARCH.md)
-- [API Endpoints](API_ENDPOINTS.md)
-- [Admin Panel Guide](ADMIN_PANEL.md)
-- [MCP Configuration](MCP_CONFIG.md)
+- [Full-Text Search Guide](/docs/search/)
+- [API Endpoints](/docs/api/)
+- [Admin Panel Guide](/docs/panel/)
+- [MCP Configuration](/docs/mcp/)
 
 ---
 

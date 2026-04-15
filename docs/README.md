@@ -31,8 +31,8 @@ Welcome to the MDDB documentation! This guide will help you understand, deploy, 
 
 - **[Quick Start Guide](QUICKSTART.md)** - Get up and running in 5 minutes
 - **[API Documentation](API.md)** - Complete HTTP/JSON API reference
-- **[OpenAPI/Swagger Specification](openapi.yaml)** - Machine-readable API spec (OpenAPI 3.0)
-- **[Swagger UI](swagger.html)** - Interactive API documentation
+- **[OpenAPI/Swagger Specification](/docs/api/swagger.html)** - Machine-readable API spec (OpenAPI 3.0)
+- **[Swagger UI](/docs/api/swagger.html)** - Interactive API documentation
 - **[Health Check Guide](HEALTHCHECK.md)** - Health checks for Docker, Kubernetes, and load balancers
 - **[gRPC Documentation](GRPC.md)** - High-performance gRPC API guide
 - **[Usage Examples](EXAMPLES.md)** - Code examples and integration patterns
@@ -129,7 +129,7 @@ The full feature matrix is maintained in [FEATURES.md](FEATURES.md). Storage int
 
 ## 📊 Performance
 
-Numbers, methodology and benchmarks live in their own document — see **[BENCHMARK.md](../BENCHMARK.md)** (if present in this repo) or run the bench suite under `tools/bench/`. This index intentionally does not pin throughput targets that would drift from reality.
+Numbers, methodology and benchmarks live in their own document — see **[BENCHMARK.md](BENCHMARK.md)** or run the bench suite under `tools/bench/`. This index intentionally does not pin throughput targets that would drift from reality.
 
 ## 🔒 Security
 
@@ -140,7 +140,7 @@ For the security model (the layers a request passes through, trust boundaries, w
 - **[config.md](config.md#unix-domain-socket-transport)** — Unix Domain Socket transport
 - **[DEPLOYMENT.md](DEPLOYMENT.md)** — production hardening checklist
 
-Version-by-version changes for any of these layers live in [CHANGELOG.md](../CHANGELOG.md), not here.
+Version-by-version changes for any of these layers live in [CHANGELOG.md](https://github.com/tradik/mddb/blob/main/CHANGELOG.md), not here.
 
 ## 🛠️ Development
 
@@ -201,7 +201,7 @@ Contributions are welcome! Please:
 2. Follow Go best practices
 3. Add tests for new features
 4. Update documentation
-5. Update [CHANGELOG.md](../CHANGELOG.md)
+5. Update [CHANGELOG.md](https://github.com/tradik/mddb/blob/main/CHANGELOG.md)
 
 ## Standards & References
 
@@ -213,13 +213,13 @@ This documentation follows industry standards:
 
 ## 📝 License
 
-See [LICENSE](../LICENSE) file for details.
+See [LICENSE](https://github.com/tradik/mddb/blob/main/LICENSE) file for details.
 
 ## 🔗 Links
 
 - [GitHub Repository](https://github.com/tradik/mddb)
 - [Issue Tracker](https://github.com/tradik/mddb/issues)
-- [Changelog](../CHANGELOG.md)
+- [Changelog](https://github.com/tradik/mddb/blob/main/CHANGELOG.md)
 
 ## 💡 Support
 
@@ -230,7 +230,7 @@ See [LICENSE](../LICENSE) file for details.
 
 ## 🗺️ Roadmap
 
-The roadmap is maintained per release in [ROADMAP.md](ROADMAP.md). Past releases live in [CHANGELOG.md](../CHANGELOG.md).
+The roadmap is maintained per release in [ROADMAP.md](ROADMAP.md). Past releases live in [CHANGELOG.md](https://github.com/tradik/mddb/blob/main/CHANGELOG.md).
 
 
 ---
