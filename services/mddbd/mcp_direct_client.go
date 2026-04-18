@@ -993,6 +993,9 @@ func (c *DirectClient) FTSSearch(ctx context.Context, req *MCPFTSSearchRequest) 
 		return nil, err
 	}
 
+	// Apply per-query boosts/demotions (metadata-based score multipliers).
+	results = c.server.applyBoostFTS(req.Collection, results, req.Boost)
+
 	resp := &MCPFTSSearchResponse{
 		Algorithm: algo,
 		Fuzzy:     fuzzy,
@@ -1127,6 +1130,7 @@ func (c *DirectClient) HybridSearch(ctx context.Context, req *MCPHybridSearchReq
 		Threshold:       req.Threshold,
 		DistanceMetric:  req.DistanceMetric,
 		FilterMeta:      req.FilterMeta,
+		Boost:           req.Boost,
 		IncludeContent:  true,
 	}
 
@@ -1162,6 +1166,12 @@ func (c *DirectClient) HybridSearch(ctx context.Context, req *MCPHybridSearchReq
 		merged = mergeRRF(ftsResults, vectorResults, httpReq.RRFK, httpReq.TopK)
 	default:
 		merged = mergeAlpha(ftsResults, vectorResults, httpReq.Alpha, httpReq.TopK)
+	}
+
+	// Apply per-query boosts/demotions (metadata-based score multipliers).
+	merged = c.server.applyBoostHybrid(req.Collection, merged, req.Boost)
+	if len(merged) > httpReq.TopK {
+		merged = merged[:httpReq.TopK]
 	}
 
 	items := c.server.loadHybridDocs(req.Collection, merged, true)

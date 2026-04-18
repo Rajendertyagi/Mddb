@@ -25,7 +25,7 @@ import (
 )
 
 // VERSION is the current release version of the MDDB server.
-const VERSION = "2.9.11"
+const VERSION = "2.9.12"
 
 // AccessMode defines the database access mode (read, write, or both).
 type AccessMode string
@@ -86,6 +86,7 @@ type Server struct {
 	TemporalManager    *TemporalManager     // Document lifecycle event tracking (create/update/access)
 	SpellManager       *SpellManager        // Spell correction for FTS queries and document content
 	SSEHub             *SSEHub              // Server-Sent Events for real-time document change notifications
+	BulkIngest         *BulkIngestManager   // Async bulk ingest job manager
 	MCPInfo            MCPServerInfo        // Customizable MCP server profile
 	MCPInstructions    string               // System prompt for LLM — how to use this server
 	mcpKeyStore        *mcpAPIKeyStore      // BoltDB-backed MCP API key store
@@ -681,6 +682,9 @@ func main() {
 	mux.HandleFunc("/v1/health", s.handleHealth)
 	mux.HandleFunc("/v1/add", s.guardWrite(s.handleAdd))
 	mux.HandleFunc("/v1/add-batch", s.guardWrite(s.handleAddBatch))
+	mux.HandleFunc("/v1/bulk-ingest-job", s.guardWrite(s.handleBulkIngestSubmit))
+	mux.HandleFunc("/v1/bulk-ingest-job/", s.handleBulkIngestStatus)
+	mux.HandleFunc("/v1/bulk-ingest-jobs", s.handleBulkIngestList)
 	mux.HandleFunc("/v1/ingest", s.guardWrite(s.handleIngest))
 	mux.HandleFunc("/v1/get", s.handleGet)
 	mux.HandleFunc("/v1/search", s.handleSearch)
@@ -711,6 +715,7 @@ func main() {
 	mux.HandleFunc("/v1/fts", s.handleFTS)
 	mux.HandleFunc("/v1/fts-reindex", s.guardWrite(s.handleFTSReindex))
 	mux.HandleFunc("/v1/fts-languages", s.handleFTSLanguages)
+	mux.HandleFunc("/v1/autocomplete", s.handleAutocomplete)
 	mux.HandleFunc("/v1/meta-keys", s.handleMetaKeys)
 	mux.HandleFunc("/v1/checksum", s.handleChecksum)
 	mux.HandleFunc("/v1/update", s.guardWrite(s.handleUpdate))
@@ -840,6 +845,11 @@ func main() {
 		_ = earlyServer.Close()
 		time.Sleep(50 * time.Millisecond) // brief pause to release port
 	}
+
+	// Start async bulk ingest manager — recovers orphan jobs from previous run
+	// and spins up the single worker that drains the in-memory queue.
+	s.BulkIngest = NewBulkIngestManager(s, 64)
+	s.BulkIngest.Start()
 
 	// Mark server as ready — health check will now return "healthy" instead of "warming_up"
 	s.Ready = true
@@ -1058,6 +1068,7 @@ func (s *Server) ensureBuckets() error {
 		_, _ = tx.CreateBucketIfNotExists(s.BucketNames.Rev)           // rev|collection|docID|ts -> json
 		_, _ = tx.CreateBucketIfNotExists(s.BucketNames.ByKey)         // bykey|collection|key|lang -> docID
 		_, _ = tx.CreateBucketIfNotExists([]byte("embedding_configs")) // embedding model configurations
+		_, _ = tx.CreateBucketIfNotExists(bucketBulkJobs)              // bulk ingest job tracking
 		return nil
 	})
 }

@@ -15,6 +15,7 @@ status: publish
 - [Endpoints](#endpoints)
   - [POST /v1/add](#post-v1add)
   - [POST /v1/add-batch](#post-v1add-batch)
+  - [POST /v1/bulk-ingest-job](#post-v1bulk-ingest-job)
   - [POST /v1/ingest](#post-v1ingest)
   - [POST /v1/upload](#post-v1upload)
   - [POST /v1/get](#post-v1get)
@@ -28,6 +29,7 @@ status: publish
   - [POST /v1/fts](#post-v1fts)
   - [POST /v1/fts-reindex](#post-v1fts-reindex)
   - [GET /v1/fts-languages](#get-v1fts-languages)
+  - [GET /v1/autocomplete](#get-v1autocomplete)
   - [POST /v1/synonyms](#post-v1synonyms)
   - [GET /v1/synonyms](#get-v1synonyms)
   - [DELETE /v1/synonyms](#delete-v1synonyms)
@@ -250,6 +252,23 @@ curl -X POST http://localhost:11023/v1/add-batch \
     ]
   }'
 ```
+
+---
+
+### POST /v1/bulk-ingest-job
+
+Queue a long-running bulk ingest job and return immediately with a job ID. Poll `/v1/bulk-ingest-job/{id}` or supply `callbackUrl` for a webhook on completion. Jobs are processed by a single FIFO worker in chunks of 500 documents.
+
+**Request Body**: same shape as `/v1/add-batch`, plus optional `callbackUrl`.
+
+**Response**: HTTP 202 with `{id, collection, status: "pending", total, submittedAt}`.
+
+**Companion endpoints**:
+- `GET /v1/bulk-ingest-job/{id}` — status poll
+- `DELETE /v1/bulk-ingest-job/{id}` — cancel (pending jobs only)
+- `GET /v1/bulk-ingest-jobs?collection=X` — list all jobs, newest first
+
+See [BULK-IMPORT.md](BULK-IMPORT.md#async-bulk-ingest-with-job-tracking) for full usage and semantics.
 
 ---
 
@@ -858,6 +877,7 @@ Perform full-text search across document content. Supports multiple search modes
 - `fieldWeights` (optional, BM25F only): Map of field name to weight. Defaults: content=1.0, meta.title=3.0, meta.tags=2.0, meta.category=2.0, meta.description=1.5
 - `filterMeta` (optional): Metadata pre-filter — `{"key": ["value1", "value2"]}`
 - `rangeMeta` (optional): Array of range filters on metadata or timestamps
+- `boost` (optional): Per-query score multipliers keyed by `"metaKey:metaValue"`. Positive values boost (`5.0` → 5×), negative values demote (`-2.0` → ½×). Multiple matching entries combine multiplicatively; floor is `0.001`. No reindex required.
 
 **Search Modes**:
 - **simple**: Standard full-text search with TF-IDF/BM25/BM25F/PMISparse scoring
@@ -935,6 +955,11 @@ curl -X POST http://localhost:11023/v1/fts \
 curl -X POST http://localhost:11023/v1/fts \
   -H 'Content-Type: application/json' \
   -d '{"collection":"articles","query":"programowanie wydajne","lang":"pl","algorithm":"bm25"}'
+
+# Per-query boost: 5× featured, ½× archived
+curl -X POST http://localhost:11023/v1/fts \
+  -H 'Content-Type: application/json' \
+  -d '{"collection":"blog","query":"tutorial","boost":{"tag:featured":5.0,"status:archived":-2.0}}'
 ```
 
 ---
@@ -982,6 +1007,46 @@ curl http://localhost:11023/v1/fts-languages
   "defaultLang": "en"
 }
 ```
+
+---
+
+### GET /v1/autocomplete
+
+Return up to `topN` terms starting with the given prefix, ranked by document frequency. Scans the existing FTS inverted index — no additional indexing is required.
+
+**Query Parameters**:
+- `collection` (required): Collection name
+- `q` (required): Prefix query — lowercased and stripped of non-alphanumerics
+- `field` (optional): Limit to one indexed field (e.g. `title`, `content`, `meta.tags`); empty means global
+- `topN` (optional, default 10): Maximum suggestions
+
+**cURL Examples**:
+```bash
+# Global autocomplete across all indexed content
+curl "http://localhost:11023/v1/autocomplete?collection=blog&q=mar&topN=5"
+
+# Title-only autocomplete for type-ahead UI
+curl "http://localhost:11023/v1/autocomplete?collection=blog&q=mar&field=meta.title"
+```
+
+**Response**:
+```json
+{
+  "items": [
+    {"term": "market", "field": "", "docCount": 42},
+    {"term": "marker", "field": "", "docCount": 17},
+    {"term": "marathon", "field": "", "docCount": 3}
+  ],
+  "total": 3,
+  "query": "mar",
+  "field": ""
+}
+```
+
+**Notes**:
+- A single call scans at most 10000 index entries so pathological prefixes like `a` stay fast.
+- Prefix is capped at 32 characters; longer prefixes are truncated silently.
+- Empty `q` returns an empty result list rather than an error — safer for client-side type-ahead handlers.
 
 ---
 

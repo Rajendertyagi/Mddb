@@ -485,6 +485,7 @@ message FTSRequest {
   int32 fuzzy = 5;                               // typo tolerance: 0 (off), 1 (1 edit), 2 (2 edits)
   map<string, MetaValues> filter_meta = 6;       // optional metadata pre-filter
   string lang = 7;                               // language for stemming/stop words (default: server default)
+  map<string, double> boost = 8;                 // per-query boost: "metaKey:metaValue" → multiplier (positive boosts, negative demotes)
 }
 
 message FTSResult {
@@ -545,6 +546,7 @@ message HybridSearchRequest {
   bool include_content = 12;
   map<string, double> field_weights = 13;
   string lang = 14;                              // language for FTS stemming/stop words
+  map<string, double> boost = 15;                // per-query boost: "metaKey:metaValue" → multiplier (positive boosts, negative demotes)
 }
 
 message HybridSearchResult {

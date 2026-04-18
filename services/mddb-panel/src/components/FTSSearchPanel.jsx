@@ -19,6 +19,7 @@ export default function FTSSearchPanel() {
     ftsStemming, setFtsStemming,
     ftsSynonyms, setFtsSynonyms,
     ftsFieldWeights, setFtsFieldWeight, removeFtsFieldWeight,
+    ftsBoost, setFtsBoostEntry, removeFtsBoostEntry,
     ftsResults, setFtsResults,
     ftsLoading, setFtsLoading,
     ftsError, setFtsError,
@@ -29,6 +30,13 @@ export default function FTSSearchPanel() {
 
   const [weightsOpen, setWeightsOpen] = useState(true);
   const [newFieldName, setNewFieldName] = useState('');
+  const [boostOpen, setBoostOpen] = useState(false);
+  const [newBoostKey, setNewBoostKey] = useState('');
+  const [newBoostValue, setNewBoostValue] = useState('1');
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const suggestionsAbortRef = useRef(null);
+  const suggestionsTimerRef = useRef(null);
   const [showCommand, setShowCommand] = useState(false);
   const [spellCorrected, setSpellCorrected] = useState(null);
   const [availableLangs, setAvailableLangs] = useState([]);
@@ -47,6 +55,55 @@ export default function FTSSearchPanel() {
       abortRef.current.abort();
       abortRef.current = null;
     }
+  };
+
+  // Debounced autocomplete: cancels any in-flight request + scheduled timer
+  // so bursts of keystrokes only produce one network round-trip.
+  const requestSuggestions = (query) => {
+    if (suggestionsTimerRef.current) {
+      clearTimeout(suggestionsTimerRef.current);
+    }
+    if (suggestionsAbortRef.current) {
+      suggestionsAbortRef.current.abort();
+      suggestionsAbortRef.current = null;
+    }
+    if (!currentCollection || !query || query.length < 2) {
+      setSuggestions([]);
+      setSuggestionsOpen(false);
+      return;
+    }
+    suggestionsTimerRef.current = setTimeout(async () => {
+      const controller = new AbortController();
+      suggestionsAbortRef.current = controller;
+      try {
+        const data = await mddbClient.autocomplete({
+          collection: currentCollection,
+          q: query,
+          topN: 8,
+          signal: controller.signal,
+        });
+        if (!controller.signal.aborted) {
+          setSuggestions(data.items || []);
+          setSuggestionsOpen((data.items || []).length > 0);
+        }
+      } catch (e) {
+        if (e.name !== 'AbortError') {
+          setSuggestions([]);
+          setSuggestionsOpen(false);
+        }
+      }
+    }, 150);
+  };
+
+  const handleQueryChange = (value) => {
+    setFtsQuery(value);
+    requestSuggestions(value);
+  };
+
+  const acceptSuggestion = (term) => {
+    setFtsQuery(term);
+    setSuggestions([]);
+    setSuggestionsOpen(false);
   };
 
   const handleSearch = async () => {
@@ -72,6 +129,7 @@ export default function FTSSearchPanel() {
         fieldWeights: ftsAlgorithm === 'bm25f' ? ftsFieldWeights : null,
         filterMeta: searchFilterMeta,
         lang: ftsLang || undefined,
+        boost: ftsBoost,
         signal: controller.signal,
       });
       setFtsResults(data.results || []);
@@ -125,6 +183,16 @@ export default function FTSSearchPanel() {
     }
   };
 
+  const handleAddBoost = () => {
+    const key = newBoostKey.trim();
+    const value = parseFloat(newBoostValue);
+    if (!key.includes(':') || key.startsWith(':') || key.endsWith(':')) return;
+    if (Number.isNaN(value) || value === 0) return;
+    setFtsBoostEntry(key, value);
+    setNewBoostKey('');
+    setNewBoostValue('1');
+  };
+
   const handleFtsReindex = async () => {
     if (!currentCollection) return;
     setReindexing(true);
@@ -161,14 +229,42 @@ export default function FTSSearchPanel() {
           <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
             Full-Text Query
           </label>
-          <input
-            type="text"
-            value={ftsQuery}
-            onChange={(e) => setFtsQuery(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            placeholder="Search documents by text..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-          />
+          <div className="relative">
+            <input
+              type="text"
+              value={ftsQuery}
+              onChange={(e) => handleQueryChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  setSuggestionsOpen(false);
+                  handleSearch();
+                } else if (e.key === 'Escape') {
+                  setSuggestionsOpen(false);
+                }
+              }}
+              onBlur={() => setTimeout(() => setSuggestionsOpen(false), 120)}
+              onFocus={() => suggestions.length > 0 && setSuggestionsOpen(true)}
+              placeholder="Search documents by text..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              autoComplete="off"
+            />
+            {suggestionsOpen && suggestions.length > 0 && (
+              <ul className="absolute left-0 right-0 top-full mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                {suggestions.map((s) => (
+                  <li key={s.term}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => { e.preventDefault(); acceptSuggestion(s.term); }}
+                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-primary-50 flex items-center justify-between"
+                    >
+                      <span className="truncate">{s.term}</span>
+                      <span className="text-[11px] text-gray-400 ml-2">{s.docCount} docs</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-5 gap-3">
@@ -324,6 +420,76 @@ export default function FTSSearchPanel() {
             )}
           </div>
         )}
+
+        {/* Per-query boost map: metaKey:metaValue → multiplier */}
+        <div className="border border-gray-200 rounded-lg">
+          <button
+            onClick={() => setBoostOpen(!boostOpen)}
+            className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-50"
+          >
+            <span>
+              Boost / Demote
+              {Object.keys(ftsBoost).length > 0 && (
+                <span className="ml-2 text-primary-600 normal-case text-[11px] font-normal">
+                  {Object.keys(ftsBoost).length} active
+                </span>
+              )}
+            </span>
+            {boostOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+          {boostOpen && (
+            <div className="px-3 pb-3 space-y-2">
+              <p className="text-[11px] text-gray-500">
+                Key format <code className="bg-gray-100 px-1 rounded">metaKey:metaValue</code>. Positive = boost (5.0 = 5×), negative = demote (-2.0 = ½×).
+              </p>
+              {Object.entries(ftsBoost).map(([key, value]) => (
+                <div key={key} className="flex items-center space-x-2">
+                  <span className="text-xs text-gray-600 flex-1 truncate" title={key}>{key}</span>
+                  <input
+                    type="number"
+                    step={0.5}
+                    value={value}
+                    onChange={(e) => setFtsBoostEntry(key, parseFloat(e.target.value) || 0)}
+                    className="w-20 px-2 py-1 border border-gray-300 rounded text-xs text-center focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  />
+                  <button
+                    onClick={() => removeFtsBoostEntry(key)}
+                    className="p-0.5 text-gray-400 hover:text-red-500"
+                    title="Remove boost entry"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+              <div className="flex items-center space-x-2 pt-1">
+                <input
+                  type="text"
+                  value={newBoostKey}
+                  onChange={(e) => setNewBoostKey(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddBoost()}
+                  placeholder="tag:featured"
+                  className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
+                />
+                <input
+                  type="number"
+                  step={0.5}
+                  value={newBoostValue}
+                  onChange={(e) => setNewBoostValue(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddBoost()}
+                  className="w-20 px-2 py-1 border border-gray-300 rounded text-xs text-center focus:outline-none focus:ring-1 focus:ring-primary-500"
+                />
+                <button
+                  onClick={handleAddBoost}
+                  disabled={!newBoostKey.includes(':')}
+                  className="flex items-center space-x-1 px-2 py-1 text-xs text-primary-600 hover:bg-primary-50 rounded disabled:opacity-40"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>Add</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         <MetaFilterBar collection={currentCollection} />
 
@@ -524,6 +690,7 @@ export default function FTSSearchPanel() {
           fieldWeights: ftsAlgorithm === 'bm25f' ? ftsFieldWeights : null,
           lang: ftsLang || undefined,
           filterMeta: searchFilterMeta,
+          boost: ftsBoost,
         }}
       />
     </div>

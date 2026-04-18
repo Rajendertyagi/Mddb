@@ -312,7 +312,7 @@ class MDDBClient {
   /**
    * Full-text search
    */
-  async ftsSearch({ collection, query, limit = 50, algorithm = 'tfidf', fuzzy = 0, mode = 'auto', distance, disableStem = false, disableSynonyms = false, fieldWeights = null, filterMeta = {}, rangeMeta, lang, signal }) {
+  async ftsSearch({ collection, query, limit = 50, algorithm = 'tfidf', fuzzy = 0, mode = 'auto', distance, disableStem = false, disableSynonyms = false, fieldWeights = null, filterMeta = {}, rangeMeta, lang, boost, signal }) {
     const body = { collection, query, limit, algorithm, fuzzy, disableStem, disableSynonyms };
     if (mode && mode !== 'auto') {
       body.mode = mode;
@@ -331,6 +331,9 @@ class MDDBClient {
     }
     if (lang) {
       body.lang = lang;
+    }
+    if (boost && Object.keys(boost).length > 0) {
+      body.boost = boost;
     }
     return this.request('/fts', {
       method: 'POST',
@@ -357,6 +360,16 @@ class MDDBClient {
   }
 
   /**
+   * Prefix autocomplete over the FTS inverted index. Returns up to `topN`
+   * terms starting with the given prefix, ranked by document frequency.
+   */
+  async autocomplete({ collection, q, field = '', topN = 10, signal }) {
+    const params = new URLSearchParams({ collection, q, topN: String(topN) });
+    if (field) params.set('field', field);
+    return this.request(`/autocomplete?${params.toString()}`, { method: 'GET', signal });
+  }
+
+  /**
    * Get metadata keys and values for a collection
    */
   async getMetaKeys(collection) {
@@ -366,7 +379,7 @@ class MDDBClient {
   /**
    * Hybrid search (sparse + dense)
    */
-  async hybridSearch({ collection, query, topK = 10, algorithm = 'bm25', vectorAlgorithm = 'flat', alpha = 0.5, strategy = 'alpha', rrfK = 60, fuzzy = 0, threshold = 0.0, filterMeta = {}, includeContent = false, distanceMetric = 'cosine', lang, signal }) {
+  async hybridSearch({ collection, query, topK = 10, algorithm = 'bm25', vectorAlgorithm = 'flat', alpha = 0.5, strategy = 'alpha', rrfK = 60, fuzzy = 0, threshold = 0.0, filterMeta = {}, includeContent = false, distanceMetric = 'cosine', lang, boost, signal }) {
     const body = {
       collection,
       query,
@@ -384,6 +397,9 @@ class MDDBClient {
     };
     if (lang) {
       body.lang = lang;
+    }
+    if (boost && Object.keys(boost).length > 0) {
+      body.boost = boost;
     }
     return this.request('/hybrid-search', {
       method: 'POST',

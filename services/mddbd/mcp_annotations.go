@@ -93,6 +93,15 @@ var mcpToolAnnotations = map[string]*MCPToolAnnotations{
 	"create_automation":   writeNonIdempotent(),
 	"register_webhook":    writeNonIdempotent(),
 	"create_backup":       writeNonIdempotent(),
+	"bulk_ingest_submit":  writeNonIdempotent(),
+
+	// --- Bulk ingest job management (status/list are read-only, cancel is write) ---
+	"bulk_ingest_status": readOnly(),
+	"bulk_ingest_list":   readOnly(),
+	"bulk_ingest_cancel": writeIdempotent(),
+
+	// --- Autocomplete (prefix search over FTS index) ---
+	"autocomplete": readOnly(),
 
 	// --- Write, open world (network calls) ---
 	"import_url":     writeOpenWorld(),

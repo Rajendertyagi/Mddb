@@ -68,7 +68,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: "2.9.11"
+  version: "2.9.12"
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -286,6 +286,111 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/bulk-ingest-job:
+    post:
+      tags:
+        - Documents
+      summary: Submit async bulk ingest job
+      description: |
+        Queue a long-running bulk ingest job and return immediately with a
+        job identifier. Clients should poll `/v1/bulk-ingest-job/{id}` for
+        progress or supply `callbackUrl` to receive a `POST` with the final
+        job record on completion.
+
+        Jobs are processed by a single background worker in FIFO order.
+        Payloads are kept in memory — if the server restarts mid-job, the
+        status record is flipped to `failed` on the next start.
+      operationId: submitBulkIngestJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkIngestSubmitRequest"
+      responses:
+        "202":
+          description: Job accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkIngestJob"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/bulk-ingest-job/{id}:
+    get:
+      tags:
+        - Documents
+      summary: Get bulk ingest job status
+      description: Returns the current status record — including counters, timestamps, and up to 50 error messages.
+      operationId: getBulkIngestJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Job identifier returned from submit
+      responses:
+        "200":
+          description: Job status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkIngestJob"
+        "404":
+          description: Job not found
+    delete:
+      tags:
+        - Documents
+      summary: Cancel pending bulk ingest job
+      description: Only jobs in `pending` status can be cancelled. In-flight jobs must run to completion.
+      operationId: cancelBulkIngestJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job cancelled
+        "400":
+          description: Job already started or completed
+
+  /v1/bulk-ingest-jobs:
+    get:
+      tags:
+        - Documents
+      summary: List bulk ingest jobs
+      description: Returns all jobs newest-first, optionally filtered by collection.
+      operationId: listBulkIngestJobs
+      parameters:
+        - name: collection
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by collection name
+      responses:
+        "200":
+          description: Job list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BulkIngestJob"
+                  total:
+                    type: integer
 
   /v1/ingest:
     post:
@@ -1082,6 +1187,77 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/autocomplete:
+    get:
+      tags:
+        - Full-Text Search
+      summary: Prefix autocomplete
+      description: |
+        Return up to `topN` terms starting with the given query, ranked by
+        document frequency. Uses the existing FTS inverted index — no
+        additional indexing is required.
+
+        When `field` is supplied, the BM25F field-scoped index drives the
+        scan so callers can autocomplete titles, tags, or body content
+        independently. A single call scans at most 10000 index entries to
+        keep latency bounded on pathological prefixes like "a".
+      operationId: autocomplete
+      parameters:
+        - name: collection
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Collection name
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Prefix query — lowercased and stripped of non-alphanumerics
+          example: mar
+        - name: field
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional field scope (e.g. `title`, `content`, `meta.tags`); empty means global
+        - name: topN
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+          description: Maximum number of suggestions returned
+      responses:
+        "200":
+          description: Suggestions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        term:
+                          type: string
+                          example: market
+                        field:
+                          type: string
+                          example: title
+                        docCount:
+                          type: integer
+                          example: 42
+                  total:
+                    type: integer
+                  query:
+                    type: string
+                  field:
+                    type: string
 
   /v1/fts-languages:
     get:
@@ -4641,6 +4817,81 @@ components:
             type: string
           description: Error messages for failed documents
 
+    BulkIngestSubmitRequest:
+      type: object
+      required:
+        - collection
+        - documents
+      properties:
+        collection:
+          type: string
+          description: Target collection
+          example: blog
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/AddBatchDocument"
+          description: Documents to ingest; processed in chunks of 500
+        callbackUrl:
+          type: string
+          description: Optional URL that receives a POST with the final job record on completion
+          example: https://example.com/webhook
+
+    BulkIngestJob:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique job identifier
+          example: bulk_1776539903516445000_849876
+        collection:
+          type: string
+          example: blog
+        status:
+          type: string
+          enum: [pending, processing, completed, failed, cancelled]
+          description: |
+            - `pending`: queued, worker has not picked it up yet
+            - `processing`: worker is actively committing chunks
+            - `completed`: finished (may include per-document failures)
+            - `failed`: all documents failed or the server restarted mid-job
+            - `cancelled`: user cancelled while still pending
+        total:
+          type: integer
+          description: Total documents submitted
+        processed:
+          type: integer
+          description: Documents processed so far (includes successes and failures)
+        added:
+          type: integer
+          description: Documents added to the collection
+        updated:
+          type: integer
+          description: Documents updated
+        failed:
+          type: integer
+          description: Documents that failed to commit
+        errors:
+          type: array
+          items:
+            type: string
+          description: Up to 50 error messages recorded during processing
+        callbackUrl:
+          type: string
+          description: Webhook URL supplied at submit time
+        submittedAt:
+          type: integer
+          format: int64
+          description: Unix timestamp (seconds) when the job was submitted
+        startedAt:
+          type: integer
+          format: int64
+          description: Unix timestamp when the worker picked up the job
+        completedAt:
+          type: integer
+          format: int64
+          description: Unix timestamp when the job reached a terminal status
+
     IngestRequest:
       type: object
       required:
@@ -5260,6 +5511,21 @@ components:
           description: Range filters on metadata or timestamp fields
           items:
             $ref: "#/components/schemas/RangeFilter"
+        boost:
+          type: object
+          additionalProperties:
+            type: number
+          description: |
+            Per-query boost map. Keys follow the format `"metaKey:metaValue"`.
+            Positive values multiply the score of documents matching that
+            metadata pair (e.g. `5.0` = 5× boost); negative values demote
+            (e.g. `-2.0` = ½× penalty). Zero is ignored. Multipliers from
+            multiple matching entries combine multiplicatively; the final
+            per-document multiplier is floored at `0.001` to prevent total
+            score collapse.
+          example:
+            "tag:breed": 5.0
+            "category:health": -2.0
 
     RangeFilter:
       type: object
@@ -5706,6 +5972,18 @@ components:
           description: Distance metric for similarity computation
           default: cosine
           example: cosine
+        boost:
+          type: object
+          additionalProperties:
+            type: number
+          description: |
+            Per-query boost map applied to the fused combined score (not raw FTS/vector sub-scores).
+            Keys follow the format `"metaKey:metaValue"`; positive values multiply the score of
+            matching documents, negative values demote. See the same field on `FTSSearchRequest`
+            for full semantics.
+          example:
+            "tag:featured": 2.0
+            "status:archived": -3.0
 
     HybridSearchResponse:
       type: object

@@ -80,12 +80,22 @@ func (s *MCPToolServer) mcpCallTool(ctx context.Context, name string, args map[s
 		return s.toolImportURL(ctx, args)
 	case "set_ttl":
 		return s.toolSetTTL(ctx, args)
+	case "bulk_ingest_submit":
+		return s.toolBulkIngestSubmit(ctx, args)
+	case "bulk_ingest_status":
+		return s.toolBulkIngestStatus(ctx, args)
+	case "bulk_ingest_list":
+		return s.toolBulkIngestList(ctx, args)
+	case "bulk_ingest_cancel":
+		return s.toolBulkIngestCancel(ctx, args)
 	case "full_text_search":
 		return s.toolFTSSearch(ctx, args)
 	case "fts_reindex":
 		return s.toolFTSReindex(ctx, args)
 	case "fts_languages":
 		return s.toolFTSLanguages(ctx, args)
+	case "autocomplete":
+		return s.toolAutocomplete(ctx, args)
 	case "hybrid_search":
 		return s.toolHybridSearch(ctx, args)
 	case "geo_search":
@@ -461,6 +471,7 @@ func (s *MCPToolServer) toolFTSSearch(ctx context.Context, args map[string]inter
 		Algorithm:  mcpGetString(args, "algorithm"),
 		Fuzzy:      mcpGetInt(args, "fuzzy"),
 		Lang:       mcpGetString(args, "lang"),
+		Boost:      mcpGetFloat64Map(args, "boost"),
 	}
 
 	resp, err := s.client.FTSSearch(ctx, req)
@@ -505,6 +516,7 @@ func (s *MCPToolServer) toolHybridSearch(ctx context.Context, args map[string]in
 		Fuzzy:           mcpGetInt(args, "fuzzy"),
 		DistanceMetric:  mcpGetString(args, "distance_metric"),
 		FilterMeta:      mcpGetMetaMap(args, "filter_meta"),
+		Boost:           mcpGetFloat64Map(args, "boost"),
 	}
 	if alpha, ok := args["alpha"].(float64); ok {
 		req.Alpha = alpha
@@ -1412,6 +1424,26 @@ func mcpGetMetaMap(m map[string]interface{}, key string) map[string][]string {
 				result[k] = strs
 			}
 		}
+	}
+	return result
+}
+
+// mcpGetFloat64Map reads a JSON object of numeric values into a float64 map.
+// Returns nil when the key is absent so downstream callers can treat empty
+// and "not provided" identically.
+func mcpGetFloat64Map(m map[string]interface{}, key string) map[string]float64 {
+	raw, ok := m[key].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	result := make(map[string]float64, len(raw))
+	for k, v := range raw {
+		if f, ok := v.(float64); ok {
+			result[k] = f
+		}
+	}
+	if len(result) == 0 {
+		return nil
 	}
 	return result
 }

@@ -42,6 +42,7 @@ export const useStore = create((set, get) => ({
   ftsStemming: true,
   ftsSynonyms: true,
   ftsFieldWeights: { content: 1, 'meta.title': 3, 'meta.tags': 2, 'meta.description': 1.5 },
+  ftsBoost: {},
   ftsLang: '',
   ftsMode: 'auto',
   ftsDistance: 5,
@@ -76,6 +77,7 @@ export const useStore = create((set, get) => ({
   hybridThreshold: 0.0,
   hybridLang: '',
   hybridDistanceMetric: 'cosine',
+  hybridBoost: {},
   hybridResults: [],
   hybridLoading: false,
   hybridError: null,
@@ -174,6 +176,13 @@ export const useStore = create((set, get) => ({
     const { [field]: _, ...rest } = state.ftsFieldWeights;
     return { ftsFieldWeights: rest };
   }),
+  setFtsBoostEntry: (key, value) => set((state) => ({
+    ftsBoost: { ...state.ftsBoost, [key]: value },
+  })),
+  removeFtsBoostEntry: (key) => set((state) => {
+    const { [key]: _, ...rest } = state.ftsBoost;
+    return { ftsBoost: rest };
+  }),
   setFtsResults: (r) => set({ ftsResults: r }),
   setFtsLoading: (l) => set({ ftsLoading: l }),
   setFtsError: (e) => set({ ftsError: e }),
@@ -201,6 +210,13 @@ export const useStore = create((set, get) => ({
   setHybridThreshold: (v) => set({ hybridThreshold: v }),
   setHybridLang: (v) => set({ hybridLang: v }),
   setHybridDistanceMetric: (v) => set({ hybridDistanceMetric: v }),
+  setHybridBoostEntry: (key, value) => set((state) => ({
+    hybridBoost: { ...state.hybridBoost, [key]: value },
+  })),
+  removeHybridBoostEntry: (key) => set((state) => {
+    const { [key]: _, ...rest } = state.hybridBoost;
+    return { hybridBoost: rest };
+  }),
   setHybridResults: (v) => set({ hybridResults: v }),
   setHybridLoading: (v) => set({ hybridLoading: v }),
   setHybridError: (v) => set({ hybridError: v }),

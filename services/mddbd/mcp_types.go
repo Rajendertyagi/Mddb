@@ -277,12 +277,13 @@ type MCPSetTTLRequest struct {
 
 // MCPFTSSearchRequest represents full-text search request.
 type MCPFTSSearchRequest struct {
-	Collection string `json:"collection"`
-	Query      string `json:"query"`
-	Limit      int    `json:"limit,omitempty"`
-	Algorithm  string `json:"algorithm,omitempty"`
-	Fuzzy      int    `json:"fuzzy,omitempty"`
-	Lang       string `json:"lang,omitempty"`
+	Collection string             `json:"collection"`
+	Query      string             `json:"query"`
+	Limit      int                `json:"limit,omitempty"`
+	Algorithm  string             `json:"algorithm,omitempty"`
+	Fuzzy      int                `json:"fuzzy,omitempty"`
+	Lang       string             `json:"lang,omitempty"`
+	Boost      map[string]float64 `json:"boost,omitempty"`
 }
 
 // MCPFTSResult represents a single FTS result.
@@ -339,6 +340,7 @@ type MCPHybridSearchRequest struct {
 	Threshold       float64             `json:"threshold,omitempty"`
 	DistanceMetric  string              `json:"distanceMetric,omitempty"`
 	FilterMeta      map[string][]string `json:"filterMeta,omitempty"`
+	Boost           map[string]float64  `json:"boost,omitempty"`
 }
 
 // MCPHybridSearchResult represents a single hybrid search result.
