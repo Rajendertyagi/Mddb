@@ -1,6 +1,6 @@
 name: mddb-panel
 title: MDDB Panel
-version: "2.9.11"
+version: "2.9.12"
 summary: Web admin panel for MDDB Markdown Database
 description: |
   MDDB Panel is a React-based web administration interface for MDDB.
@@ -44,7 +44,7 @@ parts:
 
   serve-panel:
     plugin: nil
-    after: [panel]
+    after: [ panel ]
     override-build: |
       mkdir -p $CRAFT_PART_INSTALL/bin
       cat > $CRAFT_PART_INSTALL/bin/serve-panel << 'EOF'
