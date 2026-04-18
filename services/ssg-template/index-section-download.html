@@ -81,34 +81,41 @@ sudo snap install mddb-cli</code></pre>
             </div>
         </div>
         <div class="release-notes">
-            <h3 id="whats-new-header">What's New in v2.9.11</h3>
+            <h3 id="whats-new-header">What's New in v2.9.12</h3>
             <ul>
-                <li><strong>Unix Domain Socket transport</strong> — HTTP and gRPC servers now accept
-                    <code>MDDB_HTTP_ADDR=unix:/tmp/mddb.sock</code> /
-                    <code>MDDB_GRPC_ADDR=unix:/tmp/mddb-grpc.sock</code>. Zero-network local transport with
-                    <code>0600</code> filesystem perms. Python and PHP clients gain matching <code>unix:</code>
-                    scheme support — stdlib-only on Python, libcurl <code>CURLOPT_UNIX_SOCKET_PATH</code> on PHP.
+                <li><strong>Per-query boost / demote for FTS and Hybrid search</strong> — attach a
+                    <code>boost</code> map keyed by <code>"metaKey:metaValue"</code> to multiply or divide
+                    matching documents' scores at query time. Positive values boost
+                    (<code>5.0</code> = 5×), negative values demote (<code>-2.0</code> = ½×). Combines
+                    multiplicatively across matches with a <code>0.001</code> floor. No reindex. Wired
+                    through HTTP, gRPC, MCP tools and the web panel (collapsible UI in both FTS and
+                    Hybrid views).
                 </li>
-                <li><strong>Mutual TLS (mTLS)</strong> — new <code>MDDB_TLS_CLIENT_CA</code> +
-                    <code>MDDB_TLS_CLIENT_AUTH=require|request</code> configure client-cert verification on the
-                    HTTPS listener. <code>tls.Config.MinVersion</code> pinned to TLS 1.2.
+                <li><strong>Async bulk ingest with job tracking</strong> — four new endpoints under
+                    <code>/v1/bulk-ingest-job*</code> for long-running imports: submit returns HTTP
+                    <code>202</code> with a job ID, GET polls status, DELETE cancels pending, list returns
+                    all jobs newest-first. Single FIFO worker drains 500-doc chunks; orphan jobs from a
+                    crashed run are flipped to <code>failed</code> on startup. Optional
+                    <code>callbackUrl</code> fires a webhook on completion. Four companion MCP tools
+                    (<code>bulk_ingest_submit</code> / <code>_status</code> / <code>_list</code> /
+                    <code>_cancel</code>).
                 </li>
-                <li><strong>MCP tool count audit</strong> — discovered the long-claimed "72 tools" was a
-                    documentation-only number that never matched code. Audited <code>mcpBuiltinTools()</code> vs
-                    the dispatch switch and surfaced one orphan tool (<code>aggregate</code>) that had a working
-                    handler but no declaration, so MCP clients could not see or call it. Declared it. Authoritative
-                    count is now <strong>67 tools</strong>.
+                <li><strong>Prefix autocomplete</strong> — <code>GET /v1/autocomplete</code> returns
+                    top-N terms starting with the given prefix, ranked by document frequency. Scans the
+                    existing FTS inverted index (no new storage), with optional field scoping via
+                    <code>field</code> and a 10 000-entry scan cap to keep pathological prefixes fast. The
+                    FTS search input in the panel gains a debounced (150 ms) suggestion dropdown with
+                    doc-count badges. MCP <code>autocomplete</code> tool mirrors the HTTP API.
                 </li>
-                <li><strong>Landing page Mermaid fix</strong> — replication diagram was rendering "Syntax error in
-                    text" on mermaid 10.9.5. Switched to <code>&lt;div class="mermaid"&gt;</code>, upgraded to
-                    mermaid@11, explicit <code>mermaid.run()</code>.
+                <li><strong>Proto backwards-compatible bump</strong> — <code>FTSRequest</code> gets field
+                    <code>boost = 8</code> and <code>HybridSearchRequest</code> gets field
+                    <code>boost = 15</code>. Regenerated via <code>buf</code> for Go, Python, Node.js and
+                    PHP. Pre-2.9.12 clients keep working — they simply don't set the new field.
                 </li>
-                <li><strong>Geosearch docs 404 fix</strong> — <code>docs/GEOSEARCH.md</code> was missing SSG
-                    frontmatter, so <code>/docs/geosearch/</code> never built. Frontmatter added.
-                </li>
-                <li><strong>Landing page split into includes</strong> — the monolithic <code>index.html</code>
-                    (~1500 lines) is now composed of <code>index-section-*.html</code> files via Go template
-                    <code>{{"{{template ...}}"}}</code>. Easier to edit, easier to review.
+                <li><strong>Coverage &gt;90% on the new surface</strong> —
+                    <code>fts_boost.go</code> at 100% across all six functions;
+                    <code>fts_autocomplete.go</code> ~90% average; <code>bulk_ingest_job.go</code> ~87%
+                    average (shutdown-only paths untested by design).
                 </li>
             </ul>
             <a href="https://github.com/tradik/mddb/blob/main/CHANGELOG.md" target="_blank" rel="noopener">View

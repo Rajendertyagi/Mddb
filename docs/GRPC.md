@@ -150,6 +150,10 @@ The complete service definition is in [`proto/mddb.proto`](https://github.com/tr
 
 Full service definition: [`proto/mddb.proto`](https://github.com/tradik/mddb/blob/main/proto/mddb.proto)
 
+### New in v2.9.12
+
+`FTSRequest` and `HybridSearchRequest` each gained a `map<string, double> boost` field (field number `8` on `FTSRequest`, `15` on `HybridSearchRequest`) for per-query metadata-based score boosting/demotion. Keys are in `"metaKey:metaValue"` form; positive values multiply matching documents' scores, negative values demote. Adding fields is backwards compatible — existing clients compiled against the pre-2.9.12 proto continue to work and simply omit the new field. See [SEARCH.md — Per-Query Boost/Demote](SEARCH.md) for semantics.
+
 ### Message Types
 
 #### Document

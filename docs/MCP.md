@@ -204,6 +204,26 @@ docker run -d \
 | **Cursor Pagination** | `tools/list` and `resources/list` |
 | **Notifications** | `notifications/initialized`, `notifications/cancelled` |
 | **Memory RAG Tools** | 6 tools for conversational memory: start session, add message, recall, summarize, list sessions, history |
+| **Async Bulk Ingest Tools** (v2.9.12+) | 4 tools for long-running ingest jobs: submit, status, list, cancel |
+| **Autocomplete Tool** (v2.9.12+) | Prefix autocomplete over the FTS index — top-N suggestions ranked by document frequency |
+| **Per-Query Boost** (v2.9.12+) | `full_text_search` and `hybrid_search` tools accept a `boost` map keyed by `"metaKey:metaValue"` to boost/demote matching documents at query time |
+
+## Async Bulk Ingest Tools (v2.9.12+)
+
+Queue long-running bulk ingest jobs from LLMs without blocking on the tool call. The worker drains jobs FIFO in 500-document chunks; status records persist across restarts.
+
+| Tool | Description | Write? |
+|------|-------------|--------|
+| `bulk_ingest_submit` | Queue a new job with documents + optional `callback_url`; returns job ID | Yes |
+| `bulk_ingest_status` | Return current status record (counters, timestamps, errors) | No |
+| `bulk_ingest_list` | List all jobs newest-first, optionally filtered by collection | No |
+| `bulk_ingest_cancel` | Cancel a pending job (in-flight jobs run to completion) | Yes |
+
+## Autocomplete Tool (v2.9.12+)
+
+| Tool | Description | Write? |
+|------|-------------|--------|
+| `autocomplete` | Top-N prefix suggestions over the FTS inverted index, ranked by doc frequency; supports field scoping | No |
 
 ## Memory RAG Tools
 
