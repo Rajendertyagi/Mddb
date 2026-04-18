@@ -274,7 +274,7 @@ func TestBulkJobString(t *testing.T) {
 }
 
 func keyFromIndex(i int) string {
-	return "doc_" + string(rune('a'+i))
+	return "doc_" + string(rune('a')+rune(i))
 }
 
 func TestBulkIngestManager_CallbackFires(t *testing.T) {

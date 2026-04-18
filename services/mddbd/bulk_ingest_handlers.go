@@ -120,10 +120,6 @@ func (s *Server) handleBulkIngestList(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// bulkIngestJobPath is the stable prefix for per-job endpoints so the mux
-// router can share a single handler registration. Kept exported for tests.
-const bulkIngestJobPath = "/v1/bulk-ingest-job/"
-
 // helper for tests and docs — format a completed job as a short status line.
 func (j *BulkIngestJob) String() string {
 	return fmt.Sprintf("bulk[%s] %s %d/%d (+%d ~%d ✗%d)",

@@ -28,7 +28,7 @@ MDDB gives your AI agents a persistent, searchable knowledge base:
 - **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, BM25F, PMISparse, 7 search modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), typo tolerance, multi-language stemming (18 languages), synonyms, **per-query metadata boost/demote**, **prefix autocomplete**
 - **Async Bulk Ingest** - Queue long-running document imports with job tracking, progress polling, and optional webhook callback
 - **Full Revision History** - Every update creates a new revision with complete snapshots
-- **Triple Protocol APIs** - HTTP/JSON (easy), gRPC (fast), or GraphQL (flexible)
+- **Multi-Protocol APIs** - HTTP/JSON (easy), gRPC (fast), GraphQL (flexible), and WebSocket streaming via [mddb-chat](services/mddb-chat/) for LLM chat pipelines
 - **Automation** - Triggers, crons, webhooks with template variables and sentiment analysis
 - **Real-Time Events** - Server-Sent Events (SSE) for live document change notifications
 - **MCP Transports** - Streamable HTTP (`/mcp`, 2025-11-25), legacy SSE (`/sse`), and stdio
