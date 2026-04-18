@@ -565,6 +565,7 @@ a:hover {
 .feat-proto-box.rest { background: #3b82f6; }
 .feat-proto-box.grpc { background: #10b981; }
 .feat-proto-box.gql { background: #e535ab; }
+.feat-proto-box.ws { background: #f59e0b; }
 
 /* Format pipeline */
 .feat-formats {
