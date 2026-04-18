@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.12] - 2026-04-18
+
+### Added
+- **Per-query boost / demote for FTS and hybrid search** ([services/mddbd/fts_boost.go](services/mddbd/fts_boost.go)). Clients can now supply a `boost` map keyed by `"metaKey:metaValue"` on both `/v1/fts` and `/v1/hybrid-search` (and their gRPC equivalents) to multiply the score of documents that carry the matching metadata pair — positive values boost (`5.0` → 5×), negative values demote (`-2.0` → ½×). Boosts combine multiplicatively when multiple entries match the same document, and the combined factor is floored at `0.001` so a stack of demotions cannot collapse the score. No reindex is required. The panel's FTS and Hybrid search views grow a collapsible "Boost / Demote" section that mirrors the existing field-weights UI, and the MCP `full_text_search` / `hybrid_search` tools accept the new parameter verbatim.
+- **Async bulk ingest with job tracking** ([services/mddbd/bulk_ingest_job.go](services/mddbd/bulk_ingest_job.go), [services/mddbd/bulk_ingest_handlers.go](services/mddbd/bulk_ingest_handlers.go)). New endpoints for long-running ingest workloads where the HTTP response should not block:
+  - `POST /v1/bulk-ingest-job` — queue a job; returns HTTP 202 with a job ID
+  - `GET /v1/bulk-ingest-job/{id}` — poll status (counters, errors, timestamps)
+  - `DELETE /v1/bulk-ingest-job/{id}` — cancel a pending job
+  - `GET /v1/bulk-ingest-jobs?collection=X` — list jobs newest-first
+
+  Jobs are drained FIFO by a single worker in 500-document chunks; payloads live in an in-memory queue while status records are persisted to the new `bulk_jobs` BoltDB bucket. A startup recovery pass flips any orphan `pending`/`processing` job from a crashed run to `failed` so observers never see stale non-terminal status. Optional `callbackUrl` receives a `POST` with the final job record on completion. MCP tools `bulk_ingest_submit` / `_status` / `_list` / `_cancel` expose the same surface.
+- **Prefix autocomplete** ([services/mddbd/fts_autocomplete.go](services/mddbd/fts_autocomplete.go)). New `GET /v1/autocomplete?collection=X&q=mar[&field=title&topN=10]` returns top-N terms starting with the given prefix, ranked by document frequency. The implementation scans the existing FTS inverted index (`fts` bucket for global, `ftsf` for field-scoped) so no additional indexing is required; scan is bounded at 10000 entries to keep pathological prefixes fast. The panel's FTS search input gains a debounced (150ms) dropdown of suggestions with doc-count badges, and the MCP `autocomplete` tool mirrors the HTTP API.
+
+### Changed
+- **Proto `FTSRequest` / `HybridSearchRequest` each gain a `map<string, double> boost`** field — field 8 on FTSRequest, field 15 on HybridSearchRequest. All language clients (Go, Python, Node.js, PHP) regenerated via `buf generate`.
+- **OpenAPI** ([docs/openapi.yaml](docs/openapi.yaml)) — added `boost` to `FTSSearchRequest` and `HybridSearchRequest`; added new `/v1/bulk-ingest-job` / `/v1/bulk-ingest-job/{id}` / `/v1/bulk-ingest-jobs` / `/v1/autocomplete` paths plus `BulkIngestSubmitRequest` and `BulkIngestJob` schemas.
+- **Version bump** — [services/mddbd/main.go](services/mddbd/main.go) `VERSION = "2.9.12"`, Makefile, docker-compose.yml labels, mddb-panel package.json.
+
 ### Fixed
 - **26 broken documentation links** producing 404s on mddb.tradik.com. Root causes:
   - `docs/GUIDES.md` — absolute links missing `/docs/` prefix (e.g. `/uses-website-chat/` → `/docs/uses-website-chat/`)

@@ -78,10 +78,11 @@ type FTSSearchRequest struct {
 	FieldWeights    map[string]float64  `json:"fieldWeights,omitempty"` // BM25F field weights
 	FilterMeta      map[string][]string `json:"filterMeta,omitempty"`   // metadata pre-filter (in-graph filtering)
 	// Advanced search modes
-	Mode      string        `json:"mode,omitempty"`      // "simple" (default), "boolean", "phrase", "wildcard", "proximity", "auto"
-	Distance  int           `json:"distance,omitempty"`  // proximity distance (words) for mode=proximity
-	RangeMeta []RangeFilter `json:"rangeMeta,omitempty"` // range filters on metadata/timestamps
-	Lang      string        `json:"lang,omitempty"`      // language for query tokenization (e.g. "en", "pl", "de")
+	Mode      string             `json:"mode,omitempty"`      // "simple" (default), "boolean", "phrase", "wildcard", "proximity", "auto"
+	Distance  int                `json:"distance,omitempty"`  // proximity distance (words) for mode=proximity
+	RangeMeta []RangeFilter      `json:"rangeMeta,omitempty"` // range filters on metadata/timestamps
+	Lang      string             `json:"lang,omitempty"`      // language for query tokenization (e.g. "en", "pl", "de")
+	Boost     map[string]float64 `json:"boost,omitempty"`     // per-query boost: "metaKey:metaValue" → multiplier (positive boosts, negative demotes)
 }
 
 // FTSSearchResponse is the HTTP response for full-text search.
@@ -922,6 +923,9 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
+	// Apply per-query boosts/demotions (metadata-based score multipliers).
+	results = s.applyBoostFTS(req.Collection, results, req.Boost)
 
 	// Load full documents
 	var resp FTSSearchResponse

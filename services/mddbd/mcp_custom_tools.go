@@ -191,8 +191,54 @@ func mcpBuiltinTools() []MCPTool {
 					"algorithm":  map[string]interface{}{"type": "string", "description": "Scoring algorithm: tfidf (default), bm25, bm25f, or pmisparse"},
 					"fuzzy":      map[string]interface{}{"type": "integer", "description": "Typo tolerance: 0 (off, default), 1 (1 char typo), 2 (2 char typos)"},
 					"lang":       map[string]interface{}{"type": "string", "description": "Language for stemming/stop words (e.g. en, pl, de, fr, es). Default: server default language"},
+					"boost":      map[string]interface{}{"type": "object", "description": "Per-query score multiplier keyed by \"metaKey:metaValue\" (e.g. {\"tag:featured\":5.0,\"status:archived\":-2.0}). Positive boosts, negative demotes; combined multiplicatively."},
 				},
 				"required": []string{"collection", "query"},
+			},
+		},
+		{
+			Name:        "bulk_ingest_submit",
+			Description: "Queue a long-running bulk ingest job and return immediately with a job identifier. The caller should poll bulk_ingest_status or supply callback_url for a webhook notification on completion. Documents are processed in FIFO order, 500 at a time.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection":   map[string]interface{}{"type": "string", "description": "Target collection"},
+					"documents":    map[string]interface{}{"type": "array", "description": "Documents to ingest (same shape as add-batch)", "items": map[string]interface{}{"type": "object"}},
+					"callback_url": map[string]interface{}{"type": "string", "description": "Optional URL that receives a POST with the final job record on completion"},
+				},
+				"required": []string{"collection", "documents"},
+			},
+		},
+		{
+			Name:        "bulk_ingest_status",
+			Description: "Return the current status record (counters, timestamps, up to 50 errors) for a previously-submitted bulk ingest job.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"id": map[string]interface{}{"type": "string", "description": "Job identifier returned from bulk_ingest_submit"},
+				},
+				"required": []string{"id"},
+			},
+		},
+		{
+			Name:        "bulk_ingest_list",
+			Description: "List bulk ingest jobs newest-first, optionally filtered by collection.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Optional collection filter"},
+				},
+			},
+		},
+		{
+			Name:        "bulk_ingest_cancel",
+			Description: "Cancel a pending bulk ingest job. Jobs that have already started processing cannot be cancelled.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"id": map[string]interface{}{"type": "string", "description": "Job identifier to cancel"},
+				},
+				"required": []string{"id"},
 			},
 		},
 		{
@@ -204,6 +250,20 @@ func mcpBuiltinTools() []MCPTool {
 					"collection": map[string]interface{}{"type": "string", "description": "Collection to reindex"},
 				},
 				"required": []string{"collection"},
+			},
+		},
+		{
+			Name:        "autocomplete",
+			Description: "Prefix autocomplete — returns top-N terms starting with the query, ranked by document frequency. Reuses the FTS inverted index.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection name"},
+					"q":          map[string]interface{}{"type": "string", "description": "Prefix query (lowercased and stripped of non-alphanumerics)"},
+					"field":      map[string]interface{}{"type": "string", "description": "Optional field scope (e.g. \"meta.title\", \"content\"); empty means global"},
+					"top_n":      map[string]interface{}{"type": "integer", "description": "Max suggestions (default: 10)"},
+				},
+				"required": []string{"collection", "q"},
 			},
 		},
 		{
@@ -482,6 +542,7 @@ func mcpBuiltinTools() []MCPTool {
 					"threshold":        map[string]interface{}{"type": "number", "description": "Min vector similarity 0-1"},
 					"distance_metric":  map[string]interface{}{"type": "string", "description": "Distance metric: cosine (default), dot_product, euclidean"},
 					"filter_meta":      map[string]interface{}{"type": "object", "description": "Metadata filter"},
+					"boost":            map[string]interface{}{"type": "object", "description": "Per-query score multiplier keyed by \"metaKey:metaValue\" (e.g. {\"tag:featured\":5.0,\"status:archived\":-2.0}). Positive boosts, negative demotes; combined multiplicatively."},
 				},
 				"required": []string{"collection", "query"},
 			},

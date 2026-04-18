@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, AlertCircle, Tag, Terminal, Ban } from 'lucide-react';
+import { Search, AlertCircle, Tag, Terminal, Ban, ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
 import CommandModal from './CommandModal';
@@ -19,6 +19,7 @@ export default function HybridSearchPanel() {
     hybridDistanceMetric, setHybridDistanceMetric,
     hybridFuzzy, setHybridFuzzy,
     hybridThreshold, setHybridThreshold,
+    hybridBoost, setHybridBoostEntry, removeHybridBoostEntry,
     hybridResults, setHybridResults,
     hybridLoading, setHybridLoading,
     hybridError, setHybridError,
@@ -30,7 +31,20 @@ export default function HybridSearchPanel() {
   const [includeContent, setIncludeContent] = useState(false);
   const [showCommand, setShowCommand] = useState(false);
   const [availableLangs, setAvailableLangs] = useState([]);
+  const [boostOpen, setBoostOpen] = useState(false);
+  const [newBoostKey, setNewBoostKey] = useState('');
+  const [newBoostValue, setNewBoostValue] = useState('1');
   const abortRef = useRef(null);
+
+  const handleAddBoost = () => {
+    const key = newBoostKey.trim();
+    const value = parseFloat(newBoostValue);
+    if (!key.includes(':') || key.startsWith(':') || key.endsWith(':')) return;
+    if (Number.isNaN(value) || value === 0) return;
+    setHybridBoostEntry(key, value);
+    setNewBoostKey('');
+    setNewBoostValue('1');
+  };
 
   useEffect(() => {
     mddbClient.ftsLanguages().then((data) => {
@@ -70,6 +84,7 @@ export default function HybridSearchPanel() {
         distanceMetric: hybridDistanceMetric,
         filterMeta: searchFilterMeta,
         lang: hybridLang || undefined,
+        boost: hybridBoost,
         signal: controller.signal,
       });
       setHybridResults(data.results || []);
@@ -295,6 +310,76 @@ export default function HybridSearchPanel() {
           </div>
         </div>
 
+        {/* Per-query boost map: metaKey:metaValue → multiplier */}
+        <div className="border border-gray-200 rounded-lg">
+          <button
+            onClick={() => setBoostOpen(!boostOpen)}
+            className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider hover:bg-gray-50"
+          >
+            <span>
+              Boost / Demote
+              {Object.keys(hybridBoost).length > 0 && (
+                <span className="ml-2 text-primary-600 normal-case text-[11px] font-normal">
+                  {Object.keys(hybridBoost).length} active
+                </span>
+              )}
+            </span>
+            {boostOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+          {boostOpen && (
+            <div className="px-3 pb-3 space-y-2">
+              <p className="text-[11px] text-gray-500">
+                Applied to combined score after fusion. Key <code className="bg-gray-100 px-1 rounded">metaKey:metaValue</code>. Positive = boost, negative = demote.
+              </p>
+              {Object.entries(hybridBoost).map(([key, value]) => (
+                <div key={key} className="flex items-center space-x-2">
+                  <span className="text-xs text-gray-600 flex-1 truncate" title={key}>{key}</span>
+                  <input
+                    type="number"
+                    step={0.5}
+                    value={value}
+                    onChange={(e) => setHybridBoostEntry(key, parseFloat(e.target.value) || 0)}
+                    className="w-20 px-2 py-1 border border-gray-300 rounded text-xs text-center focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  />
+                  <button
+                    onClick={() => removeHybridBoostEntry(key)}
+                    className="p-0.5 text-gray-400 hover:text-red-500"
+                    title="Remove boost entry"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+              <div className="flex items-center space-x-2 pt-1">
+                <input
+                  type="text"
+                  value={newBoostKey}
+                  onChange={(e) => setNewBoostKey(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddBoost()}
+                  placeholder="tag:featured"
+                  className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
+                />
+                <input
+                  type="number"
+                  step={0.5}
+                  value={newBoostValue}
+                  onChange={(e) => setNewBoostValue(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddBoost()}
+                  className="w-20 px-2 py-1 border border-gray-300 rounded text-xs text-center focus:outline-none focus:ring-1 focus:ring-primary-500"
+                />
+                <button
+                  onClick={handleAddBoost}
+                  disabled={!newBoostKey.includes(':')}
+                  className="flex items-center space-x-1 px-2 py-1 text-xs text-primary-600 hover:bg-primary-50 rounded disabled:opacity-40"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>Add</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         <MetaFilterBar collection={currentCollection} />
 
         <div className="flex items-center justify-between">
@@ -468,6 +553,7 @@ export default function HybridSearchPanel() {
           lang: hybridLang || undefined,
           includeContent,
           filterMeta: searchFilterMeta,
+          boost: hybridBoost,
         }}
       />
     </div>

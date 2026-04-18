@@ -495,6 +495,85 @@ import-docs:
 7. **Monitor server resources** during large imports
 8. **Backup database** before major imports
 
+## Async Bulk Ingest with Job Tracking
+
+For imports of tens of thousands of documents where you don't want the HTTP
+request to block, use the async job API instead of `/v1/add-batch`.
+
+### Submit a job
+
+```bash
+curl -X POST http://localhost:11023/v1/bulk-ingest-job \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "articles",
+    "documents": [ ... up to N documents ... ],
+    "callbackUrl": "https://example.com/webhook"
+  }'
+```
+
+Returns HTTP 202 with the job record:
+
+```json
+{
+  "id": "bulk_1776539903516445000_849876",
+  "collection": "articles",
+  "status": "pending",
+  "total": 12500,
+  "submittedAt": 1713432000
+}
+```
+
+### Poll for progress
+
+```bash
+curl http://localhost:11023/v1/bulk-ingest-job/bulk_1776539903516445000_849876
+```
+
+Response fields:
+
+| Field | Description |
+|-------|-------------|
+| `status` | `pending`, `processing`, `completed`, `failed`, or `cancelled` |
+| `total` | Documents submitted |
+| `processed` | Documents processed so far |
+| `added` / `updated` / `failed` | Per-document outcome counters |
+| `errors` | Up to 50 error messages captured during processing |
+| `startedAt` / `completedAt` | Unix timestamps |
+
+### List all jobs
+
+```bash
+curl http://localhost:11023/v1/bulk-ingest-jobs?collection=articles
+```
+
+### Cancel a pending job
+
+```bash
+curl -X DELETE http://localhost:11023/v1/bulk-ingest-job/bulk_1776539903516445000_849876
+```
+
+In-flight jobs (`processing`) cannot be cancelled — they run to completion.
+
+### How it works
+
+- **Single worker, FIFO** — BoltDB writes are serialised, so the job worker
+  runs one job at a time. Multiple submits queue up.
+- **Chunked commits** — documents are processed in sub-batches of 500 so a
+  long write transaction never blocks readers for more than a few seconds.
+- **In-memory payload, persistent status** — the document list lives in the
+  queue; if the server restarts mid-job the status record flips to `failed`.
+- **Callback webhook** — set `callbackUrl` to receive a POST with the final
+  job record when processing completes (`X-MDDB-Event: bulk_ingest.completed`).
+
+### When to use async vs `/v1/add-batch`
+
+| Use `/v1/add-batch` | Use `/v1/bulk-ingest-job` |
+|---------------------|---------------------------|
+| Up to ~1000 docs per request | Thousands of docs, long-running |
+| You need the response inline | You can poll or accept a callback |
+| CLI one-shot imports | Pipeline-driven or UI-driven imports |
+
 ## See Also
 
 - [API Documentation](API.md)

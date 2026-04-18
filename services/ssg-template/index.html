@@ -6,9 +6,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description"
-        content="MDDB — AI-native embedded document database with built-in MCP server (67 tools), vector search (Flat, HNSW, IVF, PQ, OPQ, SQ, BQ), hybrid BM25+vector RAG, full-text search with 7 modes and 18-language stemming, geospatial search (R-tree + geohash), triple protocol (REST, gRPC, GraphQL) over TCP or Unix Domain Socket, optional mTLS. Accepts .md, .txt, .html, .pdf, .docx, .odt, .rtf, .tex, .yaml. Connects to Claude, ChatGPT, Cursor, Windsurf, Ollama, DeepSeek. Single ~29MB binary, zero config.">
+        content="MDDB — AI-native embedded document database with built-in MCP server (72 tools), vector search (Flat, HNSW, IVF, PQ, OPQ, SQ, BQ), hybrid BM25+vector RAG, full-text search with 7 modes, 18-language stemming, per-query boost/demote and prefix autocomplete, async bulk ingest with job tracking, geospatial search (R-tree + geohash), multi-protocol (REST, gRPC, GraphQL, WebSocket, MCP) over TCP or Unix Domain Socket, optional mTLS. Accepts .md, .txt, .html, .pdf, .docx, .odt, .rtf, .tex, .yaml. Connects to Claude, ChatGPT, Cursor, Windsurf, Ollama, DeepSeek. Single ~29MB binary, zero config.">
     <meta name="keywords"
-        content="MCP server, AI knowledge base, RAG, LLM integration, Claude MCP, embedding database, semantic search, vector search, markdown database, document database, gRPC, protobuf, graphql, embedded database, BoltDB, Go, HNSW, BM25, PMISparse, hybrid search, zero-shot classification, document TTL, replication, automation, webhooks, Cursor MCP, Windsurf MCP, Ollama, DeepSeek, Docling, Langflow, geosearch, geohash, R-tree, unix domain socket, mTLS, mutual TLS">
+        content="MCP server, AI knowledge base, RAG, LLM integration, Claude MCP, embedding database, semantic search, vector search, markdown database, document database, gRPC, protobuf, graphql, websocket, embedded database, BoltDB, Go, HNSW, BM25, PMISparse, hybrid search, zero-shot classification, document TTL, replication, automation, webhooks, Cursor MCP, Windsurf MCP, Ollama, DeepSeek, Docling, Langflow, geosearch, geohash, R-tree, unix domain socket, mTLS, mutual TLS">
     <meta name="author" content="MDDB Team">
     <meta name="robots" content="index, follow">
 
@@ -55,13 +55,14 @@
         "priceCurrency": "USD"
       },
       "description": "AI-native knowledge base with built-in MCP server, vector search, RAG support, and semantic retrieval for AI agents and LLM workflows",
-      "softwareVersion": "2.9.11",
+      "softwareVersion": "2.9.12",
       "featureList": [
-        "Built-in MCP server (2025-11-25) with 66 tools, tool annotations, prompts, completion, structured output — stdio, Streamable HTTP, SSE transports for Claude, Cursor, Windsurf, ChatGPT, Ollama, DeepSeek",
+        "Built-in MCP server (2025-11-25) with 72 tools, tool annotations, prompts, completion, structured output — stdio, Streamable HTTP, SSE transports for Claude, Cursor, Windsurf, ChatGPT, Ollama, DeepSeek",
         "Vector/semantic search with 7 index algorithms: Flat, HNSW, IVF, PQ, OPQ, SQ, BQ + per-collection int8/int4 quantization (OpenAI, Ollama, Cohere, Voyage AI)",
         "Hybrid search combining sparse BM25 + dense vector with alpha blending and Reciprocal Rank Fusion",
-        "Full-text search with TF-IDF, BM25, BM25F, PMISparse scoring, 7 search modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), multi-language stemming (18 languages), and typo tolerance",
+        "Full-text search with TF-IDF, BM25, BM25F, PMISparse scoring, 7 search modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), multi-language stemming (18 languages), typo tolerance, per-query metadata boost/demote, and prefix autocomplete",
         "Geospatial search: R-tree and geohash indexes for radius and bounding-box queries, composable with FTS and vector search, optional postcode lookup",
+        "Async bulk ingest with job tracking: submit long imports that return a job ID, poll status, cancel pending, optional webhook callback on completion",
         "Zero-shot document classification using embedding cosine similarity",
         "Custom YAML-based MCP tools for domain-specific AI workflows",
         "RAG pipeline: auto-embed on ingest, semantic retrieval, MCP exposure",
@@ -69,7 +70,7 @@
         "Wikipedia XML dump import: stream multi-GB MediaWiki dumps (.xml.bz2) with wikitext-to-Markdown conversion",
         "URL import: fetch and store documents from any URL",
         "Full revision history for every document",
-        "Triple protocol: HTTP/JSON REST + gRPC/Protobuf + GraphQL",
+        "Multi-protocol: HTTP/JSON REST + gRPC/Protobuf + GraphQL + WebSocket streaming (via mddb-chat) + MCP (Streamable HTTP / SSE / stdio)",
         "Transport options: TCP host:port or Unix Domain Socket (unix:/path.sock) for zero-network local deployments",
         "TLS and mutual TLS (mTLS): user-supplied server cert+key, optional client CA bundle for cert-based client authentication",
         "Automation: triggers, crons, webhooks, sentiment analysis, template variables",
@@ -84,7 +85,7 @@
         "PHP and Python client libraries (with UDS support)",
         "Integrations with Docling, Langflow, OpenSearch"
       ],
-      "datePublished": "2026-04-11",
+      "datePublished": "2026-04-18",
       "author": {
         "@type": "Organization",
         "name": "MDDB Team"
@@ -120,7 +121,7 @@
                 <div class="footer-section">
                     <h4>MDDB</h4>
                     <p>AI-native knowledge base</p>
-                    <p class="footer-version" id="footer-version">Version 2.9.11</p>
+                    <p class="footer-version" id="footer-version">Version 2.9.12</p>
                 </div>
                 <div class="footer-section">
                     <h4>Documentation</h4>
@@ -161,7 +162,7 @@
 
     <script defer>
         // Single source of truth for version — change here to update everywhere
-        const MDDB_VERSION = '2.9.11';
+        const MDDB_VERSION = '2.9.12';
         const MDDB_RELEASE_DATE = 'April 7, 2026';
 
         // Replace all version references in the page

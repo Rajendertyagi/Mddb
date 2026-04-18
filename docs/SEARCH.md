@@ -342,6 +342,47 @@ curl -X POST http://localhost:11023/v1/fts \
 
 **Filter logic:** AND between different metadata keys, OR between values of the same key (same as metadata search).
 
+### Per-Query Boost/Demote (v2.9.12+)
+
+Reshape ranking without reindexing by attaching a `boost` map to the request. Keys are in `"metaKey:metaValue"` form; values multiply the score of matching documents.
+
+- Positive value — boosts (`5.0` means 5× score)
+- Negative value — demotes via inverse (`-2.0` means ½× score)
+- Zero — ignored
+- Multiple matching entries combine multiplicatively; the combined multiplier is floored at `0.001` so a stack of demotions cannot collapse the score to zero
+
+Works with any FTS algorithm (`tfidf`, `bm25`, `bm25f`, `pmisparse`) and with Hybrid search (applied to the fused `combinedScore`, not to the raw FTS/vector sub-scores).
+
+```bash
+# Boost "featured" docs 5×, demote archived 2×, on top of BM25
+curl -X POST http://localhost:11023/v1/fts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "blog",
+    "query": "markdown database",
+    "algorithm": "bm25",
+    "boost": {"tag:featured": 5.0, "status:archived": -2.0}
+  }'
+```
+
+### Prefix Autocomplete (v2.9.12+)
+
+Return up to `topN` terms starting with the given prefix, ranked by document frequency. Scans the existing FTS inverted index — no additional storage or indexing step is required.
+
+```bash
+# Global autocomplete across the whole collection
+curl "http://localhost:11023/v1/autocomplete?collection=blog&q=mar&topN=5"
+
+# Field-scoped autocomplete for type-ahead title search
+curl "http://localhost:11023/v1/autocomplete?collection=blog&q=mar&field=meta.title"
+```
+
+- Prefix is lowercased and stripped of non-alphanumerics (first separator ends the prefix)
+- Prefix is capped at 32 characters; longer prefixes are silently truncated
+- A single call scans at most 10 000 index entries so pathological prefixes like `"a"` stay fast
+- Empty `q` returns an empty result list rather than an error (saves client-side guards on cleared inputs)
+- Exposed as MCP `autocomplete` tool with the same parameters
+
 ### API Examples
 
 ```bash

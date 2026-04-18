@@ -1,42 +1,37 @@
 {{define "index_examples"}}
 <!-- Examples Section -->
 <section id="examples" class="examples">
-    <div class="container">
-        <h2>Code Examples <a href="#examples" class="anchor-link" aria-label="Link to Examples section">#</a>
-        </h2>
-        <div class="example-tabs">
-            <button class="example-tab active" data-example="add" id="example-add">Add Document <a
-                    href="#example-add" class="anchor-link"
-                    aria-label="Link to Add Document example">#</a></button>
-            <button class="example-tab" data-example="vector" id="example-vector">Vector Search <a
-                    href="#example-vector" class="anchor-link"
-                    aria-label="Link to Vector Search example">#</a></button>
-            <button class="example-tab" data-example="fts" id="example-fts">Full-Text Search <a
-                    href="#example-fts" class="anchor-link"
-                    aria-label="Link to Full-Text Search example">#</a></button>
-            <button class="example-tab" data-example="search" id="example-search">Metadata Search <a
-                    href="#example-search" class="anchor-link"
-                    aria-label="Link to Metadata Search example">#</a></button>
-            <button class="example-tab" data-example="python" id="example-python">Python <a
-                    href="#example-python" class="anchor-link"
-                    aria-label="Link to Python example">#</a></button>
-            <button class="example-tab" data-example="php" id="example-php">PHP <a href="#example-php"
-                    class="anchor-link" aria-label="Link to PHP example">#</a></button>
-            <button class="example-tab" data-example="mcp" id="example-mcp">MCP Setup <a href="#example-mcp"
-                    class="anchor-link" aria-label="Link to MCP Setup example">#</a></button>
-        </div>
-        <div class="example-content">
-            <div class="example-pane active" id="add">
-                <div class="terminal">
-                    <div class="terminal-header">
-                        <div class="terminal-dots">
-                            <span class="terminal-dot red"></span>
-                            <span class="terminal-dot yellow"></span>
-                            <span class="terminal-dot green"></span>
-                        </div>
-                        <span class="terminal-title">bash — mddb</span>
-                    </div>
-                    <pre><code data-terminal="bash"># Add document with TTL (expires in 1 hour)
+  <div class="container">
+    <h2>Code Examples <a href="#examples" class="anchor-link" aria-label="Link to Examples section">#</a>
+    </h2>
+    <div class="example-tabs">
+      <button class="example-tab active" data-example="add" id="example-add">Add Document <a href="#example-add"
+          class="anchor-link" aria-label="Link to Add Document example">#</a></button>
+      <button class="example-tab" data-example="vector" id="example-vector">Vector Search <a href="#example-vector"
+          class="anchor-link" aria-label="Link to Vector Search example">#</a></button>
+      <button class="example-tab" data-example="fts" id="example-fts">Full-Text Search <a href="#example-fts"
+          class="anchor-link" aria-label="Link to Full-Text Search example">#</a></button>
+      <button class="example-tab" data-example="search" id="example-search">Metadata Search <a href="#example-search"
+          class="anchor-link" aria-label="Link to Metadata Search example">#</a></button>
+      <button class="example-tab" data-example="python" id="example-python">Python <a href="#example-python"
+          class="anchor-link" aria-label="Link to Python example">#</a></button>
+      <button class="example-tab" data-example="php" id="example-php">PHP <a href="#example-php" class="anchor-link"
+          aria-label="Link to PHP example">#</a></button>
+      <button class="example-tab" data-example="mcp" id="example-mcp">MCP Setup <a href="#example-mcp"
+          class="anchor-link" aria-label="Link to MCP Setup example">#</a></button>
+    </div>
+    <div class="example-content">
+      <div class="example-pane active" id="add">
+        <div class="terminal">
+          <div class="terminal-header">
+            <div class="terminal-dots">
+              <span class="terminal-dot red"></span>
+              <span class="terminal-dot yellow"></span>
+              <span class="terminal-dot green"></span>
+            </div>
+            <span class="terminal-title">bash — mddb</span>
+          </div>
+          <pre><code data-terminal="bash"># Add document with TTL (expires in 1 hour)
 curl -X POST http://localhost:11023/v1/add \
   -H "Content-Type: application/json" \
   -d '{
@@ -54,19 +49,19 @@ curl -X POST http://localhost:11023/v1/add \
 # Import directly from URL
 curl -X POST http://localhost:11023/v1/import-url \
   -d '{"collection":"docs", "url":"https://example.com/guide.md", "lang":"en_US"}'</code></pre>
-                </div>
+        </div>
+      </div>
+      <div class="example-pane" id="vector">
+        <div class="terminal">
+          <div class="terminal-header">
+            <div class="terminal-dots">
+              <span class="terminal-dot red"></span>
+              <span class="terminal-dot yellow"></span>
+              <span class="terminal-dot green"></span>
             </div>
-            <div class="example-pane" id="vector">
-                <div class="terminal">
-                    <div class="terminal-header">
-                        <div class="terminal-dots">
-                            <span class="terminal-dot red"></span>
-                            <span class="terminal-dot yellow"></span>
-                            <span class="terminal-dot green"></span>
-                        </div>
-                        <span class="terminal-title">bash — vector search</span>
-                    </div>
-                    <pre><code data-terminal="bash"># Semantic search - flat (exact, default)
+            <span class="terminal-title">bash — vector search</span>
+          </div>
+          <pre><code data-terminal="bash"># Semantic search - flat (exact, default)
 curl -X POST http://localhost:11023/v1/vector-search \
   -H "Content-Type: application/json" \
   -d '{
@@ -88,19 +83,19 @@ curl -X POST http://localhost:11023/v1/vector-search \
 # PQ - compressed, memory-efficient search
 curl -X POST http://localhost:11023/v1/vector-search \
   -d '{"collection":"kb", "query":"refund", "topK":5, "algorithm":"pq"}'</code></pre>
-                </div>
+        </div>
+      </div>
+      <div class="example-pane" id="fts">
+        <div class="terminal">
+          <div class="terminal-header">
+            <div class="terminal-dots">
+              <span class="terminal-dot red"></span>
+              <span class="terminal-dot yellow"></span>
+              <span class="terminal-dot green"></span>
             </div>
-            <div class="example-pane" id="fts">
-                <div class="terminal">
-                    <div class="terminal-header">
-                        <div class="terminal-dots">
-                            <span class="terminal-dot red"></span>
-                            <span class="terminal-dot yellow"></span>
-                            <span class="terminal-dot green"></span>
-                        </div>
-                        <span class="terminal-title">bash — full-text search</span>
-                    </div>
-                    <pre><code data-terminal="bash"># Simple search with BM25 scoring
+            <span class="terminal-title">bash — full-text search</span>
+          </div>
+          <pre><code data-terminal="bash"># Simple search with BM25 scoring
 curl -X POST http://localhost:11023/v1/fts \
   -H "Content-Type: application/json" \
   -d '{
@@ -137,19 +132,19 @@ curl -X POST http://localhost:11023/v1/fts \
     "mode": "proximity",
     "distance": 5
   }'</code></pre>
-                </div>
+        </div>
+      </div>
+      <div class="example-pane" id="search">
+        <div class="terminal">
+          <div class="terminal-header">
+            <div class="terminal-dots">
+              <span class="terminal-dot red"></span>
+              <span class="terminal-dot yellow"></span>
+              <span class="terminal-dot green"></span>
             </div>
-            <div class="example-pane" id="search">
-                <div class="terminal">
-                    <div class="terminal-header">
-                        <div class="terminal-dots">
-                            <span class="terminal-dot red"></span>
-                            <span class="terminal-dot yellow"></span>
-                            <span class="terminal-dot green"></span>
-                        </div>
-                        <span class="terminal-title">bash — metadata search</span>
-                    </div>
-                    <pre><code data-terminal="bash">curl -X POST http://localhost:11023/v1/search \
+            <span class="terminal-title">bash — metadata search</span>
+          </div>
+          <pre><code data-terminal="bash">curl -X POST http://localhost:11023/v1/search \
   -H "Content-Type: application/json" \
   -d '{
     "collection": "blog",
@@ -160,24 +155,24 @@ curl -X POST http://localhost:11023/v1/fts \
     "sort": "updatedAt",
     "limit": 10
   }'</code></pre>
-                </div>
+        </div>
+      </div>
+      <div class="example-pane" id="python">
+        <div class="terminal">
+          <div class="terminal-header">
+            <div class="terminal-dots">
+              <span class="terminal-dot red"></span>
+              <span class="terminal-dot yellow"></span>
+              <span class="terminal-dot green"></span>
             </div>
-            <div class="example-pane" id="python">
-                <div class="terminal">
-                    <div class="terminal-header">
-                        <div class="terminal-dots">
-                            <span class="terminal-dot red"></span>
-                            <span class="terminal-dot yellow"></span>
-                            <span class="terminal-dot green"></span>
-                        </div>
-                        <span class="terminal-title">python3 — mddb client</span>
-                    </div>
-                    <pre><code data-terminal="python">from mddb import MDDB
+            <span class="terminal-title">python3 — mddb client</span>
+          </div>
+          <pre><code data-terminal="python">from mddb import MDDB
 
 # TCP connection
 db = MDDB.connect('localhost:11023', 'write').collection('kb')
 
-# Unix Domain Socket (MDDB 2.9.11+, zero-network local transport)
+# Unix Domain Socket (MDDB 2.9.12+, zero-network local transport)
 # db = MDDB.connect('unix:/tmp/mddb.sock', 'write').collection('kb')
 
 # Add document
@@ -197,25 +192,25 @@ db.import_url('https://example.com/docs.md', 'en_US')
 
 # TTL
 db.set_ttl('temp-key', 'en', 3600)  # expires in 1h</code></pre>
-                </div>
+        </div>
+      </div>
+      <div class="example-pane" id="php">
+        <div class="terminal">
+          <div class="terminal-header">
+            <div class="terminal-dots">
+              <span class="terminal-dot red"></span>
+              <span class="terminal-dot yellow"></span>
+              <span class="terminal-dot green"></span>
             </div>
-            <div class="example-pane" id="php">
-                <div class="terminal">
-                    <div class="terminal-header">
-                        <div class="terminal-dots">
-                            <span class="terminal-dot red"></span>
-                            <span class="terminal-dot yellow"></span>
-                            <span class="terminal-dot green"></span>
-                        </div>
-                        <span class="terminal-title">php — mddb client</span>
-                    </div>
-                    <pre><code data-terminal="php">&lt;?php
+            <span class="terminal-title">php — mddb client</span>
+          </div>
+          <pre><code data-terminal="php">&lt;?php
 require_once 'mddb.php';
 
 // TCP connection
 $db = mddb::connect('localhost:11023', 'write');
 
-// Unix Domain Socket (MDDB 2.9.11+)
+// Unix Domain Socket (MDDB 2.9.12+)
 // $db = mddb::connect('unix:/tmp/mddb.sock', 'write');
 
 // Add document
@@ -235,19 +230,19 @@ $db->collection('docs')->importUrl('https://example.com/post.md', 'en_US');
 
 // TTL
 $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
-                </div>
+        </div>
+      </div>
+      <div class="example-pane" id="mcp">
+        <div class="terminal">
+          <div class="terminal-header">
+            <div class="terminal-dots">
+              <span class="terminal-dot red"></span>
+              <span class="terminal-dot yellow"></span>
+              <span class="terminal-dot green"></span>
             </div>
-            <div class="example-pane" id="mcp">
-                <div class="terminal">
-                    <div class="terminal-header">
-                        <div class="terminal-dots">
-                            <span class="terminal-dot red"></span>
-                            <span class="terminal-dot yellow"></span>
-                            <span class="terminal-dot green"></span>
-                        </div>
-                        <span class="terminal-title">json — mcp.json</span>
-                    </div>
-                    <pre><code data-terminal="json"># Docker (Easiest) - for Windsurf / Claude Desktop
+            <span class="terminal-title">json — mcp.json</span>
+          </div>
+          <pre><code data-terminal="json"># Docker (Easiest) - for Windsurf / Claude Desktop
 # Configure ~/.windsurf/mcp.json:
 {
   "mcpServers": {
@@ -271,9 +266,9 @@ $db->collection('cache')->setTtl('temp', 'en', 3600);</code></pre>
 # - geo_search, geo_within, geo_encode, geo_decode, geo_stats
 # - automation, webhooks, schemas, backups
 # - collection config, revisions, aggregate, and more</code></pre>
-                </div>
-            </div>
         </div>
+      </div>
     </div>
+  </div>
 </section>
 {{end}}

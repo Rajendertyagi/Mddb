@@ -54,6 +54,12 @@ Detailed roadmap showing implemented features and future plans.
 - HTTP connection pooling (shared transport)
 - Built-in TLS/HTTPS support
 
+### v2.9.12 — Search Enhancements & Async Ingest (2026-04-18)
+- **Per-query boost/demote** for FTS and Hybrid search — `boost` map keyed by `"metaKey:metaValue"` multiplies matching documents' scores at query time; positive values boost, negative demote. No reindex, combines multiplicatively with `0.001` floor.
+- **Async bulk ingest with job tracking** — four new endpoints (`/v1/bulk-ingest-job*`) and MCP tools (`bulk_ingest_submit/status/list/cancel`). Single FIFO worker drains 500-doc chunks; orphan jobs from crashed runs are marked `failed` on startup; optional `callbackUrl` webhook on completion.
+- **Prefix autocomplete** — `GET /v1/autocomplete` reuses the existing FTS inverted index to return top-N terms ranked by document frequency, with optional field scoping and a 10k-entry scan cap. Panel FTS input gets a debounced suggestion dropdown. MCP `autocomplete` tool mirrors the API.
+- **Proto fields** (backwards compatible): `FTSRequest.boost = 8`, `HybridSearchRequest.boost = 15`. Regenerated for Go, Python, Node.js, PHP.
+
 ### v2.9.4 — MCP 2025-11-25 Compliance
 - **Protocol version**: `2025-11-25` (upgraded from 2024-11-05)
 - **Streamable HTTP transport** (`POST/GET /mcp`) — new standard, alongside legacy SSE

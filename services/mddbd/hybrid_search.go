@@ -32,6 +32,7 @@ type HybridSearchRequest struct {
 	DisableStem     bool                `json:"disableStem"`
 	DisableSynonyms bool                `json:"disableSynonyms"`
 	Lang            string              `json:"lang,omitempty"`
+	Boost           map[string]float64  `json:"boost,omitempty"` // per-query boost: "metaKey:metaValue" → multiplier
 }
 
 // HybridGeoFilter restricts hybrid search to docs within radius of a point.
@@ -184,6 +185,12 @@ func (s *Server) handleHybridSearch(w http.ResponseWriter, r *http.Request) {
 		merged = mergeRRF(ftsResults, vectorResults, req.RRFK, mergeTopK)
 	default: // "alpha"
 		merged = mergeAlpha(ftsResults, vectorResults, req.Alpha, mergeTopK)
+	}
+
+	// Apply per-query boosts/demotions after merging — operates on CombinedScore.
+	merged = s.applyBoostHybrid(req.Collection, merged, req.Boost)
+	if len(merged) > mergeTopK {
+		merged = merged[:mergeTopK]
 	}
 
 	// Spatial post-filter: keep only results inside the geo radius, attach

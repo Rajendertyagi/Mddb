@@ -35,7 +35,7 @@
                 <li>RAG pipeline: auto-embed on ingest, semantic retrieval, MCP exposure to LLMs</li>
                 <li>Memory RAG: conversational memory with session management, semantic recall, and
                     summarization</li>
-                <li>Triple protocol: HTTP/JSON REST API, gRPC/Protobuf, GraphQL</li>
+                <li>Multi-protocol: HTTP/JSON REST API, gRPC/Protobuf, GraphQL, WebSocket streaming (via mddb-chat), MCP (Streamable HTTP / SSE / stdio)</li>
                 <li>Multi-format upload: .md, .txt, .html, .pdf, .docx, .odt, .rtf, .tex, .yaml with
                     auto-conversion to Markdown</li>
                 <li>Wikipedia XML dump import: stream multi-GB MediaWiki dumps with wikitext-to-Markdown
@@ -123,17 +123,20 @@
                         <div class="feat-proto-box rest">REST<small>HTTP/JSON</small></div>
                         <div class="feat-proto-box grpc">gRPC<small>Protobuf</small></div>
                         <div class="feat-proto-box gql">GraphQL<small>Flexible queries</small></div>
+                        <div class="feat-proto-box ws">WebSocket<small>mddb-chat</small></div>
                     </div>
                 </div>
                 <div class="feat-text">
                     <span class="feat-label">Protocols</span>
-                    <h3>Triple Protocol Access</h3>
+                    <h3>Multi-Protocol Access</h3>
                     <p>REST for easy debugging, gRPC for high-throughput pipelines, GraphQL for flexible
-                        frontend queries. All endpoints, one server.</p>
+                        frontend queries, and WebSocket streaming via <code>mddb-chat</code> for LLM chat
+                        pipelines. All endpoints, one stack.</p>
                     <ul class="feat-tags">
                         <li>REST API</li>
                         <li>gRPC</li>
                         <li>GraphQL</li>
+                        <li>WebSocket</li>
                     </ul>
                 </div>
             </div>

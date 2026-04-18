@@ -4,7 +4,7 @@
  * MDDB PHP client.
  *
  * TCP:   mddb::connect('localhost:11023', 'read')
- * UDS:   mddb::connect('unix:/tmp/mddb.sock', 'read')   // MDDB 2.9.11+
+ * UDS:   mddb::connect('unix:/tmp/mddb.sock', 'read')   // MDDB 2.9.12+
  */
 class mddb {
   private string $base;

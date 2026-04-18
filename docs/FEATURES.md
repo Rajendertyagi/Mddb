@@ -76,6 +76,8 @@ Complete list of MDDB features organized by category.
 - **Multi-field Search** - Search in content and metadata
 - **Language-aware** - Per-language stop words
 - **Metadata Pre-filtering** - `filterMeta` parameter to scope FTS results by metadata before BM25 scoring (AND across keys, OR within key)
+- **Per-Query Boost/Demote** (v2.9.12+) - `boost` map keyed by `"metaKey:metaValue"` multiplies scores at query time without reindexing. Positive values boost (`5.0` → 5×), negative values demote (`-2.0` → ½×); combined multiplicatively with a `0.001` floor. Works in FTS and Hybrid search.
+- **Prefix Autocomplete** (v2.9.12+) - `GET /v1/autocomplete?collection=X&q=mar` returns top-N terms starting with the given prefix, ranked by document frequency. Scans the existing FTS inverted index — no additional storage. Field-scoped via `field` parameter; scan is bounded at 10k entries. Also exposed as MCP `autocomplete` tool.
 
 #### Hybrid Search
 - **Combined Retrieval** - Merge BM25/BM25F/PMISparse keyword scores with vector semantic scores in a single query
@@ -217,6 +219,7 @@ Complete list of MDDB features organized by category.
 - **Progress Tracking** - Show import progress
 - **Dry Run** - Preview what would be imported
 - **Error Handling** - Continue on errors, report failures
+- **Async Bulk Ingest Jobs** (v2.9.12+) - `/v1/bulk-ingest-job*` endpoints for long-running imports. Queue jobs that return HTTP 202 immediately, poll status, cancel pending, list all jobs newest-first. Single FIFO worker processes 500-doc chunks; orphan jobs from crashed runs are marked `failed` on startup. Optional `callbackUrl` fires a webhook on completion. 4 MCP tools (`bulk_ingest_submit/status/list/cancel`) mirror the HTTP API.
 
 ## Developer Tools
 

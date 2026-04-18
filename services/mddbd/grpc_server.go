@@ -1251,6 +1251,9 @@ func (g *GRPCServer) FTS(ctx context.Context, req *proto.FTSRequest) (*proto.FTS
 		results = filtered
 	}
 
+	// Apply per-query boosts/demotions from request.
+	results = g.server.applyBoostFTS(req.Collection, results, req.Boost)
+
 	var protoResults []*proto.FTSResult
 	_ = g.server.DB.View(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
@@ -1449,6 +1452,7 @@ func (g *GRPCServer) HybridSearch(ctx context.Context, req *proto.HybridSearchRe
 		IncludeContent:  req.IncludeContent,
 		FieldWeights:    fieldWeights,
 		Lang:            req.Lang,
+		Boost:           req.Boost,
 	}
 
 	// Step 1: Run FTS search
@@ -1470,6 +1474,12 @@ func (g *GRPCServer) HybridSearch(ctx context.Context, req *proto.HybridSearchRe
 		merged = mergeRRF(ftsResults, vectorResults, rrfK, topK)
 	default: // "alpha"
 		merged = mergeAlpha(ftsResults, vectorResults, alpha, topK)
+	}
+
+	// Apply per-query boosts/demotions (metadata-based score multipliers).
+	merged = g.server.applyBoostHybrid(req.Collection, merged, req.Boost)
+	if len(merged) > topK {
+		merged = merged[:topK]
 	}
 
 	// Step 4: Load full documents

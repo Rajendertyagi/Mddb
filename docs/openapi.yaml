@@ -68,7 +68,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: "2.9.11"
+  version: "2.9.12"
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -124,9 +124,11 @@ tags:
   - name: System
     description: System information and endpoint discovery
   - name: MCP
-    description: Model Context Protocol 2025-11-25 — Streamable HTTP transport, tools, resources, prompts, completion, logging
+    description: Model Context Protocol 2025-11-25 — Streamable HTTP transport,
+      tools, resources, prompts, completion, logging
   - name: Memory RAG
-    description: Conversational memory system for RAG — session management, message storage, semantic/hybrid recall, summarization
+    description: Conversational memory system for RAG — session management, message
+      storage, semantic/hybrid recall, summarization
   - name: Configuration
     description: Server and MCP configuration
   - name: GraphQL
@@ -140,9 +142,11 @@ tags:
   - name: Cross-Collection Search
     description: Search across multiple collections using embeddings or text queries
   - name: Temporal Tracking
-    description: Document event history, hot-docs leaderboard and activity histograms (requires MDDB_TEMPORAL=true)
+    description: Document event history, hot-docs leaderboard and activity
+      histograms (requires MDDB_TEMPORAL=true)
   - name: Spell Correction
-    description: SymSpell-based FTS spell suggestions, text cleanup, and per-collection custom dictionaries (requires MDDB_SPELL=true)
+    description: SymSpell-based FTS spell suggestions, text cleanup, and
+      per-collection custom dictionaries (requires MDDB_SPELL=true)
 
 paths:
   /health:
@@ -165,7 +169,7 @@ paths:
                     example: healthy
                   mode:
                     type: string
-                    enum: [read, write, wr]
+                    enum: [ read, write, wr ]
                     example: wr
         "503":
           description: Service is unhealthy
@@ -194,7 +198,7 @@ paths:
                     example: healthy
                   mode:
                     type: string
-                    enum: [read, write, wr]
+                    enum: [ read, write, wr ]
                     example: wr
         "503":
           description: Service is unhealthy
@@ -286,6 +290,113 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/bulk-ingest-job:
+    post:
+      tags:
+        - Documents
+      summary: Submit async bulk ingest job
+      description: |
+        Queue a long-running bulk ingest job and return immediately with a
+        job identifier. Clients should poll `/v1/bulk-ingest-job/{id}` for
+        progress or supply `callbackUrl` to receive a `POST` with the final
+        job record on completion.
+
+        Jobs are processed by a single background worker in FIFO order.
+        Payloads are kept in memory — if the server restarts mid-job, the
+        status record is flipped to `failed` on the next start.
+      operationId: submitBulkIngestJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkIngestSubmitRequest"
+      responses:
+        "202":
+          description: Job accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkIngestJob"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/bulk-ingest-job/{id}:
+    get:
+      tags:
+        - Documents
+      summary: Get bulk ingest job status
+      description: Returns the current status record — including counters, timestamps,
+        and up to 50 error messages.
+      operationId: getBulkIngestJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Job identifier returned from submit
+      responses:
+        "200":
+          description: Job status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkIngestJob"
+        "404":
+          description: Job not found
+    delete:
+      tags:
+        - Documents
+      summary: Cancel pending bulk ingest job
+      description: Only jobs in `pending` status can be cancelled. In-flight jobs must
+        run to completion.
+      operationId: cancelBulkIngestJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job cancelled
+        "400":
+          description: Job already started or completed
+
+  /v1/bulk-ingest-jobs:
+    get:
+      tags:
+        - Documents
+      summary: List bulk ingest jobs
+      description: Returns all jobs newest-first, optionally filtered by collection.
+      operationId: listBulkIngestJobs
+      parameters:
+        - name: collection
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by collection name
+      responses:
+        "200":
+          description: Job list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BulkIngestJob"
+                  total:
+                    type: integer
 
   /v1/ingest:
     post:
@@ -846,7 +957,8 @@ paths:
       tags:
         - Vector Search
       summary: Vector search statistics
-      description: Get the current status of the vector search subsystem, including provider info, index readiness, and per-collection embedding counts.
+      description: Get the current status of the vector search subsystem, including
+        provider info, index readiness, and per-collection embedding counts.
       operationId: vectorStats
       responses:
         "200":
@@ -873,20 +985,18 @@ paths:
           application/json:
             schema:
               type: object
-              required: [collection, lat, lng, radiusMeters]
+              required: [ collection, lat, lng, radiusMeters ]
               properties:
                 collection: { type: string }
                 lat: { type: number, format: double }
                 lng: { type: number, format: double }
                 radiusMeters: { type: number, format: double }
                 topK: { type: integer, default: 10 }
-                algorithm:
-                  { type: string, enum: [rtree, geohash], default: rtree }
+                algorithm: { type: string, enum: [ rtree, geohash ], default: rtree }
                 filterMeta:
                   {
                     type: object,
-                    additionalProperties:
-                      { type: array, items: { type: string } },
+                    additionalProperties: { type: array, items: { type: string } },
                   }
                 includeContent: { type: boolean, default: false }
       responses:
@@ -899,7 +1009,8 @@ paths:
       tags:
         - Geo Search
       summary: Bounding-box search
-      description: Find documents inside an axis-aligned bbox. Does not cross the anti-meridian.
+      description: Find documents inside an axis-aligned bbox. Does not cross the
+        anti-meridian.
       operationId: geoWithin
       requestBody:
         required: true
@@ -907,7 +1018,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [collection, minLat, maxLat, minLng, maxLng]
+              required: [ collection, minLat, maxLat, minLng, maxLng ]
               properties:
                 collection: { type: string }
                 minLat: { type: number }
@@ -917,8 +1028,7 @@ paths:
                 filterMeta:
                   {
                     type: object,
-                    additionalProperties:
-                      { type: array, items: { type: string } },
+                    additionalProperties: { type: array, items: { type: string } },
                   }
                 includeContent: { type: boolean }
       responses:
@@ -929,7 +1039,8 @@ paths:
       tags:
         - Geo Search
       summary: Force-rebuild geo indexes
-      description: Rebuild both R-tree and geohash indexes from the persisted `geo` bucket. Optionally load one or more postcode CSVs first.
+      description: Rebuild both R-tree and geohash indexes from the persisted `geo`
+        bucket. Optionally load one or more postcode CSVs first.
       operationId: geoReindex
       requestBody:
         required: true
@@ -938,11 +1049,7 @@ paths:
             schema:
               type: object
               properties:
-                collection:
-                  {
-                    type: string,
-                    description: "Empty = rebuild all collections",
-                  }
+                collection: { type: string, description: "Empty = rebuild all collections" }
                 loadPostcodes:
                   type: array
                   items:
@@ -974,12 +1081,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [lat, lng]
+              required: [ lat, lng ]
               properties:
                 lat: { type: number }
                 lng: { type: number }
-                precision:
-                  { type: integer, minimum: 1, maximum: 12, default: 12 }
+                precision: { type: integer, minimum: 1, maximum: 12, default: 12 }
       responses:
         "200": { description: OK }
 
@@ -995,7 +1101,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [geohash]
+              required: [ geohash ]
               properties:
                 geohash: { type: string }
       responses:
@@ -1083,12 +1189,85 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /v1/autocomplete:
+    get:
+      tags:
+        - Full-Text Search
+      summary: Prefix autocomplete
+      description: |
+        Return up to `topN` terms starting with the given query, ranked by
+        document frequency. Uses the existing FTS inverted index — no
+        additional indexing is required.
+
+        When `field` is supplied, the BM25F field-scoped index drives the
+        scan so callers can autocomplete titles, tags, or body content
+        independently. A single call scans at most 10000 index entries to
+        keep latency bounded on pathological prefixes like "a".
+      operationId: autocomplete
+      parameters:
+        - name: collection
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Collection name
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Prefix query — lowercased and stripped of non-alphanumerics
+          example: mar
+        - name: field
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional field scope (e.g. `title`, `content`, `meta.tags`); empty
+            means global
+        - name: topN
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+          description: Maximum number of suggestions returned
+      responses:
+        "200":
+          description: Suggestions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        term:
+                          type: string
+                          example: market
+                        field:
+                          type: string
+                          example: title
+                        docCount:
+                          type: integer
+                          example: 42
+                  total:
+                    type: integer
+                  query:
+                    type: string
+                  field:
+                    type: string
+
   /v1/fts-languages:
     get:
       tags:
         - Full-Text Search
       summary: List supported FTS languages
-      description: Returns all supported languages for multi-language FTS with their codes, names, and the configured default language.
+      description: Returns all supported languages for multi-language FTS with their
+        codes, names, and the configured default language.
       operationId: ftsLanguages
       responses:
         "200":
@@ -1223,11 +1402,11 @@ paths:
                   description: "Comma-separated namespace IDs (default: 0 = articles only)"
                 skipRedirects:
                   type: string
-                  enum: ["true", "false"]
+                  enum: [ "true", "false" ]
                   description: Skip redirect pages
                 skipFts:
                   type: string
-                  enum: ["true", "false"]
+                  enum: [ "true", "false" ]
                   description: Skip FTS indexing for faster bulk import
                 maxPages:
                   type: string
@@ -1392,7 +1571,8 @@ paths:
       tags:
         - Webhooks
       summary: Delete webhook
-      description: Delete a registered webhook by its ID. This is a write-protected endpoint.
+      description: Delete a registered webhook by its ID. This is a write-protected
+        endpoint.
       operationId: deleteWebhook
       requestBody:
         required: true
@@ -1509,7 +1689,8 @@ paths:
       tags:
         - Schema Validation
       summary: Delete collection schema
-      description: Remove the JSON Schema for a collection, disabling metadata validation. This is a write-protected endpoint.
+      description: Remove the JSON Schema for a collection, disabling metadata
+        validation. This is a write-protected endpoint.
       operationId: deleteSchema
       requestBody:
         required: true
@@ -1583,7 +1764,7 @@ paths:
                         schema:
                           type: string
                           description: JSON Schema string
-                          example: '{"type":"object","required":["author"]}'
+                          example: "{\"type\":\"object\",\"required\":[\"author\"]}"
 
   /v1/validate:
     post:
@@ -1681,7 +1862,8 @@ paths:
       tags:
         - Synonyms
       summary: List synonyms
-      description: List all synonym entries for a collection. Synonyms are used to expand FTS queries with related terms.
+      description: List all synonym entries for a collection. Synonyms are used to
+        expand FTS queries with related terms.
       operationId: listSynonyms
       parameters:
         - name: collection
@@ -1770,7 +1952,8 @@ paths:
       tags:
         - Stop Words
       summary: List stop words
-      description: List all stop word entries (default + custom) for a collection. Stop words are excluded from FTS indexing.
+      description: List all stop word entries (default + custom) for a collection.
+        Stop words are excluded from FTS indexing.
       operationId: listStopWords
       parameters:
         - name: collection
@@ -1821,7 +2004,8 @@ paths:
       tags:
         - Stop Words
       summary: Add custom stop words
-      description: Add custom stop words to a collection. These words will be excluded from FTS indexing.
+      description: Add custom stop words to a collection. These words will be excluded
+        from FTS indexing.
       operationId: addStopWords
       requestBody:
         required: true
@@ -1840,7 +2024,7 @@ paths:
                   type: array
                   items:
                     type: string
-                  example: ["foo", "bar"]
+                  example: [ "foo", "bar" ]
       responses:
         "200":
           description: Stop words added successfully
@@ -1865,7 +2049,8 @@ paths:
       tags:
         - Stop Words
       summary: Delete custom stop words
-      description: Delete custom stop words from a collection. Default stop words cannot be deleted.
+      description: Delete custom stop words from a collection. Default stop words
+        cannot be deleted.
       operationId: deleteStopWords
       requestBody:
         required: true
@@ -1884,7 +2069,7 @@ paths:
                   type: array
                   items:
                     type: string
-                  example: ["foo"]
+                  example: [ "foo" ]
       responses:
         "200":
           description: Stop words deleted successfully
@@ -2022,7 +2207,8 @@ paths:
       tags:
         - Embedding Config
       summary: Delete embedding configuration
-      description: Delete an embedding configuration. Cannot delete the default configuration.
+      description: Delete an embedding configuration. Cannot delete the default
+        configuration.
       operationId: deleteEmbeddingConfig
       parameters:
         - name: id
@@ -2289,7 +2475,8 @@ paths:
       tags:
         - Authentication
       summary: List API keys
-      description: List all API keys for the authenticated user (key values are not included, only hashes).
+      description: List all API keys for the authenticated user (key values are not
+        included, only hashes).
       operationId: authListAPIKeys
       security:
         - BearerAuth: []
@@ -2431,7 +2618,8 @@ paths:
       tags:
         - Users
       summary: Set user permissions
-      description: Set permissions for a user on a specific collection. Requires admin authentication.
+      description: Set permissions for a user on a specific collection. Requires admin
+        authentication.
       operationId: authSetPermissions
       security:
         - BearerAuth: []
@@ -2627,7 +2815,8 @@ paths:
       tags:
         - Groups
       summary: Update group
-      description: Update a group's description and member list. Requires admin authentication.
+      description: Update a group's description and member list. Requires admin
+        authentication.
       operationId: authUpdateGroup
       security:
         - BearerAuth: []
@@ -2674,7 +2863,8 @@ paths:
       tags:
         - Groups
       summary: Delete group
-      description: Delete a group and all its associated permissions. Requires admin authentication.
+      description: Delete a group and all its associated permissions. Requires admin
+        authentication.
       operationId: authDeleteGroup
       security:
         - BearerAuth: []
@@ -2755,7 +2945,8 @@ paths:
       tags:
         - Groups
       summary: Set group permission
-      description: Set a collection-level permission for a group. Requires admin authentication.
+      description: Set a collection-level permission for a group. Requires admin
+        authentication.
       operationId: authSetGroupPermission
       security:
         - BearerAuth: []
@@ -2864,15 +3055,16 @@ paths:
 
   /v1/automation:
     get:
-      tags: [Automation]
+      tags: [ Automation ]
       summary: List automation rules
-      description: Returns all automation rules (webhooks, triggers, crons). Optionally filter by type.
+      description: Returns all automation rules (webhooks, triggers, crons).
+        Optionally filter by type.
       parameters:
         - name: type
           in: query
           schema:
             type: string
-            enum: [webhook, trigger, cron]
+            enum: [ webhook, trigger, cron ]
           description: Filter by rule type
       responses:
         "200":
@@ -2889,7 +3081,7 @@ paths:
                   total:
                     type: integer
     post:
-      tags: [Automation]
+      tags: [ Automation ]
       summary: Create automation rule
       description: Create a new webhook target, trigger, or cron rule.
       requestBody:
@@ -2910,7 +3102,7 @@ paths:
 
   /v1/automation/{id}:
     get:
-      tags: [Automation]
+      tags: [ Automation ]
       summary: Get automation rule
       parameters:
         - name: id
@@ -2928,7 +3120,7 @@ paths:
         "404":
           description: Not found
     put:
-      tags: [Automation]
+      tags: [ Automation ]
       summary: Update automation rule
       parameters:
         - name: id
@@ -2950,7 +3142,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/AutomationRule"
     delete:
-      tags: [Automation]
+      tags: [ Automation ]
       summary: Delete automation rule
       parameters:
         - name: id
@@ -2964,9 +3156,10 @@ paths:
 
   /v1/automation/{id}/test:
     post:
-      tags: [Automation]
+      tags: [ Automation ]
       summary: Test trigger (dry run)
-      description: Execute a trigger's search and return matching documents without firing the webhook.
+      description: Execute a trigger's search and return matching documents without
+        firing the webhook.
       parameters:
         - name: id
           in: path
@@ -3003,9 +3196,10 @@ paths:
 
   /v1/automation-logs:
     get:
-      tags: [Automation]
+      tags: [ Automation ]
       summary: List automation execution logs
-      description: Returns automation execution logs ordered newest-first with cursor-based pagination. Requires MDDB_AUTOMATION_LOGS != "disable".
+      description: Returns automation execution logs ordered newest-first with
+        cursor-based pagination. Requires MDDB_AUTOMATION_LOGS != "disable".
       parameters:
         - name: limit
           in: query
@@ -3029,7 +3223,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [success, error, skipped]
+            enum: [ success, error, skipped ]
           description: Filter by execution status
       responses:
         "200":
@@ -3055,7 +3249,8 @@ paths:
       tags:
         - Search
       summary: List metadata keys and values for a collection
-      description: Returns all unique metadata keys and their unique values for a given collection. Useful for building filter UIs.
+      description: Returns all unique metadata keys and their unique values for a
+        given collection. Useful for building filter UIs.
       parameters:
         - name: collection
           in: query
@@ -3079,8 +3274,8 @@ paths:
                         type: string
                 example:
                   meta:
-                    tag: ["go", "rust", "python"]
-                    author: ["alice", "bob"]
+                    tag: [ "go", "rust", "python" ]
+                    author: [ "alice", "bob" ]
         "400":
           description: Missing collection parameter
 
@@ -3089,7 +3284,10 @@ paths:
       tags:
         - Collections
       summary: Get collection checksum
-      description: Returns a CRC32-based checksum for a collection that changes whenever documents are added, updated, or deleted. Useful for cache invalidation - clients can poll this lightweight endpoint to detect changes without downloading all documents.
+      description: Returns a CRC32-based checksum for a collection that changes
+        whenever documents are added, updated, or deleted. Useful for cache
+        invalidation - clients can poll this lightweight endpoint to detect
+        changes without downloading all documents.
       parameters:
         - name: collection
           in: query
@@ -3166,7 +3364,7 @@ paths:
                   key: "p1"
                   lang: "en"
                   meta:
-                    tag: ["go", "updated"]
+                    tag: [ "go", "updated" ]
               content-only:
                 summary: Update only content
                 value:
@@ -3193,7 +3391,8 @@ paths:
       tags:
         - Documents
       summary: Get document metadata only
-      description: Returns metadata for a document without content. Lightweight read useful for checking tags without transferring document body.
+      description: Returns metadata for a document without content. Lightweight read
+        useful for checking tags without transferring document body.
       parameters:
         - name: collection
           in: query
@@ -3241,8 +3440,8 @@ paths:
                   key: "p1"
                   lang: "en"
                   meta:
-                    tag: ["go", "rust"]
-                    author: ["alice"]
+                    tag: [ "go", "rust" ]
+                    author: [ "alice" ]
                   addedAt: 1709600000
                   updatedAt: 1709610000
         "400":
@@ -3297,7 +3496,7 @@ paths:
                   description: Minimum similarity score (default 0.0)
             example:
               text: "Go is a statically typed, compiled language designed at Google"
-              labels: ["programming", "cooking", "sports", "music"]
+              labels: [ "programming", "cooking", "sports", "music" ]
       responses:
         "200":
           description: Classification results
@@ -3565,7 +3764,8 @@ paths:
       tags:
         - Collection Config
       summary: Get collection configuration
-      description: Get the configuration for a specific collection including type, description, icon, color, and custom metadata.
+      description: Get the configuration for a specific collection including type,
+        description, icon, color, and custom metadata.
       operationId: getCollectionConfig
       parameters:
         - name: collection
@@ -3628,7 +3828,7 @@ paths:
                 icon:
                   type: string
                   description: Collection icon (emoji or icon name)
-                  example: "\uD83C\uDF10"
+                  example: "🌐"
                 color:
                   type: string
                   description: Collection color (hex code)
@@ -3639,15 +3839,18 @@ paths:
                   description: Custom key-value metadata for the collection
                 storageBackend:
                   type: string
-                  enum: [boltdb, memory, s3]
+                  enum: [ boltdb, memory, s3 ]
                   description: "Storage backend for this collection. Default: boltdb"
                   example: boltdb
                 storageConfig:
                   $ref: "#/components/schemas/StorageConfigDef"
                 quantization:
                   type: string
-                  enum: [float32, int8, int4]
-                  description: "Vector quantization level for this collection. int8 gives 4x compression (~1% recall drop), int4 gives 8x compression (~2-3% recall drop). Default: float32 (no quantization). Requires vector-reindex after changing."
+                  enum: [ float32, int8, int4 ]
+                  description: "Vector quantization level for this collection. int8 gives 4x
+                    compression (~1% recall drop), int4 gives 8x compression
+                    (~2-3% recall drop). Default: float32 (no quantization).
+                    Requires vector-reindex after changing."
                   example: int8
       responses:
         "200":
@@ -3824,7 +4027,7 @@ paths:
 
   /v1/memory/session:
     post:
-      tags: [Memory RAG]
+      tags: [ Memory RAG ]
       summary: Create a new memory session
       description: Start a new conversation session for storing and recalling messages.
       requestBody:
@@ -3833,7 +4036,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [userId]
+              required: [ userId ]
               properties:
                 userId:
                   type: string
@@ -3874,22 +4077,23 @@ paths:
 
   /v1/memory/message:
     post:
-      tags: [Memory RAG]
+      tags: [ Memory RAG ]
       summary: Add a message to a session
-      description: Store a message in a memory session. Messages are auto-embedded for semantic recall.
+      description: Store a message in a memory session. Messages are auto-embedded for
+        semantic recall.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [sessionId, role, content]
+              required: [ sessionId, role, content ]
               properties:
                 sessionId:
                   type: string
                 role:
                   type: string
-                  enum: [user, assistant, system, tool]
+                  enum: [ user, assistant, system, tool ]
                 content:
                   type: string
                 meta:
@@ -3917,16 +4121,17 @@ paths:
 
   /v1/memory/recall:
     post:
-      tags: [Memory RAG]
+      tags: [ Memory RAG ]
       summary: Recall relevant messages
-      description: Semantically recall relevant messages from past conversations using hybrid search (vector + keyword).
+      description: Semantically recall relevant messages from past conversations using
+        hybrid search (vector + keyword).
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [query]
+              required: [ query ]
               properties:
                 query:
                   type: string
@@ -3943,7 +4148,7 @@ paths:
                   type: number
                 strategy:
                   type: string
-                  enum: [hybrid, semantic, keyword]
+                  enum: [ hybrid, semantic, keyword ]
                   default: hybrid
                 alpha:
                   type: number
@@ -3985,7 +4190,7 @@ paths:
 
   /v1/memory/summarize:
     post:
-      tags: [Memory RAG]
+      tags: [ Memory RAG ]
       summary: Summarize a session
       description: Generate and store a summary of a session's conversation.
       requestBody:
@@ -3994,7 +4199,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [sessionId]
+              required: [ sessionId ]
               properties:
                 sessionId:
                   type: string
@@ -4021,7 +4226,7 @@ paths:
 
   /v1/memory/sessions:
     post:
-      tags: [Memory RAG]
+      tags: [ Memory RAG ]
       summary: List memory sessions
       description: List sessions with optional user/scenario filtering and pagination.
       requestBody:
@@ -4041,7 +4246,7 @@ paths:
                   type: integer
                 sort:
                   type: string
-                  enum: [createdAt, updatedAt]
+                  enum: [ createdAt, updatedAt ]
                   default: createdAt
                 asc:
                   type: boolean
@@ -4079,7 +4284,7 @@ paths:
 
   /v1/memory/history:
     post:
-      tags: [Memory RAG]
+      tags: [ Memory RAG ]
       summary: Get session message history
       description: Retrieve chronologically ordered message history for a session.
       requestBody:
@@ -4088,7 +4293,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [sessionId]
+              required: [ sessionId ]
               properties:
                 sessionId:
                   type: string
@@ -4114,16 +4319,17 @@ paths:
 
   /v1/temporal/query:
     post:
-      tags: [Temporal Tracking]
+      tags: [ Temporal Tracking ]
       summary: Query document event history
-      description: Returns create/update/access events for a specific document within a time range. Requires MDDB_TEMPORAL=true.
+      description: Returns create/update/access events for a specific document within
+        a time range. Requires MDDB_TEMPORAL=true.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [collection, key, lang]
+              required: [ collection, key, lang ]
               properties:
                 collection:
                   type: string
@@ -4133,7 +4339,7 @@ paths:
                   type: string
                 eventType:
                   type: string
-                  enum: [create, update, access]
+                  enum: [ create, update, access ]
                   description: Filter by event type; omit for all events
                 from:
                   type: integer
@@ -4169,16 +4375,17 @@ paths:
 
   /v1/temporal/hot:
     post:
-      tags: [Temporal Tracking]
+      tags: [ Temporal Tracking ]
       summary: Hot documents leaderboard
-      description: Returns the top-N most accessed documents in a collection. Requires MDDB_TEMPORAL=true.
+      description: Returns the top-N most accessed documents in a collection. Requires
+        MDDB_TEMPORAL=true.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [collection]
+              required: [ collection ]
               properties:
                 collection:
                   type: string
@@ -4219,27 +4426,28 @@ paths:
 
   /v1/temporal/histogram:
     post:
-      tags: [Temporal Tracking]
+      tags: [ Temporal Tracking ]
       summary: Event frequency histogram
-      description: Returns a bucketed histogram of event frequency for a collection. Requires MDDB_TEMPORAL=true.
+      description: Returns a bucketed histogram of event frequency for a collection.
+        Requires MDDB_TEMPORAL=true.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [collection]
+              required: [ collection ]
               properties:
                 collection:
                   type: string
                 eventType:
                   type: string
                   default: access
-                  enum: [create, update, access]
+                  enum: [ create, update, access ]
                 interval:
                   type: string
                   default: day
-                  enum: [day, week, month]
+                  enum: [ day, week, month ]
                 from:
                   type: integer
                   format: int64
@@ -4278,16 +4486,17 @@ paths:
 
   /v1/spell-suggest:
     post:
-      tags: [Spell Correction]
+      tags: [ Spell Correction ]
       summary: Spell correction suggestions
-      description: Returns per-token spell suggestions and a corrected version of the input text. Requires MDDB_SPELL=true.
+      description: Returns per-token spell suggestions and a corrected version of the
+        input text. Requires MDDB_SPELL=true.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [text, lang]
+              required: [ text, lang ]
               properties:
                 collection:
                   type: string
@@ -4328,16 +4537,17 @@ paths:
 
   /v1/spell-cleanup:
     post:
-      tags: [Spell Correction]
+      tags: [ Spell Correction ]
       summary: Apply spell corrections to text
-      description: Applies the best corrections to each token and returns the cleaned text. Requires MDDB_SPELL=true.
+      description: Applies the best corrections to each token and returns the cleaned
+        text. Requires MDDB_SPELL=true.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [text, lang]
+              required: [ text, lang ]
               properties:
                 collection:
                   type: string
@@ -4364,9 +4574,10 @@ paths:
 
   /v1/spell-dictionary:
     get:
-      tags: [Spell Correction]
+      tags: [ Spell Correction ]
       summary: List custom dictionary words
-      description: Returns words in the custom dictionary for the given collection and language.
+      description: Returns words in the custom dictionary for the given collection and
+        language.
       parameters:
         - in: query
           name: collection
@@ -4394,7 +4605,7 @@ paths:
                     items:
                       type: string
     put:
-      tags: [Spell Correction]
+      tags: [ Spell Correction ]
       summary: Add words to custom dictionary
       requestBody:
         required: true
@@ -4402,7 +4613,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [lang, words]
+              required: [ lang, words ]
               properties:
                 collection:
                   type: string
@@ -4427,7 +4638,7 @@ paths:
                   added:
                     type: integer
     delete:
-      tags: [Spell Correction]
+      tags: [ Spell Correction ]
       summary: Remove words from custom dictionary
       requestBody:
         required: true
@@ -4435,7 +4646,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [lang, words]
+              required: [ lang, words ]
               properties:
                 collection:
                   type: string
@@ -4491,7 +4702,7 @@ components:
           type: string
         eventType:
           type: string
-          enum: [create, update, access]
+          enum: [ create, update, access ]
         timestamp:
           type: integer
           format: int64
@@ -4518,9 +4729,9 @@ components:
               type: string
           description: Metadata key-value pairs (values are arrays)
           example:
-            category: [blog, tutorial]
-            author: [John Doe]
-            tags: [markdown, database]
+            category: [ blog, tutorial ]
+            author: [ John Doe ]
+            tags: [ markdown, database ]
         contentMd:
           type: string
           description: Markdown content
@@ -4564,8 +4775,8 @@ components:
               type: string
           description: Metadata key-value pairs
           example:
-            category: [blog]
-            author: [John Doe]
+            category: [ blog ]
+            author: [ John Doe ]
         contentMd:
           type: string
           description: Markdown content
@@ -4614,7 +4825,7 @@ components:
               type: string
           description: Metadata key-value pairs
           example:
-            category: [blog]
+            category: [ blog ]
         saveRevision:
           type: boolean
           description: Whether to save a revision
@@ -4640,6 +4851,82 @@ components:
           items:
             type: string
           description: Error messages for failed documents
+
+    BulkIngestSubmitRequest:
+      type: object
+      required:
+        - collection
+        - documents
+      properties:
+        collection:
+          type: string
+          description: Target collection
+          example: blog
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/AddBatchDocument"
+          description: Documents to ingest; processed in chunks of 500
+        callbackUrl:
+          type: string
+          description: Optional URL that receives a POST with the final job record on
+            completion
+          example: https://example.com/webhook
+
+    BulkIngestJob:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique job identifier
+          example: bulk_1776539903516445000_849876
+        collection:
+          type: string
+          example: blog
+        status:
+          type: string
+          enum: [ pending, processing, completed, failed, cancelled ]
+          description: |
+            - `pending`: queued, worker has not picked it up yet
+            - `processing`: worker is actively committing chunks
+            - `completed`: finished (may include per-document failures)
+            - `failed`: all documents failed or the server restarted mid-job
+            - `cancelled`: user cancelled while still pending
+        total:
+          type: integer
+          description: Total documents submitted
+        processed:
+          type: integer
+          description: Documents processed so far (includes successes and failures)
+        added:
+          type: integer
+          description: Documents added to the collection
+        updated:
+          type: integer
+          description: Documents updated
+        failed:
+          type: integer
+          description: Documents that failed to commit
+        errors:
+          type: array
+          items:
+            type: string
+          description: Up to 50 error messages recorded during processing
+        callbackUrl:
+          type: string
+          description: Webhook URL supplied at submit time
+        submittedAt:
+          type: integer
+          format: int64
+          description: Unix timestamp (seconds) when the job was submitted
+        startedAt:
+          type: integer
+          format: int64
+          description: Unix timestamp when the worker picked up the job
+        completedAt:
+          type: integer
+          format: int64
+          description: Unix timestamp when the job reached a terminal status
 
     IngestRequest:
       type: object
@@ -4668,7 +4955,8 @@ components:
         url:
           type: string
           format: uri
-          description: Source URL (used for key derivation and auto-injected as source_url metadata)
+          description: Source URL (used for key derivation and auto-injected as source_url
+            metadata)
           example: https://example.com/page1
         key:
           type: string
@@ -4696,7 +4984,8 @@ components:
         scrapedAt:
           type: integer
           format: int64
-          description: Unix timestamp of when the content was scraped (auto-injected as scraped_at metadata)
+          description: Unix timestamp of when the content was scraped (auto-injected as
+            scraped_at metadata)
           example: 1709500000
         scraper:
           type: string
@@ -4815,11 +5104,11 @@ components:
               type: string
           description: Metadata filters (AND between keys, OR between values)
           example:
-            category: [blog, tutorial]
-            status: [published]
+            category: [ blog, tutorial ]
+            status: [ published ]
         sort:
           type: string
-          enum: [addedAt, updatedAt, key]
+          enum: [ addedAt, updatedAt, key ]
           description: Sort field
           example: updatedAt
         asc:
@@ -4883,10 +5172,10 @@ components:
               type: string
           description: Optional metadata filters
           example:
-            status: [published]
+            status: [ published ]
         format:
           type: string
-          enum: [ndjson, zip]
+          enum: [ ndjson, zip ]
           description: Export format
           example: ndjson
 
@@ -4922,7 +5211,7 @@ components:
           example: 10485760
         mode:
           type: string
-          enum: [read, write, wr]
+          enum: [ read, write, wr ]
           example: wr
         collections:
           type: array
@@ -4969,14 +5258,16 @@ components:
           example: blog
         query:
           type: string
-          description: Natural language query string (required if queryVector is not provided)
+          description: Natural language query string (required if queryVector is not
+            provided)
           example: How to set up a CI/CD pipeline?
         queryVector:
           type: array
           items:
             type: number
             format: float
-          description: Raw embedding vector (optional, use instead of query for pre-computed embeddings)
+          description: Raw embedding vector (optional, use instead of query for
+            pre-computed embeddings)
         topK:
           type: integer
           description: Number of top results to return (default 5)
@@ -4997,7 +5288,7 @@ components:
               type: string
           description: Metadata filters to narrow results before ranking
           example:
-            category: [devops, tutorial]
+            category: [ devops, tutorial ]
         includeContent:
           type: boolean
           description: Whether to include document content in results (default false)
@@ -5005,7 +5296,7 @@ components:
           example: false
         algorithm:
           type: string
-          enum: [flat, hnsw, ivf, pq, opq, sq, bq]
+          enum: [ flat, hnsw, ivf, pq, opq, sq, bq ]
           description: |
             Search algorithm to use (default "flat").
             - **flat**: Exact brute-force cosine similarity (most accurate, slower for large datasets)
@@ -5016,7 +5307,7 @@ components:
           example: flat
         distanceMetric:
           type: string
-          enum: [cosine, dot_product, euclidean]
+          enum: [ cosine, dot_product, euclidean ]
           description: Distance metric for similarity computation
           default: cosine
           example: cosine
@@ -5186,7 +5477,7 @@ components:
           example: 50
         algorithm:
           type: string
-          enum: [tfidf, bm25, bm25f, pmisparse]
+          enum: [ tfidf, bm25, bm25f, pmisparse ]
           description: |
             Scoring algorithm to use (default "tfidf").
             - **tfidf**: Classic TF-IDF scoring
@@ -5197,7 +5488,7 @@ components:
           example: bm25
         fuzzy:
           type: integer
-          enum: [0, 1, 2]
+          enum: [ 0, 1, 2 ]
           description: |
             Typo tolerance level (default 0).
             - **0**: Off — exact term matching only
@@ -5211,14 +5502,16 @@ components:
             type: array
             items:
               type: string
-          description: Metadata filters to narrow results before scoring (AND between keys, OR between values)
+          description: Metadata filters to narrow results before scoring (AND between
+            keys, OR between values)
           example:
-            category: [tutorial]
+            category: [ tutorial ]
         fieldWeights:
           type: object
           additionalProperties:
             type: number
-          description: Field weights for BM25F algorithm (keys are "title", "meta", "content")
+          description: Field weights for BM25F algorithm (keys are "title", "meta",
+            "content")
           example:
             title: 3.0
             meta: 2.0
@@ -5233,7 +5526,7 @@ components:
           default: false
         mode:
           type: string
-          enum: [auto, simple, boolean, phrase, wildcard, proximity]
+          enum: [ auto, simple, boolean, phrase, wildcard, proximity ]
           description: |
             Search mode (default "auto"). Auto-detect parses the query to determine the appropriate mode.
             - **auto**: Auto-detect from query syntax
@@ -5260,6 +5553,21 @@ components:
           description: Range filters on metadata or timestamp fields
           items:
             $ref: "#/components/schemas/RangeFilter"
+        boost:
+          type: object
+          additionalProperties:
+            type: number
+          description: |
+            Per-query boost map. Keys follow the format `"metaKey:metaValue"`.
+            Positive values multiply the score of documents matching that
+            metadata pair (e.g. `5.0` = 5× boost); negative values demote
+            (e.g. `-2.0` = ½× penalty). Zero is ignored. Multipliers from
+            multiple matching entries combine multiplicatively; the final
+            per-document multiplier is floored at `0.001` to prevent total
+            score collapse.
+          example:
+            "tag:breed": 5.0
+            "category:health": -2
 
     RangeFilter:
       type: object
@@ -5328,7 +5636,7 @@ components:
           items:
             type: string
           description: Terms from the query that matched
-          example: [cancel, subscription]
+          example: [ cancel, subscription ]
 
     ImportURLRequest:
       type: object
@@ -5362,7 +5670,7 @@ components:
               type: string
           description: Additional metadata to merge with frontmatter
           example:
-            source: [imported]
+            source: [ imported ]
         ttl:
           type: integer
           description: Time-to-live in seconds (0 = no expiration)
@@ -5409,9 +5717,9 @@ components:
           type: array
           items:
             type: string
-            enum: [doc.added, doc.updated, doc.deleted]
+            enum: [ doc.added, doc.updated, doc.deleted ]
           description: Event types to listen for
-          example: [doc.added, doc.updated]
+          example: [ doc.added, doc.updated ]
         collection:
           type: string
           description: Collection filter (empty = all collections)
@@ -5437,9 +5745,9 @@ components:
           type: array
           items:
             type: string
-            enum: [doc.added, doc.updated, doc.deleted]
+            enum: [ doc.added, doc.updated, doc.deleted ]
           description: Event types to listen for
-          example: [doc.added, doc.updated]
+          example: [ doc.added, doc.updated ]
         collection:
           type: string
           description: Collection filter (empty = all collections)
@@ -5468,7 +5776,8 @@ components:
         schema:
           type: string
           description: JSON Schema string for metadata validation
-          example: '{"type":"object","required":["author"],"properties":{"author":{"type":"array","items":{"type":"string"}}}}'
+          example: "{\"type\":\"object\",\"required\":[\"author\"],\"properties\":{\"auth\
+            or\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}}}"
 
     SchemaResponse:
       type: object
@@ -5480,7 +5789,7 @@ components:
         schema:
           type: string
           description: JSON Schema string
-          example: '{"type":"object","required":["author"]}'
+          example: "{\"type\":\"object\",\"required\":[\"author\"]}"
         enabled:
           type: boolean
           description: Whether schema validation is enabled for this collection
@@ -5504,8 +5813,8 @@ components:
               type: string
           description: Metadata to validate against the collection schema
           example:
-            category: [blog]
-            author: [John Doe]
+            category: [ blog ]
+            author: [ John Doe ]
 
     ValidateResponse:
       type: object
@@ -5530,7 +5839,7 @@ components:
           example: leader-1
         role:
           type: string
-          enum: [standalone, leader, follower]
+          enum: [ standalone, leader, follower ]
           description: Replication role of this node
           example: leader
         current_lsn:
@@ -5600,8 +5909,9 @@ components:
           example: 1709500000
         status:
           type: string
-          enum: [healthy, warning, unhealthy]
-          description: "Follower health status (healthy: <1s lag, warning: 1-30s, unhealthy: >30s)"
+          enum: [ healthy, warning, unhealthy ]
+          description: "Follower health status (healthy: <1s lag, warning: 1-30s,
+            unhealthy: >30s)"
           example: healthy
 
     HybridSearchRequest:
@@ -5625,19 +5935,19 @@ components:
           example: 10
         algorithm:
           type: string
-          enum: [bm25, bm25f]
+          enum: [ bm25, bm25f ]
           description: FTS algorithm (default "bm25")
           default: bm25
           example: bm25
         vectorAlgorithm:
           type: string
-          enum: [flat, hnsw, ivf, pq, opq, sq, bq]
+          enum: [ flat, hnsw, ivf, pq, opq, sq, bq ]
           description: Vector search algorithm (default "flat")
           default: flat
           example: flat
         strategy:
           type: string
-          enum: [alpha, rrf]
+          enum: [ alpha, rrf ]
           description: |
             Fusion strategy (default "alpha").
             - **alpha**: Weighted blending — `combined = (1-alpha) * normalizedFTS + alpha * vectorScore`
@@ -5647,7 +5957,8 @@ components:
         alpha:
           type: number
           format: float
-          description: Alpha blending weight (0=keyword only, 1=semantic only, default 0.5). Only used with "alpha" strategy.
+          description: Alpha blending weight (0=keyword only, 1=semantic only, default
+            0.5). Only used with "alpha" strategy.
           minimum: 0
           maximum: 1
           default: 0.5
@@ -5659,7 +5970,7 @@ components:
           example: 60
         fuzzy:
           type: integer
-          enum: [0, 1, 2]
+          enum: [ 0, 1, 2 ]
           description: Typo tolerance for FTS (0=off, 1=1 edit, 2=2 edits)
           default: 0
           example: 0
@@ -5678,7 +5989,7 @@ components:
               type: string
           description: Metadata filters applied to both FTS and vector results
           example:
-            category: [tutorial]
+            category: [ tutorial ]
         includeContent:
           type: boolean
           description: Include document content in results
@@ -5702,10 +6013,22 @@ components:
           default: false
         distanceMetric:
           type: string
-          enum: [cosine, dot_product, euclidean]
+          enum: [ cosine, dot_product, euclidean ]
           description: Distance metric for similarity computation
           default: cosine
           example: cosine
+        boost:
+          type: object
+          additionalProperties:
+            type: number
+          description: |
+            Per-query boost map applied to the fused combined score (not raw FTS/vector sub-scores).
+            Keys follow the format `"metaKey:metaValue"`; positive values multiply the score of
+            matching documents, negative values demote. See the same field on `FTSSearchRequest`
+            for full semantics.
+          example:
+            "tag:featured": 2.0
+            "status:archived": -3
 
     HybridSearchResponse:
       type: object
@@ -5770,7 +6093,7 @@ components:
           items:
             type: string
           description: FTS matched terms
-          example: [deploy, docker]
+          example: [ deploy, docker ]
         rank:
           type: integer
           description: Result rank (1-based)
@@ -5792,7 +6115,8 @@ components:
           description: Document key
         format:
           type: string
-          description: Detected file format (md, txt, html, pdf, docx, odt, rtf, yaml, tex, log, lex)
+          description: Detected file format (md, txt, html, pdf, docx, odt, rtf, yaml,
+            tex, log, lex)
         converted:
           type: boolean
           description: Whether the file was converted to markdown
@@ -5837,7 +6161,7 @@ components:
           items:
             type: string
           description: List of synonyms for the term
-          example: [large, huge, enormous]
+          example: [ large, huge, enormous ]
 
     SynonymDeleteRequest:
       type: object
@@ -5866,7 +6190,7 @@ components:
           items:
             type: string
           description: List of synonyms
-          example: [large, huge, enormous]
+          example: [ large, huge, enormous ]
 
     SynonymListResponse:
       type: object
@@ -5903,7 +6227,7 @@ components:
           example: OpenAI Small
         provider:
           type: string
-          enum: [openai, ollama, cohere, voyage]
+          enum: [ openai, ollama, cohere, voyage ]
           description: Embedding provider
           example: openai
         model:
@@ -5958,7 +6282,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.9.11
+          example: 2.9.12
         uptimeSeconds:
           type: integer
           format: int64
@@ -6010,7 +6334,7 @@ components:
           items:
             type: string
           description: IP addresses assigned to this interface
-          example: ["192.168.1.10/24", "fe80::1/64"]
+          example: [ "192.168.1.10/24", "fe80::1/64" ]
         flags:
           type: string
           description: Interface flags
@@ -6022,7 +6346,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.9.11
+          example: 2.9.12
         databasePath:
           type: string
           description: Path to the database file
@@ -6400,7 +6724,7 @@ components:
                 items:
                   type: string
                 description: Groups the user belongs to
-                example: [developers, editors]
+                example: [ developers, editors ]
 
     Group:
       type: object
@@ -6418,7 +6742,7 @@ components:
           items:
             type: string
           description: List of usernames in the group
-          example: [alice, bob]
+          example: [ alice, bob ]
         createdAt:
           type: integer
           format: int64
@@ -6443,7 +6767,7 @@ components:
           items:
             type: string
           description: Initial list of member usernames
-          example: [alice, bob]
+          example: [ alice, bob ]
 
     UpdateGroupRequest:
       type: object
@@ -6457,7 +6781,7 @@ components:
           items:
             type: string
           description: Updated list of member usernames
-          example: [alice, bob, charlie]
+          example: [ alice, bob, charlie ]
 
     GroupsListResponse:
       type: object
@@ -6496,14 +6820,14 @@ components:
 
     AutomationRule:
       type: object
-      required: [type, name]
+      required: [ type, name ]
       properties:
         id:
           type: string
           readOnly: true
         type:
           type: string
-          enum: [webhook, trigger, cron]
+          enum: [ webhook, trigger, cron ]
         name:
           type: string
         enabled:
@@ -6520,7 +6844,7 @@ components:
           description: Webhook URL (type=webhook)
         method:
           type: string
-          enum: [POST, GET, PUT]
+          enum: [ POST, GET, PUT ]
           default: POST
           description: HTTP method (type=webhook)
         headers:
@@ -6533,7 +6857,7 @@ components:
           description: Target collection (type=trigger)
         searchType:
           type: string
-          enum: [fts, vector, hybrid]
+          enum: [ fts, vector, hybrid ]
           description: Search type (type=trigger)
         query:
           type: string
@@ -6553,24 +6877,25 @@ components:
           type: array
           items:
             type: string
-            enum: [insert, update, delete]
-          description: Events that fire the trigger (type=trigger, default ["insert","update"])
+            enum: [ insert, update, delete ]
+          description: Events that fire the trigger (type=trigger, default
+            ["insert","update"])
         sentimentEnabled:
           type: boolean
           description: Enable keyword-based sentiment condition (type=trigger)
         sentimentMin:
           type: number
-          minimum: -1.0
+          minimum: -1
           maximum: 1.0
           description: Minimum sentiment score -1.0 to 1.0 (type=trigger)
         sentimentMax:
           type: number
-          minimum: -1.0
+          minimum: -1
           maximum: 1.0
           description: Maximum sentiment score -1.0 to 1.0 (type=trigger)
         conditionLogic:
           type: string
-          enum: [and, or]
+          enum: [ and, or ]
           default: and
           description: How to combine search + sentiment conditions (type=trigger)
         schedule:
@@ -6611,14 +6936,14 @@ components:
           type: string
         ruleType:
           type: string
-          enum: [trigger, cron]
+          enum: [ trigger, cron ]
         webhookId:
           type: string
         webhookUrl:
           type: string
         status:
           type: string
-          enum: [success, error, skipped]
+          enum: [ success, error, skipped ]
         httpStatus:
           type: integer
         durationMs:
@@ -6641,7 +6966,7 @@ components:
           items:
             type: string
           description: Tokenized query terms
-          example: [cancel, subscription]
+          example: [ cancel, subscription ]
         indexSize:
           type: integer
           description: Documents in search scope
@@ -6676,8 +7001,8 @@ components:
               type: string
           description: Metadata at this revision
           example:
-            category: [blog]
-            author: [John Doe]
+            category: [ blog ]
+            author: [ John Doe ]
 
     CollectionConfig:
       type: object
@@ -6693,7 +7018,7 @@ components:
         icon:
           type: string
           description: Collection icon (emoji or icon name)
-          example: "\uD83C\uDF10"
+          example: "🌐"
         color:
           type: string
           description: Collection color (hex code)
@@ -6704,20 +7029,24 @@ components:
           description: Custom key-value metadata for the collection
         storageBackend:
           type: string
-          enum: [boltdb, memory, s3]
-          description: "Storage backend for this collection (default: boltdb). Use 'memory' for ephemeral data or 's3' for S3-compatible object storage."
+          enum: [ boltdb, memory, s3 ]
+          description: "Storage backend for this collection (default: boltdb). Use
+            'memory' for ephemeral data or 's3' for S3-compatible object
+            storage."
           example: boltdb
         storageConfig:
           $ref: "#/components/schemas/StorageConfigDef"
         quantization:
           type: string
-          enum: [float32, int8, int4]
-          description: "Vector quantization level. int8 = 4x compression, int4 = 8x compression. Default: float32."
+          enum: [ float32, int8, int4 ]
+          description: "Vector quantization level. int8 = 4x compression, int4 = 8x
+            compression. Default: float32."
           example: float32
 
     StorageConfigDef:
       type: object
-      description: Backend-specific configuration for non-default storage backends (required when storageBackend is 's3').
+      description: Backend-specific configuration for non-default storage backends
+        (required when storageBackend is 's3').
       properties:
         endpoint:
           type: string
@@ -6777,7 +7106,7 @@ components:
                 example: category
               orderBy:
                 type: string
-                enum: [count, value]
+                enum: [ count, value ]
                 description: Sort order for facet buckets (default count descending)
                 example: count
         histograms:
@@ -6793,7 +7122,7 @@ components:
                 example: addedAt
               interval:
                 type: string
-                enum: [day, week, month, year]
+                enum: [ day, week, month, year ]
                 description: Histogram bucket interval (default month)
                 example: month
         maxFacetSize:
@@ -6872,7 +7201,7 @@ components:
           items:
             type: string
           description: Collections to search in
-          example: ["images", "audio"]
+          example: [ "images", "audio" ]
         topK:
           type: integer
           description: Number of results to return
@@ -6886,13 +7215,13 @@ components:
         algorithm:
           type: string
           description: Vector search algorithm
-          enum: [flat, hnsw, ivf, pq, opq, sq, bq]
+          enum: [ flat, hnsw, ivf, pq, opq, sq, bq ]
           default: flat
           example: flat
         distanceMetric:
           type: string
           description: Distance metric for similarity computation
-          enum: [cosine, dot_product, euclidean]
+          enum: [ cosine, dot_product, euclidean ]
           default: cosine
           example: cosine
         filterMeta:
@@ -6932,7 +7261,7 @@ components:
           items:
             type: string
           description: Collections that were searched
-          example: ["images", "audio"]
+          example: [ "images", "audio" ]
         algorithm:
           type: string
           description: Vector search algorithm used
@@ -6973,9 +7302,10 @@ components:
           description: Collection to scan
         mode:
           type: string
-          enum: [exact, similar, both]
+          enum: [ exact, similar, both ]
           default: both
-          description: "Detection mode: exact (content hash), similar (embedding similarity), or both"
+          description: "Detection mode: exact (content hash), similar (embedding
+            similarity), or both"
         threshold:
           type: number
           minimum: 0
@@ -6988,7 +7318,7 @@ components:
           description: Maximum documents to process (safety bound)
         distanceMetric:
           type: string
-          enum: [cosine, dot_product, euclidean]
+          enum: [ cosine, dot_product, euclidean ]
           default: cosine
         includeContent:
           type: boolean
@@ -7029,7 +7359,7 @@ components:
           type: integer
         type:
           type: string
-          enum: [exact, similar]
+          enum: [ exact, similar ]
         documents:
           type: array
           items:
