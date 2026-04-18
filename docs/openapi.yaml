@@ -68,7 +68,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: "2.9.12"
+  version: "2.9.13"
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -6029,6 +6029,17 @@ components:
           example:
             "tag:featured": 2.0
             "status:archived": -3
+        sort:
+          type: string
+          enum: [combined, distance]
+          default: combined
+          description: |
+            Result ordering. `combined` (default) ranks by the fused score — keyword relevance
+            and semantic similarity blended per `strategy`. `distance` re-sorts the post-merge
+            result set by `distanceMeters` ascending so the nearest documents surface first.
+            Requires a `geo` filter on the request; otherwise the server rejects the call
+            because distances would all be zero.
+          example: distance
 
     HybridSearchResponse:
       type: object
@@ -6282,7 +6293,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.9.12
+          example: 2.9.13
         uptimeSeconds:
           type: integer
           format: int64
@@ -6346,7 +6357,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.9.12
+          example: 2.9.13
         databasePath:
           type: string
           description: Path to the database file

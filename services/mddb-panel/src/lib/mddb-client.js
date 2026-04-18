@@ -379,7 +379,7 @@ class MDDBClient {
   /**
    * Hybrid search (sparse + dense)
    */
-  async hybridSearch({ collection, query, topK = 10, algorithm = 'bm25', vectorAlgorithm = 'flat', alpha = 0.5, strategy = 'alpha', rrfK = 60, fuzzy = 0, threshold = 0.0, filterMeta = {}, includeContent = false, distanceMetric = 'cosine', lang, boost, signal }) {
+  async hybridSearch({ collection, query, topK = 10, algorithm = 'bm25', vectorAlgorithm = 'flat', alpha = 0.5, strategy = 'alpha', rrfK = 60, fuzzy = 0, threshold = 0.0, filterMeta = {}, includeContent = false, distanceMetric = 'cosine', lang, boost, geo, sort, signal }) {
     const body = {
       collection,
       query,
@@ -400,6 +400,12 @@ class MDDBClient {
     }
     if (boost && Object.keys(boost).length > 0) {
       body.boost = boost;
+    }
+    if (geo) {
+      body.geo = geo;
+    }
+    if (sort) {
+      body.sort = sort;
     }
     return this.request('/hybrid-search', {
       method: 'POST',

@@ -697,6 +697,27 @@ score = 1/(k + rank_fts) + 1/(k + rank_vector)
 | `fieldWeights` | — | BM25F field weights |
 | `disableStem` | `false` | Disable stemming for FTS |
 | `disableSynonyms` | `false` | Disable synonym expansion for FTS |
+| `boost` | — | Per-query score multiplier keyed by `"metaKey:metaValue"` |
+| `geo` | — | Spatial pre-filter: `{lat, lng, radiusMeters}` |
+| `sort` | `"combined"` | Result ordering: `combined` (default, by fused score) or `distance` (by `distanceMeters` ascending — requires `geo`) |
+
+### Sort by Distance (v2.9.13+)
+
+When the request carries a `geo` filter, `sort: "distance"` re-orders the merged result set by ascending distance from the reference point instead of by fused score. Useful for "nearest matching venue" queries where proximity matters more than keyword relevance.
+
+```bash
+curl -X POST http://localhost:11023/v1/hybrid-search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "venues",
+    "query": "coffee wifi",
+    "topK": 10,
+    "geo": {"lat": 52.52, "lng": 13.405, "radiusMeters": 3000},
+    "sort": "distance"
+  }'
+```
+
+The server returns an error if `sort: "distance"` is used without a `geo` filter, because every item would otherwise carry `distanceMeters=0` and the ordering would be arbitrary. gRPC callers must stay on `combined` — the gRPC `HybridSearchRequest` has no geo field; use the HTTP endpoint for distance sorting.
 
 ### API Examples
 

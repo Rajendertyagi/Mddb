@@ -33,6 +33,7 @@ type HybridSearchRequest struct {
 	DisableSynonyms bool                `json:"disableSynonyms"`
 	Lang            string              `json:"lang,omitempty"`
 	Boost           map[string]float64  `json:"boost,omitempty"` // per-query boost: "metaKey:metaValue" → multiplier
+	Sort            string              `json:"sort,omitempty"`  // "" / "combined" (default) | "distance" (requires geo filter)
 }
 
 // HybridGeoFilter restricts hybrid search to docs within radius of a point.
@@ -111,6 +112,22 @@ func (s *Server) handleHybridSearch(w http.ResponseWriter, r *http.Request) {
 	// Validate strategy
 	if req.Strategy != "alpha" && req.Strategy != "rrf" {
 		bad(w, fmt.Errorf("unknown strategy: %s, available: alpha, rrf", req.Strategy))
+		return
+	}
+
+	// Normalize + validate sort mode. "distance" only makes sense when the
+	// request also carries a geo filter (otherwise every result's
+	// distanceMeters is zero and the ordering would be meaningless).
+	switch req.Sort {
+	case "", "combined":
+		req.Sort = "combined"
+	case "distance":
+		if req.Geo == nil {
+			bad(w, errors.New("sort=distance requires a geo filter"))
+			return
+		}
+	default:
+		bad(w, fmt.Errorf("unknown sort: %s, available: combined, distance", req.Sort))
 		return
 	}
 
@@ -194,7 +211,8 @@ func (s *Server) handleHybridSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Spatial post-filter: keep only results inside the geo radius, attach
-	// distanceMeters from the pre-computed lookup, and truncate back to TopK.
+	// distanceMeters from the pre-computed lookup, optionally re-sort by
+	// proximity, and truncate back to TopK.
 	if geoAllowed != nil {
 		filtered := merged[:0]
 		for _, m := range merged {
@@ -205,6 +223,11 @@ func (s *Server) handleHybridSearch(w http.ResponseWriter, r *http.Request) {
 			filtered = append(filtered, m)
 		}
 		merged = filtered
+		if req.Sort == "distance" {
+			sort.Slice(merged, func(i, j int) bool {
+				return merged[i].DistanceMeters < merged[j].DistanceMeters
+			})
+		}
 		if len(merged) > req.TopK {
 			merged = merged[:req.TopK]
 		}

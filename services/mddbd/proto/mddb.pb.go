@@ -2825,6 +2825,7 @@ type HybridSearchRequest struct {
 	FieldWeights    map[string]float64     `protobuf:"bytes,13,rep,name=field_weights,json=fieldWeights,proto3" json:"field_weights,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"fixed64,2,opt,name=value"`
 	Lang            string                 `protobuf:"bytes,14,opt,name=lang,proto3" json:"lang,omitempty"`                                                                               // language for FTS stemming/stop words
 	Boost           map[string]float64     `protobuf:"bytes,15,rep,name=boost,proto3" json:"boost,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"fixed64,2,opt,name=value"` // per-query boost: "metaKey:metaValue" → multiplier (positive boosts, negative demotes)
+	Sort            string                 `protobuf:"bytes,16,opt,name=sort,proto3" json:"sort,omitempty"`                                                                               // result ordering: "" or "combined" (default, by fused score), or "distance" (by distanceMeters asc — requires geo filter)
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -2962,6 +2963,13 @@ func (x *HybridSearchRequest) GetBoost() map[string]float64 {
 		return x.Boost
 	}
 	return nil
+}
+
+func (x *HybridSearchRequest) GetSort() string {
+	if x != nil {
+		return x.Sort
+	}
+	return ""
 }
 
 type HybridSearchResult struct {
@@ -10761,7 +10769,7 @@ const file_mddb_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tR\x04name\"n\n" +
 	"\x14FTSLanguagesResponse\x123\n" +
 	"\tlanguages\x18\x01 \x03(\v2\x15.mddb.FTSLanguageInfoR\tlanguages\x12!\n" +
-	"\fdefault_lang\x18\x02 \x01(\tR\vdefaultLang\"\x87\x06\n" +
+	"\fdefault_lang\x18\x02 \x01(\tR\vdefaultLang\"\x9b\x06\n" +
 	"\x13HybridSearchRequest\x12\x1e\n" +
 	"\n" +
 	"collection\x18\x01 \x01(\tR\n" +
@@ -10781,7 +10789,8 @@ const file_mddb_proto_rawDesc = "" +
 	"\x0finclude_content\x18\f \x01(\bR\x0eincludeContent\x12P\n" +
 	"\rfield_weights\x18\r \x03(\v2+.mddb.HybridSearchRequest.FieldWeightsEntryR\ffieldWeights\x12\x12\n" +
 	"\x04lang\x18\x0e \x01(\tR\x04lang\x12:\n" +
-	"\x05boost\x18\x0f \x03(\v2$.mddb.HybridSearchRequest.BoostEntryR\x05boost\x1aO\n" +
+	"\x05boost\x18\x0f \x03(\v2$.mddb.HybridSearchRequest.BoostEntryR\x05boost\x12\x12\n" +
+	"\x04sort\x18\x10 \x01(\tR\x04sort\x1aO\n" +
 	"\x0fFilterMetaEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12&\n" +
 	"\x05value\x18\x02 \x01(\v2\x10.mddb.MetaValuesR\x05value:\x028\x01\x1a?\n" +

@@ -543,6 +543,7 @@ func mcpBuiltinTools() []MCPTool {
 					"distance_metric":  map[string]interface{}{"type": "string", "description": "Distance metric: cosine (default), dot_product, euclidean"},
 					"filter_meta":      map[string]interface{}{"type": "object", "description": "Metadata filter"},
 					"boost":            map[string]interface{}{"type": "object", "description": "Per-query score multiplier keyed by \"metaKey:metaValue\" (e.g. {\"tag:featured\":5.0,\"status:archived\":-2.0}). Positive boosts, negative demotes; combined multiplicatively."},
+					"sort":             map[string]interface{}{"type": "string", "description": "Result ordering: \"combined\" (default, by fused score) or \"distance\" (by proximity ascending — requires a geo filter on the HTTP path)"},
 				},
 				"required": []string{"collection", "query"},
 			},

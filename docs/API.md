@@ -1949,6 +1949,9 @@ Hybrid search combining full-text (sparse) and vector (dense) results using alph
 | `includeContent` | boolean | `false` | Include full content |
 | `disableStem` | boolean | `false` | Disable stemming |
 | `disableSynonyms` | boolean | `false` | Disable synonym expansion |
+| `boost` | object | | Per-query score multiplier keyed by `"metaKey:metaValue"` |
+| `geo` | object | | Spatial pre-filter: `{lat, lng, radiusMeters}` |
+| `sort` | string | `"combined"` | Result ordering: `combined` (default, by fused score) or `distance` (by `distanceMeters` ascending — requires `geo`) |
 
 **Response**:
 ```json
@@ -2749,7 +2752,7 @@ curl http://localhost:11023/v1/system/info
   "arch": "amd64",
   "numCPU": 4,
   "goVersion": "go1.26.2",
-  "version": "2.9.12",
+  "version": "2.9.13",
   "uptimeSeconds": 3600,
   "memoryTotal": 134217728,
   "memoryUsed": 67108864,
@@ -2772,7 +2775,7 @@ curl http://localhost:11023/v1/config
 **Response**:
 ```json
 {
-  "version": "2.9.12",
+  "version": "2.9.13",
   "databasePath": "mddb.db",
   "mode": "wr",
   "protocols": {

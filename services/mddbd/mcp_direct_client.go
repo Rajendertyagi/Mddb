@@ -1131,6 +1131,7 @@ func (c *DirectClient) HybridSearch(ctx context.Context, req *MCPHybridSearchReq
 		DistanceMetric:  req.DistanceMetric,
 		FilterMeta:      req.FilterMeta,
 		Boost:           req.Boost,
+		Sort:            req.Sort,
 		IncludeContent:  true,
 	}
 

@@ -517,6 +517,7 @@ func (s *MCPToolServer) toolHybridSearch(ctx context.Context, args map[string]in
 		DistanceMetric:  mcpGetString(args, "distance_metric"),
 		FilterMeta:      mcpGetMetaMap(args, "filter_meta"),
 		Boost:           mcpGetFloat64Map(args, "boost"),
+		Sort:            mcpGetString(args, "sort"),
 	}
 	if alpha, ok := args["alpha"].(float64); ok {
 		req.Alpha = alpha
