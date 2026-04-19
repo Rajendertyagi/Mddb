@@ -100,15 +100,16 @@ curl -X DELETE http://localhost:11023/v1/stopwords \
 
 ### Search Modes
 
-FTS supports 7 search modes. The mode can be set via the `mode` parameter, or left as `"auto"` (default) for automatic detection.
+FTS supports 8 search modes. The mode can be set via the `mode` parameter, or left as `"auto"` (default) for automatic detection.
 
 | Mode | Syntax Example | Description |
 |------|---------------|-------------|
 | `simple` | `markdown database` | Basic keyword search |
-| `boolean` | `markdown AND database NOT sql` | Boolean operators (AND, OR, NOT, +, -) |
+| `boolean` | `markdown AND database NOT sql` | Flat boolean — AND, OR, NOT, `+`, `-` (legacy; no nesting) |
 | `phrase` | `"markdown database"` | Exact phrase matching (consecutive terms) |
 | `proximity` | `"markdown database"~5` | Terms within N words of each other |
 | `wildcard` | `mark* dat?base` | Pattern matching with `*` and `?` |
+| `expression` | `(rust OR golang) AND "async runtime"~3 NOT legacy` | Full query DSL with parentheses, precedence, and mixed atoms (v2.9.13+) |
 | `range` | via `rangeMeta` parameter | Numeric/date range filtering |
 | `fuzzy` | `fuzzy: 1` or `fuzzy: 2` | Typo-tolerant matching (any mode) |
 | `auto` | _(default)_ | Auto-detects the appropriate mode |
@@ -123,9 +124,37 @@ When `mode` is omitted or set to `"auto"`, the query parser inspects the query s
 4. Contains `AND`, `OR`, `NOT`, `+`, `-` → **boolean** mode
 5. Otherwise → **simple** mode
 
+#### Expression Search (v2.9.13+)
+
+`mode: "expression"` runs the query through a proper recursive-descent parser that understands parenthesized grouping, operator precedence (NOT > AND > OR), and mixed atom types in a single query.
+
+Supported atoms inside an expression:
+
+- Bare terms → `rust`
+- Fuzzy terms with edit-distance modifier → `color~1`, `markdwn~2` (0–2, clamped)
+- Quoted phrases → `"machine learning"`
+- Proximity phrases → `"rust systems"~5`
+- Wildcards → `mark*`, `te?t`
+- Parenthesized groups → `(rust OR golang)`
+- Negation → `NOT spam` or `-spam`
+- Implicit AND between adjacent atoms → `rust async` parses as `rust AND async`
+
+Precedence from tightest to loosest: `NOT` > `AND` > `OR`. So `a AND b OR c` parses as `(a AND b) OR c`, while `a OR b AND c` parses as `a OR (b AND c)`.
+
+Examples:
+
+```text
+(rust OR golang) AND "async runtime"~3 NOT legacy
+rust AND (systems OR async) AND NOT deprecated
+"machine learning" OR (ml AND algorithms)
+markdwn~1 OR markdown
+```
+
+Evaluation reuses the existing scorers — each leaf atom calls through to the same `SearchBM25` / `SearchPhrase` / `SearchProximity` / `SearchWildcard` / `SearchBM25Fuzzy` path that the legacy modes use. AND intersects matched doc sets and sums scores; OR unions and sums; NOT subtracts from its sibling without affecting scores. So scoring stays consistent across modes.
+
 #### Boolean Search
 
-Supports full boolean logic with AND, OR, NOT operators and required/excluded term prefixes.
+Supports flat boolean logic with AND, OR, NOT operators and required/excluded term prefixes. No parenthesized grouping — use `mode: "expression"` when you need nesting.
 
 ```bash
 # AND (implicit between terms)

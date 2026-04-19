@@ -5653,7 +5653,7 @@ components:
           default: false
         mode:
           type: string
-          enum: [ auto, simple, boolean, phrase, wildcard, proximity ]
+          enum: [ auto, simple, boolean, phrase, wildcard, proximity, expression ]
           description: |
             Search mode (default "auto"). Auto-detect parses the query to determine the appropriate mode.
             - **auto**: Auto-detect from query syntax
@@ -5662,6 +5662,7 @@ components:
             - **phrase**: Exact word sequence (`"quoted phrases"`)
             - **wildcard**: Pattern matching (`*` any chars, `?` single char)
             - **proximity**: Terms within N words (`"term1 term2"~5`)
+            - **expression**: Full query DSL with nested parens, precedence, and mixed atoms (v2.9.13+)
           default: auto
           example: auto
         distance:

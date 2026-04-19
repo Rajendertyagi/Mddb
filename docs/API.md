@@ -868,7 +868,7 @@ Perform full-text search across document content. Supports multiple search modes
 - `query` (required): Search query text
 - `limit` (optional): Maximum results (default: 50)
 - `algorithm` (optional): `"tfidf"` (default), `"bm25"`, `"bm25f"`, or `"pmisparse"` — used for simple mode
-- `mode` (optional): Search mode — `"auto"` (default), `"simple"`, `"boolean"`, `"phrase"`, `"wildcard"`, `"proximity"`
+- `mode` (optional): Search mode — `"auto"` (default), `"simple"`, `"boolean"`, `"phrase"`, `"wildcard"`, `"proximity"`, `"expression"` (v2.9.13+ — full query DSL with nested parens and precedence)
 - `distance` (optional): Proximity distance in words (default: 5) — only used with mode=proximity
 - `fuzzy` (optional): Typo tolerance — `0` (off, default), `1` (1 edit), `2` (2 edits) — used for simple mode
 - `lang` (optional): Language code for query tokenization (e.g., `"pl"`, `"de"`, `"fr"`). Uses language-specific stemmer and stop words. Falls back to server default if omitted (default: `"en"`, configurable via `MDDB_FTS_DEFAULT_LANG`)

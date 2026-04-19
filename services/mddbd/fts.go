@@ -862,6 +862,15 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 	case "wildcard":
 		results, err = s.FTSIndex.SearchWildcard(req.Collection, req.Query, req.Limit)
 
+	case "expression":
+		var expr QueryExpr
+		expr, err = ParseQueryExpression(req.Query)
+		if err != nil {
+			bad(w, err)
+			return
+		}
+		results, err = s.FTSIndex.EvaluateExpression(req.Collection, expr, req.Limit)
+
 	default: // "simple"
 		mode = "simple"
 		switch algo {
