@@ -185,13 +185,15 @@ func mcpBuiltinTools() []MCPTool {
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
-					"collection": map[string]interface{}{"type": "string", "description": "Collection to search in"},
-					"query":      map[string]interface{}{"type": "string", "description": "Search query text"},
-					"limit":      map[string]interface{}{"type": "integer", "description": "Max results (default: 50)"},
-					"algorithm":  map[string]interface{}{"type": "string", "description": "Scoring algorithm: tfidf (default), bm25, bm25f, or pmisparse"},
-					"fuzzy":      map[string]interface{}{"type": "integer", "description": "Typo tolerance: 0 (off, default), 1 (1 char typo), 2 (2 char typos)"},
-					"lang":       map[string]interface{}{"type": "string", "description": "Language for stemming/stop words (e.g. en, pl, de, fr, es). Default: server default language"},
-					"boost":      map[string]interface{}{"type": "object", "description": "Per-query score multiplier keyed by \"metaKey:metaValue\" (e.g. {\"tag:featured\":5.0,\"status:archived\":-2.0}). Positive boosts, negative demotes; combined multiplicatively."},
+					"collection":       map[string]interface{}{"type": "string", "description": "Collection to search in"},
+					"query":            map[string]interface{}{"type": "string", "description": "Search query text"},
+					"limit":            map[string]interface{}{"type": "integer", "description": "Max results (default: 50)"},
+					"algorithm":        map[string]interface{}{"type": "string", "description": "Scoring algorithm: tfidf (default), bm25, bm25f, or pmisparse"},
+					"fuzzy":            map[string]interface{}{"type": "integer", "description": "Typo tolerance: 0 (off, default), 1 (1 char typo), 2 (2 char typos)"},
+					"lang":             map[string]interface{}{"type": "string", "description": "Language for stemming/stop words (e.g. en, pl, de, fr, es). Default: server default language"},
+					"boost":            map[string]interface{}{"type": "object", "description": "Per-query score multiplier keyed by \"metaKey:metaValue\" (e.g. {\"tag:featured\":5.0,\"status:archived\":-2.0}). Positive boosts, negative demotes; combined multiplicatively."},
+					"facet_by":         map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}, "description": "(v2.9.14+) Metadata keys to aggregate into response.facets (e.g. [\"category\",\"lang\"])."},
+					"facet_max_values": map[string]interface{}{"type": "integer", "description": "(v2.9.14+) Cap per-key bucket count; 0 = unlimited."},
 				},
 				"required": []string{"collection", "query"},
 			},
@@ -501,7 +503,7 @@ func mcpBuiltinTools() []MCPTool {
 					"collection":      map[string]interface{}{"type": "string", "description": "Collection to search"},
 					"polygon":         map[string]interface{}{"type": "object", "description": "GeoJSON Polygon: {type:\"Polygon\", coordinates:[[[lng,lat],…]]}. First ring = outer boundary; subsequent rings = holes."},
 					"multi_polygon":   map[string]interface{}{"type": "object", "description": "GeoJSON MultiPolygon: {type:\"MultiPolygon\", coordinates:[[[[lng,lat],…]],…]}. Union semantics — a doc matches if it's inside any member polygon."},
-					"filter_meta":    map[string]interface{}{"type": "object", "description": "Optional metadata filter"},
+					"filter_meta":     map[string]interface{}{"type": "object", "description": "Optional metadata filter"},
 					"include_content": map[string]interface{}{"type": "boolean", "description": "Include full contentMd in each returned doc (default false)"},
 				},
 				"required": []string{"collection"},
@@ -559,6 +561,8 @@ func mcpBuiltinTools() []MCPTool {
 					"filter_meta":      map[string]interface{}{"type": "object", "description": "Metadata filter"},
 					"boost":            map[string]interface{}{"type": "object", "description": "Per-query score multiplier keyed by \"metaKey:metaValue\" (e.g. {\"tag:featured\":5.0,\"status:archived\":-2.0}). Positive boosts, negative demotes; combined multiplicatively."},
 					"sort":             map[string]interface{}{"type": "string", "description": "Result ordering: \"combined\" (default, by fused score) or \"distance\" (by proximity ascending — requires a geo filter on the HTTP path)"},
+					"facet_by":         map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}, "description": "(v2.9.14+) Metadata keys to aggregate into response.facets."},
+					"facet_max_values": map[string]interface{}{"type": "integer", "description": "(v2.9.14+) Cap per-key bucket count; 0 = unlimited."},
 				},
 				"required": []string{"collection", "query"},
 			},
@@ -795,12 +799,13 @@ func mcpBuiltinTools() []MCPTool {
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
-					"collection":  map[string]interface{}{"type": "string", "description": "Collection name"},
-					"type":        map[string]interface{}{"type": "string", "description": "Collection type: default, website, images, audio, documents"},
-					"description": map[string]interface{}{"type": "string", "description": "Human-readable description"},
-					"icon":        map[string]interface{}{"type": "string", "description": "Emoji or icon identifier"},
-					"color":       map[string]interface{}{"type": "string", "description": "Hex color code (e.g. #3B82F6)"},
-					"custom_meta": map[string]interface{}{"type": "object", "description": "Custom key-value metadata"},
+					"collection":    map[string]interface{}{"type": "string", "description": "Collection name"},
+					"type":          map[string]interface{}{"type": "string", "description": "Collection type: default, website, images, audio, documents"},
+					"description":   map[string]interface{}{"type": "string", "description": "Human-readable description"},
+					"icon":          map[string]interface{}{"type": "string", "description": "Emoji or icon identifier"},
+					"color":         map[string]interface{}{"type": "string", "description": "Hex color code (e.g. #3B82F6)"},
+					"custom_meta":   map[string]interface{}{"type": "object", "description": "Custom key-value metadata"},
+					"max_revisions": map[string]interface{}{"type": "integer", "description": "(v2.9.14+) Keep last N revisions per document. 0 (default) = unlimited."},
 				},
 				"required": []string{"collection"},
 			},
@@ -811,6 +816,72 @@ func mcpBuiltinTools() []MCPTool {
 			InputSchema: map[string]interface{}{
 				"type":       "object",
 				"properties": map[string]interface{}{},
+			},
+		},
+		// --- Curation rules (v2.9.14+) ---
+		{
+			Name:        "list_curation_rules",
+			Description: "(v2.9.14+) List curation rules that pin or hide documents for specific search queries. Pass collection to filter; omit for all.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Optional — limit to rules for this collection"},
+				},
+			},
+		},
+		{
+			Name:        "create_curation_rule",
+			Description: "(v2.9.14+) Create a rule that pins specific documents to fixed positions or hides others when a query matches.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Target collection"},
+					"query":      map[string]interface{}{"type": "string", "description": "Trigger query — matched against incoming search requests"},
+					"match_mode": map[string]interface{}{"type": "string", "description": "exact (default) or contains"},
+					"pins": map[string]interface{}{
+						"type":        "array",
+						"description": "Documents to pin. Each item: {key, lang?, position} — position is 1-based.",
+						"items": map[string]interface{}{
+							"type": "object",
+							"properties": map[string]interface{}{
+								"key":      map[string]interface{}{"type": "string"},
+								"lang":     map[string]interface{}{"type": "string"},
+								"position": map[string]interface{}{"type": "integer"},
+							},
+						},
+					},
+					"hides":   map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}, "description": "Document keys to drop from results"},
+					"enabled": map[string]interface{}{"type": "boolean", "description": "Default: true"},
+				},
+				"required": []string{"collection", "query"},
+			},
+		},
+		{
+			Name:        "update_curation_rule",
+			Description: "(v2.9.14+) Replace an existing curation rule by id. Accepts the same body as create_curation_rule plus an id.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"id":         map[string]interface{}{"type": "string", "description": "Rule id"},
+					"collection": map[string]interface{}{"type": "string"},
+					"query":      map[string]interface{}{"type": "string"},
+					"match_mode": map[string]interface{}{"type": "string"},
+					"pins":       map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "object"}},
+					"hides":      map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}},
+					"enabled":    map[string]interface{}{"type": "boolean"},
+				},
+				"required": []string{"id"},
+			},
+		},
+		{
+			Name:        "delete_curation_rule",
+			Description: "(v2.9.14+) Remove a curation rule by id.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"id": map[string]interface{}{"type": "string", "description": "Rule id"},
+				},
+				"required": []string{"id"},
 			},
 		},
 		// --- Cross-Collection Search ---
@@ -1171,6 +1242,7 @@ func validateMCPCustomTools(tools []MCPCustomToolConfig) error {
 		"update_automation": true, "delete_automation": true, "test_automation": true,
 		"get_automation_logs":   true,
 		"get_collection_config": true, "set_collection_config": true, "list_collection_configs": true,
+		"list_curation_rules": true, "create_curation_rule": true, "update_curation_rule": true, "delete_curation_rule": true,
 		"cross_search":     true,
 		"find_duplicates":  true,
 		"ingest_documents": true,

@@ -1403,4 +1403,125 @@ curl -X POST http://localhost:11023/v1/classify \
 }
 ```
 
+## Inline Facets on Search (v2.9.14+)
+
+Facets can now be computed inline with `/v1/fts` and `/v1/hybrid-search` so UIs don't need a separate `/v1/aggregate` round-trip. Pass `facetBy` with the metadata keys to aggregate; the response grows a `facets` map keyed by the same names, with per-value counts ordered by count desc, value asc.
+
+```bash
+curl -X POST http://localhost:11023/v1/fts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "blog",
+    "query": "rust",
+    "limit": 20,
+    "facetBy": ["category", "lang"],
+    "facetMaxValues": 10
+  }'
+```
+
+**Response (excerpt):**
+```json
+{
+  "results": [ /* ... */ ],
+  "facets": {
+    "category": [
+      {"value": "tutorial", "count": 7},
+      {"value": "guide", "count": 3}
+    ],
+    "lang": [
+      {"value": "en_US", "count": 9},
+      {"value": "pl_PL", "count": 1}
+    ]
+  }
+}
+```
+
+**Notes:**
+- `facetBy` accepts any metadata key — counts are computed over the documents actually returned (after filtering, boosts, curation).
+- `facetMaxValues` caps each key's bucket list. `0` or omitted = unlimited.
+- Missing keys still appear in the map with an empty bucket list, so UIs can render a stable facet group layout across queries.
+- Works with HybridSearch in the same way (parameter is also `facetBy` / `facetMaxValues`).
+
+## Curation Rules — Pinned & Hidden Results (v2.9.14+)
+
+Curation rules override organic ranking for specific queries. For each rule, editors can pin documents to fixed 1-based positions and hide other documents entirely. Inspired by Typesense curation; applied inside the FTS + Hybrid pipelines after scoring but before pagination.
+
+### REST Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/v1/curation?id=<id>` | Fetch one rule |
+| `GET` | `/v1/curation?collection=<c>` | List rules for a collection |
+| `GET` | `/v1/curation` | List all rules (admin) |
+| `POST` | `/v1/curation` | Create a rule (id assigned by server) |
+| `PUT` | `/v1/curation` | Replace a rule (body must include `id`) |
+| `DELETE` | `/v1/curation?id=<id>` | Remove a rule |
+
+### Rule shape
+
+```json
+{
+  "id": "cur_f0a1…",
+  "collection": "blog",
+  "query": "rust tutorial",
+  "matchMode": "exact",
+  "pins": [
+    {"key": "rust-getting-started", "lang": "en_US", "position": 1},
+    {"key": "rust-ownership",        "position": 2}
+  ],
+  "hides": ["legacy-post", "wip-draft"],
+  "enabled": true
+}
+```
+
+- **`matchMode`** — `exact` (default) matches the full query verbatim, `contains` fires when the rule query is a substring of the incoming query. Both are case-insensitive.
+- **`pins`** — Each pin places a document at the given 1-based `position`. `position <= 0` appends after organic results. When `lang` is omitted, the first matching key across any language wins.
+- **`hides`** — A list of document keys dropped from results entirely.
+- **`enabled`** — `false` disables a rule without deleting it.
+
+### Response markers
+
+Results injected by a pin carry `"pinned": true`, so clients can style them distinctly:
+
+```json
+{
+  "document": { "key": "rust-getting-started", /* ... */ },
+  "score": 0,
+  "pinned": true
+}
+```
+
+### Example
+
+```bash
+# Create
+curl -X POST http://localhost:11023/v1/curation \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "blog",
+    "query": "rust tutorial",
+    "matchMode": "exact",
+    "enabled": true,
+    "pins": [{"key": "rust-getting-started", "position": 1}],
+    "hides": ["legacy-post"]
+  }'
+
+# List for a collection
+curl "http://localhost:11023/v1/curation?collection=blog"
+
+# Delete
+curl -X DELETE "http://localhost:11023/v1/curation?id=cur_f0a1…"
+```
+
+### MCP Tools
+
+- `list_curation_rules` — scope by `collection` or return all.
+- `create_curation_rule` — body matches the REST rule shape; `pins` accepts either full objects or a flat list of keys (which auto-assigns ascending positions).
+- `update_curation_rule` — requires `id`; other fields are patched in.
+- `delete_curation_rule` — by `id`.
+
+### Precedence
+
+Curation runs **after** filtering, range filters, and boost multipliers, but **before** the `limit`/`topK` trim and before facet counting. Facets therefore reflect what the user actually sees, including pinned docs. A pin can pull a doc from beyond the organic cutoff into the visible window.
+
 **[← Back to README](../README.md)**

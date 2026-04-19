@@ -35,6 +35,7 @@ export default function CollectionConfigModal({ collection, onClose, onSave }) {
   const [trackHot, setTrackHot] = useState(false);
   const [spellCorrect, setSpellCorrect] = useState(false);
   const [spellLang, setSpellLang] = useState('');
+  const [maxRevisions, setMaxRevisions] = useState(0);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -67,6 +68,7 @@ export default function CollectionConfigModal({ collection, onClose, onSave }) {
         setTrackHot(cfg.trackHot || false);
         setSpellCorrect(cfg.spellCorrect || false);
         setSpellLang(cfg.spellLang || '');
+        setMaxRevisions(cfg.maxRevisions || 0);
       }
     } catch (err) {
       setError(err.message);
@@ -98,6 +100,7 @@ export default function CollectionConfigModal({ collection, onClose, onSave }) {
         trackHot: trackHot || undefined,
         spellCorrect: spellCorrect || undefined,
         spellLang: spellLang || undefined,
+        maxRevisions: Number(maxRevisions) > 0 ? Number(maxRevisions) : undefined,
       };
       if (storageBackend === 's3') {
         payload.storageConfig = storageConfig;
@@ -401,6 +404,28 @@ export default function CollectionConfigModal({ collection, onClose, onSave }) {
                     />
                   </div>
                 )}
+              </div>
+
+              {/* Revision Retention (v2.9.14+) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Revision History Retention</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    value={maxRevisions}
+                    onChange={(e) => setMaxRevisions(e.target.value)}
+                    className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                  <span className="text-xs text-gray-500">
+                    {Number(maxRevisions) > 0
+                      ? `Keep last ${maxRevisions} revisions per document`
+                      : 'Unlimited (default) — every update retained'}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Older revisions are trimmed synchronously on every write so history can&apos;t grow unbounded on high-churn collections.
+                </p>
               </div>
 
               {/* Custom Metadata */}

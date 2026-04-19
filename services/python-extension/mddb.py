@@ -10,7 +10,7 @@ Usage (TCP):
     db = db.collection('blog')
     doc = db.get('homepage', 'en_GB')
 
-Usage (Unix Domain Socket, MDDB 2.9.13+):
+Usage (Unix Domain Socket, MDDB 2.9.14+):
     db = MDDB.connect('unix:/tmp/mddb.sock', 'read')
     db = db.collection('blog')
     doc = db.get('homepage', 'en_GB')
@@ -64,7 +64,7 @@ class MDDB:
 
         addr forms:
           * 'host:port'        — plain TCP HTTP (default MDDB listener)
-          * 'unix:/path.sock'  — Unix Domain Socket (MDDB 2.9.13+)
+          * 'unix:/path.sock'  — Unix Domain Socket (MDDB 2.9.14+)
 
         mode: 'read' (default) or 'write'.
         """

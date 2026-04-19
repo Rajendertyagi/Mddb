@@ -252,6 +252,8 @@ Proto definitions at `proto/mddb.proto` - generate clients for any language supp
 - ✅ **Full-Text Search** - Built-in inverted index with TF-IDF, BM25, BM25F, PMISparse scoring, 7 search modes (simple, boolean, phrase, wildcard, proximity, range, fuzzy), typo tolerance, metadata pre-filtering, multi-language stemming and stop words (18 languages)
 - ✅ **Hybrid Search** - Sparse (BM25) + dense (vector) fusion with alpha blending or RRF
 - ✅ **Aggregations** - Metadata facets (value counts) and date histograms with optional pre-filtering
+- ✅ **Inline Facets on Search** (v2.9.14+) - Pass `facetBy` to `/v1/fts` or `/v1/hybrid-search` and get per-key value counts alongside results — no separate aggregate call
+- ✅ **Curation Rules** (v2.9.14+) - Pin or hide documents for specific queries via `/v1/curation` (CRUD). Inspired by Typesense; applied in FTS + Hybrid pipelines
 - ✅ **Zero-Shot Classification** - Classify documents against candidate labels using embedding similarity
 - ✅ **Custom MCP Tools** - Define YAML-based AI tools for domain-specific workflows
 - ✅ **RAG Pipeline** - Built-in support for retrieval-augmented generation workflows
@@ -259,7 +261,7 @@ Proto definitions at `proto/mddb.proto` - generate clients for any language supp
 
 ### Core Functionality
 - ✅ **Document Management** - Full CRUD with metadata and collections
-- ✅ **Revision History** - Complete version control with snapshots
+- ✅ **Revision History** - Complete version control with snapshots, per-collection retention cap (`maxRevisions`, v2.9.14+) trimmed synchronously on every write
 - ✅ **Metadata Search** - Fast indexed queries with multi-value tags
 - ✅ **Collection Checksum** - Lightweight CRC32 checksum per collection for cache invalidation
 - ✅ **Partial Document Update** - Update metadata and/or content independently

@@ -21,6 +21,7 @@ import EmbeddingModelsPanel from './components/EmbeddingModelsPanel';
 import SettingsPanel from './components/SettingsPanel';
 import ClusterPanel from './components/ClusterPanel';
 import SynonymsPanel from './components/SynonymsPanel';
+import CurationPanel from './components/CurationPanel';
 import StopWordsPanel from './components/StopWordsPanel';
 import AutomationPanel from './components/AutomationPanel';
 import CrossSearchPanel from './components/CrossSearchPanel';
@@ -237,6 +238,11 @@ function App() {
           {viewMode === 'stopwords' && (
             <div className="flex-1 border-l border-gray-200">
               <StopWordsPanel />
+            </div>
+          )}
+          {viewMode === 'curation' && (
+            <div className="flex-1 border-l border-gray-200">
+              <CurationPanel />
             </div>
           )}
           {viewMode === 'automation' && (

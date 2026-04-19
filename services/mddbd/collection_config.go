@@ -28,6 +28,8 @@ type CollectionConfig struct {
 	// Spell correction
 	SpellCorrect bool   `json:"spellCorrect,omitempty"` // auto-correct FTS queries using spell checker
 	SpellLang    string `json:"spellLang,omitempty"`    // override language for spell correction
+	// Revision retention. 0 (default) = keep all; N > 0 = keep last N per document; every add/update trims older revs in the same transaction.
+	MaxRevisions int `json:"maxRevisions,omitempty"`
 }
 
 // StorageConfigDef holds backend-specific configuration for non-default storage backends.
@@ -173,6 +175,7 @@ type SetCollectionConfigRequest struct {
 	StorageBackend string            `json:"storageBackend,omitempty"` // "boltdb", "memory", "s3"
 	StorageConfig  *StorageConfigDef `json:"storageConfig,omitempty"`
 	Quantization   string            `json:"quantization,omitempty"` // "float32" (default), "int8", "int4"
+	MaxRevisions   int               `json:"maxRevisions,omitempty"` // keep last N revisions per doc (0 = unlimited)
 }
 
 func (s *Server) handleCollectionConfig(w http.ResponseWriter, r *http.Request) {
@@ -264,6 +267,11 @@ func (s *Server) handleCollectionConfigSet(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	if req.MaxRevisions < 0 {
+		bad(w, errors.New("invalid maxRevisions: must be >= 0 (0 = unlimited)"))
+		return
+	}
+
 	cfg := &CollectionConfig{
 		Type:           req.Type,
 		Description:    req.Description,
@@ -273,6 +281,7 @@ func (s *Server) handleCollectionConfigSet(w http.ResponseWriter, r *http.Reques
 		StorageBackend: sb,
 		StorageConfig:  req.StorageConfig,
 		Quantization:   qt,
+		MaxRevisions:   req.MaxRevisions,
 	}
 	if err := s.CollectionManager.Set(req.Collection, cfg); err != nil {
 		bad(w, err)

@@ -43,12 +43,15 @@ export default function FTSSearchPanel() {
   const [availableLangs, setAvailableLangs] = useState([]);
   const [reindexing, setReindexing] = useState(false);
   const [reindexResult, setReindexResult] = useState(null);
+  // (v2.9.14+) Facets: comma-separated list of meta keys the server aggregates into per-value counts.
+  const [facetBy, setFacetBy] = useState('');
+  const [facets, setFacets] = useState(null);
   const abortRef = useRef(null);
 
   useEffect(() => {
     mddbClient.ftsLanguages().then((data) => {
       setAvailableLangs(data.languages || []);
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   const handleCancel = () => {
@@ -132,11 +135,15 @@ export default function FTSSearchPanel() {
         lang: ftsLang || undefined,
         boost: ftsBoost,
         highlight: ftsHighlight,
+        facetBy: facetBy
+          ? facetBy.split(',').map((s) => s.trim()).filter(Boolean)
+          : undefined,
         signal: controller.signal,
       });
       setFtsResults(data.results || []);
       setFtsSearchStats(data.searchStats || null);
       setSpellCorrected(data.spellCorrected || null);
+      setFacets(data.facets || null);
     } catch (error) {
       if (error.name === 'AbortError') {
         setFtsError(null);
@@ -525,6 +532,16 @@ export default function FTSSearchPanel() {
               />
               <span>Highlight</span>
             </label>
+            <label className="flex items-center space-x-1.5 text-sm text-gray-600" title="(v2.9.14+) Comma-separated meta keys to aggregate into value counts alongside results.">
+              <span>Facets:</span>
+              <input
+                type="text"
+                value={facetBy}
+                onChange={(e) => setFacetBy(e.target.value)}
+                placeholder="category,lang"
+                className="w-40 px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
+              />
+            </label>
           </div>
           <div className="flex items-center space-x-2">
             <button
@@ -561,6 +578,32 @@ export default function FTSSearchPanel() {
         {spellCorrected && (
           <div className="px-4 pt-3">
             <SpellSuggestionBadge original={spellCorrected.original} corrected={spellCorrected.corrected} />
+          </div>
+        )}
+        {facets && Object.keys(facets).length > 0 && (
+          <div className="px-4 pt-3">
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Facets</p>
+              <div className="space-y-2">
+                {Object.entries(facets).map(([key, buckets]) => (
+                  <div key={key}>
+                    <p className="text-xs font-medium text-gray-700 mb-1">{key}</p>
+                    {buckets.length === 0 ? (
+                      <p className="text-xs text-gray-400 italic">(no values)</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {buckets.map((b) => (
+                          <span key={b.value} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-white border border-gray-300 text-gray-700">
+                            <span className="font-mono">{b.value}</span>
+                            <span className="text-gray-500">{b.count}</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
         {ftsResults.length > 0 && (
@@ -609,6 +652,11 @@ export default function FTSSearchPanel() {
                         {doc?.key}
                       </h4>
                       <span className="text-xs text-gray-500">{doc?.lang}</span>
+                      {result.pinned && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800" title="Pinned by a curation rule">
+                          PINNED
+                        </span>
+                      )}
                     </div>
                     <span className="text-sm font-semibold text-primary-600">
                       {result.score.toFixed(4)}
@@ -638,7 +686,7 @@ export default function FTSSearchPanel() {
                     </div>
                   )}
 
-                  {/* Highlight fragments (v2.9.13+) — server wraps matches in <mark>. */}
+                  {/* Highlight fragments (v2.9.14+) — server wraps matches in <mark>. */}
                   {result.highlights && result.highlights.length > 0 && (
                     <div className="mt-2 space-y-1">
                       {result.highlights.map((h, i) => (
@@ -674,11 +722,10 @@ export default function FTSSearchPanel() {
       {/* FTS Reindex Footer */}
       <div className="p-3 border-t border-gray-200">
         {reindexResult && (
-          <div className={`mb-2 p-2 rounded text-xs ${
-            reindexResult.error
+          <div className={`mb-2 p-2 rounded text-xs ${reindexResult.error
               ? 'bg-red-50 text-red-700'
               : 'bg-green-50 text-green-700'
-          }`}>
+            }`}>
             {reindexResult.error
               ? reindexResult.error
               : `Reindexed: ${reindexResult.reindexed || 0}, Skipped: ${reindexResult.skipped || 0}`

@@ -871,6 +871,42 @@ class MDDBClient {
     return this.request('/collection-configs');
   }
 
+  // ---- Curation Rules (v2.9.14+) ----
+
+  /** List curation rules — scope by collection when given, otherwise return all. */
+  async listCurationRules(collection) {
+    const q = collection ? `?collection=${encodeURIComponent(collection)}` : '';
+    return this.request(`/curation${q}`);
+  }
+
+  /** Get a single curation rule by id. */
+  async getCurationRule(id) {
+    return this.request(`/curation?id=${encodeURIComponent(id)}`);
+  }
+
+  /** Create a new curation rule. Server assigns the id. */
+  async createCurationRule(rule) {
+    return this.request('/curation', {
+      method: 'POST',
+      body: JSON.stringify(rule),
+    });
+  }
+
+  /** Replace an existing curation rule. `rule.id` is required. */
+  async updateCurationRule(rule) {
+    return this.request('/curation', {
+      method: 'PUT',
+      body: JSON.stringify(rule),
+    });
+  }
+
+  /** Remove a curation rule by id. */
+  async deleteCurationRule(id) {
+    return this.request(`/curation?id=${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  }
+
   // ---- Cross-Search Methods ----
 
   /**

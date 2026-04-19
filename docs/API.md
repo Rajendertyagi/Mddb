@@ -882,6 +882,8 @@ Perform full-text search across document content. Supports multiple search modes
 - `highlightTag` (optional, v2.9.13+): Wrap tag for matched terms — defaults to `"<mark>"` which produces `<mark>term</mark>`. Common alternatives: `"<strong>"`, `"**"` (for markdown), `"[h]"`. The close tag is derived automatically from the open tag.
 - `maxHighlights` (optional, v2.9.13+): Max fragments returned per result (default `3`).
 - `fragmentSize` (optional, v2.9.13+): Approximate chars per fragment (default `150`). Fragments snap to word boundaries so the value is a target, not a hard cap.
+- `facetBy` (optional, v2.9.14+): Array of metadata keys. When non-empty the response gains a `facets` map keyed by the same names with per-value counts (ordered by count desc, value asc) aggregated over the matched documents. Counts reflect the post-filter, post-boost, post-curation result set.
+- `facetMaxValues` (optional, v2.9.14+): Cap per-key bucket count. `0` / omitted = unlimited.
 
 **Search Modes**:
 - **simple**: Standard full-text search with TF-IDF/BM25/BM25F/PMISparse scoring
@@ -1983,6 +1985,8 @@ Hybrid search combining full-text (sparse) and vector (dense) results using alph
 | `boost` | object | | Per-query score multiplier keyed by `"metaKey:metaValue"` |
 | `geo` | object | | Spatial pre-filter: `{lat, lng, radiusMeters}` |
 | `sort` | string | `"combined"` | Result ordering: `combined` (default, by fused score) or `distance` (by `distanceMeters` ascending — requires `geo`) |
+| `facetBy` | array | | (v2.9.14+) Metadata keys to aggregate into `facets` map on the response |
+| `facetMaxValues` | integer | `0` | (v2.9.14+) Cap per-key bucket count; `0` = unlimited |
 
 **Response**:
 ```json
@@ -2233,6 +2237,7 @@ Set or update collection configuration including storage backend.
 | `customMeta` | object | No | Custom key-value metadata |
 | `storageBackend` | string | No | Storage backend: `boltdb` (default), `memory`, `s3` |
 | `storageConfig` | object | No | Backend-specific settings (required for `s3`) |
+| `maxRevisions` | integer | No | (v2.9.14+) Revision retention cap. `0` (default) = unlimited; `N > 0` keeps only the newest N revisions per document. Older entries are trimmed inside the same transaction as every write. |
 
 **storageConfig fields (for S3):**
 | Field | Type | Required | Description |
@@ -2783,7 +2788,7 @@ curl http://localhost:11023/v1/system/info
   "arch": "amd64",
   "numCPU": 4,
   "goVersion": "go1.26.2",
-  "version": "2.9.13",
+  "version": "2.9.14",
   "uptimeSeconds": 3600,
   "memoryTotal": 134217728,
   "memoryUsed": 67108864,
@@ -2806,7 +2811,7 @@ curl http://localhost:11023/v1/config
 **Response**:
 ```json
 {
-  "version": "2.9.13",
+  "version": "2.9.14",
   "databasePath": "mddb.db",
   "mode": "wr",
   "protocols": {
@@ -3336,3 +3341,60 @@ Get the full message history for a session, ordered chronologically.
   ],
   "total": 2
 }
+```
+
+---
+
+## Curation Rules (v2.9.14+)
+
+Editorial overrides for search ranking: pin documents to fixed positions and/or hide others for specific queries. Applied in FTS + Hybrid pipelines after scoring, before pagination.
+
+### GET /v1/curation
+
+List rules. Pass `id=<id>` for a single rule, `collection=<c>` to scope by collection, or omit both to list all.
+
+```bash
+curl "http://localhost:11023/v1/curation?collection=blog"
+```
+
+### POST /v1/curation
+
+Create a new rule. Server assigns the `id`.
+
+```bash
+curl -X POST http://localhost:11023/v1/curation \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "blog",
+    "query": "rust tutorial",
+    "matchMode": "exact",
+    "enabled": true,
+    "pins": [
+      {"key": "rust-getting-started", "position": 1},
+      {"key": "rust-ownership", "position": 2}
+    ],
+    "hides": ["legacy-post"]
+  }'
+```
+
+**Fields:**
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `collection` | string | Yes | Collection scope |
+| `query` | string | Yes | Trigger query text |
+| `matchMode` | string | No | `exact` (default) or `contains`; case-insensitive |
+| `pins` | array | No | `[{key, lang?, position}]` — `position` is 1-based; `<=0` appends after organic results |
+| `hides` | array | No | Document keys to drop from results |
+| `enabled` | bool | No | Default `false` via REST — pass `true` to activate immediately |
+
+### PUT /v1/curation
+
+Replace an existing rule. Body must include `id`. `createdAt` is preserved server-side.
+
+### DELETE /v1/curation?id=<id>
+
+Remove a rule by id.
+
+### Response markers
+
+Results injected by a pin carry `"pinned": true` on `FTSResultWithDoc` and `HybridSearchResultItem`, so clients can style them.

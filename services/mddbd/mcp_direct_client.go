@@ -1754,13 +1754,73 @@ func (c *DirectClient) GetCollectionConfig(ctx context.Context, collection strin
 // SetCollectionConfig updates configuration for a collection via the direct client.
 func (c *DirectClient) SetCollectionConfig(ctx context.Context, req *MCPSetCollectionConfigRequest) error {
 	cfg := &CollectionConfig{
-		Type:        req.Type,
-		Description: req.Description,
-		Icon:        req.Icon,
-		Color:       req.Color,
-		CustomMeta:  req.CustomMeta,
+		Type:         req.Type,
+		Description:  req.Description,
+		Icon:         req.Icon,
+		Color:        req.Color,
+		CustomMeta:   req.CustomMeta,
+		MaxRevisions: req.MaxRevisions,
 	}
 	return c.server.CollectionManager.Set(req.Collection, cfg)
+}
+
+// ListCurationRules returns all curation rules for a collection (or all collections if empty).
+func (c *DirectClient) ListCurationRules(ctx context.Context, collection string) ([]*CurationRule, error) {
+	if c.server.CurationManager == nil {
+		return nil, fmt.Errorf("curation manager not initialized")
+	}
+	if collection == "" {
+		return c.server.CurationManager.ListAll(), nil
+	}
+	return c.server.CurationManager.ListByCollection(collection), nil
+}
+
+// CreateCurationRule creates a new rule and returns it with its assigned id.
+func (c *DirectClient) CreateCurationRule(ctx context.Context, rule *CurationRule) (*CurationRule, error) {
+	if c.server.CurationManager == nil {
+		return nil, fmt.Errorf("curation manager not initialized")
+	}
+	if rule == nil {
+		return nil, fmt.Errorf("nil rule")
+	}
+	rule.ID = "" // always new on create
+	if err := c.server.CurationManager.Set(rule); err != nil {
+		return nil, err
+	}
+	return rule, nil
+}
+
+// UpdateCurationRule replaces a rule by id.
+func (c *DirectClient) UpdateCurationRule(ctx context.Context, rule *CurationRule) (*CurationRule, error) {
+	if c.server.CurationManager == nil {
+		return nil, fmt.Errorf("curation manager not initialized")
+	}
+	if rule == nil || rule.ID == "" {
+		return nil, fmt.Errorf("rule.id is required")
+	}
+	prev, exists := c.server.CurationManager.Get(rule.ID)
+	if !exists {
+		return nil, fmt.Errorf("rule %q not found", rule.ID)
+	}
+	if rule.Collection == "" {
+		rule.Collection = prev.Collection
+	}
+	rule.CreatedAt = prev.CreatedAt
+	if err := c.server.CurationManager.Set(rule); err != nil {
+		return nil, err
+	}
+	return rule, nil
+}
+
+// DeleteCurationRule removes a rule by id.
+func (c *DirectClient) DeleteCurationRule(ctx context.Context, id string) error {
+	if c.server.CurationManager == nil {
+		return fmt.Errorf("curation manager not initialized")
+	}
+	if _, exists := c.server.CurationManager.Get(id); !exists {
+		return fmt.Errorf("rule %q not found", id)
+	}
+	return c.server.CurationManager.Delete(id)
 }
 
 // ListCollectionConfigs returns all collection configurations via the direct client.

@@ -85,6 +85,10 @@ const (
 	MDDB_TemporalHot_FullMethodName           = "/mddb.MDDB/TemporalHot"
 	MDDB_SpellSuggest_FullMethodName          = "/mddb.MDDB/SpellSuggest"
 	MDDB_SpellCleanup_FullMethodName          = "/mddb.MDDB/SpellCleanup"
+	MDDB_ListCurationRules_FullMethodName     = "/mddb.MDDB/ListCurationRules"
+	MDDB_CreateCurationRule_FullMethodName    = "/mddb.MDDB/CreateCurationRule"
+	MDDB_UpdateCurationRule_FullMethodName    = "/mddb.MDDB/UpdateCurationRule"
+	MDDB_DeleteCurationRule_FullMethodName    = "/mddb.MDDB/DeleteCurationRule"
 )
 
 // MDDBClient is the client API for MDDB service.
@@ -225,6 +229,14 @@ type MDDBClient interface {
 	SpellSuggest(ctx context.Context, in *SpellSuggestRequest, opts ...grpc.CallOption) (*SpellSuggestResponse, error)
 	// Apply best spell corrections to a text string
 	SpellCleanup(ctx context.Context, in *SpellCleanupRequest, opts ...grpc.CallOption) (*SpellCleanupResponse, error)
+	// (v2.9.14+) Curation: list rules scoped to a collection (or all)
+	ListCurationRules(ctx context.Context, in *ListCurationRulesRequest, opts ...grpc.CallOption) (*ListCurationRulesResponse, error)
+	// (v2.9.14+) Curation: create a new rule
+	CreateCurationRule(ctx context.Context, in *CreateCurationRuleRequest, opts ...grpc.CallOption) (*CurationRuleProto, error)
+	// (v2.9.14+) Curation: replace an existing rule by id
+	UpdateCurationRule(ctx context.Context, in *UpdateCurationRuleRequest, opts ...grpc.CallOption) (*CurationRuleProto, error)
+	// (v2.9.14+) Curation: remove a rule by id
+	DeleteCurationRule(ctx context.Context, in *DeleteCurationRuleRequest, opts ...grpc.CallOption) (*DeleteCurationRuleResponse, error)
 }
 
 type mDDBClient struct {
@@ -904,6 +916,46 @@ func (c *mDDBClient) SpellCleanup(ctx context.Context, in *SpellCleanupRequest, 
 	return out, nil
 }
 
+func (c *mDDBClient) ListCurationRules(ctx context.Context, in *ListCurationRulesRequest, opts ...grpc.CallOption) (*ListCurationRulesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListCurationRulesResponse)
+	err := c.cc.Invoke(ctx, MDDB_ListCurationRules_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) CreateCurationRule(ctx context.Context, in *CreateCurationRuleRequest, opts ...grpc.CallOption) (*CurationRuleProto, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CurationRuleProto)
+	err := c.cc.Invoke(ctx, MDDB_CreateCurationRule_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) UpdateCurationRule(ctx context.Context, in *UpdateCurationRuleRequest, opts ...grpc.CallOption) (*CurationRuleProto, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CurationRuleProto)
+	err := c.cc.Invoke(ctx, MDDB_UpdateCurationRule_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mDDBClient) DeleteCurationRule(ctx context.Context, in *DeleteCurationRuleRequest, opts ...grpc.CallOption) (*DeleteCurationRuleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteCurationRuleResponse)
+	err := c.cc.Invoke(ctx, MDDB_DeleteCurationRule_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MDDBServer is the server API for MDDB service.
 // All implementations must embed UnimplementedMDDBServer
 // for forward compatibility.
@@ -1042,6 +1094,14 @@ type MDDBServer interface {
 	SpellSuggest(context.Context, *SpellSuggestRequest) (*SpellSuggestResponse, error)
 	// Apply best spell corrections to a text string
 	SpellCleanup(context.Context, *SpellCleanupRequest) (*SpellCleanupResponse, error)
+	// (v2.9.14+) Curation: list rules scoped to a collection (or all)
+	ListCurationRules(context.Context, *ListCurationRulesRequest) (*ListCurationRulesResponse, error)
+	// (v2.9.14+) Curation: create a new rule
+	CreateCurationRule(context.Context, *CreateCurationRuleRequest) (*CurationRuleProto, error)
+	// (v2.9.14+) Curation: replace an existing rule by id
+	UpdateCurationRule(context.Context, *UpdateCurationRuleRequest) (*CurationRuleProto, error)
+	// (v2.9.14+) Curation: remove a rule by id
+	DeleteCurationRule(context.Context, *DeleteCurationRuleRequest) (*DeleteCurationRuleResponse, error)
 	mustEmbedUnimplementedMDDBServer()
 }
 
@@ -1249,6 +1309,18 @@ func (UnimplementedMDDBServer) SpellSuggest(context.Context, *SpellSuggestReques
 }
 func (UnimplementedMDDBServer) SpellCleanup(context.Context, *SpellCleanupRequest) (*SpellCleanupResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SpellCleanup not implemented")
+}
+func (UnimplementedMDDBServer) ListCurationRules(context.Context, *ListCurationRulesRequest) (*ListCurationRulesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListCurationRules not implemented")
+}
+func (UnimplementedMDDBServer) CreateCurationRule(context.Context, *CreateCurationRuleRequest) (*CurationRuleProto, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateCurationRule not implemented")
+}
+func (UnimplementedMDDBServer) UpdateCurationRule(context.Context, *UpdateCurationRuleRequest) (*CurationRuleProto, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateCurationRule not implemented")
+}
+func (UnimplementedMDDBServer) DeleteCurationRule(context.Context, *DeleteCurationRuleRequest) (*DeleteCurationRuleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteCurationRule not implemented")
 }
 func (UnimplementedMDDBServer) mustEmbedUnimplementedMDDBServer() {}
 func (UnimplementedMDDBServer) testEmbeddedByValue()              {}
@@ -2452,6 +2524,78 @@ func _MDDB_SpellCleanup_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MDDB_ListCurationRules_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListCurationRulesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).ListCurationRules(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_ListCurationRules_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).ListCurationRules(ctx, req.(*ListCurationRulesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_CreateCurationRule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateCurationRuleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).CreateCurationRule(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_CreateCurationRule_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).CreateCurationRule(ctx, req.(*CreateCurationRuleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_UpdateCurationRule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateCurationRuleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).UpdateCurationRule(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_UpdateCurationRule_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).UpdateCurationRule(ctx, req.(*UpdateCurationRuleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MDDB_DeleteCurationRule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteCurationRuleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MDDBServer).DeleteCurationRule(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MDDB_DeleteCurationRule_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MDDBServer).DeleteCurationRule(ctx, req.(*DeleteCurationRuleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MDDB_ServiceDesc is the grpc.ServiceDesc for MDDB service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2718,6 +2862,22 @@ var MDDB_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SpellCleanup",
 			Handler:    _MDDB_SpellCleanup_Handler,
+		},
+		{
+			MethodName: "ListCurationRules",
+			Handler:    _MDDB_ListCurationRules_Handler,
+		},
+		{
+			MethodName: "CreateCurationRule",
+			Handler:    _MDDB_CreateCurationRule_Handler,
+		},
+		{
+			MethodName: "UpdateCurationRule",
+			Handler:    _MDDB_UpdateCurationRule_Handler,
+		},
+		{
+			MethodName: "DeleteCurationRule",
+			Handler:    _MDDB_DeleteCurationRule_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

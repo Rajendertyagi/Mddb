@@ -176,6 +176,14 @@ func (s *MCPToolServer) mcpCallTool(ctx context.Context, name string, args map[s
 		return s.toolSetCollectionConfig(ctx, args)
 	case "list_collection_configs":
 		return s.toolListCollectionConfigs(ctx, args)
+	case "list_curation_rules":
+		return s.toolListCurationRules(ctx, args)
+	case "create_curation_rule":
+		return s.toolCreateCurationRule(ctx, args)
+	case "update_curation_rule":
+		return s.toolUpdateCurationRule(ctx, args)
+	case "delete_curation_rule":
+		return s.toolDeleteCurationRule(ctx, args)
 	case "cross_search":
 		return s.toolCrossSearch(ctx, args)
 	case "find_duplicates":
@@ -1408,6 +1416,13 @@ func mcpGetFloat(m map[string]interface{}, key string) float64 {
 		return v
 	}
 	return 0
+}
+
+func mcpGetBool(m map[string]interface{}, key string) bool {
+	if v, ok := m[key].(bool); ok {
+		return v
+	}
+	return false
 }
 
 func mcpGetMetaMap(m map[string]interface{}, key string) map[string][]string {

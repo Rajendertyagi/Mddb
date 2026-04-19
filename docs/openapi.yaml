@@ -68,7 +68,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: "2.9.13"
+  version: "2.9.14"
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -121,6 +121,9 @@ tags:
     description: Leader-follower replication status and monitoring
   - name: Synonyms
     description: FTS synonym dictionary management
+  - name: Curation
+    description: (v2.9.14+) Editorial overrides for FTS + Hybrid search — pin
+      documents to fixed positions, hide others for specific queries
   - name: System
     description: System information and endpoint discovery
   - name: MCP
@@ -1066,7 +1069,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/GeoPolygonResponse"
         "400":
-          description: Invalid request — missing collection, both/neither shape supplied, or malformed geometry
+          description: Invalid request — missing collection, both/neither shape supplied,
+            or malformed geometry
         "503":
           description: Geo index still loading
 
@@ -3795,6 +3799,98 @@ paths:
               schema:
                 type: string
 
+  /v1/curation:
+    get:
+      tags:
+        - Curation
+      summary: List or fetch curation rules (v2.9.14+)
+      description: |
+        Pass `id` for a single rule, `collection` to list rules for one collection,
+        or neither to list all rules (admin).
+      parameters:
+        - name: id
+          in: query
+          schema:
+            type: string
+        - name: collection
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Rule(s)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/CurationRule"
+                  - type: object
+                    properties:
+                      rules:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/CurationRule"
+                      total:
+                        type: integer
+                      collection:
+                        type: string
+    post:
+      tags:
+        - Curation
+      summary: Create a curation rule (v2.9.14+)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CurationRule"
+      responses:
+        "200":
+          description: Created rule with assigned id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurationRule"
+    put:
+      tags:
+        - Curation
+      summary: Replace an existing curation rule (v2.9.14+)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CurationRule"
+      responses:
+        "200":
+          description: Updated rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurationRule"
+    delete:
+      tags:
+        - Curation
+      summary: Delete a curation rule (v2.9.14+)
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  id:
+                    type: string
+
   /v1/collection-config:
     get:
       tags:
@@ -4971,8 +5067,9 @@ components:
       properties:
         type:
           type: string
-          enum: [Polygon]
-          description: GeoJSON geometry type. Optional — the handler fills it in when omitted.
+          enum: [ Polygon ]
+          description: GeoJSON geometry type. Optional — the handler fills it in when
+            omitted.
         coordinates:
           type: array
           description: |
@@ -4995,10 +5092,11 @@ components:
       properties:
         type:
           type: string
-          enum: [MultiPolygon]
+          enum: [ MultiPolygon ]
         coordinates:
           type: array
-          description: Array of Polygon coordinate arrays. Union semantics — a document matches if it lies inside any member polygon.
+          description: Array of Polygon coordinate arrays. Union semantics — a document
+            matches if it lies inside any member polygon.
           items:
             type: array
             items:
@@ -5050,7 +5148,7 @@ components:
           type: integer
         shape:
           type: string
-          enum: [polygon, multiPolygon]
+          enum: [ polygon, multiPolygon ]
         algorithm:
           type: string
           example: rtree
@@ -5662,7 +5760,7 @@ components:
             - **phrase**: Exact word sequence (`"quoted phrases"`)
             - **wildcard**: Pattern matching (`*` any chars, `?` single char)
             - **proximity**: Terms within N words (`"term1 term2"~5`)
-            - **expression**: Full query DSL with nested parens, precedence, and mixed atoms (v2.9.13+)
+            - **expression**: Full query DSL with nested parens, precedence, and mixed atoms (v2.9.14+)
           default: auto
           example: auto
         distance:
@@ -5700,7 +5798,7 @@ components:
           type: boolean
           default: false
           description: |
-            When true (v2.9.13+), each result gains a `highlights` array with
+            When true (v2.9.14+), each result gains a `highlights` array with
             text snippets around matched terms. Works uniformly across every
             FTS mode.
         highlightTag:
@@ -5715,13 +5813,27 @@ components:
           type: integer
           default: 150
           description: Approximate chars per fragment (snapped to word boundaries)
+        facetBy:
+          type: array
+          items:
+            type: string
+          description: |
+            (v2.9.14+) Metadata keys to aggregate into `facets` on the response.
+            Counts are computed over the documents actually returned (after
+            filtering, boosts, curation).
+          example: [ category, lang ]
+        facetMaxValues:
+          type: integer
+          description: (v2.9.14+) Cap per-key bucket count; 0 = unlimited
+          default: 0
 
     Highlight:
       type: object
       properties:
         fragment:
           type: string
-          description: Snippet with matched terms wrapped in the configured tag; ellipsis `…` markers denote truncation
+          description: Snippet with matched terms wrapped in the configured tag; ellipsis
+            `…` markers denote truncation
         matchedTerms:
           type: array
           items:
@@ -5783,6 +5895,28 @@ components:
           example: 0
         searchStats:
           $ref: "#/components/schemas/SearchStats"
+        facets:
+          $ref: "#/components/schemas/FacetMap"
+
+    FacetBucket:
+      type: object
+      properties:
+        value:
+          type: string
+        count:
+          type: integer
+      required: [ value, count ]
+
+    FacetMap:
+      type: object
+      description: |
+        (v2.9.14+) Per-key facet counts. Buckets are ordered by count desc,
+        value asc. Missing keys produce an empty bucket list so UIs can
+        render a stable facet group layout across queries.
+      additionalProperties:
+        type: array
+        items:
+          $ref: "#/components/schemas/FacetBucket"
 
     FTSResultItem:
       type: object
@@ -5800,6 +5934,12 @@ components:
             type: string
           description: Terms from the query that matched
           example: [ cancel, subscription ]
+        pinned:
+          type: boolean
+          description: |
+            (v2.9.14+) Marked `true` when a curation rule injected this row at
+            a fixed position. Clients can use this for distinct styling.
+          default: false
 
     ImportURLRequest:
       type: object
@@ -6194,7 +6334,7 @@ components:
             "status:archived": -3
         sort:
           type: string
-          enum: [combined, distance]
+          enum: [ combined, distance ]
           default: combined
           description: |
             Result ordering. `combined` (default) ranks by the fused score — keyword relevance
@@ -6203,6 +6343,14 @@ components:
             Requires a `geo` filter on the request; otherwise the server rejects the call
             because distances would all be zero.
           example: distance
+        facetBy:
+          type: array
+          items:
+            type: string
+          description: (v2.9.14+) Metadata keys to aggregate into `facets` on the response
+        facetMaxValues:
+          type: integer
+          description: (v2.9.14+) Cap per-key bucket count; 0 = unlimited
 
     HybridSearchResponse:
       type: object
@@ -6241,6 +6389,8 @@ components:
           example: cosine
         searchStats:
           $ref: "#/components/schemas/SearchStats"
+        facets:
+          $ref: "#/components/schemas/FacetMap"
 
     HybridSearchResultItem:
       type: object
@@ -6272,6 +6422,56 @@ components:
           type: integer
           description: Result rank (1-based)
           example: 1
+        pinned:
+          type: boolean
+          description: (v2.9.14+) Injected by a curation rule
+          default: false
+
+    PinnedDoc:
+      type: object
+      properties:
+        key:
+          type: string
+        lang:
+          type: string
+        position:
+          type: integer
+          description: 1-based; <=0 appends after organic results
+      required: [ key, position ]
+
+    CurationRule:
+      type: object
+      description: (v2.9.14+) Pinned + hidden document overrides for FTS/Hybrid search
+      properties:
+        id:
+          type: string
+          description: Server-assigned. Omit on POST.
+        collection:
+          type: string
+        query:
+          type: string
+        matchMode:
+          type: string
+          enum: [ exact, contains ]
+          default: exact
+        pins:
+          type: array
+          items:
+            $ref: "#/components/schemas/PinnedDoc"
+        hides:
+          type: array
+          items:
+            type: string
+          description: Document keys to drop from results
+        enabled:
+          type: boolean
+        createdAt:
+          type: integer
+          format: int64
+        updatedAt:
+          type: integer
+          format: int64
+      required: [ collection, query ]
 
     ErrorResponse:
       type: object
@@ -6456,7 +6656,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.9.13
+          example: 2.9.14
         uptimeSeconds:
           type: integer
           format: int64
@@ -6520,7 +6720,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.9.13
+          example: 2.9.14
         databasePath:
           type: string
           description: Path to the database file
@@ -7216,6 +7416,14 @@ components:
           description: "Vector quantization level. int8 = 4x compression, int4 = 8x
             compression. Default: float32."
           example: float32
+        maxRevisions:
+          type: integer
+          description: |
+            (v2.9.14+) Revision retention cap per document. `0` (default) = unlimited.
+            When `> 0`, older revisions are trimmed synchronously on every write so
+            history stays capped even under high write-churn.
+          default: 0
+          example: 20
 
     StorageConfigDef:
       type: object

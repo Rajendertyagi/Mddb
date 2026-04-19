@@ -34,6 +34,9 @@ type HybridSearchRequest struct {
 	Lang            string              `json:"lang,omitempty"`
 	Boost           map[string]float64  `json:"boost,omitempty"` // per-query boost: "metaKey:metaValue" → multiplier
 	Sort            string              `json:"sort,omitempty"`  // "" / "combined" (default) | "distance" (requires geo filter)
+	// Faceted search (v2.9.14+): per-key value counts aggregated over matched documents.
+	FacetBy        []string `json:"facetBy,omitempty"`
+	FacetMaxValues int      `json:"facetMaxValues,omitempty"` // 0 = unlimited
 }
 
 // HybridGeoFilter restricts hybrid search to docs within radius of a point.
@@ -55,6 +58,7 @@ type HybridSearchResultItem struct {
 	DistanceMeters float64  `json:"distanceMeters,omitempty"`
 	MatchedTerms   []string `json:"matchedTerms,omitempty"`
 	Rank           int      `json:"rank"`
+	Pinned         bool     `json:"pinned,omitempty"` // set by curation rules (v2.9.14+)
 }
 
 // HybridSearchResponse represents the response from hybrid search.
@@ -68,6 +72,7 @@ type HybridSearchResponse struct {
 	VectorAlgorithm string                   `json:"vectorAlgorithm"`
 	DistanceMetric  string                   `json:"distanceMetric"`
 	Stats           *SearchStats             `json:"searchStats,omitempty"`
+	Facets          FacetResult              `json:"facets,omitempty"` // populated when request.facetBy is set (v2.9.14+)
 }
 
 // handleHybridSearch handles POST /v1/hybrid-search
@@ -249,6 +254,10 @@ func (s *Server) handleHybridSearch(w http.ResponseWriter, r *http.Request) {
 	if distMetric == "" {
 		distMetric = "cosine"
 	}
+	items = s.applyCurationHybrid(req.Collection, req.Query, items)
+	if req.TopK > 0 && len(items) > req.TopK {
+		items = items[:req.TopK]
+	}
 	resp := HybridSearchResponse{
 		Results:         items,
 		Total:           len(items),
@@ -262,6 +271,14 @@ func (s *Server) handleHybridSearch(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Strategy == "rrf" {
 		resp.RRFK = req.RRFK
+	}
+
+	if len(req.FacetBy) > 0 && len(items) > 0 {
+		docs := make([]Doc, len(items))
+		for i, it := range items {
+			docs[i] = it.Document
+		}
+		resp.Facets = computeFacets(docs, req.FacetBy, req.FacetMaxValues)
 	}
 
 	// Track hybrid search operation

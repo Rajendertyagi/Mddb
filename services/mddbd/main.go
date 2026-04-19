@@ -25,7 +25,7 @@ import (
 )
 
 // VERSION is the current release version of the MDDB server.
-const VERSION = "2.9.13"
+const VERSION = "2.9.14"
 
 // AccessMode defines the database access mode (read, write, or both).
 type AccessMode string
@@ -83,6 +83,7 @@ type Server struct {
 	AutomationLogStore *AutomationLogStore  // Automation execution logs
 	CronScheduler      *CronScheduler       // Cron scheduler for automation
 	CollectionManager  *CollectionManager   // Per-collection attributes (type, description, icon, etc.)
+	CurationManager    *CurationManager     // FTS/Hybrid curation rules: pinned + hidden results per query
 	TemporalManager    *TemporalManager     // Document lifecycle event tracking (create/update/access)
 	SpellManager       *SpellManager        // Spell correction for FTS queries and document content
 	SSEHub             *SSEHub              // Server-Sent Events for real-time document change notifications
@@ -499,6 +500,17 @@ func main() {
 	}
 	log.Printf("Collection manager initialized (%d collections configured)", len(s.CollectionManager.ListAll()))
 
+	// Curation manager: loads all pinning/hiding rules into memory so the
+	// search hot path never hits disk.
+	s.CurationManager = NewCurationManager(db)
+	if err := s.CurationManager.EnsureBucket(); err != nil {
+		log.Fatal(err)
+	}
+	if err := s.CurationManager.LoadAll(); err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("Curation manager initialized (%d rules loaded)", len(s.CurationManager.ListAll()))
+
 	// Initialize temporal event tracking (disabled by default; set MDDB_TEMPORAL=true to enable)
 	if env("MDDB_TEMPORAL", "false") == "true" {
 		s.TemporalManager = NewTemporalManager(db)
@@ -743,6 +755,7 @@ func main() {
 	mux.HandleFunc("/v1/validate", s.handleValidate)
 	mux.HandleFunc("/v1/collection-config", s.handleCollectionConfig)
 	mux.HandleFunc("/v1/collection-configs", s.handleCollectionConfigList)
+	mux.HandleFunc("/v1/curation", s.handleCuration)
 	mux.HandleFunc("/v1/events", s.handleSSE)
 	// Memory RAG endpoints
 	mux.HandleFunc("/v1/memory/session", s.guardWrite(s.handleMemorySessionCreate))
@@ -1206,6 +1219,16 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 			return err
 		}
 		bo.Put("rev", rkey, buf)
+
+		// Enforce per-collection MaxRevisions: drop oldest revs over the cap so
+		// history never grows unbounded on high-churn collections.
+		if s.CollectionManager != nil {
+			if cfg, found := s.CollectionManager.Get(collection); found && cfg.MaxRevisions > 0 {
+				if err := trimRevisions(tx, &bo, collection, doc.ID, cfg.MaxRevisions); err != nil {
+					return err
+				}
+			}
+		}
 
 		saved = doc
 		return nil
@@ -2089,6 +2112,14 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 		bo.Put("rev", rkey, buf)
+
+		if s.CollectionManager != nil {
+			if cfg, found := s.CollectionManager.Get(collection); found && cfg.MaxRevisions > 0 {
+				if err := trimRevisions(tx, &bo, collection, doc.ID, cfg.MaxRevisions); err != nil {
+					return err
+				}
+			}
+		}
 
 		saved = doc
 		return nil

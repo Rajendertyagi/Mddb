@@ -583,12 +583,13 @@ type MCPCollectionConfigResponse struct {
 
 // MCPSetCollectionConfigRequest is the request for set_collection_config.
 type MCPSetCollectionConfigRequest struct {
-	Collection  string            `json:"collection"`
-	Type        string            `json:"type,omitempty"`
-	Description string            `json:"description,omitempty"`
-	Icon        string            `json:"icon,omitempty"`
-	Color       string            `json:"color,omitempty"`
-	CustomMeta  map[string]string `json:"customMeta,omitempty"`
+	Collection   string            `json:"collection"`
+	Type         string            `json:"type,omitempty"`
+	Description  string            `json:"description,omitempty"`
+	Icon         string            `json:"icon,omitempty"`
+	Color        string            `json:"color,omitempty"`
+	CustomMeta   map[string]string `json:"customMeta,omitempty"`
+	MaxRevisions int               `json:"maxRevisions,omitempty"`
 }
 
 // MCPCollectionConfigListResponse is the response for list_collection_configs.
@@ -773,6 +774,11 @@ type MCPClient interface {
 	GetCollectionConfig(ctx context.Context, collection string) (*MCPCollectionConfigResponse, error)
 	SetCollectionConfig(ctx context.Context, req *MCPSetCollectionConfigRequest) error
 	ListCollectionConfigs(ctx context.Context) (*MCPCollectionConfigListResponse, error)
+	// Curation (v2.9.14+)
+	ListCurationRules(ctx context.Context, collection string) ([]*CurationRule, error)
+	CreateCurationRule(ctx context.Context, rule *CurationRule) (*CurationRule, error)
+	UpdateCurationRule(ctx context.Context, rule *CurationRule) (*CurationRule, error)
+	DeleteCurationRule(ctx context.Context, id string) error
 	// Cross-collection search
 	CrossSearch(ctx context.Context, req *MCPCrossSearchRequest) (*MCPCrossSearchResponse, error)
 	// Duplicate detection

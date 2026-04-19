@@ -1,4 +1,4 @@
-.TH MDDB-CLI 1 "April 2026" "mddb-cli 2.9.13" "User Commands"
+.TH MDDB-CLI 1 "April 2026" "mddb-cli 2.9.14" "User Commands"
 .SH NAME
 mddb-cli \- command-line client for MDDB (Markdown Database)
 .SH SYNOPSIS
@@ -627,6 +627,69 @@ curl -X POST http://localhost:11023/v1/aggregate \\
 .PP
 Supports optional \fBfilterMeta\fR for pre-filtering (same syntax as search).
 Also available as MCP tool: \fBaggregate\fR.
+.SS Inline Facets on Search (v2.9.14+)
+Both \fB/v1/fts\fR and \fB/v1/hybrid-search\fR accept \fBfacetBy\fR (array of
+metadata keys) and return a \fBfacets\fR map with per-value counts computed
+over the documents that match the query — no separate \fB/v1/aggregate\fR
+round-trip. Optional \fBfacetMaxValues\fR caps per-key bucket count.
+.nf
+curl -X POST http://localhost:11023/v1/fts \\
+  -H "Content-Type: application/json" \\
+  -d '{"collection":"blog","query":"rust","facetBy":["category","lang"],"facetMaxValues":10}'
+.fi
+.SH CURATION RULES (v2.9.14+)
+Curation rules pin specific documents to fixed positions and/or hide others
+when a search query matches. Applied inside FTS and Hybrid pipelines after
+scoring but before the limit trim; pinned items carry \fBpinned: true\fR on
+the response.
+.SS Endpoints
+.TP
+.B GET /v1/curation?id=<id>
+Fetch one rule.
+.TP
+.B GET /v1/curation?collection=<c>
+List rules for a collection.
+.TP
+.B POST /v1/curation
+Create a rule (server assigns \fBid\fR).
+.TP
+.B PUT /v1/curation
+Replace an existing rule (body must include \fBid\fR).
+.TP
+.B DELETE /v1/curation?id=<id>
+Remove a rule.
+.SS Example
+.nf
+curl -X POST http://localhost:11023/v1/curation \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "collection":"blog",
+    "query":"rust tutorial",
+    "matchMode":"exact",
+    "enabled":true,
+    "pins":[{"key":"rust-getting-started","position":1}],
+    "hides":["legacy-post"]
+  }'
+.fi
+.PP
+\fBmatchMode\fR: \fBexact\fR (default) or \fBcontains\fR. Pins with
+\fBposition <= 0\fR are appended after organic results. Also exposed as MCP
+tools \fBlist_curation_rules\fR, \fBcreate_curation_rule\fR,
+\fBupdate_curation_rule\fR, \fBdelete_curation_rule\fR.
+.SH REVISION RETENTION (v2.9.14+)
+Per-collection \fBmaxRevisions\fR caps the revision history kept per document.
+\fB0\fR (default) = unlimited. \fBN > 0\fR keeps only the newest N revisions;
+older entries are dropped inside the same BoltDB transaction as each write,
+so high-churn collections can't grow history unbounded.
+.nf
+curl -X PUT http://localhost:11023/v1/collection-config \\
+  -H "Content-Type: application/json" \\
+  -d '{"collection":"blog","type":"default","maxRevisions":20}'
+.fi
+.PP
+Also configurable via the Admin Panel's Collection Settings modal, gRPC
+\fBSetCollectionConfig\fR, and MCP \fBset_collection_config\fR
+(\fBmax_revisions\fR argument).
 .SH STORAGE BACKENDS
 MDDB supports per-collection storage backends (v2.8+). Each collection can use
 a different backend configured via the REST API or the web panel.
@@ -730,7 +793,7 @@ MDDB_TLS_KEY=./server.key \\
 ./mddbd
 .fi
 .SH MCP-OVER-SSE TRANSPORT
-MDDB supports the MCP-over-SSE transport (v2.9.13+) for remote MCP connections
+MDDB supports the MCP-over-SSE transport (v2.9.14+) for remote MCP connections
 without stdio. Useful for web-based agents and remote servers.
 .SS Endpoints (MCP port 9000)
 .TP

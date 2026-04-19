@@ -1254,7 +1254,10 @@ func (g *GRPCServer) FTS(ctx context.Context, req *proto.FTSRequest) (*proto.FTS
 	// Apply per-query boosts/demotions from request.
 	results = g.server.applyBoostFTS(req.Collection, results, req.Boost)
 
-	var protoResults []*proto.FTSResult
+	// Load docs first, then apply curation (which needs doc.Key/lang). We
+	// accumulate FTSResultWithDoc locally so curation + facets see the full
+	// shape identical to the HTTP handler.
+	docResults := make([]FTSResultWithDoc, 0, len(results))
 	_ = g.server.DB.View(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		for _, res := range results {
@@ -1262,15 +1265,15 @@ func (g *GRPCServer) FTS(ctx context.Context, req *proto.FTSRequest) (*proto.FTS
 			if v == nil {
 				continue
 			}
-			d, err := unmarshalDoc(v)
+			docPtr, err := loadDoc(v)
 			if err != nil {
 				continue
 			}
-			if d.ExpiresAt > 0 && d.ExpiresAt < time.Now().Unix() {
+			if docPtr.ExpiresAt > 0 && docPtr.ExpiresAt < time.Now().Unix() {
 				continue
 			}
-			protoResults = append(protoResults, &proto.FTSResult{
-				Document:     docToProto(d),
+			docResults = append(docResults, FTSResultWithDoc{
+				Document:     *docPtr,
 				Score:        res.Score,
 				MatchedTerms: res.MatchedTerms,
 			})
@@ -1278,13 +1281,37 @@ func (g *GRPCServer) FTS(ctx context.Context, req *proto.FTSRequest) (*proto.FTS
 		return nil
 	})
 
-	return &proto.FTSResponse{
+	docResults = g.server.applyCurationFTS(req.Collection, req.Query, docResults)
+	if limit > 0 && len(docResults) > limit {
+		docResults = docResults[:limit]
+	}
+
+	protoResults := make([]*proto.FTSResult, 0, len(docResults))
+	for _, r := range docResults {
+		d := r.Document
+		protoResults = append(protoResults, &proto.FTSResult{
+			Document:     docToProto(&d),
+			Score:        r.Score,
+			MatchedTerms: r.MatchedTerms,
+			Pinned:       r.Pinned,
+		})
+	}
+
+	resp := &proto.FTSResponse{
 		Results:   protoResults,
 		Total:     safeInt32(len(protoResults)),
 		Algorithm: algo,
 		Fuzzy:     int32(fuzzy),
 		Lang:      queryLang,
-	}, nil
+	}
+	if len(req.FacetBy) > 0 && len(docResults) > 0 {
+		docs := make([]Doc, len(docResults))
+		for i, r := range docResults {
+			docs[i] = r.Document
+		}
+		resp.Facets = facetsToProto(computeFacets(docs, req.FacetBy, int(req.FacetMaxValues)))
+	}
+	return resp, nil
 }
 
 // FTSReindex implements the FTSReindex RPC — re-indexes all documents using their lang field.
@@ -1498,6 +1525,13 @@ func (g *GRPCServer) HybridSearch(ctx context.Context, req *proto.HybridSearchRe
 	// Step 4: Load full documents
 	items := g.server.loadHybridDocs(req.Collection, merged, req.IncludeContent)
 
+	// Apply curation (pin/hide) on the loaded documents so Keys are available
+	// for matching, then trim to topK.
+	items = g.server.applyCurationHybrid(req.Collection, req.Query, items)
+	if topK > 0 && len(items) > topK {
+		items = items[:topK]
+	}
+
 	// Convert to proto response
 	protoResults := make([]*proto.HybridSearchResult, len(items))
 	for i, item := range items {
@@ -1508,16 +1542,25 @@ func (g *GRPCServer) HybridSearch(ctx context.Context, req *proto.HybridSearchRe
 			VectorScore:   item.VectorScore,
 			MatchedTerms:  item.MatchedTerms,
 			Rank:          safeInt32(item.Rank),
+			Pinned:        item.Pinned,
 		}
 	}
 
-	return &proto.HybridSearchResponse{
+	resp := &proto.HybridSearchResponse{
 		Results:         protoResults,
 		Total:           safeInt32(len(protoResults)),
 		Strategy:        strategy,
 		FtsAlgorithm:    algo,
 		VectorAlgorithm: vectorAlgo,
-	}, nil
+	}
+	if len(req.FacetBy) > 0 && len(items) > 0 {
+		docs := make([]Doc, len(items))
+		for i, it := range items {
+			docs[i] = it.Document
+		}
+		resp.Facets = facetsToProto(computeFacets(docs, req.FacetBy, int(req.FacetMaxValues)))
+	}
+	return resp, nil
 }
 
 // RegisterWebhook implements the RegisterWebhook RPC
@@ -2579,11 +2622,12 @@ func (g *GRPCServer) GetCollectionConfig(ctx context.Context, req *proto.GetColl
 	}
 	if found && cfg != nil {
 		resp.Config = &proto.CollectionConfigProto{
-			Type:        cfg.Type,
-			Description: cfg.Description,
-			Icon:        cfg.Icon,
-			Color:       cfg.Color,
-			CustomMeta:  cfg.CustomMeta,
+			Type:         cfg.Type,
+			Description:  cfg.Description,
+			Icon:         cfg.Icon,
+			Color:        cfg.Color,
+			CustomMeta:   cfg.CustomMeta,
+			MaxRevisions: safeInt32(cfg.MaxRevisions),
 		}
 	}
 	return resp, nil
@@ -2605,12 +2649,16 @@ func (g *GRPCServer) SetCollectionConfig(ctx context.Context, req *proto.SetColl
 	if g.server.CollectionManager == nil {
 		return nil, status.Error(codes.FailedPrecondition, "collection manager not initialized")
 	}
+	if req.MaxRevisions < 0 {
+		return nil, status.Error(codes.InvalidArgument, "max_revisions must be >= 0")
+	}
 	cfg := &CollectionConfig{
-		Type:        req.Type,
-		Description: req.Description,
-		Icon:        req.Icon,
-		Color:       req.Color,
-		CustomMeta:  req.CustomMeta,
+		Type:         req.Type,
+		Description:  req.Description,
+		Icon:         req.Icon,
+		Color:        req.Color,
+		CustomMeta:   req.CustomMeta,
+		MaxRevisions: int(req.MaxRevisions),
 	}
 	if err := g.server.CollectionManager.Set(req.Collection, cfg); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -2634,11 +2682,12 @@ func (g *GRPCServer) ListCollectionConfigs(ctx context.Context, req *proto.ListC
 		entries = append(entries, &proto.CollectionConfigEntry{
 			Collection: coll,
 			Config: &proto.CollectionConfigProto{
-				Type:        cfg.Type,
-				Description: cfg.Description,
-				Icon:        cfg.Icon,
-				Color:       cfg.Color,
-				CustomMeta:  cfg.CustomMeta,
+				Type:         cfg.Type,
+				Description:  cfg.Description,
+				Icon:         cfg.Icon,
+				Color:        cfg.Color,
+				CustomMeta:   cfg.CustomMeta,
+				MaxRevisions: safeInt32(cfg.MaxRevisions),
 			},
 		})
 	}
