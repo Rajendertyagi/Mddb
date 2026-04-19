@@ -5696,6 +5696,41 @@ components:
           example:
             "tag:breed": 5.0
             "category:health": -2
+        highlight:
+          type: boolean
+          default: false
+          description: |
+            When true (v2.9.13+), each result gains a `highlights` array with
+            text snippets around matched terms. Works uniformly across every
+            FTS mode.
+        highlightTag:
+          type: string
+          default: "<mark>"
+          description: Wrap tag for matched terms (close tag derived automatically)
+        maxHighlights:
+          type: integer
+          default: 3
+          description: Cap fragments per result
+        fragmentSize:
+          type: integer
+          default: 150
+          description: Approximate chars per fragment (snapped to word boundaries)
+
+    Highlight:
+      type: object
+      properties:
+        fragment:
+          type: string
+          description: Snippet with matched terms wrapped in the configured tag; ellipsis `…` markers denote truncation
+        matchedTerms:
+          type: array
+          items:
+            type: string
+        startOffset:
+          type: integer
+          description: Byte offset into the raw ContentMD where the fragment begins
+        endOffset:
+          type: integer
 
     RangeFilter:
       type: object

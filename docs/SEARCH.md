@@ -394,6 +394,40 @@ curl -X POST http://localhost:11023/v1/fts \
   }'
 ```
 
+### Highlighting with Fragments (v2.9.13+)
+
+Set `highlight: true` on `/v1/fts` and each result carries a `highlights` array with text snippets taken from the document around matched terms. Works uniformly across every FTS mode — `simple`, `boolean`, `phrase`, `wildcard`, `proximity`, and `expression` — because the highlighter reuses `matchedTerms` from the existing FTS pipeline rather than adding its own index.
+
+Each `Highlight` has:
+
+| Field | Meaning |
+|-------|---------|
+| `fragment` | The snippet with matched terms wrapped in the configured tag. Ellipsis `…` markers denote truncation at the start or end. |
+| `matchedTerms` | Distinct terms whose matches appear in this fragment. |
+| `startOffset` / `endOffset` | Byte positions into the raw `ContentMD` — clients can re-slice the original doc if they need untagged context. |
+
+Tunables on the request:
+
+- `highlight` — enable (default off so legacy callers see no payload growth).
+- `highlightTag` — open tag, e.g. `"<mark>"` (default), `"<strong>"`, `"**"`, `"[h]"`. Close tag is derived automatically (HTML-style `</mark>` for angle brackets, or mirror for symmetric delimiters).
+- `maxHighlights` — cap fragments per result (default 3).
+- `fragmentSize` — approx chars per fragment (default 150, snapped to word boundaries).
+
+Selection strategy: the extractor clusters nearby matches into one fragment so adjacent hits don't fragment into N tiny snippets, ranks clusters by hit count, trims to `maxHighlights`, then re-sorts the final list by document offset so UIs display them in reading order. Matching is case-insensitive on ASCII word boundaries — `"rust"` matches `Rust`, `RUST`, but not the `rust` inside `rustic`.
+
+```bash
+curl -X POST http://localhost:11023/v1/fts \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "blog",
+    "query": "markdown database",
+    "highlight": true,
+    "highlightTag": "<strong>",
+    "maxHighlights": 2,
+    "fragmentSize": 120
+  }'
+```
+
 ### Prefix Autocomplete (v2.9.12+)
 
 Return up to `topN` terms starting with the given prefix, ranked by document frequency. Scans the existing FTS inverted index — no additional storage or indexing step is required.

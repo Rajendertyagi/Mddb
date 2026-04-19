@@ -327,7 +327,7 @@ class MDDBClient {
   /**
    * Full-text search
    */
-  async ftsSearch({ collection, query, limit = 50, algorithm = 'tfidf', fuzzy = 0, mode = 'auto', distance, disableStem = false, disableSynonyms = false, fieldWeights = null, filterMeta = {}, rangeMeta, lang, boost, signal }) {
+  async ftsSearch({ collection, query, limit = 50, algorithm = 'tfidf', fuzzy = 0, mode = 'auto', distance, disableStem = false, disableSynonyms = false, fieldWeights = null, filterMeta = {}, rangeMeta, lang, boost, highlight, highlightTag, maxHighlights, fragmentSize, signal }) {
     const body = { collection, query, limit, algorithm, fuzzy, disableStem, disableSynonyms };
     if (mode && mode !== 'auto') {
       body.mode = mode;
@@ -349,6 +349,12 @@ class MDDBClient {
     }
     if (boost && Object.keys(boost).length > 0) {
       body.boost = boost;
+    }
+    if (highlight) {
+      body.highlight = true;
+      if (highlightTag) body.highlightTag = highlightTag;
+      if (maxHighlights) body.maxHighlights = maxHighlights;
+      if (fragmentSize) body.fragmentSize = fragmentSize;
     }
     return this.request('/fts', {
       method: 'POST',

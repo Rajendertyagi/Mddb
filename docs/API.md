@@ -878,6 +878,10 @@ Perform full-text search across document content. Supports multiple search modes
 - `filterMeta` (optional): Metadata pre-filter — `{"key": ["value1", "value2"]}`
 - `rangeMeta` (optional): Array of range filters on metadata or timestamps
 - `boost` (optional): Per-query score multipliers keyed by `"metaKey:metaValue"`. Positive values boost (`5.0` → 5×), negative values demote (`-2.0` → ½×). Multiple matching entries combine multiplicatively; floor is `0.001`. No reindex required.
+- `highlight` (optional, v2.9.13+): When `true`, each result gains a `highlights[]` array with snippet fragments around matched terms. Works uniformly across every mode.
+- `highlightTag` (optional, v2.9.13+): Wrap tag for matched terms — defaults to `"<mark>"` which produces `<mark>term</mark>`. Common alternatives: `"<strong>"`, `"**"` (for markdown), `"[h]"`. The close tag is derived automatically from the open tag.
+- `maxHighlights` (optional, v2.9.13+): Max fragments returned per result (default `3`).
+- `fragmentSize` (optional, v2.9.13+): Approximate chars per fragment (default `150`). Fragments snap to word boundaries so the value is a target, not a hard cap.
 
 **Search Modes**:
 - **simple**: Standard full-text search with TF-IDF/BM25/BM25F/PMISparse scoring
@@ -960,6 +964,33 @@ curl -X POST http://localhost:11023/v1/fts \
 curl -X POST http://localhost:11023/v1/fts \
   -H 'Content-Type: application/json' \
   -d '{"collection":"blog","query":"tutorial","boost":{"tag:featured":5.0,"status:archived":-2.0}}'
+
+# Highlighting with fragments
+curl -X POST http://localhost:11023/v1/fts \
+  -H 'Content-Type: application/json' \
+  -d '{"collection":"blog","query":"markdown database","highlight":true,"maxHighlights":2}'
+```
+
+When `highlight: true`, each result gains a `highlights` array:
+
+```json
+{
+  "results": [
+    {
+      "document": { "id": "blog|post1|en", "key": "post1", ... },
+      "score": 2.34,
+      "matchedTerms": ["markdown", "database"],
+      "highlights": [
+        {
+          "fragment": "…using <mark>Markdown</mark> as a lightweight <mark>database</mark> format…",
+          "matchedTerms": ["markdown", "database"],
+          "startOffset": 312,
+          "endOffset": 461
+        }
+      ]
+    }
+  ]
+}
 ```
 
 ---
