@@ -701,6 +701,7 @@ func main() {
 	mux.HandleFunc("/v1/vector-stats", s.handleVectorStats)
 	mux.HandleFunc("/v1/geo-search", s.handleGeoSearch)
 	mux.HandleFunc("/v1/geo-within", s.handleGeoWithin)
+	mux.HandleFunc("/v1/geo-polygon", s.handleGeoPolygon)
 	mux.HandleFunc("/v1/geo-reindex", s.guardWrite(s.handleGeoReindex))
 	mux.HandleFunc("/v1/geo-stats", s.handleGeoStats)
 	mux.HandleFunc("/v1/geo-encode", s.handleGeoEncode)

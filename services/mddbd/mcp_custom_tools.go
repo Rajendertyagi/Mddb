@@ -493,6 +493,21 @@ func mcpBuiltinTools() []MCPTool {
 			},
 		},
 		{
+			Name:        "geo_polygon",
+			Description: "Find documents whose coordinates fall inside a GeoJSON Polygon (outer ring + optional holes) or MultiPolygon (union of polygons). Exactly one of `polygon` or `multi_polygon` must be set. GeoJSON coordinate order is [lng, lat]. Ring must have at least 3 points; the first and last may be equal (closed) or not — both forms are accepted.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection":      map[string]interface{}{"type": "string", "description": "Collection to search"},
+					"polygon":         map[string]interface{}{"type": "object", "description": "GeoJSON Polygon: {type:\"Polygon\", coordinates:[[[lng,lat],…]]}. First ring = outer boundary; subsequent rings = holes."},
+					"multi_polygon":   map[string]interface{}{"type": "object", "description": "GeoJSON MultiPolygon: {type:\"MultiPolygon\", coordinates:[[[[lng,lat],…]],…]}. Union semantics — a doc matches if it's inside any member polygon."},
+					"filter_meta":    map[string]interface{}{"type": "object", "description": "Optional metadata filter"},
+					"include_content": map[string]interface{}{"type": "boolean", "description": "Include full contentMd in each returned doc (default false)"},
+				},
+				"required": []string{"collection"},
+			},
+		},
+		{
 			Name:        "geo_stats",
 			Description: "Report per-collection indexed-point counts plus any loaded postcode datasets. Use to confirm that a collection is geo-enabled before running geo_search.",
 			InputSchema: map[string]interface{}{

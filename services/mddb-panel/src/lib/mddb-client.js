@@ -243,6 +243,21 @@ class MDDBClient {
     });
   }
 
+  /**
+   * GeoJSON Polygon / MultiPolygon containment. Exactly one of `polygon` or
+   * `multiPolygon` must be supplied. Coordinates follow GeoJSON order [lng, lat].
+   */
+  async geoPolygon({ collection, polygon, multiPolygon, filterMeta = {}, includeContent = false, signal }) {
+    const body = { collection, filterMeta, includeContent };
+    if (polygon) body.polygon = polygon;
+    if (multiPolygon) body.multiPolygon = multiPolygon;
+    return this.request('/geo-polygon', {
+      method: 'POST',
+      body: JSON.stringify(body),
+      signal,
+    });
+  }
+
   /** Geo index statistics. */
   async geoStats() {
     return this.request('/geo-stats', { method: 'GET' });

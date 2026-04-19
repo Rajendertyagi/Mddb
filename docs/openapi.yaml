@@ -1034,6 +1034,42 @@ paths:
       responses:
         "200": { description: OK }
 
+  /v1/geo-polygon:
+    post:
+      tags:
+        - Geo Search
+      summary: Find documents inside a GeoJSON polygon or multi-polygon
+      description: |
+        Returns every indexed point whose coordinates fall inside the supplied
+        GeoJSON Polygon (outer ring + optional holes) or MultiPolygon (union
+        of polygons). Exactly one of `polygon` or `multiPolygon` must be set.
+
+        The R-tree's bounding-box query prefilters candidates, so response
+        time tracks the shape's bbox rather than the full collection size.
+        GeoJSON coordinate order is `[lng, lat]` per RFC 7946. Rings may be
+        open (first ≠ last) or closed (first == last); both forms work.
+
+        Does not cross the anti-meridian — split the query into hemispheres
+        if you need that.
+      operationId: geoPolygon
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GeoPolygonRequest"
+      responses:
+        "200":
+          description: Matches (empty array if none)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeoPolygonResponse"
+        "400":
+          description: Invalid request — missing collection, both/neither shape supplied, or malformed geometry
+        "503":
+          description: Geo index still loading
+
   /v1/geo-reindex:
     post:
       tags:
@@ -4927,6 +4963,97 @@ components:
           type: integer
           format: int64
           description: Unix timestamp when the job reached a terminal status
+
+    GeoJSONPolygon:
+      type: object
+      required:
+        - coordinates
+      properties:
+        type:
+          type: string
+          enum: [Polygon]
+          description: GeoJSON geometry type. Optional — the handler fills it in when omitted.
+        coordinates:
+          type: array
+          description: |
+            Array of linear rings. The first ring is the outer boundary; any
+            subsequent rings are holes. Each ring is an array of `[lng, lat]`
+            pairs (RFC 7946 order) with at least 3 points.
+          items:
+            type: array
+            items:
+              type: array
+              minItems: 2
+              maxItems: 3
+              items:
+                type: number
+
+    GeoJSONMultiPolygon:
+      type: object
+      required:
+        - coordinates
+      properties:
+        type:
+          type: string
+          enum: [MultiPolygon]
+        coordinates:
+          type: array
+          description: Array of Polygon coordinate arrays. Union semantics — a document matches if it lies inside any member polygon.
+          items:
+            type: array
+            items:
+              type: array
+              items:
+                type: array
+                minItems: 2
+                maxItems: 3
+                items:
+                  type: number
+
+    GeoPolygonRequest:
+      type: object
+      required:
+        - collection
+      properties:
+        collection:
+          type: string
+          example: venues
+        polygon:
+          $ref: "#/components/schemas/GeoJSONPolygon"
+        multiPolygon:
+          $ref: "#/components/schemas/GeoJSONMultiPolygon"
+        filterMeta:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Optional metadata pre-filter (AND across keys, OR within key)
+        includeContent:
+          type: boolean
+          default: false
+      description: Exactly one of `polygon` or `multiPolygon` must be set.
+
+    GeoPolygonResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              document:
+                type: object
+              rank:
+                type: integer
+        total:
+          type: integer
+        shape:
+          type: string
+          enum: [polygon, multiPolygon]
+        algorithm:
+          type: string
+          example: rtree
 
     IngestRequest:
       type: object

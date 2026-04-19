@@ -102,6 +102,8 @@ func (s *MCPToolServer) mcpCallTool(ctx context.Context, name string, args map[s
 		return s.toolGeoSearch(ctx, args)
 	case "geo_within":
 		return s.toolGeoWithin(ctx, args)
+	case "geo_polygon":
+		return s.toolGeoPolygon(ctx, args)
 	case "geo_stats":
 		return s.toolGeoStats(ctx, args)
 	case "geo_encode":

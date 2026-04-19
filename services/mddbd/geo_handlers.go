@@ -82,6 +82,26 @@ type GeoWithinResponse struct {
 	Algorithm string                `json:"algorithm"`
 }
 
+// GeoPolygonRequest is the JSON payload for POST /v1/geo-polygon.
+// Exactly one of Polygon or MultiPolygon must be set. When both are
+// present the handler returns 400 so callers don't accidentally receive
+// an intersection-of-whatever-we-felt-like-picking result.
+type GeoPolygonRequest struct {
+	Collection     string               `json:"collection"`
+	Polygon        *GeoJSONPolygon      `json:"polygon,omitempty"`
+	MultiPolygon   *GeoJSONMultiPolygon `json:"multiPolygon,omitempty"`
+	FilterMeta     map[string][]string  `json:"filterMeta,omitempty"`
+	IncludeContent bool                 `json:"includeContent,omitempty"`
+}
+
+// GeoPolygonResponse is returned from /v1/geo-polygon.
+type GeoPolygonResponse struct {
+	Results   []GeoSearchResultItem `json:"results"`
+	Total     int                   `json:"total"`
+	Shape     string                `json:"shape"` // "polygon" or "multiPolygon"
+	Algorithm string                `json:"algorithm"`
+}
+
 // GeoReindexRequest is the payload for POST /v1/geo-reindex.
 type GeoReindexRequest struct {
 	Collection    string            `json:"collection,omitempty"`    // empty = all collections
@@ -277,6 +297,91 @@ func (s *Server) handleGeoWithin(w http.ResponseWriter, r *http.Request) {
 		Total:     len(items),
 		Algorithm: "rtree",
 	})
+}
+
+// handleGeoPolygon handles POST /v1/geo-polygon. Accepts a GeoJSON Polygon
+// (outer ring + optional holes) or a MultiPolygon (union of polygons) and
+// returns every indexed point whose coordinates fall inside the shape.
+// The R-tree's bounding-box query narrows the candidate set before the
+// ray-cast test, so response time tracks the shape's bbox size rather
+// than the collection size.
+func (s *Server) handleGeoPolygon(w http.ResponseWriter, r *http.Request) {
+	var req GeoPolygonRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		bad(w, err)
+		return
+	}
+	if req.Collection == "" {
+		bad(w, errors.New("missing collection"))
+		return
+	}
+	if (req.Polygon == nil) == (req.MultiPolygon == nil) {
+		bad(w, errors.New("exactly one of polygon or multiPolygon must be set"))
+		return
+	}
+	if req.Polygon != nil {
+		if err := validatePolygon(req.Polygon); err != nil {
+			bad(w, err)
+			return
+		}
+	} else {
+		if err := validateMultiPolygon(req.MultiPolygon); err != nil {
+			bad(w, err)
+			return
+		}
+	}
+	if s.GeoIndex == nil || !s.GeoIndex.IsReady() {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte(`{"error":"geo index is loading, please retry"}`))
+		return
+	}
+
+	var allowed map[string]struct{}
+	if len(req.FilterMeta) > 0 {
+		ids := s.getDocIDsByMeta(req.Collection, req.FilterMeta)
+		if len(ids) == 0 {
+			ok(w, GeoPolygonResponse{
+				Results:   []GeoSearchResultItem{},
+				Total:     0,
+				Shape:     polygonShapeLabel(req),
+				Algorithm: "rtree",
+			})
+			return
+		}
+		allowed = make(map[string]struct{}, len(ids))
+		for id := range ids {
+			allowed[id] = struct{}{}
+		}
+	}
+
+	var hits []GeoResult
+	var shape string
+	if req.Polygon != nil {
+		hits = s.GeoIndex.SearchPolygon(req.Collection, req.Polygon.Coordinates, allowed)
+		shape = "polygon"
+	} else {
+		hits = s.GeoIndex.SearchMultiPolygon(req.Collection, req.MultiPolygon.Coordinates, allowed)
+		shape = "multiPolygon"
+	}
+	items := s.hydrateGeoResults(req.Collection, hits, req.IncludeContent, false)
+	if s.Metrics != nil {
+		s.Metrics.IncOp("geo_polygon", shape)
+	}
+	ok(w, GeoPolygonResponse{
+		Results:   items,
+		Total:     len(items),
+		Shape:     shape,
+		Algorithm: "rtree",
+	})
+}
+
+// polygonShapeLabel picks the response.shape value for an early-exit
+// empty-result path so both branches report which shape type was served.
+func polygonShapeLabel(req GeoPolygonRequest) string {
+	if req.Polygon != nil {
+		return "polygon"
+	}
+	return "multiPolygon"
 }
 
 // handleGeoReindex handles POST /v1/geo-reindex.
