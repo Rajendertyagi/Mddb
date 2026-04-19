@@ -56,6 +56,7 @@ var mcpToolAnnotations = map[string]*MCPToolAnnotations{
 	"get_automation_logs":     readOnly(),
 	"get_collection_config":   readOnly(),
 	"list_collection_configs": readOnly(),
+	"list_curation_rules":     readOnly(),
 	"list_revisions":          readOnly(),
 	"find_duplicates":         readOnly(),
 	"aggregate":               readOnly(),
@@ -87,14 +88,17 @@ var mcpToolAnnotations = map[string]*MCPToolAnnotations{
 	"set_collection_config": writeIdempotent(),
 	"update_automation":     writeIdempotent(),
 	"restore_revision":      writeIdempotent(),
+	"update_curation_rule":  writeIdempotent(),
+	"delete_curation_rule":  writeIdempotent(),
 
 	// --- Write, non-idempotent ---
-	"add_documents_batch": writeNonIdempotent(),
-	"ingest_documents":    writeNonIdempotent(),
-	"create_automation":   writeNonIdempotent(),
-	"register_webhook":    writeNonIdempotent(),
-	"create_backup":       writeNonIdempotent(),
-	"bulk_ingest_submit":  writeNonIdempotent(),
+	"add_documents_batch":  writeNonIdempotent(),
+	"ingest_documents":     writeNonIdempotent(),
+	"create_automation":    writeNonIdempotent(),
+	"register_webhook":     writeNonIdempotent(),
+	"create_backup":        writeNonIdempotent(),
+	"bulk_ingest_submit":   writeNonIdempotent(),
+	"create_curation_rule": writeNonIdempotent(),
 
 	// --- Bulk ingest job management (status/list are read-only, cancel is write) ---
 	"bulk_ingest_status": readOnly(),

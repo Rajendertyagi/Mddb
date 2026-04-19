@@ -78,15 +78,19 @@ type FTSSearchRequest struct {
 	FieldWeights    map[string]float64  `json:"fieldWeights,omitempty"` // BM25F field weights
 	FilterMeta      map[string][]string `json:"filterMeta,omitempty"`   // metadata pre-filter (in-graph filtering)
 	// Advanced search modes
-	Mode      string             `json:"mode,omitempty"`      // "simple" (default), "boolean", "phrase", "wildcard", "proximity", "auto"
-	Distance  int                `json:"distance,omitempty"`  // proximity distance (words) for mode=proximity
+	Mode          string             `json:"mode,omitempty"`          // "simple" (default), "boolean", "phrase", "wildcard", "proximity", "auto"
+	Distance      int                `json:"distance,omitempty"`      // proximity distance (words) for mode=proximity
 	RangeMeta     []RangeFilter      `json:"rangeMeta,omitempty"`     // range filters on metadata/timestamps
 	Lang          string             `json:"lang,omitempty"`          // language for query tokenization (e.g. "en", "pl", "de")
 	Boost         map[string]float64 `json:"boost,omitempty"`         // per-query boost: "metaKey:metaValue" → multiplier
-	Highlight     bool               `json:"highlight,omitempty"`     // when true, each result carries a `highlights` array (v2.9.13+)
+	Highlight     bool               `json:"highlight,omitempty"`     // when true, each result carries a `highlights` array (v2.9.14+)
 	HighlightTag  string             `json:"highlightTag,omitempty"`  // override wrap tag, e.g. "<strong>" (default "<mark>")
 	MaxHighlights int                `json:"maxHighlights,omitempty"` // cap per-result fragments (default 3)
 	FragmentSize  int                `json:"fragmentSize,omitempty"`  // approx chars per fragment (default 150)
+	// Faceted search (v2.9.14+): when non-empty, the response includes per-key value counts
+	// aggregated over the matched documents. Cardinality per key is capped by FacetMaxValues.
+	FacetBy        []string `json:"facetBy,omitempty"`
+	FacetMaxValues int      `json:"facetMaxValues,omitempty"` // 0 = unlimited
 }
 
 // FTSSearchResponse is the HTTP response for full-text search.
@@ -102,6 +106,7 @@ type FTSSearchResponse struct {
 	FieldWeights   map[string]float64   `json:"fieldWeights,omitempty"`
 	Stats          *SearchStats         `json:"searchStats,omitempty"`
 	SpellCorrected *SpellCorrectionInfo `json:"spellCorrected,omitempty"`
+	Facets         FacetResult          `json:"facets,omitempty"` // populated when request.facetBy is set (v2.9.14+)
 }
 
 // FTSResultWithDoc includes the full document in the result.
@@ -110,6 +115,7 @@ type FTSResultWithDoc struct {
 	Score        float64     `json:"score"`
 	MatchedTerms []string    `json:"matchedTerms"`
 	Highlights   []Highlight `json:"highlights,omitempty"` // populated when request.highlight=true
+	Pinned       bool        `json:"pinned,omitempty"`     // set by curation rules (v2.9.14+)
 }
 
 // NewFTSIndex creates a new full-text search index.
@@ -985,7 +991,21 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 		}
 		return nil
 	})
+	// Curation: pin/hide must run AFTER filtering and range/boost but BEFORE
+	// facets so facet counts reflect what the client actually sees.
+	resp.Results = s.applyCurationFTS(req.Collection, req.Query, resp.Results)
+	if req.Limit > 0 && len(resp.Results) > req.Limit {
+		resp.Results = resp.Results[:req.Limit]
+	}
 	resp.Total = len(resp.Results)
+
+	if len(req.FacetBy) > 0 && len(resp.Results) > 0 {
+		docs := make([]Doc, len(resp.Results))
+		for i, it := range resp.Results {
+			docs[i] = it.Document
+		}
+		resp.Facets = computeFacets(docs, req.FacetBy, req.FacetMaxValues)
+	}
 
 	if searchStatsEnabled() {
 		terms := make([]string, 0, len(tokens))

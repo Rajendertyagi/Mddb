@@ -203,6 +203,18 @@ service MDDB {
 
   // Apply best spell corrections to a text string
   rpc SpellCleanup(SpellCleanupRequest) returns (SpellCleanupResponse);
+
+  // (v2.9.14+) Curation: list rules scoped to a collection (or all)
+  rpc ListCurationRules(ListCurationRulesRequest) returns (ListCurationRulesResponse);
+
+  // (v2.9.14+) Curation: create a new rule
+  rpc CreateCurationRule(CreateCurationRuleRequest) returns (CurationRuleProto);
+
+  // (v2.9.14+) Curation: replace an existing rule by id
+  rpc UpdateCurationRule(UpdateCurationRuleRequest) returns (CurationRuleProto);
+
+  // (v2.9.14+) Curation: remove a rule by id
+  rpc DeleteCurationRule(DeleteCurationRuleRequest) returns (DeleteCurationRuleResponse);
 }
 
 // Document represents a markdown document
@@ -486,12 +498,26 @@ message FTSRequest {
   map<string, MetaValues> filter_meta = 6;       // optional metadata pre-filter
   string lang = 7;                               // language for stemming/stop words (default: server default)
   map<string, double> boost = 8;                 // per-query boost: "metaKey:metaValue" → multiplier (positive boosts, negative demotes)
+  repeated string facet_by = 9;                  // (v2.9.14+) meta keys to aggregate into response.facets
+  int32 facet_max_values = 10;                   // (v2.9.14+) cap per-key bucket count (0 = unlimited)
 }
 
 message FTSResult {
   Document document = 1;
   double score = 2;
   repeated string matched_terms = 3;
+  bool pinned = 4;                               // (v2.9.14+) this row was injected by a curation rule
+}
+
+// FacetBucketProto is one value bucket inside a facet — reused by
+// FTS, HybridSearch and Aggregate.
+message FacetBucketProto {
+  string value = 1;
+  int32 count = 2;
+}
+
+message FacetBucketList {
+  repeated FacetBucketProto buckets = 1;
 }
 
 message FTSResponse {
@@ -500,6 +526,7 @@ message FTSResponse {
   string algorithm = 3;                          // algorithm used for this search
   int32 fuzzy = 4;                               // typo tolerance level used
   string lang = 5;                               // language used for tokenization
+  map<string, FacetBucketList> facets = 6;       // (v2.9.14+) per-key facet counts
 }
 
 // --- FTS reindex ---
@@ -548,6 +575,8 @@ message HybridSearchRequest {
   string lang = 14;                              // language for FTS stemming/stop words
   map<string, double> boost = 15;                // per-query boost: "metaKey:metaValue" → multiplier (positive boosts, negative demotes)
   string sort = 16;                              // result ordering: "" or "combined" (default, by fused score), or "distance" (by distanceMeters asc — requires geo filter)
+  repeated string facet_by = 17;                 // (v2.9.14+) meta keys to aggregate
+  int32 facet_max_values = 18;                   // (v2.9.14+) cap per-key bucket count (0 = unlimited)
 }
 
 message HybridSearchResult {
@@ -557,6 +586,7 @@ message HybridSearchResult {
   double vector_score = 4;
   repeated string matched_terms = 5;
   int32 rank = 6;
+  bool pinned = 7;                               // (v2.9.14+) injected by a curation rule
 }
 
 message HybridSearchResponse {
@@ -565,6 +595,7 @@ message HybridSearchResponse {
   string strategy = 3;
   string fts_algorithm = 4;
   string vector_algorithm = 5;
+  map<string, FacetBucketList> facets = 6;       // (v2.9.14+)
 }
 
 // --- Webhooks ---
@@ -936,6 +967,7 @@ message CollectionConfigProto {
   string icon = 3;
   string color = 4;
   map<string, string> custom_meta = 5;
+  int32 max_revisions = 6;                       // (v2.9.14+) per-collection revision cap; 0 = unlimited
 }
 
 message GetCollectionConfigRequest {
@@ -955,6 +987,7 @@ message SetCollectionConfigRequest {
   string icon = 4;
   string color = 5;
   map<string, string> custom_meta = 6;
+  int32 max_revisions = 7;                       // (v2.9.14+) per-collection revision cap; 0 = unlimited
 }
 
 message SetCollectionConfigResponse {
@@ -1372,4 +1405,55 @@ message GeoDecodeResponse {
   double max_lat = 4;
   double min_lng = 5;
   double max_lng = 6;
+}
+
+// --- Curation (v2.9.14+) ---
+// Curation rules let editors pin specific documents to fixed positions and
+// hide others for a given query, overriding organic ranking. Inspired by
+// Typesense curation; persisted in the `curation` bucket and applied in the
+// FTS and HybridSearch post-processing stages.
+
+message PinnedDocProto {
+  string key = 1;
+  string lang = 2;
+  int32 position = 3;            // 1-based; <=0 means "append after organic results"
+}
+
+message CurationRuleProto {
+  string id = 1;
+  string collection = 2;
+  string query = 3;
+  string match_mode = 4;         // "exact" (default) or "contains"
+  repeated PinnedDocProto pins = 5;
+  repeated string hides = 6;     // document keys to drop
+  bool enabled = 7;
+  int64 created_at = 8;
+  int64 updated_at = 9;
+}
+
+message ListCurationRulesRequest {
+  string collection = 1;         // optional; "" = list all
+}
+
+message ListCurationRulesResponse {
+  repeated CurationRuleProto rules = 1;
+  int32 total = 2;
+  string collection = 3;
+}
+
+message CreateCurationRuleRequest {
+  CurationRuleProto rule = 1;
+}
+
+message UpdateCurationRuleRequest {
+  CurationRuleProto rule = 1;
+}
+
+message DeleteCurationRuleRequest {
+  string id = 1;
+}
+
+message DeleteCurationRuleResponse {
+  string status = 1;
+  string id = 2;
 }

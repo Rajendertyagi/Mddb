@@ -39,6 +39,7 @@ Complete list of MDDB features organized by category.
 - **Full Content Snapshots** - Each revision stores complete document content
 - **Revision Queries** - Access any historical version through API
 - **Truncation** - Remove old revisions to save space
+- **Per-Collection Retention Cap** (v2.9.14+) - `maxRevisions` on `CollectionConfig` enforces a synchronous cap on every write: older revisions are trimmed in the same BoltDB transaction so high-churn collections can't grow history unbounded. `0` (default) = unlimited. Configurable via REST `/v1/collection-config`, gRPC `SetCollectionConfig`, MCP `set_collection_config`, and the Admin Panel.
 
 ### Search & Discovery
 
@@ -80,6 +81,8 @@ Complete list of MDDB features organized by category.
 - **Prefix Autocomplete** (v2.9.12+) - `GET /v1/autocomplete?collection=X&q=mar` returns top-N terms starting with the given prefix, ranked by document frequency. Scans the existing FTS inverted index — no additional storage. Field-scoped via `field` parameter; scan is bounded at 10k entries. Also exposed as MCP `autocomplete` tool.
 - **Expression Query DSL** (v2.9.13+) - `mode: "expression"` on `/v1/fts` runs through a proper recursive-descent parser with parenthesized grouping, operator precedence (NOT > AND > OR), implicit AND between adjacent atoms, and mixed atom types (terms, fuzzy `~N`, phrases, proximity, wildcards) in one query. Example: `(rust OR golang) AND "async runtime"~3 NOT legacy`.
 - **Search-Result Highlighting** (v2.9.13+) - `highlight: true` on `/v1/fts` returns context snippets around matched terms with each match wrapped in a configurable tag (default `<mark>…</mark>`). Clusters nearby hits, snaps to word boundaries, supports custom `highlightTag` / `maxHighlights` / `fragmentSize`. Works uniformly across every FTS mode.
+- **Inline Facets** (v2.9.14+) - `facetBy: ["category","lang"]` on `/v1/fts` and `/v1/hybrid-search` returns a `facets` map of per-value counts aggregated over the matched documents — no separate `/v1/aggregate` round-trip. `facetMaxValues` caps per-key cardinality; counts reflect post-filter, post-boost, post-curation state so UIs stay in sync.
+- **Curation Rules** (v2.9.14+) - `POST/GET/PUT/DELETE /v1/curation` pins specific documents to fixed positions and/or hides others for a given query. Rule shape: `{collection, query, matchMode: exact|contains, pins: [{key, lang, position}], hides: [...], enabled}`. Pinned results carry `pinned: true` on the wire. Applied in FTS and Hybrid pipelines after scoring, before pagination. See [SEARCH.md](SEARCH.md).
 
 #### Hybrid Search
 - **Combined Retrieval** - Merge BM25/BM25F/PMISparse keyword scores with vector semantic scores in a single query

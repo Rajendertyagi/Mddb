@@ -337,6 +337,35 @@ When enabled, provides endpoints: `POST /v1/spell-suggest`, `POST /v1/spell-clea
 
 ---
 
+## Per-Collection Configuration (v2.9.14+ additions)
+
+Per-collection attributes are persisted via `PUT /v1/collection-config` (REST), `SetCollectionConfig` (gRPC), the `set_collection_config` MCP tool, or the Admin Panel — **not** via env vars. The settings below extend what has been configurable since earlier versions.
+
+| Field | Default | Type | Description |
+|-------|---------|------|-------------|
+| `maxRevisions` | `0` | integer | (v2.9.14+) Revision retention cap per document. `0` = unlimited. When `> 0`, each `add`/`update` trims older revisions in the same BoltDB transaction so history stays capped even under high write-churn. |
+| `trackAccess` | `false` | bool | Record per-read access events (needs `MDDB_TEMPORAL=true`) |
+| `trackHot` | `false` | bool | Maintain a hot-docs leaderboard |
+| `spellCorrect` | `false` | bool | Auto-correct FTS queries (needs `MDDB_SPELL=true`) |
+| `spellLang` | `""` | string | Override spell-correction language for this collection |
+| `quantization` | `"float32"` | string | Vector quantization level: `float32`, `int8`, or `int4` |
+| `storageBackend` | `"boltdb"` | string | `boltdb`, `memory`, or `s3` |
+
+**Example — set a 20-revision cap:**
+```bash
+curl -X PUT http://localhost:11023/v1/collection-config \
+  -H 'Content-Type: application/json' \
+  -d '{"collection":"blog","type":"default","maxRevisions":20}'
+```
+
+---
+
+## Curation Rules (v2.9.14+)
+
+Curation is data, not configuration — rules live in a dedicated bolt bucket and are managed at runtime via `/v1/curation` (see [API.md](API.md) and [SEARCH.md](SEARCH.md)). No server-level flag controls the subsystem; it's always on and has zero overhead when no rules match an incoming query.
+
+---
+
 ## CLI Flags
 
 | Flag | Short | Type | Description |

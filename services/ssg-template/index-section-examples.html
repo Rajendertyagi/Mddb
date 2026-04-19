@@ -172,7 +172,7 @@ curl -X POST http://localhost:11023/v1/fts \
 # TCP connection
 db = MDDB.connect('localhost:11023', 'write').collection('kb')
 
-# Unix Domain Socket (MDDB 2.9.13+, zero-network local transport)
+# Unix Domain Socket (MDDB 2.9.14+, zero-network local transport)
 # db = MDDB.connect('unix:/tmp/mddb.sock', 'write').collection('kb')
 
 # Add document
@@ -210,7 +210,7 @@ require_once 'mddb.php';
 // TCP connection
 $db = mddb::connect('localhost:11023', 'write');
 
-// Unix Domain Socket (MDDB 2.9.13+)
+// Unix Domain Socket (MDDB 2.9.14+)
 // $db = mddb::connect('unix:/tmp/mddb.sock', 'write');
 
 // Add document

@@ -176,6 +176,14 @@ func (s *MCPToolServer) mcpCallTool(ctx context.Context, name string, args map[s
 		return s.toolSetCollectionConfig(ctx, args)
 	case "list_collection_configs":
 		return s.toolListCollectionConfigs(ctx, args)
+	case "list_curation_rules":
+		return s.toolListCurationRules(ctx, args)
+	case "create_curation_rule":
+		return s.toolCreateCurationRule(ctx, args)
+	case "update_curation_rule":
+		return s.toolUpdateCurationRule(ctx, args)
+	case "delete_curation_rule":
+		return s.toolDeleteCurationRule(ctx, args)
 	case "cross_search":
 		return s.toolCrossSearch(ctx, args)
 	case "find_duplicates":
