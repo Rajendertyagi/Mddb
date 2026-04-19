@@ -43,6 +43,7 @@ export const useStore = create((set, get) => ({
   ftsSynonyms: true,
   ftsFieldWeights: { content: 1, 'meta.title': 3, 'meta.tags': 2, 'meta.description': 1.5 },
   ftsBoost: {},
+  ftsHighlight: false,
   ftsLang: '',
   ftsMode: 'auto',
   ftsDistance: 5,
@@ -169,6 +170,7 @@ export const useStore = create((set, get) => ({
   setFtsDistance: (d) => set({ ftsDistance: d }),
   setFtsStemming: (v) => set({ ftsStemming: v }),
   setFtsSynonyms: (v) => set({ ftsSynonyms: v }),
+  setFtsHighlight: (v) => set({ ftsHighlight: v }),
   setFtsFieldWeight: (field, weight) => set((state) => ({
     ftsFieldWeights: { ...state.ftsFieldWeights, [field]: weight },
   })),

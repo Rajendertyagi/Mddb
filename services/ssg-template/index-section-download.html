@@ -81,7 +81,42 @@ sudo snap install mddb-cli</code></pre>
             </div>
         </div>
         <div class="release-notes">
-            <h3 id="whats-new-header">What's New in v2.9.12</h3>
+            <h3 id="whats-new-header">What's New in v2.9.13</h3>
+            <ul>
+                <li><strong>Geo distance sort on hybrid search</strong> —
+                    <code>POST /v1/hybrid-search</code> with a <code>geo</code> filter now accepts
+                    <code>sort: "distance"</code> to re-order the merged result set by proximity
+                    ascending. Default <code>combined</code> stays score-based.
+                </li>
+                <li><strong>GeoJSON polygon and multi-polygon queries</strong> — new endpoint
+                    <code>POST /v1/geo-polygon</code> takes a GeoJSON Polygon (outer ring + optional
+                    holes) or MultiPolygon (union) and returns every indexed point inside the shape.
+                    R-tree bounding-box prefilter plus ray-cast keeps response time proportional to
+                    the polygon's bbox, not the collection size. Also exposed as MCP
+                    <code>geo_polygon</code>.
+                </li>
+                <li><strong>Query string DSL with nested grouping</strong> — new FTS
+                    <code>mode: "expression"</code> understands parenthesized grouping, proper
+                    precedence (NOT&gt;AND&gt;OR), implicit AND, and mixed atoms (terms, fuzzy
+                    <code>~N</code>, phrases, proximity, wildcards) in a single query. Legacy flat
+                    <code>boolean</code> mode stays unchanged.
+                </li>
+                <li><strong>Search-result highlighting with fragments</strong> —
+                    <code>POST /v1/fts</code> with <code>highlight: true</code> returns context
+                    snippets per result with matched terms wrapped in a configurable tag
+                    (<code>&lt;mark&gt;</code> default). Works uniformly across every mode; clusters
+                    nearby hits into one fragment and snaps boundaries to word edges.
+                </li>
+                <li><strong>Proto bump</strong> — <code>HybridSearchRequest.sort = 16</code>,
+                    backwards compatible. Regenerated for Go, Python, Node.js and PHP.
+                </li>
+            </ul>
+            <a href="https://github.com/tradik/mddb/blob/main/CHANGELOG.md" target="_blank" rel="noopener">View
+                Full Changelog →</a>
+        </div>
+        <!-- previous release notes kept below for reference; hidden by default in template renderer -->
+        <div class="release-notes-prev" hidden>
+            <h3>v2.9.12 highlights</h3>
             <ul>
                 <li><strong>Per-query boost / demote for FTS and Hybrid search</strong> — attach a
                     <code>boost</code> map keyed by <code>"metaKey:metaValue"</code> to multiply or divide
