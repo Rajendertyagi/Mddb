@@ -137,6 +137,124 @@ curl -X POST http://localhost:11023/v1/search \
   }'
 ```
 
+### Full-Text Search (v2.9.12+ and v2.9.13+ features)
+
+```bash
+# Per-query boost / demote (v2.9.12+) — rerank without reindexing
+curl -X POST http://localhost:11023/v1/fts \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "blog",
+    "query": "tutorial",
+    "algorithm": "bm25",
+    "boost": {"tag:featured": 5.0, "status:archived": -2.0}
+  }'
+
+# Prefix autocomplete for type-ahead UI (v2.9.12+)
+curl "http://localhost:11023/v1/autocomplete?collection=blog&q=mar&topN=5"
+
+# Expression mode — parens, precedence, mixed atoms (v2.9.13+)
+curl -X POST http://localhost:11023/v1/fts \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "blog",
+    "query": "(rust OR golang) AND \"async runtime\"~3 NOT legacy",
+    "mode": "expression"
+  }'
+
+# Highlighting with fragments (v2.9.13+) — returns snippets per result
+curl -X POST http://localhost:11023/v1/fts \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "blog",
+    "query": "markdown database",
+    "highlight": true,
+    "highlightTag": "<mark>",
+    "maxHighlights": 2,
+    "fragmentSize": 120
+  }'
+```
+
+### Hybrid Search with Geo Distance Sort (v2.9.13+)
+
+```bash
+# Nearest matching venue — sort by proximity instead of fused score
+curl -X POST http://localhost:11023/v1/hybrid-search \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "venues",
+    "query": "coffee wifi",
+    "topK": 10,
+    "geo": {"lat": 52.52, "lng": 13.405, "radiusMeters": 3000},
+    "sort": "distance"
+  }'
+```
+
+### GeoJSON Polygon / Multi-Polygon Containment (v2.9.13+)
+
+```bash
+# Find points inside a custom polygon (Berlin Mitte bounding box)
+curl -X POST http://localhost:11023/v1/geo-polygon \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "venues",
+    "polygon": {
+      "type": "Polygon",
+      "coordinates": [
+        [[13.36,52.51],[13.42,52.51],[13.42,52.53],[13.36,52.53],[13.36,52.51]]
+      ]
+    }
+  }'
+
+# Polygon with a hole — square minus central square
+curl -X POST http://localhost:11023/v1/geo-polygon \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "venues",
+    "polygon": {
+      "coordinates": [
+        [[0,0],[10,0],[10,10],[0,10],[0,0]],
+        [[3,3],[7,3],[7,7],[3,7],[3,3]]
+      ]
+    }
+  }'
+
+# MultiPolygon union across two regions (Berlin + Paris)
+curl -X POST http://localhost:11023/v1/geo-polygon \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "venues",
+    "multiPolygon": {
+      "coordinates": [
+        [[[13.36,52.51],[13.42,52.51],[13.42,52.53],[13.36,52.53],[13.36,52.51]]],
+        [[[2.34,48.85],[2.36,48.85],[2.36,48.87],[2.34,48.87],[2.34,48.85]]]
+      ]
+    }
+  }'
+```
+
+### Async Bulk Ingest with Job Tracking (v2.9.12+)
+
+```bash
+# Submit a long-running import — returns 202 with a job id
+JOB=$(curl -s -X POST http://localhost:11023/v1/bulk-ingest-job \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "archive",
+    "documents": [ ... tens of thousands of docs ... ],
+    "callbackUrl": "https://example.com/webhook"
+  }' | jq -r .id)
+
+# Poll status until completed / failed
+curl "http://localhost:11023/v1/bulk-ingest-job/$JOB"
+
+# List all jobs for a collection, newest first
+curl "http://localhost:11023/v1/bulk-ingest-jobs?collection=archive"
+
+# Cancel a pending job (already-processing jobs run to completion)
+curl -X DELETE "http://localhost:11023/v1/bulk-ingest-job/$JOB"
+```
+
 ## Vector Search (Semantic Search)
 
 ### Setup

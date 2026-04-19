@@ -1424,6 +1424,18 @@ func (g *GRPCServer) HybridSearch(ctx context.Context, req *proto.HybridSearchRe
 		return nil, status.Error(codes.InvalidArgument, "unknown strategy: "+strategy+", available: alpha, rrf")
 	}
 
+	// Validate sort. The gRPC HybridSearchRequest does not carry a geo
+	// filter, so "distance" is never applicable over gRPC; clients who
+	// need distance sort must use the HTTP handler with its Geo field.
+	switch req.Sort {
+	case "", "combined":
+		// ok — "" normalizes to default "combined" behavior below
+	case "distance":
+		return nil, status.Error(codes.InvalidArgument, "sort=distance is only supported over HTTP where a geo filter can be attached")
+	default:
+		return nil, status.Error(codes.InvalidArgument, "unknown sort: "+req.Sort+", available: combined, distance")
+	}
+
 	// Convert proto filter_meta to internal format
 	filterMeta := make(map[string][]string)
 	for k, v := range req.FilterMeta {
@@ -1453,6 +1465,7 @@ func (g *GRPCServer) HybridSearch(ctx context.Context, req *proto.HybridSearchRe
 		FieldWeights:    fieldWeights,
 		Lang:            req.Lang,
 		Boost:           req.Boost,
+		Sort:            req.Sort,
 	}
 
 	// Step 1: Run FTS search

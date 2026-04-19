@@ -25,7 +25,7 @@ import (
 )
 
 // VERSION is the current release version of the MDDB server.
-const VERSION = "2.9.12"
+const VERSION = "2.9.13"
 
 // AccessMode defines the database access mode (read, write, or both).
 type AccessMode string
@@ -701,6 +701,7 @@ func main() {
 	mux.HandleFunc("/v1/vector-stats", s.handleVectorStats)
 	mux.HandleFunc("/v1/geo-search", s.handleGeoSearch)
 	mux.HandleFunc("/v1/geo-within", s.handleGeoWithin)
+	mux.HandleFunc("/v1/geo-polygon", s.handleGeoPolygon)
 	mux.HandleFunc("/v1/geo-reindex", s.guardWrite(s.handleGeoReindex))
 	mux.HandleFunc("/v1/geo-stats", s.handleGeoStats)
 	mux.HandleFunc("/v1/geo-encode", s.handleGeoEncode)

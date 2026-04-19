@@ -78,6 +78,8 @@ Complete list of MDDB features organized by category.
 - **Metadata Pre-filtering** - `filterMeta` parameter to scope FTS results by metadata before BM25 scoring (AND across keys, OR within key)
 - **Per-Query Boost/Demote** (v2.9.12+) - `boost` map keyed by `"metaKey:metaValue"` multiplies scores at query time without reindexing. Positive values boost (`5.0` → 5×), negative values demote (`-2.0` → ½×); combined multiplicatively with a `0.001` floor. Works in FTS and Hybrid search.
 - **Prefix Autocomplete** (v2.9.12+) - `GET /v1/autocomplete?collection=X&q=mar` returns top-N terms starting with the given prefix, ranked by document frequency. Scans the existing FTS inverted index — no additional storage. Field-scoped via `field` parameter; scan is bounded at 10k entries. Also exposed as MCP `autocomplete` tool.
+- **Expression Query DSL** (v2.9.13+) - `mode: "expression"` on `/v1/fts` runs through a proper recursive-descent parser with parenthesized grouping, operator precedence (NOT > AND > OR), implicit AND between adjacent atoms, and mixed atom types (terms, fuzzy `~N`, phrases, proximity, wildcards) in one query. Example: `(rust OR golang) AND "async runtime"~3 NOT legacy`.
+- **Search-Result Highlighting** (v2.9.13+) - `highlight: true` on `/v1/fts` returns context snippets around matched terms with each match wrapped in a configurable tag (default `<mark>…</mark>`). Clusters nearby hits, snaps to word boundaries, supports custom `highlightTag` / `maxHighlights` / `fragmentSize`. Works uniformly across every FTS mode.
 
 #### Hybrid Search
 - **Combined Retrieval** - Merge BM25/BM25F/PMISparse keyword scores with vector semantic scores in a single query
@@ -85,6 +87,14 @@ Complete list of MDDB features organized by category.
 - **RRF (Reciprocal Rank Fusion)** - Rank-based fusion robust to different score distributions
 - **Configurable Parameters** - `strategy`, `alpha`, `rrfK`, `algorithm`, `vectorAlgorithm`
 - **API Endpoint** - `POST /v1/hybrid-search` with gRPC `HybridSearch` RPC and `hybrid_search` MCP tool
+- **Distance Sort** (v2.9.13+) - With a `geo` filter attached, `sort: "distance"` re-orders post-merge results by proximity ascending instead of fused score
+
+#### Geospatial Search
+- **R-tree Index** - Radius and bounding-box queries over lat/lng points
+- **Geohash Index** - Alternative geohash-prefix index with same API
+- **GeoJSON Polygon Containment** (v2.9.13+) - `POST /v1/geo-polygon` accepts GeoJSON Polygon (outer ring + holes) or MultiPolygon (union); bounding-box prefilter + ray-cast. MCP tool `geo_polygon`
+- **Postcode Lookup** - Optional per-country CSV lookups for postcode → lat/lng resolution
+- **Composable with FTS and vector** - Spatial filter combines freely with other search modes
 
 #### Memory RAG (Conversational Memory)
 - **Session Management** — Create, list, and track conversation sessions with user/scenario metadata

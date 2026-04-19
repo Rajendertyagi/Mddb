@@ -80,9 +80,13 @@ type FTSSearchRequest struct {
 	// Advanced search modes
 	Mode      string             `json:"mode,omitempty"`      // "simple" (default), "boolean", "phrase", "wildcard", "proximity", "auto"
 	Distance  int                `json:"distance,omitempty"`  // proximity distance (words) for mode=proximity
-	RangeMeta []RangeFilter      `json:"rangeMeta,omitempty"` // range filters on metadata/timestamps
-	Lang      string             `json:"lang,omitempty"`      // language for query tokenization (e.g. "en", "pl", "de")
-	Boost     map[string]float64 `json:"boost,omitempty"`     // per-query boost: "metaKey:metaValue" → multiplier (positive boosts, negative demotes)
+	RangeMeta     []RangeFilter      `json:"rangeMeta,omitempty"`     // range filters on metadata/timestamps
+	Lang          string             `json:"lang,omitempty"`          // language for query tokenization (e.g. "en", "pl", "de")
+	Boost         map[string]float64 `json:"boost,omitempty"`         // per-query boost: "metaKey:metaValue" → multiplier
+	Highlight     bool               `json:"highlight,omitempty"`     // when true, each result carries a `highlights` array (v2.9.13+)
+	HighlightTag  string             `json:"highlightTag,omitempty"`  // override wrap tag, e.g. "<strong>" (default "<mark>")
+	MaxHighlights int                `json:"maxHighlights,omitempty"` // cap per-result fragments (default 3)
+	FragmentSize  int                `json:"fragmentSize,omitempty"`  // approx chars per fragment (default 150)
 }
 
 // FTSSearchResponse is the HTTP response for full-text search.
@@ -102,9 +106,10 @@ type FTSSearchResponse struct {
 
 // FTSResultWithDoc includes the full document in the result.
 type FTSResultWithDoc struct {
-	Document     Doc      `json:"document"`
-	Score        float64  `json:"score"`
-	MatchedTerms []string `json:"matchedTerms"`
+	Document     Doc         `json:"document"`
+	Score        float64     `json:"score"`
+	MatchedTerms []string    `json:"matchedTerms"`
+	Highlights   []Highlight `json:"highlights,omitempty"` // populated when request.highlight=true
 }
 
 // NewFTSIndex creates a new full-text search index.
@@ -862,6 +867,15 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 	case "wildcard":
 		results, err = s.FTSIndex.SearchWildcard(req.Collection, req.Query, req.Limit)
 
+	case "expression":
+		var expr QueryExpr
+		expr, err = ParseQueryExpression(req.Query)
+		if err != nil {
+			bad(w, err)
+			return
+		}
+		results, err = s.FTSIndex.EvaluateExpression(req.Collection, expr, req.Limit)
+
 	default: // "simple"
 		mode = "simple"
 		switch algo {
@@ -939,6 +953,11 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 		resp.FieldWeights = req.FieldWeights
 	}
 	resp.Results = make([]FTSResultWithDoc, 0, len(results))
+	hlOpts := HighlightOptions{
+		OpenTag:      req.HighlightTag,
+		MaxFragments: req.MaxHighlights,
+		FragmentSize: req.FragmentSize,
+	}
 	_ = s.DB.View(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		for _, res := range results {
@@ -954,11 +973,15 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 			if docPtr.ExpiresAt > 0 && docPtr.ExpiresAt < currentUnix() {
 				continue
 			}
-			resp.Results = append(resp.Results, FTSResultWithDoc{
+			item := FTSResultWithDoc{
 				Document:     *docPtr,
 				Score:        res.Score,
 				MatchedTerms: res.MatchedTerms,
-			})
+			}
+			if req.Highlight {
+				item.Highlights = ExtractHighlights(docPtr.ContentMD, res.MatchedTerms, hlOpts)
+			}
+			resp.Results = append(resp.Results, item)
 		}
 		return nil
 	})

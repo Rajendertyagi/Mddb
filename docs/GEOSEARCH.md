@@ -154,6 +154,67 @@ Axis-aligned bbox search. No ordering is applied.
 }
 ```
 
+### POST `/v1/geo-polygon` (v2.9.13+)
+
+GeoJSON Polygon or MultiPolygon containment. Returns every indexed point
+whose coordinates fall inside the shape. Exactly one of `polygon` or
+`multiPolygon` must be set — supplying both is rejected with 400.
+
+Polygons follow RFC 7946: the outer coordinate array holds one or more
+linear rings, where the first ring is the outer boundary and any
+subsequent rings are holes. Coordinates are `[lng, lat]` pairs. Rings
+may be open (first ≠ last) or closed — both forms are accepted.
+
+```json
+{
+  "collection": "venues",
+  "polygon": {
+    "type": "Polygon",
+    "coordinates": [
+      [[13.36, 52.51], [13.42, 52.51], [13.42, 52.53],
+       [13.36, 52.53], [13.36, 52.51]]
+    ]
+  }
+}
+```
+
+With holes (square with a central 4×4 hole):
+
+```json
+{
+  "collection": "venues",
+  "polygon": {
+    "coordinates": [
+      [[0,0],[10,0],[10,10],[0,10],[0,0]],
+      [[3,3],[7,3],[7,7],[3,7],[3,3]]
+    ]
+  }
+}
+```
+
+MultiPolygon (union semantics — matches any member):
+
+```json
+{
+  "collection": "venues",
+  "multiPolygon": {
+    "type": "MultiPolygon",
+    "coordinates": [
+      [[[13.36,52.51],[13.42,52.51],[13.42,52.53],[13.36,52.53],[13.36,52.51]]],
+      [[[2.34,48.85],[2.36,48.85],[2.36,48.87],[2.34,48.87],[2.34,48.85]]]
+    ]
+  }
+}
+```
+
+**Implementation**: the R-tree does a bounding-box query on the polygon's
+bbox to prefilter candidates, then ray-casts each survivor against the
+actual ring geometry. Response time tracks the shape's bbox size rather
+than the whole collection size. The endpoint does not cross the
+anti-meridian — split queries that span ±180° into east and west halves.
+
+Also exposed as MCP tool `geo_polygon`.
+
 ### POST `/v1/geo-reindex`
 
 Force-rebuild **both** in-memory indexes from the persisted `geo`

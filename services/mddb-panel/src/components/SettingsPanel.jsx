@@ -133,7 +133,7 @@ export default function SettingsPanel() {
                 <p className="text-xs text-orange-600 mt-2">
                   ⚠️ The MDDB server now serves a fully-functional GraphQL endpoint at
                   <code> /graphql</code> (and Playground at <code>/playground</code>) — enabled by
-                  default in MDDB 2.9.12+. The panel UI itself, however, still issues every
+                  default in MDDB 2.9.13+. The panel UI itself, however, still issues every
                   request through the REST client; full panel routing through GraphQL is
                   scheduled for a follow-up release. Use this toggle as a preference marker
                   for now and call <code>/graphql</code> directly from your own GraphQL client

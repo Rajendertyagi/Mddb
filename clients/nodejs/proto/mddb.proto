@@ -547,6 +547,7 @@ message HybridSearchRequest {
   map<string, double> field_weights = 13;
   string lang = 14;                              // language for FTS stemming/stop words
   map<string, double> boost = 15;                // per-query boost: "metaKey:metaValue" → multiplier (positive boosts, negative demotes)
+  string sort = 16;                              // result ordering: "" or "combined" (default, by fused score), or "distance" (by distanceMeters asc — requires geo filter)
 }
 
 message HybridSearchResult {

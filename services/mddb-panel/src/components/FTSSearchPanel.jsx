@@ -18,6 +18,7 @@ export default function FTSSearchPanel() {
     ftsDistance, setFtsDistance,
     ftsStemming, setFtsStemming,
     ftsSynonyms, setFtsSynonyms,
+    ftsHighlight, setFtsHighlight,
     ftsFieldWeights, setFtsFieldWeight, removeFtsFieldWeight,
     ftsBoost, setFtsBoostEntry, removeFtsBoostEntry,
     ftsResults, setFtsResults,
@@ -130,6 +131,7 @@ export default function FTSSearchPanel() {
         filterMeta: searchFilterMeta,
         lang: ftsLang || undefined,
         boost: ftsBoost,
+        highlight: ftsHighlight,
         signal: controller.signal,
       });
       setFtsResults(data.results || []);
@@ -294,6 +296,7 @@ export default function FTSSearchPanel() {
               <option value="phrase">Phrase (exact)</option>
               <option value="wildcard">Wildcard (*/?) </option>
               <option value="proximity">Proximity (~N)</option>
+              <option value="expression">Expression (parens, precedence, mixed atoms)</option>
             </select>
           </div>
           <div>
@@ -513,6 +516,15 @@ export default function FTSSearchPanel() {
               />
               <span>Synonyms</span>
             </label>
+            <label className="flex items-center space-x-1.5 text-sm text-gray-600" title="Return highlighted fragments with matched terms wrapped in <mark>">
+              <input
+                type="checkbox"
+                checked={ftsHighlight}
+                onChange={(e) => setFtsHighlight(e.target.checked)}
+                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+              <span>Highlight</span>
+            </label>
           </div>
           <div className="flex items-center space-x-2">
             <button
@@ -622,6 +634,19 @@ export default function FTSSearchPanel() {
                           <Tag className="w-3 h-3 mr-1" />
                           {term}
                         </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Highlight fragments (v2.9.13+) — server wraps matches in <mark>. */}
+                  {result.highlights && result.highlights.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {result.highlights.map((h, i) => (
+                        <p
+                          key={i}
+                          className="text-xs text-gray-700 leading-relaxed bg-gray-50 rounded px-2 py-1"
+                          dangerouslySetInnerHTML={{ __html: h.fragment }}
+                        />
                       ))}
                     </div>
                   )}

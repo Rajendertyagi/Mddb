@@ -341,6 +341,7 @@ type MCPHybridSearchRequest struct {
 	DistanceMetric  string              `json:"distanceMetric,omitempty"`
 	FilterMeta      map[string][]string `json:"filterMeta,omitempty"`
 	Boost           map[string]float64  `json:"boost,omitempty"`
+	Sort            string              `json:"sort,omitempty"` // "combined" (default) or "distance"
 }
 
 // MCPHybridSearchResult represents a single hybrid search result.

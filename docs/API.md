@@ -868,7 +868,7 @@ Perform full-text search across document content. Supports multiple search modes
 - `query` (required): Search query text
 - `limit` (optional): Maximum results (default: 50)
 - `algorithm` (optional): `"tfidf"` (default), `"bm25"`, `"bm25f"`, or `"pmisparse"` — used for simple mode
-- `mode` (optional): Search mode — `"auto"` (default), `"simple"`, `"boolean"`, `"phrase"`, `"wildcard"`, `"proximity"`
+- `mode` (optional): Search mode — `"auto"` (default), `"simple"`, `"boolean"`, `"phrase"`, `"wildcard"`, `"proximity"`, `"expression"` (v2.9.13+ — full query DSL with nested parens and precedence)
 - `distance` (optional): Proximity distance in words (default: 5) — only used with mode=proximity
 - `fuzzy` (optional): Typo tolerance — `0` (off, default), `1` (1 edit), `2` (2 edits) — used for simple mode
 - `lang` (optional): Language code for query tokenization (e.g., `"pl"`, `"de"`, `"fr"`). Uses language-specific stemmer and stop words. Falls back to server default if omitted (default: `"en"`, configurable via `MDDB_FTS_DEFAULT_LANG`)
@@ -878,6 +878,10 @@ Perform full-text search across document content. Supports multiple search modes
 - `filterMeta` (optional): Metadata pre-filter — `{"key": ["value1", "value2"]}`
 - `rangeMeta` (optional): Array of range filters on metadata or timestamps
 - `boost` (optional): Per-query score multipliers keyed by `"metaKey:metaValue"`. Positive values boost (`5.0` → 5×), negative values demote (`-2.0` → ½×). Multiple matching entries combine multiplicatively; floor is `0.001`. No reindex required.
+- `highlight` (optional, v2.9.13+): When `true`, each result gains a `highlights[]` array with snippet fragments around matched terms. Works uniformly across every mode.
+- `highlightTag` (optional, v2.9.13+): Wrap tag for matched terms — defaults to `"<mark>"` which produces `<mark>term</mark>`. Common alternatives: `"<strong>"`, `"**"` (for markdown), `"[h]"`. The close tag is derived automatically from the open tag.
+- `maxHighlights` (optional, v2.9.13+): Max fragments returned per result (default `3`).
+- `fragmentSize` (optional, v2.9.13+): Approximate chars per fragment (default `150`). Fragments snap to word boundaries so the value is a target, not a hard cap.
 
 **Search Modes**:
 - **simple**: Standard full-text search with TF-IDF/BM25/BM25F/PMISparse scoring
@@ -960,6 +964,33 @@ curl -X POST http://localhost:11023/v1/fts \
 curl -X POST http://localhost:11023/v1/fts \
   -H 'Content-Type: application/json' \
   -d '{"collection":"blog","query":"tutorial","boost":{"tag:featured":5.0,"status:archived":-2.0}}'
+
+# Highlighting with fragments
+curl -X POST http://localhost:11023/v1/fts \
+  -H 'Content-Type: application/json' \
+  -d '{"collection":"blog","query":"markdown database","highlight":true,"maxHighlights":2}'
+```
+
+When `highlight: true`, each result gains a `highlights` array:
+
+```json
+{
+  "results": [
+    {
+      "document": { "id": "blog|post1|en", "key": "post1", ... },
+      "score": 2.34,
+      "matchedTerms": ["markdown", "database"],
+      "highlights": [
+        {
+          "fragment": "…using <mark>Markdown</mark> as a lightweight <mark>database</mark> format…",
+          "matchedTerms": ["markdown", "database"],
+          "startOffset": 312,
+          "endOffset": 461
+        }
+      ]
+    }
+  ]
+}
 ```
 
 ---
@@ -1949,6 +1980,9 @@ Hybrid search combining full-text (sparse) and vector (dense) results using alph
 | `includeContent` | boolean | `false` | Include full content |
 | `disableStem` | boolean | `false` | Disable stemming |
 | `disableSynonyms` | boolean | `false` | Disable synonym expansion |
+| `boost` | object | | Per-query score multiplier keyed by `"metaKey:metaValue"` |
+| `geo` | object | | Spatial pre-filter: `{lat, lng, radiusMeters}` |
+| `sort` | string | `"combined"` | Result ordering: `combined` (default, by fused score) or `distance` (by `distanceMeters` ascending — requires `geo`) |
 
 **Response**:
 ```json
@@ -2749,7 +2783,7 @@ curl http://localhost:11023/v1/system/info
   "arch": "amd64",
   "numCPU": 4,
   "goVersion": "go1.26.2",
-  "version": "2.9.12",
+  "version": "2.9.13",
   "uptimeSeconds": 3600,
   "memoryTotal": 134217728,
   "memoryUsed": 67108864,
@@ -2772,7 +2806,7 @@ curl http://localhost:11023/v1/config
 **Response**:
 ```json
 {
-  "version": "2.9.12",
+  "version": "2.9.13",
   "databasePath": "mddb.db",
   "mode": "wr",
   "protocols": {

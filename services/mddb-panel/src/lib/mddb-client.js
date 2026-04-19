@@ -243,6 +243,21 @@ class MDDBClient {
     });
   }
 
+  /**
+   * GeoJSON Polygon / MultiPolygon containment. Exactly one of `polygon` or
+   * `multiPolygon` must be supplied. Coordinates follow GeoJSON order [lng, lat].
+   */
+  async geoPolygon({ collection, polygon, multiPolygon, filterMeta = {}, includeContent = false, signal }) {
+    const body = { collection, filterMeta, includeContent };
+    if (polygon) body.polygon = polygon;
+    if (multiPolygon) body.multiPolygon = multiPolygon;
+    return this.request('/geo-polygon', {
+      method: 'POST',
+      body: JSON.stringify(body),
+      signal,
+    });
+  }
+
   /** Geo index statistics. */
   async geoStats() {
     return this.request('/geo-stats', { method: 'GET' });
@@ -312,7 +327,7 @@ class MDDBClient {
   /**
    * Full-text search
    */
-  async ftsSearch({ collection, query, limit = 50, algorithm = 'tfidf', fuzzy = 0, mode = 'auto', distance, disableStem = false, disableSynonyms = false, fieldWeights = null, filterMeta = {}, rangeMeta, lang, boost, signal }) {
+  async ftsSearch({ collection, query, limit = 50, algorithm = 'tfidf', fuzzy = 0, mode = 'auto', distance, disableStem = false, disableSynonyms = false, fieldWeights = null, filterMeta = {}, rangeMeta, lang, boost, highlight, highlightTag, maxHighlights, fragmentSize, signal }) {
     const body = { collection, query, limit, algorithm, fuzzy, disableStem, disableSynonyms };
     if (mode && mode !== 'auto') {
       body.mode = mode;
@@ -334,6 +349,12 @@ class MDDBClient {
     }
     if (boost && Object.keys(boost).length > 0) {
       body.boost = boost;
+    }
+    if (highlight) {
+      body.highlight = true;
+      if (highlightTag) body.highlightTag = highlightTag;
+      if (maxHighlights) body.maxHighlights = maxHighlights;
+      if (fragmentSize) body.fragmentSize = fragmentSize;
     }
     return this.request('/fts', {
       method: 'POST',
@@ -379,7 +400,7 @@ class MDDBClient {
   /**
    * Hybrid search (sparse + dense)
    */
-  async hybridSearch({ collection, query, topK = 10, algorithm = 'bm25', vectorAlgorithm = 'flat', alpha = 0.5, strategy = 'alpha', rrfK = 60, fuzzy = 0, threshold = 0.0, filterMeta = {}, includeContent = false, distanceMetric = 'cosine', lang, boost, signal }) {
+  async hybridSearch({ collection, query, topK = 10, algorithm = 'bm25', vectorAlgorithm = 'flat', alpha = 0.5, strategy = 'alpha', rrfK = 60, fuzzy = 0, threshold = 0.0, filterMeta = {}, includeContent = false, distanceMetric = 'cosine', lang, boost, geo, sort, signal }) {
     const body = {
       collection,
       query,
@@ -400,6 +421,12 @@ class MDDBClient {
     }
     if (boost && Object.keys(boost).length > 0) {
       body.boost = boost;
+    }
+    if (geo) {
+      body.geo = geo;
+    }
+    if (sort) {
+      body.sort = sort;
     }
     return this.request('/hybrid-search', {
       method: 'POST',

@@ -100,15 +100,16 @@ curl -X DELETE http://localhost:11023/v1/stopwords \
 
 ### Search Modes
 
-FTS supports 7 search modes. The mode can be set via the `mode` parameter, or left as `"auto"` (default) for automatic detection.
+FTS supports 8 search modes. The mode can be set via the `mode` parameter, or left as `"auto"` (default) for automatic detection.
 
 | Mode | Syntax Example | Description |
 |------|---------------|-------------|
 | `simple` | `markdown database` | Basic keyword search |
-| `boolean` | `markdown AND database NOT sql` | Boolean operators (AND, OR, NOT, +, -) |
+| `boolean` | `markdown AND database NOT sql` | Flat boolean — AND, OR, NOT, `+`, `-` (legacy; no nesting) |
 | `phrase` | `"markdown database"` | Exact phrase matching (consecutive terms) |
 | `proximity` | `"markdown database"~5` | Terms within N words of each other |
 | `wildcard` | `mark* dat?base` | Pattern matching with `*` and `?` |
+| `expression` | `(rust OR golang) AND "async runtime"~3 NOT legacy` | Full query DSL with parentheses, precedence, and mixed atoms (v2.9.13+) |
 | `range` | via `rangeMeta` parameter | Numeric/date range filtering |
 | `fuzzy` | `fuzzy: 1` or `fuzzy: 2` | Typo-tolerant matching (any mode) |
 | `auto` | _(default)_ | Auto-detects the appropriate mode |
@@ -123,9 +124,37 @@ When `mode` is omitted or set to `"auto"`, the query parser inspects the query s
 4. Contains `AND`, `OR`, `NOT`, `+`, `-` → **boolean** mode
 5. Otherwise → **simple** mode
 
+#### Expression Search (v2.9.13+)
+
+`mode: "expression"` runs the query through a proper recursive-descent parser that understands parenthesized grouping, operator precedence (NOT > AND > OR), and mixed atom types in a single query.
+
+Supported atoms inside an expression:
+
+- Bare terms → `rust`
+- Fuzzy terms with edit-distance modifier → `color~1`, `markdwn~2` (0–2, clamped)
+- Quoted phrases → `"machine learning"`
+- Proximity phrases → `"rust systems"~5`
+- Wildcards → `mark*`, `te?t`
+- Parenthesized groups → `(rust OR golang)`
+- Negation → `NOT spam` or `-spam`
+- Implicit AND between adjacent atoms → `rust async` parses as `rust AND async`
+
+Precedence from tightest to loosest: `NOT` > `AND` > `OR`. So `a AND b OR c` parses as `(a AND b) OR c`, while `a OR b AND c` parses as `a OR (b AND c)`.
+
+Examples:
+
+```text
+(rust OR golang) AND "async runtime"~3 NOT legacy
+rust AND (systems OR async) AND NOT deprecated
+"machine learning" OR (ml AND algorithms)
+markdwn~1 OR markdown
+```
+
+Evaluation reuses the existing scorers — each leaf atom calls through to the same `SearchBM25` / `SearchPhrase` / `SearchProximity` / `SearchWildcard` / `SearchBM25Fuzzy` path that the legacy modes use. AND intersects matched doc sets and sums scores; OR unions and sums; NOT subtracts from its sibling without affecting scores. So scoring stays consistent across modes.
+
 #### Boolean Search
 
-Supports full boolean logic with AND, OR, NOT operators and required/excluded term prefixes.
+Supports flat boolean logic with AND, OR, NOT operators and required/excluded term prefixes. No parenthesized grouping — use `mode: "expression"` when you need nesting.
 
 ```bash
 # AND (implicit between terms)
@@ -362,6 +391,40 @@ curl -X POST http://localhost:11023/v1/fts \
     "query": "markdown database",
     "algorithm": "bm25",
     "boost": {"tag:featured": 5.0, "status:archived": -2.0}
+  }'
+```
+
+### Highlighting with Fragments (v2.9.13+)
+
+Set `highlight: true` on `/v1/fts` and each result carries a `highlights` array with text snippets taken from the document around matched terms. Works uniformly across every FTS mode — `simple`, `boolean`, `phrase`, `wildcard`, `proximity`, and `expression` — because the highlighter reuses `matchedTerms` from the existing FTS pipeline rather than adding its own index.
+
+Each `Highlight` has:
+
+| Field | Meaning |
+|-------|---------|
+| `fragment` | The snippet with matched terms wrapped in the configured tag. Ellipsis `…` markers denote truncation at the start or end. |
+| `matchedTerms` | Distinct terms whose matches appear in this fragment. |
+| `startOffset` / `endOffset` | Byte positions into the raw `ContentMD` — clients can re-slice the original doc if they need untagged context. |
+
+Tunables on the request:
+
+- `highlight` — enable (default off so legacy callers see no payload growth).
+- `highlightTag` — open tag, e.g. `"<mark>"` (default), `"<strong>"`, `"**"`, `"[h]"`. Close tag is derived automatically (HTML-style `</mark>` for angle brackets, or mirror for symmetric delimiters).
+- `maxHighlights` — cap fragments per result (default 3).
+- `fragmentSize` — approx chars per fragment (default 150, snapped to word boundaries).
+
+Selection strategy: the extractor clusters nearby matches into one fragment so adjacent hits don't fragment into N tiny snippets, ranks clusters by hit count, trims to `maxHighlights`, then re-sorts the final list by document offset so UIs display them in reading order. Matching is case-insensitive on ASCII word boundaries — `"rust"` matches `Rust`, `RUST`, but not the `rust` inside `rustic`.
+
+```bash
+curl -X POST http://localhost:11023/v1/fts \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "collection": "blog",
+    "query": "markdown database",
+    "highlight": true,
+    "highlightTag": "<strong>",
+    "maxHighlights": 2,
+    "fragmentSize": 120
   }'
 ```
 
@@ -697,6 +760,27 @@ score = 1/(k + rank_fts) + 1/(k + rank_vector)
 | `fieldWeights` | — | BM25F field weights |
 | `disableStem` | `false` | Disable stemming for FTS |
 | `disableSynonyms` | `false` | Disable synonym expansion for FTS |
+| `boost` | — | Per-query score multiplier keyed by `"metaKey:metaValue"` |
+| `geo` | — | Spatial pre-filter: `{lat, lng, radiusMeters}` |
+| `sort` | `"combined"` | Result ordering: `combined` (default, by fused score) or `distance` (by `distanceMeters` ascending — requires `geo`) |
+
+### Sort by Distance (v2.9.13+)
+
+When the request carries a `geo` filter, `sort: "distance"` re-orders the merged result set by ascending distance from the reference point instead of by fused score. Useful for "nearest matching venue" queries where proximity matters more than keyword relevance.
+
+```bash
+curl -X POST http://localhost:11023/v1/hybrid-search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "venues",
+    "query": "coffee wifi",
+    "topK": 10,
+    "geo": {"lat": 52.52, "lng": 13.405, "radiusMeters": 3000},
+    "sort": "distance"
+  }'
+```
+
+The server returns an error if `sort: "distance"` is used without a `geo` filter, because every item would otherwise carry `distanceMeters=0` and the ordering would be arbitrary. gRPC callers must stay on `combined` — the gRPC `HybridSearchRequest` has no geo field; use the HTTP endpoint for distance sorting.
 
 ### API Examples
 

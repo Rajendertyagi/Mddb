@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.13] - 2026-04-19
+
+### Added
+- **Geo distance sort on hybrid search** ([services/mddbd/hybrid_search.go](services/mddbd/hybrid_search.go)). `POST /v1/hybrid-search` accepts a new `sort` field. With `sort: "distance"` and a `geo` filter attached, the post-merge result set is re-ordered by `distanceMeters` ascending so the nearest matching documents surface first; `sort: "combined"` (the default) keeps the existing score-based ordering. Validation rejects `sort: "distance"` without a `geo` filter and unknown sort values. gRPC `HybridSearch` carries the new field but only accepts `combined` — distance sort is HTTP-only because the gRPC request has no geo payload.
+- **GeoJSON polygon and multi-polygon containment** ([services/mddbd/geo_polygon.go](services/mddbd/geo_polygon.go), [services/mddbd/geo_handlers.go](services/mddbd/geo_handlers.go)). New endpoint `POST /v1/geo-polygon` accepts a GeoJSON `Polygon` (outer ring + optional holes) or a `MultiPolygon` (union of polygons) and returns every indexed point inside the shape. Implementation does a bounding-box R-tree prefilter then ray-casts each candidate; response time tracks the polygon's bbox rather than the whole collection. Coordinate order is `[lng, lat]` per RFC 7946; rings may be open or closed. Exposed as read-only MCP tool `geo_polygon`.
+- **Query string DSL with nested grouping** ([services/mddbd/fts_query_expr.go](services/mddbd/fts_query_expr.go)). New FTS `mode: "expression"` runs through a proper recursive-descent parser that handles parenthesized grouping, operator precedence (NOT > AND > OR), implicit AND between adjacent atoms, and mixed atom types in one query — terms, fuzzy (`term~2`), phrases, proximity (`"phrase"~5`), wildcards, and NOT. Evaluator reuses the existing per-atom scorers (`SearchBM25`, `SearchPhrase`, `SearchProximity`, `SearchWildcard`, `SearchBM25Fuzzy`), so scores stay consistent with single-mode results. Legacy flat `"boolean"` mode is unchanged.
+- **Search-result highlighting with context fragments** ([services/mddbd/fts_highlight.go](services/mddbd/fts_highlight.go)). `POST /v1/fts` with `highlight: true` returns a `highlights[]` array per result — snippets taken from the raw `ContentMD` around matched terms, with each match wrapped in a caller-configurable tag (default `<mark>…</mark>`). Adjacent hits cluster into one fragment, clusters rank by hit count, the top `maxHighlights` (default 3) are kept, then re-sorted by document offset so UIs render in reading flow. Boundaries snap to word edges; ellipsis markers flag truncation. Works uniformly across every FTS mode including the new `expression` mode.
+
+### Changed
+- **Proto `HybridSearchRequest.sort` field (16)** added — backwards compatible, pre-2.9.13 clients simply omit it. Regenerated for Go / Python / Node.js / PHP via `buf`.
+- **SEARCH.md** gains a dedicated "Expression Search" subsection and a "Highlighting with Fragments" subsection; API.md and openapi.yaml surface the new parameters.
+- **Version bump** — `VERSION = "2.9.13"` across `services/mddbd/main.go`, Makefile, docker-compose labels, mddb-panel package.json, CLI manpage, snapcraft, SSG landing page.
+
 ## [2.9.12] - 2026-04-18
 
 ### Added

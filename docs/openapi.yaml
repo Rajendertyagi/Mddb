@@ -68,7 +68,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: "2.9.12"
+  version: "2.9.13"
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -1033,6 +1033,42 @@ paths:
                 includeContent: { type: boolean }
       responses:
         "200": { description: OK }
+
+  /v1/geo-polygon:
+    post:
+      tags:
+        - Geo Search
+      summary: Find documents inside a GeoJSON polygon or multi-polygon
+      description: |
+        Returns every indexed point whose coordinates fall inside the supplied
+        GeoJSON Polygon (outer ring + optional holes) or MultiPolygon (union
+        of polygons). Exactly one of `polygon` or `multiPolygon` must be set.
+
+        The R-tree's bounding-box query prefilters candidates, so response
+        time tracks the shape's bbox rather than the full collection size.
+        GeoJSON coordinate order is `[lng, lat]` per RFC 7946. Rings may be
+        open (first ≠ last) or closed (first == last); both forms work.
+
+        Does not cross the anti-meridian — split the query into hemispheres
+        if you need that.
+      operationId: geoPolygon
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GeoPolygonRequest"
+      responses:
+        "200":
+          description: Matches (empty array if none)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeoPolygonResponse"
+        "400":
+          description: Invalid request — missing collection, both/neither shape supplied, or malformed geometry
+        "503":
+          description: Geo index still loading
 
   /v1/geo-reindex:
     post:
@@ -4928,6 +4964,97 @@ components:
           format: int64
           description: Unix timestamp when the job reached a terminal status
 
+    GeoJSONPolygon:
+      type: object
+      required:
+        - coordinates
+      properties:
+        type:
+          type: string
+          enum: [Polygon]
+          description: GeoJSON geometry type. Optional — the handler fills it in when omitted.
+        coordinates:
+          type: array
+          description: |
+            Array of linear rings. The first ring is the outer boundary; any
+            subsequent rings are holes. Each ring is an array of `[lng, lat]`
+            pairs (RFC 7946 order) with at least 3 points.
+          items:
+            type: array
+            items:
+              type: array
+              minItems: 2
+              maxItems: 3
+              items:
+                type: number
+
+    GeoJSONMultiPolygon:
+      type: object
+      required:
+        - coordinates
+      properties:
+        type:
+          type: string
+          enum: [MultiPolygon]
+        coordinates:
+          type: array
+          description: Array of Polygon coordinate arrays. Union semantics — a document matches if it lies inside any member polygon.
+          items:
+            type: array
+            items:
+              type: array
+              items:
+                type: array
+                minItems: 2
+                maxItems: 3
+                items:
+                  type: number
+
+    GeoPolygonRequest:
+      type: object
+      required:
+        - collection
+      properties:
+        collection:
+          type: string
+          example: venues
+        polygon:
+          $ref: "#/components/schemas/GeoJSONPolygon"
+        multiPolygon:
+          $ref: "#/components/schemas/GeoJSONMultiPolygon"
+        filterMeta:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Optional metadata pre-filter (AND across keys, OR within key)
+        includeContent:
+          type: boolean
+          default: false
+      description: Exactly one of `polygon` or `multiPolygon` must be set.
+
+    GeoPolygonResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              document:
+                type: object
+              rank:
+                type: integer
+        total:
+          type: integer
+        shape:
+          type: string
+          enum: [polygon, multiPolygon]
+        algorithm:
+          type: string
+          example: rtree
+
     IngestRequest:
       type: object
       required:
@@ -5526,7 +5653,7 @@ components:
           default: false
         mode:
           type: string
-          enum: [ auto, simple, boolean, phrase, wildcard, proximity ]
+          enum: [ auto, simple, boolean, phrase, wildcard, proximity, expression ]
           description: |
             Search mode (default "auto"). Auto-detect parses the query to determine the appropriate mode.
             - **auto**: Auto-detect from query syntax
@@ -5535,6 +5662,7 @@ components:
             - **phrase**: Exact word sequence (`"quoted phrases"`)
             - **wildcard**: Pattern matching (`*` any chars, `?` single char)
             - **proximity**: Terms within N words (`"term1 term2"~5`)
+            - **expression**: Full query DSL with nested parens, precedence, and mixed atoms (v2.9.13+)
           default: auto
           example: auto
         distance:
@@ -5568,6 +5696,41 @@ components:
           example:
             "tag:breed": 5.0
             "category:health": -2
+        highlight:
+          type: boolean
+          default: false
+          description: |
+            When true (v2.9.13+), each result gains a `highlights` array with
+            text snippets around matched terms. Works uniformly across every
+            FTS mode.
+        highlightTag:
+          type: string
+          default: "<mark>"
+          description: Wrap tag for matched terms (close tag derived automatically)
+        maxHighlights:
+          type: integer
+          default: 3
+          description: Cap fragments per result
+        fragmentSize:
+          type: integer
+          default: 150
+          description: Approximate chars per fragment (snapped to word boundaries)
+
+    Highlight:
+      type: object
+      properties:
+        fragment:
+          type: string
+          description: Snippet with matched terms wrapped in the configured tag; ellipsis `…` markers denote truncation
+        matchedTerms:
+          type: array
+          items:
+            type: string
+        startOffset:
+          type: integer
+          description: Byte offset into the raw ContentMD where the fragment begins
+        endOffset:
+          type: integer
 
     RangeFilter:
       type: object
@@ -6029,6 +6192,17 @@ components:
           example:
             "tag:featured": 2.0
             "status:archived": -3
+        sort:
+          type: string
+          enum: [combined, distance]
+          default: combined
+          description: |
+            Result ordering. `combined` (default) ranks by the fused score — keyword relevance
+            and semantic similarity blended per `strategy`. `distance` re-sorts the post-merge
+            result set by `distanceMeters` ascending so the nearest documents surface first.
+            Requires a `geo` filter on the request; otherwise the server rejects the call
+            because distances would all be zero.
+          example: distance
 
     HybridSearchResponse:
       type: object
@@ -6282,7 +6456,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.9.12
+          example: 2.9.13
         uptimeSeconds:
           type: integer
           format: int64
@@ -6346,7 +6520,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.9.12
+          example: 2.9.13
         databasePath:
           type: string
           description: Path to the database file
