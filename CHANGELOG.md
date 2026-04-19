@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Consolidated MCP arg helpers** — moved `mcpGetBool` from [services/mddbd/mcp_tools_bulk.go](services/mddbd/mcp_tools_bulk.go) into the shared helper group in [services/mddbd/mcp_tools.go](services/mddbd/mcp_tools.go) alongside `mcpGetString`, `mcpGetInt`, `mcpGetFloat`. No behavior change.
+
 ## [2.9.14] - 2026-04-19
 
 ### Added

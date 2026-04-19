@@ -114,14 +114,6 @@ func (s *MCPToolServer) toolBulkIngestCancel(_ context.Context, args map[string]
 	return `{"status":"cancelled","id":"` + id + `"}`, nil
 }
 
-// mcpGetBool reads a boolean JSON value with a default of false.
-func mcpGetBool(m map[string]interface{}, key string) bool {
-	if v, ok := m[key].(bool); ok {
-		return v
-	}
-	return false
-}
-
 // toolAutocomplete returns prefix-match suggestions ranked by document
 // frequency. Reuses the FTS inverted index — no dedicated store needed.
 func (s *MCPToolServer) toolAutocomplete(_ context.Context, args map[string]interface{}) (string, error) {

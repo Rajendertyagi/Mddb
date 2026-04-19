@@ -1418,6 +1418,13 @@ func mcpGetFloat(m map[string]interface{}, key string) float64 {
 	return 0
 }
 
+func mcpGetBool(m map[string]interface{}, key string) bool {
+	if v, ok := m[key].(bool); ok {
+		return v
+	}
+	return false
+}
+
 func mcpGetMetaMap(m map[string]interface{}, key string) map[string][]string {
 	result := make(map[string][]string)
 	if meta, ok := m[key].(map[string]interface{}); ok {
