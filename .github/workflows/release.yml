@@ -647,42 +647,94 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  create-homebrew-formula:
-    name: Create Homebrew Formula
+  update-homebrew-tap:
+    name: Update Homebrew Tap
     needs: [create-release]
     runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
 
+    steps:
       - name: Get version
         id: version
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            VERSION="${{ github.event.inputs.version }}"
           else
-            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+            VERSION="${GITHUB_REF#refs/tags/}"
           fi
-          VERSION_NUM=${GITHUB_REF#refs/tags/v}
-          echo "VERSION_NUM=${VERSION_NUM}" >> $GITHUB_OUTPUT
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          echo "VERSION_NUM=${VERSION#v}" >> $GITHUB_OUTPUT
 
-      - name: Create Homebrew formula
+      - name: Wait for release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          mkdir -p homebrew-formula
-          
-          cat > homebrew-formula/mddbd.rb << 'EOF'
-          class Mddbd < Formula
-            desc "High-performance markdown database server"
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          for i in $(seq 1 30); do
+            count=$(gh release view "$VERSION" -R tradik/mddb --json assets --jq '[.assets[].name | select(test("(mddbd|mddb-cli)-.*-(darwin|linux)-(amd64|arm64)\\.tar\\.gz$"))] | length')
+            if [ "$count" = "8" ]; then echo "All 8 tarballs present"; exit 0; fi
+            echo "Waiting for assets ($count/8)..."
+            sleep 10
+          done
+          echo "Timed out waiting for release assets"; exit 1
+
+      - name: Download tarballs and compute sha256
+        id: sha
+        run: |
+          V="${{ steps.version.outputs.VERSION }}"
+          mkdir -p dl && cd dl
+          for bin in mddbd mddb-cli; do
+            for plat in darwin-arm64 darwin-amd64 linux-arm64 linux-amd64; do
+              f="${bin}-${V}-${plat}.tar.gz"
+              curl -sfL -o "$f" "https://github.com/tradik/mddb/releases/download/${V}/${f}"
+              sha=$(sha256sum "$f" | awk '{print $1}')
+              key=$(echo "${bin}_${plat}" | tr 'a-z-' 'A-Z_')
+              echo "${key}=${sha}" >> $GITHUB_OUTPUT
+            done
+          done
+
+      - name: Checkout homebrew-tap
+        uses: actions/checkout@v6
+        with:
+          repository: tradik/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Render formulas
+        run: |
+          V="${{ steps.version.outputs.VERSION }}"
+          VN="${{ steps.version.outputs.VERSION_NUM }}"
+
+          cat > homebrew-tap/Formula/mddb.rb << EOF
+          # Homebrew formula for MDDB - Markdown Database Server
+          # Install: brew install tradik/tap/mddb
+          # Or: brew tap tradik/tap && brew install mddb
+
+          class Mddb < Formula
+            desc "Embedded Markdown database server with REST, gRPC, GraphQL and vector search"
             homepage "https://github.com/tradik/mddb"
-            version "${{ steps.version.outputs.VERSION_NUM }}"
-            
-            if Hardware::CPU.intel?
-              url "https://github.com/tradik/mddb/releases/download/${{ steps.version.outputs.VERSION }}/mddbd-${{ steps.version.outputs.VERSION }}-darwin-amd64.tar.gz"
-              sha256 "INTEL_SHA256"
-            else
-              url "https://github.com/tradik/mddb/releases/download/${{ steps.version.outputs.VERSION }}/mddbd-${{ steps.version.outputs.VERSION }}-darwin-arm64.tar.gz"
-              sha256 "ARM_SHA256"
+            version "${VN}"
+            license "BSD-3-Clause"
+
+            on_macos do
+              on_arm do
+                url "https://github.com/tradik/mddb/releases/download/${V}/mddbd-${V}-darwin-arm64.tar.gz"
+                sha256 "${{ steps.sha.outputs.MDDBD_DARWIN_ARM64 }}"
+              end
+              on_intel do
+                url "https://github.com/tradik/mddb/releases/download/${V}/mddbd-${V}-darwin-amd64.tar.gz"
+                sha256 "${{ steps.sha.outputs.MDDBD_DARWIN_AMD64 }}"
+              end
+            end
+
+            on_linux do
+              on_arm do
+                url "https://github.com/tradik/mddb/releases/download/${V}/mddbd-${V}-linux-arm64.tar.gz"
+                sha256 "${{ steps.sha.outputs.MDDBD_LINUX_ARM64 }}"
+              end
+              on_intel do
+                url "https://github.com/tradik/mddb/releases/download/${V}/mddbd-${V}-linux-amd64.tar.gz"
+                sha256 "${{ steps.sha.outputs.MDDBD_LINUX_AMD64 }}"
+              end
             end
 
             def install
@@ -694,7 +746,11 @@ jobs:
               keep_alive true
               log_path var/"log/mddbd.log"
               error_log_path var/"log/mddbd.log"
-              environment_variables MDDB_PATH: var/"lib/mddbd/mddb.db", MDDB_MODE: "wr", MDDB_EXTREME: "true"
+              working_dir var/"mddb"
+            end
+
+            def post_install
+              (var/"mddb").mkpath
             end
 
             test do
@@ -702,19 +758,38 @@ jobs:
             end
           end
           EOF
-          
-          cat > homebrew-formula/mddb-cli.rb << 'EOF'
+
+          cat > homebrew-tap/Formula/mddb-cli.rb << EOF
+          # Homebrew formula for MDDB CLI
+          # Install: brew install tradik/tap/mddb-cli
+          # Or: brew tap tradik/tap && brew install mddb-cli
+
           class MddbCli < Formula
-            desc "Command-line client for MDDB"
+            desc "Command-line interface for MDDB Markdown Database"
             homepage "https://github.com/tradik/mddb"
-            version "${{ steps.version.outputs.VERSION_NUM }}"
-            
-            if Hardware::CPU.intel?
-              url "https://github.com/tradik/mddb/releases/download/${{ steps.version.outputs.VERSION }}/mddb-cli-${{ steps.version.outputs.VERSION }}-darwin-amd64.tar.gz"
-              sha256 "CLI_INTEL_SHA256"
-            else
-              url "https://github.com/tradik/mddb/releases/download/${{ steps.version.outputs.VERSION }}/mddb-cli-${{ steps.version.outputs.VERSION }}-darwin-arm64.tar.gz"
-              sha256 "CLI_ARM_SHA256"
+            version "${VN}"
+            license "BSD-3-Clause"
+
+            on_macos do
+              on_arm do
+                url "https://github.com/tradik/mddb/releases/download/${V}/mddb-cli-${V}-darwin-arm64.tar.gz"
+                sha256 "${{ steps.sha.outputs.MDDB_CLI_DARWIN_ARM64 }}"
+              end
+              on_intel do
+                url "https://github.com/tradik/mddb/releases/download/${V}/mddb-cli-${V}-darwin-amd64.tar.gz"
+                sha256 "${{ steps.sha.outputs.MDDB_CLI_DARWIN_AMD64 }}"
+              end
+            end
+
+            on_linux do
+              on_arm do
+                url "https://github.com/tradik/mddb/releases/download/${V}/mddb-cli-${V}-linux-arm64.tar.gz"
+                sha256 "${{ steps.sha.outputs.MDDB_CLI_LINUX_ARM64 }}"
+              end
+              on_intel do
+                url "https://github.com/tradik/mddb/releases/download/${V}/mddb-cli-${V}-linux-amd64.tar.gz"
+                sha256 "${{ steps.sha.outputs.MDDB_CLI_LINUX_AMD64 }}"
+              end
             end
 
             def install
@@ -723,16 +798,29 @@ jobs:
             end
 
             test do
-              system "#{bin}/mddb-cli", "--version"
+              system "#{bin}/mddb-cli", "--help"
             end
           end
           EOF
 
-      - name: Upload Homebrew formulas
+      - name: Commit and push tap update
+        run: |
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet Formula/; then
+            echo "No formula changes — skipping."
+            exit 0
+          fi
+          git add Formula/mddb.rb Formula/mddb-cli.rb
+          git commit -m "chore: bump mddb and mddb-cli to ${{ steps.version.outputs.VERSION_NUM }}"
+          git push origin main
+
+      - name: Upload Homebrew formulas as artifact
         uses: actions/upload-artifact@v7
         with:
           name: homebrew-formulas
-          path: homebrew-formula/*.rb
+          path: homebrew-tap/Formula/*.rb
 
   # Snap publish jobs use `snapcore/action-build@v1` to build natively on
   # the runner via LXD (no Launchpad OAuth handshake, which was timing out
