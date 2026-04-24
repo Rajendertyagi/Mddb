@@ -296,6 +296,8 @@ Proto definitions at `proto/mddb.proto` - generate clients for any language supp
 - ✅ **HTTP + gRPC rate limiting** — `MDDB_RATE_LIMIT_ENABLED=true` enforces a single sliding-window budget across both transports (per-IP by default, `MDDB_RATE_LIMIT_BY=user` keys on authenticated username). Emits `X-RateLimit-*` headers + `429 Retry-After` on HTTP; `ResourceExhausted` on gRPC. Health / metrics endpoints are always exempt
 - ✅ **Production hardening switch** — `MDDB_PRODUCTION=true` fails startup unless every compliance guardrail is satisfied (auth on, JWT secret ≥32 bytes, TLS on, CORS explicit, audit + rate limit enabled). Unset = silent warning; no breaking change for existing deployments. **[→ Details](docs/config.md#production-hardening-iso-27001--soc-2)**
 
+**[→ Full compliance map, threat model, operational checklist](docs/SECURITY.md)**
+
 ### Replication & High Availability
 - ✅ **Leader-Follower Replication** - Binlog streaming for read scaling
 - ✅ **Automatic Catch-up** - Followers pull missing transactions

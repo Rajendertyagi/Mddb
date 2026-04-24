@@ -68,7 +68,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: "2.9.14"
+  version: "2.9.15"
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -122,7 +122,7 @@ tags:
   - name: Synonyms
     description: FTS synonym dictionary management
   - name: Curation
-    description: (v2.9.14+) Editorial overrides for FTS + Hybrid search — pin
+    description: (v2.9.15+) Editorial overrides for FTS + Hybrid search — pin
       documents to fixed positions, hide others for specific queries
   - name: System
     description: System information and endpoint discovery
@@ -3850,7 +3850,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [ok, fail]
+            enum: [ ok, fail ]
         - name: limit
           in: query
           schema:
@@ -3901,12 +3901,60 @@ paths:
           description: Not an admin
         "404":
           description: Audit disabled
+  /v1/compliance-status:
+    get:
+      tags:
+        - Compliance
+      summary: Report the live state of the ISO 27001 / SOC 2 production guard
+      description: |
+        Returns the current compliance posture of the running server. No
+        authentication required — designed for operator-facing liveness /
+        readiness probes and external monitoring that must detect a drifted
+        configuration. When `MDDB_PRODUCTION=true` is set and any guardrail is
+        missing, the server refuses to boot, so a reachable endpoint with
+        `production=true` implies `compliant=true`. When `MDDB_PRODUCTION` is
+        unset the server runs with the existing defaults and this endpoint
+        enumerates every missing control.
+      operationId: complianceStatus
+      responses:
+        "200":
+          description: Compliance posture
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [production, compliant, missing, missingCount]
+                properties:
+                  production:
+                    type: boolean
+                    description: True when MDDB_PRODUCTION=true was set at boot
+                  compliant:
+                    type: boolean
+                    description: True when every guardrail is satisfied
+                  missing:
+                    type: array
+                    items:
+                      type: object
+                      required: [envVar, want, reason]
+                      properties:
+                        envVar:
+                          type: string
+                          example: MDDB_AUDIT_ENABLED
+                        want:
+                          type: string
+                          example: "true"
+                        reason:
+                          type: string
+                          example: "A.8.15 / CC7.2 — audit trail"
+                  missingCount:
+                    type: integer
+                    example: 0
 
   /v1/curation:
     get:
       tags:
         - Curation
-      summary: List or fetch curation rules (v2.9.14+)
+      summary: List or fetch curation rules (v2.9.15+)
       description: |
         Pass `id` for a single rule, `collection` to list rules for one collection,
         or neither to list all rules (admin).
@@ -3940,7 +3988,7 @@ paths:
     post:
       tags:
         - Curation
-      summary: Create a curation rule (v2.9.14+)
+      summary: Create a curation rule (v2.9.15+)
       requestBody:
         required: true
         content:
@@ -3957,7 +4005,7 @@ paths:
     put:
       tags:
         - Curation
-      summary: Replace an existing curation rule (v2.9.14+)
+      summary: Replace an existing curation rule (v2.9.15+)
       requestBody:
         required: true
         content:
@@ -3974,7 +4022,7 @@ paths:
     delete:
       tags:
         - Curation
-      summary: Delete a curation rule (v2.9.14+)
+      summary: Delete a curation rule (v2.9.15+)
       parameters:
         - name: id
           in: query
@@ -5863,7 +5911,7 @@ components:
             - **phrase**: Exact word sequence (`"quoted phrases"`)
             - **wildcard**: Pattern matching (`*` any chars, `?` single char)
             - **proximity**: Terms within N words (`"term1 term2"~5`)
-            - **expression**: Full query DSL with nested parens, precedence, and mixed atoms (v2.9.14+)
+            - **expression**: Full query DSL with nested parens, precedence, and mixed atoms (v2.9.15+)
           default: auto
           example: auto
         distance:
@@ -5901,7 +5949,7 @@ components:
           type: boolean
           default: false
           description: |
-            When true (v2.9.14+), each result gains a `highlights` array with
+            When true (v2.9.15+), each result gains a `highlights` array with
             text snippets around matched terms. Works uniformly across every
             FTS mode.
         highlightTag:
@@ -5921,13 +5969,13 @@ components:
           items:
             type: string
           description: |
-            (v2.9.14+) Metadata keys to aggregate into `facets` on the response.
+            (v2.9.15+) Metadata keys to aggregate into `facets` on the response.
             Counts are computed over the documents actually returned (after
             filtering, boosts, curation).
           example: [ category, lang ]
         facetMaxValues:
           type: integer
-          description: (v2.9.14+) Cap per-key bucket count; 0 = unlimited
+          description: (v2.9.15+) Cap per-key bucket count; 0 = unlimited
           default: 0
 
     Highlight:
@@ -6013,7 +6061,7 @@ components:
     FacetMap:
       type: object
       description: |
-        (v2.9.14+) Per-key facet counts. Buckets are ordered by count desc,
+        (v2.9.15+) Per-key facet counts. Buckets are ordered by count desc,
         value asc. Missing keys produce an empty bucket list so UIs can
         render a stable facet group layout across queries.
       additionalProperties:
@@ -6040,7 +6088,7 @@ components:
         pinned:
           type: boolean
           description: |
-            (v2.9.14+) Marked `true` when a curation rule injected this row at
+            (v2.9.15+) Marked `true` when a curation rule injected this row at
             a fixed position. Clients can use this for distinct styling.
           default: false
 
@@ -6450,10 +6498,10 @@ components:
           type: array
           items:
             type: string
-          description: (v2.9.14+) Metadata keys to aggregate into `facets` on the response
+          description: (v2.9.15+) Metadata keys to aggregate into `facets` on the response
         facetMaxValues:
           type: integer
-          description: (v2.9.14+) Cap per-key bucket count; 0 = unlimited
+          description: (v2.9.15+) Cap per-key bucket count; 0 = unlimited
 
     HybridSearchResponse:
       type: object
@@ -6527,7 +6575,7 @@ components:
           example: 1
         pinned:
           type: boolean
-          description: (v2.9.14+) Injected by a curation rule
+          description: (v2.9.15+) Injected by a curation rule
           default: false
 
     PinnedDoc:
@@ -6544,7 +6592,7 @@ components:
 
     CurationRule:
       type: object
-      description: (v2.9.14+) Pinned + hidden document overrides for FTS/Hybrid search
+      description: (v2.9.15+) Pinned + hidden document overrides for FTS/Hybrid search
       properties:
         id:
           type: string
@@ -6759,7 +6807,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.9.14
+          example: 2.9.15
         uptimeSeconds:
           type: integer
           format: int64
@@ -6823,7 +6871,7 @@ components:
         version:
           type: string
           description: MDDB server version
-          example: 2.9.14
+          example: 2.9.15
         databasePath:
           type: string
           description: Path to the database file
@@ -7522,7 +7570,7 @@ components:
         maxRevisions:
           type: integer
           description: |
-            (v2.9.14+) Revision retention cap per document. `0` (default) = unlimited.
+            (v2.9.15+) Revision retention cap per document. `0` (default) = unlimited.
             When `> 0`, older revisions are trimmed synchronously on every write so
             history stays capped even under high write-churn.
           default: 0

@@ -1,4 +1,4 @@
-.TH MDDB-CLI 1 "April 2026" "mddb-cli 2.9.14" "User Commands"
+.TH MDDB-CLI 1 "April 2026" "mddb-cli 2.9.15" "User Commands"
 .SH NAME
 mddb-cli \- command-line client for MDDB (Markdown Database)
 .SH SYNOPSIS
@@ -627,7 +627,7 @@ curl -X POST http://localhost:11023/v1/aggregate \\
 .PP
 Supports optional \fBfilterMeta\fR for pre-filtering (same syntax as search).
 Also available as MCP tool: \fBaggregate\fR.
-.SS Inline Facets on Search (v2.9.14+)
+.SS Inline Facets on Search (v2.9.15+)
 Both \fB/v1/fts\fR and \fB/v1/hybrid-search\fR accept \fBfacetBy\fR (array of
 metadata keys) and return a \fBfacets\fR map with per-value counts computed
 over the documents that match the query — no separate \fB/v1/aggregate\fR
@@ -637,7 +637,7 @@ curl -X POST http://localhost:11023/v1/fts \\
   -H "Content-Type: application/json" \\
   -d '{"collection":"blog","query":"rust","facetBy":["category","lang"],"facetMaxValues":10}'
 .fi
-.SH CURATION RULES (v2.9.14+)
+.SH CURATION RULES (v2.9.15+)
 Curation rules pin specific documents to fixed positions and/or hide others
 when a search query matches. Applied inside FTS and Hybrid pipelines after
 scoring but before the limit trim; pinned items carry \fBpinned: true\fR on
@@ -676,7 +676,7 @@ curl -X POST http://localhost:11023/v1/curation \\
 \fBposition <= 0\fR are appended after organic results. Also exposed as MCP
 tools \fBlist_curation_rules\fR, \fBcreate_curation_rule\fR,
 \fBupdate_curation_rule\fR, \fBdelete_curation_rule\fR.
-.SH REVISION RETENTION (v2.9.14+)
+.SH REVISION RETENTION (v2.9.15+)
 Per-collection \fBmaxRevisions\fR caps the revision history kept per document.
 \fB0\fR (default) = unlimited. \fBN > 0\fR keeps only the newest N revisions;
 older entries are dropped inside the same BoltDB transaction as each write,
@@ -793,7 +793,7 @@ MDDB_TLS_KEY=./server.key \\
 ./mddbd
 .fi
 .SH MCP-OVER-SSE TRANSPORT
-MDDB supports the MCP-over-SSE transport (v2.9.14+) for remote MCP connections
+MDDB supports the MCP-over-SSE transport (v2.9.15+) for remote MCP connections
 without stdio. Useful for web-based agents and remote servers.
 .SS Endpoints (MCP port 9000)
 .TP
@@ -948,6 +948,84 @@ for key in post1 post2 post3; do
   mddb-cli get blog "$key" en_US -c > "${key}.md"
 done
 .RE
+.SH AUDIT LOG (v2.9.15+)
+When the server is started with
+.B MDDB_AUDIT_ENABLED=true
+every authentication attempt and every mutating request is recorded to a
+dedicated BoltDB bucket. Admin-only endpoint
+.B GET /v1/audit
+returns the events newest-first. Supported query parameters:
+.I from
+/
+.I to
+(RFC3339) or
+.I fromNanos
+/
+.I toNanos
+,
+.I actor
+,
+.I action
+,
+.I result
+(\fBok\fR or \fBfail\fR),
+.I limit
+(default 100).
+.PP
+Example:
+.RS
+.nf
+curl -H "Authorization: Bearer $ADMIN_JWT" \e
+  "http://localhost:11023/v1/audit?actor=alice&result=fail&limit=50"
+.fi
+.RE
+.PP
+Retention is controlled by
+.B MDDB_AUDIT_RETENTION_DAYS
+(default 90). Response field
+.I dropped
+is the running total of events lost to in-memory buffer pressure \(em a
+non-zero value is an operational signal to raise the buffer or lower load.
+.SH COMPLIANCE CHECK (v2.9.15+)
+.B GET /v1/compliance-status
+reports the live state of the
+.B MDDB_PRODUCTION
+hardening guard. Unauthenticated \(em designed for liveness and readiness
+probes. Response:
+.RS
+.nf
+{
+  "production": true,
+  "compliant":  true,
+  "missing":    [],
+  "missingCount": 0
+}
+.fi
+.RE
+.PP
+When a guardrail is missing, each entry in
+.I missing
+carries
+.BR envVar ", " want ", " reason .
+See
+.B /docs/security
+for the full ISO 27001 / SOC 2 control map.
+.SH RATE LIMITING (v2.9.15+)
+With
+.B MDDB_RATE_LIMIT_ENABLED=true
+every HTTP response carries
+.BR X-RateLimit-Limit ", " X-RateLimit-Remaining ", " X-RateLimit-Reset .
+Rejected requests return
+.B 429 Too Many Requests
+with a
+.B Retry-After
+header. The gRPC transport rejects with
+.BR codes.ResourceExhausted .
+The paths
+.IR /health ", " /v1/health ", " /metrics
+are exempt so monitoring probes never trip the limiter. The pre-existing
+.B MDDB_MCP_RATE_LIMIT_*
+budget for MCP is independent and still applies.
 .SH FILES
 .TP
 .I ~/.mddb-cli.conf
