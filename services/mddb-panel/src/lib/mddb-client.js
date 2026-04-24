@@ -1013,6 +1013,34 @@ class MDDBClient {
     });
   }
 
+  // ---- Audit / Compliance / Health (ISO 27001 / SOC 2) ----
+
+  /**
+   * Query the audit log. Accepts optional filters: actor, action, result,
+   * from / to (RFC3339), fromNanos / toNanos, limit.
+   */
+  async listAuditEvents(filters = {}) {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(filters)) {
+      if (v !== undefined && v !== null && v !== '') params.append(k, v);
+    }
+    const qs = params.toString();
+    return this.request(`/audit${qs ? '?' + qs : ''}`, { method: 'GET' });
+  }
+
+  /**
+   * Get the production-guard compliance status for the compliance banner
+   * and the Security dashboard. Returns {production, compliant, missing[]}.
+   */
+  async getComplianceStatus() {
+    return this.request('/compliance-status', { method: 'GET' });
+  }
+
+  /** Basic health probe. */
+  async getHealth() {
+    return this.request('/health', { method: 'GET' });
+  }
+
   async spellDictionary(method, { collection, lang, words, frequency }) {
     if (method === 'GET') {
       const params = new URLSearchParams({ lang });

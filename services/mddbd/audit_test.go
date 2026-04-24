@@ -109,7 +109,7 @@ func TestAuditDisabledNoOp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	am := NewAuditManager(db, false, 90)
 	_ = am.EnsureBuckets()
 	am.Start()
@@ -128,7 +128,7 @@ func TestAuditDroppedWhenBufferFull(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	// Do NOT Start(): writer goroutine is absent, channel cannot drain.
 	am := NewAuditManager(db, true, 90)
 	_ = am.EnsureBuckets()
@@ -237,7 +237,7 @@ func TestAuditPurgeEmptyBucket(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	am := NewAuditManager(db, true, 90)
 	// No EnsureBuckets — PurgeOlderThan must no-op rather than panic.
 	if err := am.PurgeOlderThan(time.Now().UnixNano()); err != nil {

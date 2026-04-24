@@ -234,6 +234,10 @@ export const useStore = create((set, get) => ({
   // View mode actions
   setViewMode: (mode) => set({ viewMode: mode }),
 
+  // Audit log filter preset (used by Security dashboard → Audit Log drill-down)
+  auditFilterPreset: null,
+  setAuditFilterPreset: (preset) => set({ auditFilterPreset: preset }),
+
   // System info actions
   setSystemInfo: (info) => set({ systemInfo: info }),
   setSystemInfoLoading: (loading) => set({ systemInfoLoading: loading }),

@@ -111,7 +111,7 @@ func PanicRecoveryMiddleware(wm *WebhookManager, next http.Handler) http.Handler
 				return
 			}
 			stack := string(debug.Stack())
-			log.Printf("panic recovered on %s %s: %v\n%s", r.Method, r.URL.Path, rec, stack)
+			log.Printf("panic recovered on %s %s: %v\n%s", r.Method, r.URL.Path, rec, stack) //nolint:gosec // G706: method/path are already validated by net/http router; safe to log
 			if wm != nil {
 				wm.FireEvent(EventPanicRecovered, map[string]interface{}{
 					"method": r.Method,

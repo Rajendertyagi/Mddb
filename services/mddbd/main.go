@@ -25,7 +25,7 @@ import (
 )
 
 // VERSION is the current release version of the MDDB server.
-const VERSION = "2.9.14"
+const VERSION = "2.9.15"
 
 // AccessMode defines the database access mode (read, write, or both).
 type AccessMode string
@@ -765,6 +765,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/v1/health", s.handleHealth)
+	mux.HandleFunc("/v1/compliance-status", s.handleComplianceStatus)
 	mux.HandleFunc("/v1/add", s.guardWrite(s.handleAdd))
 	mux.HandleFunc("/v1/add-batch", s.guardWrite(s.handleAddBatch))
 	mux.HandleFunc("/v1/bulk-ingest-job", s.guardWrite(s.handleBulkIngestSubmit))
@@ -2044,6 +2045,29 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(200)
 	_, _ = w.Write([]byte(`{"status":"healthy","mode":"` + string(s.Mode) + `"}`))
+}
+
+// handleComplianceStatus returns the ISO 27001 / SOC 2 production-guard
+// state so operators (and the Panel) can see whether the server is
+// running with the required security envelope.
+func (s *Server) handleComplianceStatus(w http.ResponseWriter, r *http.Request) {
+	missing := CheckProductionGuards()
+	type missingEntry struct {
+		EnvVar string `json:"envVar"`
+		Want   string `json:"want"`
+		Reason string `json:"reason"`
+	}
+	entries := make([]missingEntry, 0, len(missing))
+	for _, m := range missing {
+		entries = append(entries, missingEntry{EnvVar: m.EnvVar, Want: m.Want, Reason: m.Reason})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"production":   IsProduction(),
+		"compliant":    len(missing) == 0,
+		"missing":      entries,
+		"missingCount": len(missing),
+	})
 }
 
 func (s *Server) collectionChecksum(collection string) (string, int) {

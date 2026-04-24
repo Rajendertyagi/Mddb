@@ -36,6 +36,7 @@ export default function CollectionConfigModal({ collection, onClose, onSave }) {
   const [spellCorrect, setSpellCorrect] = useState(false);
   const [spellLang, setSpellLang] = useState('');
   const [maxRevisions, setMaxRevisions] = useState(0);
+  const [encrypted, setEncrypted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -69,6 +70,7 @@ export default function CollectionConfigModal({ collection, onClose, onSave }) {
         setSpellCorrect(cfg.spellCorrect || false);
         setSpellLang(cfg.spellLang || '');
         setMaxRevisions(cfg.maxRevisions || 0);
+        setEncrypted(cfg.encrypted === true);
       }
     } catch (err) {
       setError(err.message);
@@ -101,6 +103,7 @@ export default function CollectionConfigModal({ collection, onClose, onSave }) {
         spellCorrect: spellCorrect || undefined,
         spellLang: spellLang || undefined,
         maxRevisions: Number(maxRevisions) > 0 ? Number(maxRevisions) : undefined,
+        encrypted: encrypted || undefined,
       };
       if (storageBackend === 's3') {
         payload.storageConfig = storageConfig;
@@ -406,7 +409,7 @@ export default function CollectionConfigModal({ collection, onClose, onSave }) {
                 )}
               </div>
 
-              {/* Revision Retention (v2.9.14+) */}
+              {/* Revision Retention (v2.9.15+) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Revision History Retention</label>
                 <div className="flex items-center gap-2">
@@ -425,6 +428,23 @@ export default function CollectionConfigModal({ collection, onClose, onSave }) {
                 </div>
                 <p className="text-xs text-gray-400 mt-1">
                   Older revisions are trimmed synchronously on every write so history can&apos;t grow unbounded on high-churn collections.
+                </p>
+              </div>
+
+              {/* At-Rest Encryption (ISO 27001 A.8.24 / SOC 2 CC6.7) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">At-Rest Encryption</label>
+                <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={encrypted}
+                    onChange={(e) => setEncrypted(e.target.checked)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  Encrypt this collection (AES-256-GCM)
+                </label>
+                <p className="text-xs text-gray-400 mt-1">
+                  Requires <span className="font-mono">MDDB_ENCRYPTION_KEY</span> to be set on the server. Legacy plaintext documents remain readable after enabling.
                 </p>
               </div>
 

@@ -104,6 +104,7 @@ func NewRateLimiter() *RateLimiter {
 	if rl.by != "user" {
 		rl.by = "ip"
 	}
+	// #nosec G706 -- all values come from env config, not request data
 	log.Printf("Rate limiting enabled (%d req/%ds, burst=%d, by=%s)",
 		rl.limit, windowSec, rl.burst, rl.by)
 	return rl

@@ -52,7 +52,7 @@ func captureEvents(t *testing.T, wm *WebhookManager, events ...string) <-chan We
 }
 
 func decodeJSONBody(r *http.Request, v interface{}) error {
-	defer r.Body.Close()
+	defer func() { _ = r.Body.Close() }()
 	b, err := io.ReadAll(r.Body)
 	if err != nil {
 		return err
@@ -65,14 +65,9 @@ func decodeJSONBody(r *http.Request, v interface{}) error {
 func TestAuthFailureTrackerBelowThresholdSilent(t *testing.T) {
 	wm := newIncidentWebhookManager(t)
 	ch := captureEvents(t, wm, EventAuthFailureBurst)
-	os.Setenv("MDDB_INCIDENT_AUTH_THRESHOLD", "5")
-	os.Setenv("MDDB_INCIDENT_AUTH_WINDOW_SEC", "60")
-	os.Setenv("MDDB_INCIDENT_AUTH_COOLDOWN_SEC", "300")
-	defer func() {
-		os.Unsetenv("MDDB_INCIDENT_AUTH_THRESHOLD")
-		os.Unsetenv("MDDB_INCIDENT_AUTH_WINDOW_SEC")
-		os.Unsetenv("MDDB_INCIDENT_AUTH_COOLDOWN_SEC")
-	}()
+	t.Setenv("MDDB_INCIDENT_AUTH_THRESHOLD", "5")
+	t.Setenv("MDDB_INCIDENT_AUTH_WINDOW_SEC", "60")
+	t.Setenv("MDDB_INCIDENT_AUTH_COOLDOWN_SEC", "300")
 	tr := NewAuthFailureTracker(wm)
 	for i := 0; i < 4; i++ {
 		if tr.Record("alice", "1.1.1.1") {
@@ -89,12 +84,8 @@ func TestAuthFailureTrackerBelowThresholdSilent(t *testing.T) {
 func TestAuthFailureTrackerFiresAtThreshold(t *testing.T) {
 	wm := newIncidentWebhookManager(t)
 	ch := captureEvents(t, wm, EventAuthFailureBurst)
-	os.Setenv("MDDB_INCIDENT_AUTH_THRESHOLD", "3")
-	os.Setenv("MDDB_INCIDENT_AUTH_COOLDOWN_SEC", "1")
-	defer func() {
-		os.Unsetenv("MDDB_INCIDENT_AUTH_THRESHOLD")
-		os.Unsetenv("MDDB_INCIDENT_AUTH_COOLDOWN_SEC")
-	}()
+	t.Setenv("MDDB_INCIDENT_AUTH_THRESHOLD", "3")
+	t.Setenv("MDDB_INCIDENT_AUTH_COOLDOWN_SEC", "1")
 	tr := NewAuthFailureTracker(wm)
 	fired := 0
 	for i := 0; i < 3; i++ {
@@ -120,12 +111,8 @@ func TestAuthFailureTrackerFiresAtThreshold(t *testing.T) {
 
 func TestAuthFailureTrackerCooldown(t *testing.T) {
 	wm := newIncidentWebhookManager(t)
-	os.Setenv("MDDB_INCIDENT_AUTH_THRESHOLD", "2")
-	os.Setenv("MDDB_INCIDENT_AUTH_COOLDOWN_SEC", "3600")
-	defer func() {
-		os.Unsetenv("MDDB_INCIDENT_AUTH_THRESHOLD")
-		os.Unsetenv("MDDB_INCIDENT_AUTH_COOLDOWN_SEC")
-	}()
+	t.Setenv("MDDB_INCIDENT_AUTH_THRESHOLD", "2")
+	t.Setenv("MDDB_INCIDENT_AUTH_COOLDOWN_SEC", "3600")
 	tr := NewAuthFailureTracker(wm)
 	_ = tr.Record("carol", "3.3.3.3")
 	if !tr.Record("carol", "3.3.3.3") {
@@ -250,14 +237,9 @@ func TestDiskMonitorFiresAtThreshold(t *testing.T) {
 	wm := newIncidentWebhookManager(t)
 	ch := captureEvents(t, wm, EventDiskUsageHigh)
 	// 0%% threshold ⇒ always over.
-	os.Setenv("MDDB_INCIDENT_DISK_THRESHOLD_PCT", "1")
-	os.Setenv("MDDB_INCIDENT_DISK_INTERVAL_SEC", "1")
-	os.Setenv("MDDB_INCIDENT_DISK_COOLDOWN_SEC", "1")
-	defer func() {
-		os.Unsetenv("MDDB_INCIDENT_DISK_THRESHOLD_PCT")
-		os.Unsetenv("MDDB_INCIDENT_DISK_INTERVAL_SEC")
-		os.Unsetenv("MDDB_INCIDENT_DISK_COOLDOWN_SEC")
-	}()
+	t.Setenv("MDDB_INCIDENT_DISK_THRESHOLD_PCT", "1")
+	t.Setenv("MDDB_INCIDENT_DISK_INTERVAL_SEC", "1")
+	t.Setenv("MDDB_INCIDENT_DISK_COOLDOWN_SEC", "1")
 	m := NewDiskUsageMonitor(wm, os.TempDir())
 	if m == nil {
 		t.Fatal("nil monitor")
@@ -289,14 +271,9 @@ func (s *stubLag) LagMs() int64 { return s.v.Load() }
 func TestLagMonitorFiresAboveThreshold(t *testing.T) {
 	wm := newIncidentWebhookManager(t)
 	ch := captureEvents(t, wm, EventReplicationLagHigh)
-	os.Setenv("MDDB_INCIDENT_LAG_THRESHOLD_MS", "1000")
-	os.Setenv("MDDB_INCIDENT_LAG_INTERVAL_SEC", "1")
-	os.Setenv("MDDB_INCIDENT_LAG_COOLDOWN_SEC", "1")
-	defer func() {
-		os.Unsetenv("MDDB_INCIDENT_LAG_THRESHOLD_MS")
-		os.Unsetenv("MDDB_INCIDENT_LAG_INTERVAL_SEC")
-		os.Unsetenv("MDDB_INCIDENT_LAG_COOLDOWN_SEC")
-	}()
+	t.Setenv("MDDB_INCIDENT_LAG_THRESHOLD_MS", "1000")
+	t.Setenv("MDDB_INCIDENT_LAG_INTERVAL_SEC", "1")
+	t.Setenv("MDDB_INCIDENT_LAG_COOLDOWN_SEC", "1")
 	src := &stubLag{}
 	src.v.Store(5000)
 	m := NewReplicationLagMonitor(wm, src)
@@ -314,8 +291,7 @@ func TestLagMonitorFiresAboveThreshold(t *testing.T) {
 func TestLagMonitorBelowThresholdSilent(t *testing.T) {
 	wm := newIncidentWebhookManager(t)
 	ch := captureEvents(t, wm, EventReplicationLagHigh)
-	os.Setenv("MDDB_INCIDENT_LAG_THRESHOLD_MS", "5000")
-	defer os.Unsetenv("MDDB_INCIDENT_LAG_THRESHOLD_MS")
+	t.Setenv("MDDB_INCIDENT_LAG_THRESHOLD_MS", "5000")
 	src := &stubLag{}
 	src.v.Store(200)
 	m := NewReplicationLagMonitor(wm, src)
@@ -330,12 +306,8 @@ func TestLagMonitorBelowThresholdSilent(t *testing.T) {
 func TestLagMonitorCooldown(t *testing.T) {
 	wm := newIncidentWebhookManager(t)
 	ch := captureEvents(t, wm, EventReplicationLagHigh)
-	os.Setenv("MDDB_INCIDENT_LAG_THRESHOLD_MS", "100")
-	os.Setenv("MDDB_INCIDENT_LAG_COOLDOWN_SEC", "3600")
-	defer func() {
-		os.Unsetenv("MDDB_INCIDENT_LAG_THRESHOLD_MS")
-		os.Unsetenv("MDDB_INCIDENT_LAG_COOLDOWN_SEC")
-	}()
+	t.Setenv("MDDB_INCIDENT_LAG_THRESHOLD_MS", "100")
+	t.Setenv("MDDB_INCIDENT_LAG_COOLDOWN_SEC", "3600")
 	src := &stubLag{}
 	src.v.Store(500)
 	m := NewReplicationLagMonitor(wm, src)
@@ -360,8 +332,7 @@ func TestLagMonitorCooldown(t *testing.T) {
 
 func TestLagMonitorStartStop(t *testing.T) {
 	wm := newIncidentWebhookManager(t)
-	os.Setenv("MDDB_INCIDENT_LAG_INTERVAL_SEC", "1")
-	defer os.Unsetenv("MDDB_INCIDENT_LAG_INTERVAL_SEC")
+	t.Setenv("MDDB_INCIDENT_LAG_INTERVAL_SEC", "1")
 	m := NewReplicationLagMonitor(wm, &stubLag{})
 	m.Start()
 	time.Sleep(50 * time.Millisecond)
@@ -371,8 +342,7 @@ func TestLagMonitorStartStop(t *testing.T) {
 
 func TestDiskMonitorStartStop(t *testing.T) {
 	wm := newIncidentWebhookManager(t)
-	os.Setenv("MDDB_INCIDENT_DISK_INTERVAL_SEC", "1")
-	defer os.Unsetenv("MDDB_INCIDENT_DISK_INTERVAL_SEC")
+	t.Setenv("MDDB_INCIDENT_DISK_INTERVAL_SEC", "1")
 	m := NewDiskUsageMonitor(wm, os.TempDir())
 	m.Start()
 	time.Sleep(50 * time.Millisecond)

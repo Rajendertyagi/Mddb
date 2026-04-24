@@ -28,6 +28,10 @@ import CrossSearchPanel from './components/CrossSearchPanel';
 import TemporalPanel from './components/TemporalPanel';
 import SpellCheckPanel from './components/SpellCheckPanel';
 import GeoPanel from './components/GeoPanel';
+import AuditLogPanel from './components/AuditLogPanel';
+import WebhooksPanel from './components/WebhooksPanel';
+import SecurityDashboard from './components/SecurityDashboard';
+import ComplianceBanner from './components/ComplianceBanner';
 import SSEToast from './components/SSEToast';
 import { useSSE } from './lib/useSSE';
 
@@ -152,6 +156,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <ComplianceBanner />
       <Header onRefresh={loadStats} />
 
       <div className="flex" style={{ height: 'calc(100vh - 64px)' }}>
@@ -287,6 +292,21 @@ function App() {
           {viewMode === 'spellcheck' && (
             <div className="flex-1 border-l border-gray-200">
               <SpellCheckPanel />
+            </div>
+          )}
+          {viewMode === 'auditLog' && (
+            <div className="flex-1 border-l border-gray-200">
+              <AuditLogPanel />
+            </div>
+          )}
+          {viewMode === 'webhooks' && (
+            <div className="flex-1 border-l border-gray-200">
+              <WebhooksPanel />
+            </div>
+          )}
+          {viewMode === 'security' && (
+            <div className="flex-1 border-l border-gray-200">
+              <SecurityDashboard />
             </div>
           )}
           {viewMode === 'documents' && (
