@@ -85,19 +85,28 @@ func (am *AuthManager) HTTPMiddleware(next http.Handler) http.Handler {
 }
 
 // auditAuth records an authentication attempt. Safe on nil server.
+// When the attempt failed, also feeds the sliding-window tracker so
+// a burst of failures from the same actor/IP fires the security
+// incident event.
 func (am *AuthManager) auditAuth(r *http.Request, actor, action, result, detail string) {
-	if am == nil || am.server == nil || am.server.AuditManager == nil {
+	if am == nil || am.server == nil {
 		return
 	}
-	am.server.AuditManager.Record(AuditEvent{
-		Actor:     actor,
-		Action:    action,
-		Resource:  r.URL.Path,
-		Result:    result,
-		IP:        ClientIP(r),
-		UserAgent: r.UserAgent(),
-		Detail:    detail,
-	})
+	ip := ClientIP(r)
+	if am.server.AuditManager != nil {
+		am.server.AuditManager.Record(AuditEvent{
+			Actor:     actor,
+			Action:    action,
+			Resource:  r.URL.Path,
+			Result:    result,
+			IP:        ip,
+			UserAgent: r.UserAgent(),
+			Detail:    detail,
+		})
+	}
+	if result == "fail" && am.server.AuthFailureTracker != nil {
+		am.server.AuthFailureTracker.Record(actor, ip)
+	}
 }
 
 // extractTokenFromRequest extracts JWT token from Authorization header

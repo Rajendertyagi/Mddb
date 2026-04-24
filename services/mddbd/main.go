@@ -71,30 +71,33 @@ type Server struct {
 	GeoIndex     *GeoIndex     // In-memory R-tree geo index (default)
 	GeoHashIndex *GeoHashIndex // Alternative geohash-prefix index
 	// New features
-	TTLManager         *TTLManager          // Document TTL / auto-expiry
-	FTSIndex           *FTSIndex            // Full-text search index
-	WebhookManager     *WebhookManager      // Webhook subscriptions and delivery
-	SchemaManager      *SchemaManager       // Per-collection metadata schema validation
-	Metrics            *Metrics             // Prometheus-compatible telemetry
-	AuthManager        *AuthManager         // Authentication and authorization
-	AuditManager       *AuditManager        // Audit log (ISO 27001 A.8.15, SOC 2 CC7.2)
-	RateLimiter        *RateLimiter         // Cross-transport rate limiter (ISO 27001 A.5.30, SOC 2 CC6.6)
-	Encryptor          *Encryptor           // At-rest AES-256-GCM encryption (ISO 27001 A.8.24, SOC 2 CC6.7)
-	SynonymManager     *SynonymManager      // Synonym dictionaries for FTS
-	StopWordManager    *StopWordManager     // Per-collection custom stop words for FTS
-	AutomationManager  *AutomationManager   // Automation: triggers, crons, webhook targets
-	AutomationLogStore *AutomationLogStore  // Automation execution logs
-	CronScheduler      *CronScheduler       // Cron scheduler for automation
-	CollectionManager  *CollectionManager   // Per-collection attributes (type, description, icon, etc.)
-	CurationManager    *CurationManager     // FTS/Hybrid curation rules: pinned + hidden results per query
-	TemporalManager    *TemporalManager     // Document lifecycle event tracking (create/update/access)
-	SpellManager       *SpellManager        // Spell correction for FTS queries and document content
-	SSEHub             *SSEHub              // Server-Sent Events for real-time document change notifications
-	BulkIngest         *BulkIngestManager   // Async bulk ingest job manager
-	MCPInfo            MCPServerInfo        // Customizable MCP server profile
-	MCPInstructions    string               // System prompt for LLM — how to use this server
-	mcpKeyStore        *mcpAPIKeyStore      // BoltDB-backed MCP API key store
-	mcpAuth            *MCPAPIKeyMiddleware // MCP API key middleware (for cache invalidation)
+	TTLManager         *TTLManager            // Document TTL / auto-expiry
+	FTSIndex           *FTSIndex              // Full-text search index
+	WebhookManager     *WebhookManager        // Webhook subscriptions and delivery
+	SchemaManager      *SchemaManager         // Per-collection metadata schema validation
+	Metrics            *Metrics               // Prometheus-compatible telemetry
+	AuthManager        *AuthManager           // Authentication and authorization
+	AuditManager       *AuditManager          // Audit log (ISO 27001 A.8.15, SOC 2 CC7.2)
+	RateLimiter        *RateLimiter           // Cross-transport rate limiter (ISO 27001 A.5.30, SOC 2 CC6.6)
+	Encryptor          *Encryptor             // At-rest AES-256-GCM encryption (ISO 27001 A.8.24, SOC 2 CC6.7)
+	AuthFailureTracker *AuthFailureTracker    // Sliding-window auth failure counter → security.auth_failure_burst
+	LagMonitor         *ReplicationLagMonitor // Periodic replication-lag → ops.replication_lag_high
+	DiskMonitor        *DiskUsageMonitor      // Periodic disk-usage → ops.disk_usage_high
+	SynonymManager     *SynonymManager        // Synonym dictionaries for FTS
+	StopWordManager    *StopWordManager       // Per-collection custom stop words for FTS
+	AutomationManager  *AutomationManager     // Automation: triggers, crons, webhook targets
+	AutomationLogStore *AutomationLogStore    // Automation execution logs
+	CronScheduler      *CronScheduler         // Cron scheduler for automation
+	CollectionManager  *CollectionManager     // Per-collection attributes (type, description, icon, etc.)
+	CurationManager    *CurationManager       // FTS/Hybrid curation rules: pinned + hidden results per query
+	TemporalManager    *TemporalManager       // Document lifecycle event tracking (create/update/access)
+	SpellManager       *SpellManager          // Spell correction for FTS queries and document content
+	SSEHub             *SSEHub                // Server-Sent Events for real-time document change notifications
+	BulkIngest         *BulkIngestManager     // Async bulk ingest job manager
+	MCPInfo            MCPServerInfo          // Customizable MCP server profile
+	MCPInstructions    string                 // System prompt for LLM — how to use this server
+	mcpKeyStore        *mcpAPIKeyStore        // BoltDB-backed MCP API key store
+	mcpAuth            *MCPAPIKeyMiddleware   // MCP API key middleware (for cache invalidation)
 	// Replication
 	Binlog          *Binlog            // Binary replication log
 	ReplicationRole string             // "leader", "follower", or "" (standalone)
@@ -470,6 +473,12 @@ func main() {
 	}
 	log.Printf("Webhook manager initialized (%d hooks loaded)", len(s.WebhookManager.List()))
 
+	// Incident detectors — reuse the WebhookManager to deliver
+	// security.* and ops.* events to whichever hooks subscribed.
+	s.AuthFailureTracker = NewAuthFailureTracker(s.WebhookManager)
+	s.DiskMonitor = NewDiskUsageMonitor(s.WebhookManager, dbPath)
+	s.DiskMonitor.Start()
+
 	// Initialize automation manager (triggers, crons, webhook targets)
 	automationsEnabled := env("MDDB_AUTOMATIONS", "enable") != "disable"
 	if automationsEnabled {
@@ -722,8 +731,10 @@ func main() {
 
 	// Initialize the shared HTTP+gRPC rate limiter (opt-in via
 	// MDDB_RATE_LIMIT_ENABLED). Both transports consume the same
-	// per-client budget.
+	// per-client budget. Wire the webhook publisher so rejections
+	// surface as security.rate_limit_exceeded events.
 	s.RateLimiter = NewRateLimiter()
+	s.RateLimiter.SetWebhookManager(s.WebhookManager)
 
 	// Enforce ISO 27001 / SOC 2 guardrails when MDDB_PRODUCTION=true,
 	// or log a one-shot warning otherwise.
@@ -904,7 +915,7 @@ func main() {
 	// Panel mode: internal (default) = CORS enabled, external = CORS disabled (panel proxies)
 	panelMode := env("MDDB_PANEL_MODE", "internal")
 
-	// Wrap mux: CORS → rate limit → auth → metrics → JSON → routes
+	// Wrap mux: CORS → panic-recover → rate limit → auth → metrics → JSON → routes
 	handler := withJSON(mux)
 	handler = s.Metrics.Middleware(handler)
 	if authEnabled && s.AuthManager != nil {
@@ -913,6 +924,10 @@ func main() {
 	if s.RateLimiter.Enabled() {
 		handler = s.RateLimiter.HTTPMiddleware(handler)
 	}
+	// Panic recovery is the outermost concern so every other
+	// middleware is shielded — a crash in auth/rate-limit/etc.
+	// becomes an ops.panic_recovered event, not a process kill.
+	handler = PanicRecoveryMiddleware(s.WebhookManager, handler)
 	if panelMode != "external" {
 		handler = withCORS(handler)
 	}
@@ -1076,6 +1091,12 @@ func main() {
 		replClient.Start()
 		defer replClient.Stop()
 		log.Printf("Replication client started (leader=%s, follower=%s)", leaderAddr, s.NodeID)
+
+		// Monitor replication lag and fire ops.replication_lag_high
+		// when it crosses the threshold.
+		s.LagMonitor = NewReplicationLagMonitor(s.WebhookManager, replClient)
+		s.LagMonitor.Start()
+		defer s.LagMonitor.Stop()
 	}
 
 	if s.ReplicationRole == "leader" {
@@ -1095,6 +1116,12 @@ func main() {
 	// Flush pending audit events on shutdown
 	if s.AuditManager != nil {
 		defer s.AuditManager.Stop()
+	}
+
+	// Stop the disk-usage monitor; LagMonitor is stopped adjacent to
+	// the replication client in the follower branch above.
+	if s.DiskMonitor != nil {
+		defer s.DiskMonitor.Stop()
 	}
 
 	// Start gRPC server

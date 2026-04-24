@@ -131,6 +131,45 @@ Complete reference for all MDDB configuration parameters.
 
 ---
 
+## Incident Events (ISO 27001 / SOC 2)
+
+Security and operational incidents are delivered through the existing `/v1/webhooks` subscription system. A webhook that registers for one of the incident event names receives the same JSON envelope as document-lifecycle events, with the event-specific payload in `detail`.
+
+| Event | Fired when | `detail` payload |
+|-------|------------|------------------|
+| `security.auth_failure_burst` | N auth failures from the same `actor@ip` inside the window | `{actor, ip, count, windowSec}` |
+| `security.rate_limit_exceeded` | A request is rejected by the HTTP/gRPC rate limiter | `{clientId, transport}` |
+| `ops.replication_lag_high` | Follower lag exceeds threshold on poll | `{lagMs, thresholdMs}` |
+| `ops.panic_recovered` | An HTTP handler panicked and was recovered by the middleware | `{method, path, panic, ip}` |
+| `ops.disk_usage_high` | DB filesystem used-% ≥ threshold | `{path, usedBytes, totalBytes, usedPct, thresholdPct}` |
+
+| Env Var | Default | Type | Description |
+|---------|---------|------|-------------|
+| `MDDB_INCIDENT_AUTH_THRESHOLD` | `10` | int | Failures per window before firing. |
+| `MDDB_INCIDENT_AUTH_WINDOW_SEC` | `60` | int | Sliding-window length. |
+| `MDDB_INCIDENT_AUTH_COOLDOWN_SEC` | `300` | int | Quiet period after a burst before the same `actor@ip` can refire. |
+| `MDDB_INCIDENT_LAG_THRESHOLD_MS` | `5000` | int | Replication-lag threshold. |
+| `MDDB_INCIDENT_LAG_INTERVAL_SEC` | `30` | int | Poll interval. |
+| `MDDB_INCIDENT_LAG_COOLDOWN_SEC` | `300` | int | Cool-down after a lag event. |
+| `MDDB_INCIDENT_DISK_THRESHOLD_PCT` | `85` | int (1–100) | Disk-usage threshold. |
+| `MDDB_INCIDENT_DISK_INTERVAL_SEC` | `300` | int | Poll interval. |
+| `MDDB_INCIDENT_DISK_COOLDOWN_SEC` | `3600` | int | Cool-down after a disk event. |
+
+Registering a webhook for incident events:
+
+```bash
+curl -X POST localhost:11023/v1/webhooks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://ops.example.com/mddb-incidents",
+    "events": ["security.auth_failure_burst","ops.panic_recovered","ops.disk_usage_high"]
+  }'
+```
+
+Retries, backoff (0s / 1s / 5s / 15s) and `X-MDDB-Event` / `X-MDDB-Webhook-ID` headers are shared with the existing document-lifecycle delivery path.
+
+---
+
 ## At-Rest Encryption (ISO 27001 / SOC 2)
 
 Opt-in per-collection AES-256-GCM encryption for documents and revisions. Activation requires **both** a process-wide key and a per-collection flag — an operator who does neither pays zero runtime cost and stores plaintext like today.

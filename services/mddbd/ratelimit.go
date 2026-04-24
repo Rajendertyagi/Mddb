@@ -42,6 +42,24 @@ type RateLimiter struct {
 	clients   map[string]*rlBucket
 	cleanupAt time.Time
 	exempt    map[string]struct{} // HTTP paths that bypass the limit
+	// onReject fires security.rate_limit_exceeded on the incident
+	// webhook channel. Wired from Server after NewWebhookManager —
+	// stays nil in unit tests so they don't need a full server.
+	onReject func(clientID, transport string)
+}
+
+// SetWebhookManager wires the incident-event publisher used to fire
+// security.rate_limit_exceeded on burst. Safe on nil.
+func (rl *RateLimiter) SetWebhookManager(wm *WebhookManager) {
+	if rl == nil || wm == nil {
+		return
+	}
+	rl.onReject = func(clientID, transport string) {
+		wm.FireEvent(EventRateLimitExceeded, map[string]interface{}{
+			"clientId":  clientID,
+			"transport": transport,
+		})
+	}
 }
 
 type rlBucket struct {
@@ -148,6 +166,9 @@ func (rl *RateLimiter) HTTPMiddleware(next http.Handler) http.Handler {
 			if retryAfter < 1 {
 				retryAfter = 1
 			}
+			if rl.onReject != nil {
+				rl.onReject(id, "http")
+			}
 			w.Header().Set("Retry-After", strconv.FormatInt(retryAfter, 10))
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusTooManyRequests)
@@ -175,7 +196,11 @@ func (rl *RateLimiter) UnaryInterceptor() grpc.UnaryServerInterceptor {
 		if !rl.Enabled() {
 			return handler(ctx, req)
 		}
-		if _, _, allowed := rl.allow(grpcClientID(ctx, rl.by)); !allowed {
+		id := grpcClientID(ctx, rl.by)
+		if _, _, allowed := rl.allow(id); !allowed {
+			if rl.onReject != nil {
+				rl.onReject(id, "grpc")
+			}
 			return nil, status.Error(codes.ResourceExhausted, "rate limit exceeded")
 		}
 		return handler(ctx, req)
@@ -190,7 +215,11 @@ func (rl *RateLimiter) StreamInterceptor() grpc.StreamServerInterceptor {
 		if !rl.Enabled() {
 			return handler(srv, ss)
 		}
-		if _, _, allowed := rl.allow(grpcClientID(ss.Context(), rl.by)); !allowed {
+		id := grpcClientID(ss.Context(), rl.by)
+		if _, _, allowed := rl.allow(id); !allowed {
+			if rl.onReject != nil {
+				rl.onReject(id, "grpc-stream")
+			}
 			return status.Error(codes.ResourceExhausted, "rate limit exceeded")
 		}
 		return handler(srv, ss)
