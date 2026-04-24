@@ -152,8 +152,8 @@ func (bp *BatchProcessor) processDocument(collection string, batchDoc *proto.Bat
 		ContentMD: batchDoc.ContentMd, AddedAt: added, UpdatedAt: now,
 	}
 
-	// Marshal
-	buf, err := marshalDoc(&doc)
+	// Marshal (+ optional at-rest encryption based on CollectionConfig.Encrypted)
+	buf, err := marshalAndEncrypt(&doc, collection)
 	if err != nil {
 		result.Error = err
 		return result

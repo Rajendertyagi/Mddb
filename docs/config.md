@@ -131,6 +131,39 @@ Complete reference for all MDDB configuration parameters.
 
 ---
 
+## At-Rest Encryption (ISO 27001 / SOC 2)
+
+Opt-in per-collection AES-256-GCM encryption for documents and revisions. Activation requires **both** a process-wide key and a per-collection flag — an operator who does neither pays zero runtime cost and stores plaintext like today.
+
+| Env Var | Default | Type | Description |
+|---------|---------|------|-------------|
+| `MDDB_ENCRYPTION_KEY` | *(unset)* | base64 string | 32 bytes of random key material, base64-encoded. Unset = encryption disabled globally. Invalid base64 or wrong length aborts startup. |
+
+Enabling encryption for a collection:
+
+```bash
+curl -X PUT localhost:11023/v1/collection-config \
+  -H "Authorization: Bearer $ADMIN_JWT" \
+  -d '{"collection":"secrets","encrypted":true}'
+```
+
+Details:
+
+- **Wire format** per stored value: `MDDB_ENC_V1\x00` (12 B magic) + 12 B nonce + AES-256-GCM ciphertext & auth tag.
+- **Backward compat**: legacy plaintext documents remain readable even after a collection is flipped to `encrypted=true`. New writes use ciphertext, old reads transparently passthrough because the magic prefix is absent.
+- **Scope**: only the `docs` and `rev` buckets carry ciphertext. FTS inverted indexes and vector embeddings remain plaintext because they are queryable structures — encrypting them would break search. Document this in your threat model.
+- **Key loss is terminal**: losing `MDDB_ENCRYPTION_KEY` makes the corresponding collections unrecoverable. Store the key in an HSM / secret manager and keep an offline escrow.
+- **Startup safety**: if a collection has `encrypted=true` but `MDDB_ENCRYPTION_KEY` is missing, the server refuses to start — writing plaintext into a collection that claims to be encrypted is treated as a compliance failure, not a warning.
+- **Bootstrap key**: `openssl rand -base64 32`.
+
+Generate a fresh key:
+
+```bash
+export MDDB_ENCRYPTION_KEY="$(openssl rand -base64 32)"
+```
+
+---
+
 ## Production Hardening (ISO 27001 / SOC 2)
 
 `MDDB_PRODUCTION=true` is a single switch that fails the server start unless every ISO 27001 / SOC 2 guardrail is satisfied. When unset, the guard logs a one-line warning at boot and continues with the same defaults as before — so existing deployments are unaffected.

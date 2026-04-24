@@ -30,6 +30,13 @@ type CollectionConfig struct {
 	SpellLang    string `json:"spellLang,omitempty"`    // override language for spell correction
 	// Revision retention. 0 (default) = keep all; N > 0 = keep last N per document; every add/update trims older revs in the same transaction.
 	MaxRevisions int `json:"maxRevisions,omitempty"`
+	// At-rest encryption (ISO 27001 A.8.24 / SOC 2 CC6.7). When true and
+	// MDDB_ENCRYPTION_KEY is configured, documents and revisions in this
+	// collection are AES-256-GCM encrypted before being written to the
+	// BoltDB docs/rev buckets. FTS and vector indexes remain plaintext
+	// because they are queryable structures — see docs/config.md for the
+	// full threat model.
+	Encrypted bool `json:"encrypted,omitempty"`
 }
 
 // StorageConfigDef holds backend-specific configuration for non-default storage backends.
@@ -46,10 +53,11 @@ type StorageConfigDef struct {
 
 // CollectionManager manages per-collection configuration in a dedicated BoltDB bucket.
 type CollectionManager struct {
-	db     *bolt.DB
-	mu     sync.RWMutex
-	cache  map[string]*CollectionConfig
-	binlog *Binlog
+	db        *bolt.DB
+	mu        sync.RWMutex
+	cache     map[string]*CollectionConfig
+	binlog    *Binlog
+	encryptor *Encryptor // optional; when set, cache changes are mirrored into it
 }
 
 // NewCollectionManager creates a new collection config manager.
@@ -63,6 +71,18 @@ func NewCollectionManager(db *bolt.DB) *CollectionManager {
 // SetBinlog sets the binlog for replication logging.
 func (cm *CollectionManager) SetBinlog(bl *Binlog) {
 	cm.binlog = bl
+}
+
+// SetEncryptor wires the at-rest encryptor so cache updates can keep
+// the encryptor's per-collection flag in sync with CollectionConfig.
+func (cm *CollectionManager) SetEncryptor(e *Encryptor) {
+	cm.mu.Lock()
+	cm.encryptor = e
+	// Mirror existing cache into the encryptor on first wire-up.
+	for name, cfg := range cm.cache {
+		e.SetCollectionEnabled(name, cfg != nil && cfg.Encrypted)
+	}
+	cm.mu.Unlock()
 }
 
 // EnsureBucket creates the colmeta bucket if it doesn't exist.
@@ -127,6 +147,9 @@ func (cm *CollectionManager) Set(collection string, cfg *CollectionConfig) error
 
 	cm.mu.Lock()
 	cm.cache[collection] = cfg
+	if cm.encryptor != nil {
+		cm.encryptor.SetCollectionEnabled(collection, cfg.Encrypted)
+	}
 	cm.mu.Unlock()
 	return nil
 }
@@ -147,6 +170,9 @@ func (cm *CollectionManager) Delete(collection string) error {
 
 	cm.mu.Lock()
 	delete(cm.cache, collection)
+	if cm.encryptor != nil {
+		cm.encryptor.SetCollectionEnabled(collection, false)
+	}
 	cm.mu.Unlock()
 	return nil
 }

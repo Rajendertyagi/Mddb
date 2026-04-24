@@ -155,8 +155,8 @@ func (bu *BatchUpdater) processDocument(collection string, updateDoc *proto.Upda
 		UpdatedAt: now,
 	}
 
-	// Marshal
-	buf, err := marshalDoc(&doc)
+	// Marshal (+ optional at-rest encryption based on CollectionConfig.Encrypted)
+	buf, err := marshalAndEncrypt(&doc, collection)
 	if err != nil {
 		result.Error = err
 		return result

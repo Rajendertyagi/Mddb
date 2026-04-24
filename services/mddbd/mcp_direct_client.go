@@ -1353,7 +1353,7 @@ func (c *DirectClient) UpdateDocument(ctx context.Context, req *MCPUpdateDocumen
 			}
 		}
 
-		buf, err := marshalDoc(&doc)
+		buf, err := marshalAndEncrypt(&doc, req.Collection)
 		if err != nil {
 			return err
 		}

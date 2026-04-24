@@ -79,6 +79,7 @@ type Server struct {
 	AuthManager        *AuthManager         // Authentication and authorization
 	AuditManager       *AuditManager        // Audit log (ISO 27001 A.8.15, SOC 2 CC7.2)
 	RateLimiter        *RateLimiter         // Cross-transport rate limiter (ISO 27001 A.5.30, SOC 2 CC6.6)
+	Encryptor          *Encryptor           // At-rest AES-256-GCM encryption (ISO 27001 A.8.24, SOC 2 CC6.7)
 	SynonymManager     *SynonymManager      // Synonym dictionaries for FTS
 	StopWordManager    *StopWordManager     // Per-collection custom stop words for FTS
 	AutomationManager  *AutomationManager   // Automation: triggers, crons, webhook targets
@@ -518,6 +519,36 @@ func main() {
 		log.Fatal(err)
 	}
 	log.Printf("Collection manager initialized (%d collections configured)", len(s.CollectionManager.ListAll()))
+
+	// At-rest encryption (ISO 27001 A.8.24 / SOC 2 CC6.7). The encryptor
+	// is a no-op when MDDB_ENCRYPTION_KEY is unset; a misconfigured key
+	// fatals to avoid silently storing plaintext for a collection that
+	// was explicitly opted in.
+	enc, err := NewEncryptor()
+	if err != nil {
+		log.Fatalf("encryption init: %v", err)
+	}
+	s.Encryptor = enc
+	SetGlobalEncryptor(enc)
+	s.CollectionManager.SetEncryptor(enc)
+	if enc.Enabled() {
+		encCount := 0
+		for _, cfg := range s.CollectionManager.ListAll() {
+			if cfg != nil && cfg.Encrypted {
+				encCount++
+			}
+		}
+		log.Printf("At-rest encryption enabled (%d collection(s) opted in)", encCount)
+	} else {
+		// If any collection is flagged as encrypted but we have no key,
+		// refuse to start — writing plaintext into a supposedly encrypted
+		// collection is a silent compliance failure.
+		for name, cfg := range s.CollectionManager.ListAll() {
+			if cfg != nil && cfg.Encrypted {
+				log.Fatalf("collection %q has encrypted=true but MDDB_ENCRYPTION_KEY is not set", name)
+			}
+		}
+	}
 
 	// Curation manager: loads all pinning/hiding rules into memory so the
 	// search hot path never hits disk.
@@ -1274,7 +1305,7 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 			doc.ExpiresAt = now + ttl
 		}
 
-		buf, err := marshalDoc(&doc)
+		buf, err := marshalAndEncrypt(&doc, collection)
 		if err != nil {
 			return err
 		}
@@ -2168,7 +2199,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Persist
-		buf, err := marshalDoc(&doc)
+		buf, err := marshalAndEncrypt(&doc, collection)
 		if err != nil {
 			return err
 		}
