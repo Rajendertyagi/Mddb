@@ -131,6 +131,130 @@ Complete reference for all MDDB configuration parameters.
 
 ---
 
+## Incident Events (ISO 27001 / SOC 2)
+
+Security and operational incidents are delivered through the existing `/v1/webhooks` subscription system. A webhook that registers for one of the incident event names receives the same JSON envelope as document-lifecycle events, with the event-specific payload in `detail`.
+
+| Event | Fired when | `detail` payload |
+|-------|------------|------------------|
+| `security.auth_failure_burst` | N auth failures from the same `actor@ip` inside the window | `{actor, ip, count, windowSec}` |
+| `security.rate_limit_exceeded` | A request is rejected by the HTTP/gRPC rate limiter | `{clientId, transport}` |
+| `ops.replication_lag_high` | Follower lag exceeds threshold on poll | `{lagMs, thresholdMs}` |
+| `ops.panic_recovered` | An HTTP handler panicked and was recovered by the middleware | `{method, path, panic, ip}` |
+| `ops.disk_usage_high` | DB filesystem used-% ≥ threshold | `{path, usedBytes, totalBytes, usedPct, thresholdPct}` |
+
+| Env Var | Default | Type | Description |
+|---------|---------|------|-------------|
+| `MDDB_INCIDENT_AUTH_THRESHOLD` | `10` | int | Failures per window before firing. |
+| `MDDB_INCIDENT_AUTH_WINDOW_SEC` | `60` | int | Sliding-window length. |
+| `MDDB_INCIDENT_AUTH_COOLDOWN_SEC` | `300` | int | Quiet period after a burst before the same `actor@ip` can refire. |
+| `MDDB_INCIDENT_LAG_THRESHOLD_MS` | `5000` | int | Replication-lag threshold. |
+| `MDDB_INCIDENT_LAG_INTERVAL_SEC` | `30` | int | Poll interval. |
+| `MDDB_INCIDENT_LAG_COOLDOWN_SEC` | `300` | int | Cool-down after a lag event. |
+| `MDDB_INCIDENT_DISK_THRESHOLD_PCT` | `85` | int (1–100) | Disk-usage threshold. |
+| `MDDB_INCIDENT_DISK_INTERVAL_SEC` | `300` | int | Poll interval. |
+| `MDDB_INCIDENT_DISK_COOLDOWN_SEC` | `3600` | int | Cool-down after a disk event. |
+
+Registering a webhook for incident events:
+
+```bash
+curl -X POST localhost:11023/v1/webhooks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://ops.example.com/mddb-incidents",
+    "events": ["security.auth_failure_burst","ops.panic_recovered","ops.disk_usage_high"]
+  }'
+```
+
+Retries, backoff (0s / 1s / 5s / 15s) and `X-MDDB-Event` / `X-MDDB-Webhook-ID` headers are shared with the existing document-lifecycle delivery path.
+
+---
+
+## At-Rest Encryption (ISO 27001 / SOC 2)
+
+Opt-in per-collection AES-256-GCM encryption for documents and revisions. Activation requires **both** a process-wide key and a per-collection flag — an operator who does neither pays zero runtime cost and stores plaintext like today.
+
+| Env Var | Default | Type | Description |
+|---------|---------|------|-------------|
+| `MDDB_ENCRYPTION_KEY` | *(unset)* | base64 string | 32 bytes of random key material, base64-encoded. Unset = encryption disabled globally. Invalid base64 or wrong length aborts startup. |
+
+Enabling encryption for a collection:
+
+```bash
+curl -X PUT localhost:11023/v1/collection-config \
+  -H "Authorization: Bearer $ADMIN_JWT" \
+  -d '{"collection":"secrets","encrypted":true}'
+```
+
+Details:
+
+- **Wire format** per stored value: `MDDB_ENC_V1\x00` (12 B magic) + 12 B nonce + AES-256-GCM ciphertext & auth tag.
+- **Backward compat**: legacy plaintext documents remain readable even after a collection is flipped to `encrypted=true`. New writes use ciphertext, old reads transparently passthrough because the magic prefix is absent.
+- **Scope**: only the `docs` and `rev` buckets carry ciphertext. FTS inverted indexes and vector embeddings remain plaintext because they are queryable structures — encrypting them would break search. Document this in your threat model.
+- **Key loss is terminal**: losing `MDDB_ENCRYPTION_KEY` makes the corresponding collections unrecoverable. Store the key in an HSM / secret manager and keep an offline escrow.
+- **Startup safety**: if a collection has `encrypted=true` but `MDDB_ENCRYPTION_KEY` is missing, the server refuses to start — writing plaintext into a collection that claims to be encrypted is treated as a compliance failure, not a warning.
+- **Bootstrap key**: `openssl rand -base64 32`.
+
+Generate a fresh key:
+
+```bash
+export MDDB_ENCRYPTION_KEY="$(openssl rand -base64 32)"
+```
+
+---
+
+## Production Hardening (ISO 27001 / SOC 2)
+
+`MDDB_PRODUCTION=true` is a single switch that fails the server start unless every ISO 27001 / SOC 2 guardrail is satisfied. When unset, the guard logs a one-line warning at boot and continues with the same defaults as before — so existing deployments are unaffected.
+
+| Env Var | Required when `MDDB_PRODUCTION=true` | Reason |
+|---------|--------------------------------------|--------|
+| `MDDB_AUTH_ENABLED` | `true` | A.5.15 / CC6.1 — access control |
+| `MDDB_AUTH_JWT_SECRET` | ≥32 bytes | A.8.24 / CC6.7 — key strength |
+| `MDDB_TLS_ENABLED` | `true` (or `MDDB_TLS_INSECURE_OK=true` as an explicit opt-out for dev) | A.8.24 / CC6.7 — encryption in transit |
+| `MDDB_CORS_ORIGIN` | explicit origin list (not `*`) | A.8.23 / CC6.6 — web-origin segmentation |
+| `MDDB_AUDIT_ENABLED` | `true` | A.8.15 / CC7.2 — audit trail |
+| `MDDB_RATE_LIMIT_ENABLED` | `true` | A.5.30 / CC6.6 — resource-exhaustion protection |
+
+On a successful production start the server logs:
+
+```
+✓ Production guards satisfied (ISO 27001 / SOC 2)
+```
+
+When a requirement is missing, startup is aborted with a line-by-line breakdown pointing at each offending env var.
+
+---
+
+## Rate Limiting (HTTP + gRPC)
+
+Shared sliding-window limiter covering both HTTP and gRPC. Separate from the pre-existing `MDDB_MCP_RATE_LIMIT_*` budget, which continues to apply to the MCP endpoints only.
+
+| Env Var | Default | Type | Description |
+|---------|---------|------|-------------|
+| `MDDB_RATE_LIMIT_ENABLED` | `false` | bool | Enable the limiter. When off, both HTTP and gRPC are passthrough. |
+| `MDDB_RATE_LIMIT_REQUESTS` | `100` | int | Sustained requests per window. |
+| `MDDB_RATE_LIMIT_WINDOW` | `60` | int seconds | Window length. |
+| `MDDB_RATE_LIMIT_BURST` | `50` | int | Additional allowance before a client is blocked. Effective ceiling = `REQUESTS + BURST`. |
+| `MDDB_RATE_LIMIT_BY` | `"ip"` | string | `"ip"` (default) or `"user"`. `user` keys on the authenticated username and falls back to IP for anonymous traffic. |
+
+HTTP responses carry `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`; rejected requests get `429 Too Many Requests` with `Retry-After`. gRPC rejects with `codes.ResourceExhausted`. The paths `/health`, `/v1/health`, and `/metrics` are always exempt so monitoring and load-balancer probes never trip the limiter.
+
+---
+
+## Audit Log (ISO 27001 / SOC 2)
+
+Structured authentication and mutation trail persisted to a dedicated `audit` BoltDB bucket. Events are buffered and flushed asynchronously so hot-path handlers never block on disk I/O. Queryable via admin-only `GET /v1/audit`.
+
+| Env Var | Default | Type | Description |
+|---------|---------|------|-------------|
+| `MDDB_AUDIT_ENABLED` | `false` | bool | Enable the audit log. When disabled, `AuditManager` is a no-op and `/v1/audit` returns 404. |
+| `MDDB_AUDIT_RETENTION_DAYS` | `90` | int | Retention window. A background trimmer runs every hour and deletes events older than the cutoff. |
+
+Query parameters on `GET /v1/audit`: `from` / `to` (RFC3339) or `fromNanos` / `toNanos`, `actor`, `action`, `result` (`ok`/`fail`), `limit` (default 100). Response shape: `{events: [...], count, dropped}` — `dropped` counts events lost when the in-memory buffer was full.
+
+---
+
 ## Embedding / Vector Search
 
 | Env Var | Default | Type | Description |

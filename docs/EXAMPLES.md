@@ -845,3 +845,164 @@ curl -X POST http://localhost:11023/v1/add \
     "contentMd": "# Schema Validation Guide\n\nLearn how to validate document metadata."
   }'
 ```
+
+## Security & Compliance (v2.9.15+)
+
+Worked examples for the ISO 27001 / SOC 2 hardening features. See [SECURITY.md](SECURITY.md) for the full compliance map and [config.md](config.md) for every environment variable.
+
+### Enable the audit log and query events by actor
+
+```bash
+# 1) Start the server with the audit log on
+export MDDB_AUTH_ENABLED=true
+export MDDB_AUTH_JWT_SECRET=$(openssl rand -hex 32)
+export MDDB_AUTH_ADMIN_USERNAME=admin
+export MDDB_AUTH_ADMIN_PASSWORD=changeme
+export MDDB_AUDIT_ENABLED=true
+export MDDB_AUDIT_RETENTION_DAYS=365
+./mddbd &
+
+# 2) Log in as admin to get a JWT
+ADMIN_JWT=$(curl -s -X POST http://localhost:11023/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"changeme"}' | jq -r .token)
+
+# 3) Generate some audited activity — a failed login
+curl -s -X POST http://localhost:11023/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"alice","password":"wrong"}'
+
+# 4) Query every failed auth attempt by actor=alice
+curl -s -H "Authorization: Bearer $ADMIN_JWT" \
+  "http://localhost:11023/v1/audit?actor=alice&result=fail&limit=50" | jq .
+
+# Response shape:
+# { "events": [ { "ts": 1740..., "actor":"alice","action":"auth.login",
+#                 "result":"fail","ip":"...","userAgent":"..." } ],
+#   "count": 1, "dropped": 0 }
+```
+
+### Flip `MDDB_PRODUCTION=true` with all guardrails set
+
+```bash
+# Every variable below is required when MDDB_PRODUCTION=true.
+# Missing any one aborts startup with a per-variable checklist.
+
+export MDDB_PRODUCTION=true
+export MDDB_AUTH_ENABLED=true
+export MDDB_AUTH_JWT_SECRET=$(openssl rand -hex 32)      # >= 32 bytes
+export MDDB_TLS_ENABLED=true
+export MDDB_TLS_CERT=/etc/mddb/server.crt
+export MDDB_TLS_KEY=/etc/mddb/server.key
+export MDDB_CORS_ORIGIN=https://app.example.com          # not "*"
+export MDDB_AUDIT_ENABLED=true
+export MDDB_RATE_LIMIT_ENABLED=true
+
+./mddbd
+# On success:  ✓ Production guards satisfied (ISO 27001 / SOC 2)
+
+# Operator-facing health probe — no auth required
+curl -s http://localhost:11023/v1/compliance-status | jq .
+# { "production": true, "compliant": true, "missing": [], "missingCount": 0 }
+```
+
+### Trigger the rate limiter and read `429` + `Retry-After`
+
+```bash
+export MDDB_RATE_LIMIT_ENABLED=true
+export MDDB_RATE_LIMIT_REQUESTS=10
+export MDDB_RATE_LIMIT_WINDOW=60
+export MDDB_RATE_LIMIT_BURST=5
+export MDDB_RATE_LIMIT_BY=ip
+./mddbd &
+
+# Fire 20 requests back-to-back. The first 10 succeed (+5 burst);
+# the rest return 429 with a Retry-After header.
+for i in $(seq 1 20); do
+  printf "req %02d -> " "$i"
+  curl -s -o /dev/null -w "HTTP %{http_code}  X-RateLimit-Remaining=%header{x-ratelimit-remaining}  Retry-After=%header{retry-after}\n" \
+    http://localhost:11023/v1/stats
+done
+
+# Last few lines look like:
+# req 16 -> HTTP 429  X-RateLimit-Remaining=0  Retry-After=42
+# req 17 -> HTTP 429  X-RateLimit-Remaining=0  Retry-After=42
+```
+
+### Encrypt a collection end-to-end and verify ciphertext on disk
+
+```bash
+# 1) Generate a 32-byte encryption key and start the server
+export MDDB_ENCRYPTION_KEY="$(openssl rand -base64 32)"
+./mddbd &
+
+# 2) Flip the target collection to encrypted=true (admin only)
+curl -s -X PUT http://localhost:11023/v1/collection-config \
+  -H "Authorization: Bearer $ADMIN_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"collection":"secrets","encrypted":true}'
+
+# 3) Write a document — stored ciphertext
+curl -s -X POST http://localhost:11023/v1/add \
+  -H "Authorization: Bearer $ADMIN_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"collection":"secrets","key":"api-key-1","lang":"en_US",
+       "contentMd":"# Production API key\nsk-live-XXXXXXXXXXXX"}'
+
+# 4) Read back — transparent decryption
+curl -s -X POST http://localhost:11023/v1/get \
+  -H "Authorization: Bearer $ADMIN_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"collection":"secrets","key":"api-key-1","lang":"en_US"}' | jq -r .contentMd
+
+# 5) Verify the on-disk value is ciphertext by inspecting the BoltDB file.
+#    The wire format is:  "MDDB_ENC_V1\x00" (12 B magic) + 12 B nonce + AES-GCM ct + tag.
+#    Any hex dumper works; the magic prefix is grep-able:
+strings mddb.db | grep -a MDDB_ENC_V1 | head -3
+# Output (three-ish matches per encrypted value, binary-obscured after the magic):
+# MDDB_ENC_V1
+# MDDB_ENC_V1
+# MDDB_ENC_V1
+
+# NB: losing $MDDB_ENCRYPTION_KEY is terminal — escrow it offline.
+```
+
+### Subscribe to `security.auth_failure_burst` and trigger it
+
+```bash
+# 1) Tune the detector — 5 failures in 30s fires one event, then 60s cooldown.
+export MDDB_INCIDENT_AUTH_THRESHOLD=5
+export MDDB_INCIDENT_AUTH_WINDOW_SEC=30
+export MDDB_INCIDENT_AUTH_COOLDOWN_SEC=60
+./mddbd &
+
+# 2) Register a webhook for the incident
+curl -s -X POST http://localhost:11023/v1/webhooks \
+  -H "Authorization: Bearer $ADMIN_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://webhook.site/your-unique-id",
+    "events": ["security.auth_failure_burst"]
+  }'
+
+# 3) Produce 10 failed logins from the same IP
+for i in $(seq 1 10); do
+  curl -s -o /dev/null -X POST http://localhost:11023/v1/auth/login \
+    -H "Content-Type: application/json" \
+    -d '{"username":"alice","password":"wrong"}'
+done
+
+# 4) The webhook receiver gets a POST with headers and body like:
+#    X-MDDB-Event: security.auth_failure_burst
+#    X-MDDB-Webhook-ID: wh_abc123
+#
+#    { "event": "security.auth_failure_burst",
+#      "ts": 1740000000000000000,
+#      "detail": {
+#        "actor": "alice",
+#        "ip": "203.0.113.5",
+#        "count": 10,
+#        "windowSec": 30
+#      } }
+```
+

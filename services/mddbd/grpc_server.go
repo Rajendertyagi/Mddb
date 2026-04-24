@@ -162,7 +162,7 @@ func (g *GRPCServer) Add(ctx context.Context, req *proto.AddRequest) (*proto.Doc
 			ID: docID, Key: req.Key, Lang: req.Lang, Meta: meta,
 			ContentMD: req.ContentMd, AddedAt: added, UpdatedAt: now,
 		}
-		buf, err := marshalDoc(&doc)
+		buf, err := marshalAndEncrypt(&doc, req.Collection)
 		if err != nil {
 			return err
 		}
@@ -1842,7 +1842,7 @@ func (g *GRPCServer) UpdateDocument(ctx context.Context, req *proto.UpdateDocume
 			}
 		}
 
-		buf, err := marshalDoc(&doc)
+		buf, err := marshalAndEncrypt(&doc, req.Collection)
 		if err != nil {
 			return err
 		}

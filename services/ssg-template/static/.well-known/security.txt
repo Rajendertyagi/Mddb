@@ -1,0 +1,14 @@
+Contact: mailto:security@tradik.com
+Expires: 2027-04-24T00:00:00Z
+Preferred-Languages: en, pl
+Canonical: https://tradik.com/.well-known/security.txt
+Policy: https://tradik.com/docs/security
+Acknowledgments: https://tradik.com/docs/security#acknowledgments
+
+# NOTE FOR MAINTAINER (remove before publishing):
+# As of v2.9.15 the SSG generator does not copy `services/ssg-template/static/`
+# to the build output. Before this file is reachable at the canonical URL, the
+# deploy pipeline must either: (a) teach the SSG to mirror `/static/` into the
+# site root, or (b) have the web server / CDN serve this path directly. Flagged
+# in the v2.9.15 documentation sweep — please wire up before the next release
+# cut.

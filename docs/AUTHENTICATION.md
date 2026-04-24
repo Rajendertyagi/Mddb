@@ -9,6 +9,13 @@ status: publish
 
 Complete guide to JWT authentication and RBAC (Role-Based Access Control) in MDDB.
 
+> **What's new in 2.9.15.** Authentication is now compliance-aware:
+> - **Timing-safe error unification** — "user disabled or not found" now returns the same `invalid token` response as a bad JWT, so an attacker can no longer probe user existence via differential error messages ([services/mddbd/auth_middleware.go](../services/mddbd/auth_middleware.go)).
+> - **Audit trail of every auth event** — every login, JWT verification, API-key check, and missing/invalid/disabled attempt is recorded to a dedicated audit bucket with actor, IP, user agent, and outcome. Enable with `MDDB_AUDIT_ENABLED=true` and query via admin-only `GET /v1/audit`.
+> - **`security.auth_failure_burst` incident event** — the new `AuthFailureTracker` integrates with the auth middleware. When the configured number of failures lands from the same `actor@ip` inside the sliding window (`MDDB_INCIDENT_AUTH_*`), MDDB fires a webhook to every subscriber on `/v1/webhooks` with detail `{actor, ip, count, windowSec}` so your SIEM / PagerDuty / Slack receives an alert without polling.
+>
+> See [SECURITY.md](SECURITY.md) for the compliance map and [config.md](config.md#audit-log-iso-27001--soc-2) for every related environment variable.
+
 ## Table of Contents
 
 - [Overview](#overview)

@@ -2456,6 +2456,90 @@ curl http://localhost:11023/v1/webhooks
 
 ---
 
+### GET /v1/audit
+
+List audit-log events. **Admin-only.** Returns 404 when `MDDB_AUDIT_ENABLED` is not set.
+
+**Query parameters**:
+
+| Name | Type | Description |
+|------|------|-------------|
+| `from` | RFC3339 timestamp | Lower bound (inclusive). Converted to nanoseconds internally. |
+| `to` | RFC3339 timestamp | Upper bound (inclusive). |
+| `fromNanos` | int64 | Nanosecond-precision lower bound (takes precedence over `from`). |
+| `toNanos` | int64 | Nanosecond-precision upper bound. |
+| `actor` | string | Filter by authenticated username. |
+| `action` | string | e.g. `auth.login`, `auth.jwt`, `auth.apikey`, `auth.missing`, `write./v1/add`. |
+| `result` | string | `ok` or `fail`. |
+| `limit` | int | Max events returned (default 100). |
+
+**Example**:
+```bash
+curl -H "Authorization: Bearer $ADMIN_JWT" \
+  "http://localhost:11023/v1/audit?actor=alice&result=fail&limit=50"
+```
+
+**Response**:
+```json
+{
+  "events": [
+    {
+      "ts": 1740000000000000000,
+      "actor": "alice",
+      "action": "auth.login",
+      "resource": "/v1/auth/login",
+      "result": "fail",
+      "ip": "203.0.113.5",
+      "userAgent": "curl/8.4.0"
+    }
+  ],
+  "count": 1,
+  "dropped": 0
+}
+```
+
+Events are returned newest-first. `dropped` reports the running total of events that could not fit in the in-memory ring buffer (operational-health signal — a non-zero value means the audit subsystem was under pressure).
+
+---
+
+### GET /v1/compliance-status
+
+Report the live state of the production-hardening guard. **No authentication required** — this endpoint is designed to be called by operator-facing liveness / readiness probes and by external monitoring that must detect a drifted configuration before production traffic hits a non-compliant server.
+
+**Query parameters**: none.
+
+**Response**:
+
+```json
+{
+  "production": true,
+  "compliant": true,
+  "missing": [],
+  "missingCount": 0
+}
+```
+
+When the server was started with `MDDB_PRODUCTION=true` but a guardrail is not satisfied the server would have refused to boot, so `compliant=true` is implied. When `MDDB_PRODUCTION` is unset the server runs with the existing defaults and this endpoint reports what is and is not wired up:
+
+```json
+{
+  "production": false,
+  "compliant": false,
+  "missing": [
+    { "envVar": "MDDB_AUTH_ENABLED",     "want": "true",              "reason": "A.5.15 / CC6.1 — access control" },
+    { "envVar": "MDDB_TLS_ENABLED",      "want": "true",              "reason": "A.8.24 / CC6.7 — encryption in transit" },
+    { "envVar": "MDDB_CORS_ORIGIN",      "want": "explicit origin",   "reason": "A.8.23 / CC6.6 — web-origin segmentation" },
+    { "envVar": "MDDB_AUDIT_ENABLED",    "want": "true",              "reason": "A.8.15 / CC7.2 — audit trail" },
+    { "envVar": "MDDB_RATE_LIMIT_ENABLED","want": "true",             "reason": "A.5.30 / CC6.6 — resource-exhaustion protection" }
+  ],
+  "missingCount": 5
+}
+```
+
+Wire a liveness probe to alert when `compliant=false` so configuration drift is caught immediately.
+
+---
+
 ### POST /v1/webhooks/delete
 
 Delete a webhook by ID.
@@ -2788,7 +2872,7 @@ curl http://localhost:11023/v1/system/info
   "arch": "amd64",
   "numCPU": 4,
   "goVersion": "go1.26.2",
-  "version": "2.9.14",
+  "version": "2.9.15",
   "uptimeSeconds": 3600,
   "memoryTotal": 134217728,
   "memoryUsed": 67108864,
@@ -2811,7 +2895,7 @@ curl http://localhost:11023/v1/config
 **Response**:
 ```json
 {
-  "version": "2.9.14",
+  "version": "2.9.15",
   "databasePath": "mddb.db",
   "mode": "wr",
   "protocols": {

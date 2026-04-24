@@ -192,6 +192,13 @@ Complete list of MDDB features organized by category.
 - **Multiple Groups** - Users can belong to multiple groups
 - **Cumulative Permissions** - Users get permissions from all their groups
 
+### Compliance & Hardening (ISO 27001 / SOC 2)
+- **Audit Log** (v2.9.15+) - Structured JSON events (auth attempts, writes, deletes) persisted to a dedicated BoltDB bucket; admin-only `GET /v1/audit` with actor/action/result/time filters; retention configurable via `MDDB_AUDIT_RETENTION_DAYS` (default 90). ISO A.8.15 / SOC 2 CC7.2. See [config.md#audit-log-iso-27001--soc-2](config.md#audit-log-iso-27001--soc-2) and [SECURITY.md](SECURITY.md).
+- **Production Hardening Switch** (v2.9.15+) - `MDDB_PRODUCTION=true` refuses startup unless every guardrail is satisfied (auth on, JWT secret ≥32 B, TLS on, CORS explicit, audit + rate limit enabled). Unauth `GET /v1/compliance-status` publishes live state for operator probes. ISO A.8.9 / SOC 2 CC6.1. See [config.md#production-hardening-iso-27001--soc-2](config.md#production-hardening-iso-27001--soc-2) and [SECURITY.md](SECURITY.md).
+- **HTTP + gRPC Rate Limiting** (v2.9.15+) - Single sliding-window limiter shared across both transports; per-IP or per-user keying; `X-RateLimit-*` headers, `429 Retry-After`, gRPC `ResourceExhausted`. `/health`, `/v1/health`, `/metrics` exempt. Independent from MCP limiter. ISO A.5.30 / SOC 2 CC6.6. See [config.md#rate-limiting-http--grpc](config.md#rate-limiting-http--grpc) and [SECURITY.md](SECURITY.md).
+- **At-Rest Encryption** (v2.9.15+) - Opt-in per-collection AES-256-GCM on `docs` and `rev` buckets. Enable globally with `MDDB_ENCRYPTION_KEY` (32 B base64) and flip `CollectionConfig.encrypted=true` per collection. Transparent read path, legacy plaintext stays readable, key loss is terminal. ISO A.8.24 / SOC 2 CC6.7. See [config.md#at-rest-encryption-iso-27001--soc-2](config.md#at-rest-encryption-iso-27001--soc-2) and [SECURITY.md](SECURITY.md).
+- **Incident Webhook Events** (v2.9.15+) - Five named events on existing `/v1/webhooks`: `security.auth_failure_burst`, `security.rate_limit_exceeded`, `ops.replication_lag_high`, `ops.panic_recovered`, `ops.disk_usage_high`. Panic-recovery middleware turns handler crashes into 500 + event. Structured `detail` payload. ISO A.8.16 / SOC 2 CC7.3–7.4. See [config.md#incident-webhook-events](config.md) and [SECURITY.md](SECURITY.md).
+
 ## Integration & Automation
 
 ### Automation System

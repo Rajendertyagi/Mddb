@@ -25,7 +25,7 @@ import (
 )
 
 // VERSION is the current release version of the MDDB server.
-const VERSION = "2.9.14"
+const VERSION = "2.9.15"
 
 // AccessMode defines the database access mode (read, write, or both).
 type AccessMode string
@@ -71,27 +71,33 @@ type Server struct {
 	GeoIndex     *GeoIndex     // In-memory R-tree geo index (default)
 	GeoHashIndex *GeoHashIndex // Alternative geohash-prefix index
 	// New features
-	TTLManager         *TTLManager          // Document TTL / auto-expiry
-	FTSIndex           *FTSIndex            // Full-text search index
-	WebhookManager     *WebhookManager      // Webhook subscriptions and delivery
-	SchemaManager      *SchemaManager       // Per-collection metadata schema validation
-	Metrics            *Metrics             // Prometheus-compatible telemetry
-	AuthManager        *AuthManager         // Authentication and authorization
-	SynonymManager     *SynonymManager      // Synonym dictionaries for FTS
-	StopWordManager    *StopWordManager     // Per-collection custom stop words for FTS
-	AutomationManager  *AutomationManager   // Automation: triggers, crons, webhook targets
-	AutomationLogStore *AutomationLogStore  // Automation execution logs
-	CronScheduler      *CronScheduler       // Cron scheduler for automation
-	CollectionManager  *CollectionManager   // Per-collection attributes (type, description, icon, etc.)
-	CurationManager    *CurationManager     // FTS/Hybrid curation rules: pinned + hidden results per query
-	TemporalManager    *TemporalManager     // Document lifecycle event tracking (create/update/access)
-	SpellManager       *SpellManager        // Spell correction for FTS queries and document content
-	SSEHub             *SSEHub              // Server-Sent Events for real-time document change notifications
-	BulkIngest         *BulkIngestManager   // Async bulk ingest job manager
-	MCPInfo            MCPServerInfo        // Customizable MCP server profile
-	MCPInstructions    string               // System prompt for LLM — how to use this server
-	mcpKeyStore        *mcpAPIKeyStore      // BoltDB-backed MCP API key store
-	mcpAuth            *MCPAPIKeyMiddleware // MCP API key middleware (for cache invalidation)
+	TTLManager         *TTLManager            // Document TTL / auto-expiry
+	FTSIndex           *FTSIndex              // Full-text search index
+	WebhookManager     *WebhookManager        // Webhook subscriptions and delivery
+	SchemaManager      *SchemaManager         // Per-collection metadata schema validation
+	Metrics            *Metrics               // Prometheus-compatible telemetry
+	AuthManager        *AuthManager           // Authentication and authorization
+	AuditManager       *AuditManager          // Audit log (ISO 27001 A.8.15, SOC 2 CC7.2)
+	RateLimiter        *RateLimiter           // Cross-transport rate limiter (ISO 27001 A.5.30, SOC 2 CC6.6)
+	Encryptor          *Encryptor             // At-rest AES-256-GCM encryption (ISO 27001 A.8.24, SOC 2 CC6.7)
+	AuthFailureTracker *AuthFailureTracker    // Sliding-window auth failure counter → security.auth_failure_burst
+	LagMonitor         *ReplicationLagMonitor // Periodic replication-lag → ops.replication_lag_high
+	DiskMonitor        *DiskUsageMonitor      // Periodic disk-usage → ops.disk_usage_high
+	SynonymManager     *SynonymManager        // Synonym dictionaries for FTS
+	StopWordManager    *StopWordManager       // Per-collection custom stop words for FTS
+	AutomationManager  *AutomationManager     // Automation: triggers, crons, webhook targets
+	AutomationLogStore *AutomationLogStore    // Automation execution logs
+	CronScheduler      *CronScheduler         // Cron scheduler for automation
+	CollectionManager  *CollectionManager     // Per-collection attributes (type, description, icon, etc.)
+	CurationManager    *CurationManager       // FTS/Hybrid curation rules: pinned + hidden results per query
+	TemporalManager    *TemporalManager       // Document lifecycle event tracking (create/update/access)
+	SpellManager       *SpellManager          // Spell correction for FTS queries and document content
+	SSEHub             *SSEHub                // Server-Sent Events for real-time document change notifications
+	BulkIngest         *BulkIngestManager     // Async bulk ingest job manager
+	MCPInfo            MCPServerInfo          // Customizable MCP server profile
+	MCPInstructions    string                 // System prompt for LLM — how to use this server
+	mcpKeyStore        *mcpAPIKeyStore        // BoltDB-backed MCP API key store
+	mcpAuth            *MCPAPIKeyMiddleware   // MCP API key middleware (for cache invalidation)
 	// Replication
 	Binlog          *Binlog            // Binary replication log
 	ReplicationRole string             // "leader", "follower", or "" (standalone)
@@ -381,6 +387,23 @@ func main() {
 		log.Printf("Geohash index loaded: %d points in %v", nh, time.Since(start))
 	}()
 
+	// Initialize audit log (ISO 27001 A.8.15 / SOC 2 CC7.2)
+	auditEnabled := env("MDDB_AUDIT_ENABLED", "false") == "true"
+	auditRetention := 90
+	if v := env("MDDB_AUDIT_RETENTION_DAYS", ""); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			auditRetention = n
+		}
+	}
+	s.AuditManager = NewAuditManager(db, auditEnabled, auditRetention)
+	if err := s.AuditManager.EnsureBuckets(); err != nil {
+		log.Fatal(err)
+	}
+	s.AuditManager.Start()
+	if auditEnabled {
+		log.Printf("Audit log enabled (retention %d days)", auditRetention)
+	}
+
 	// Initialize TTL manager
 	s.TTLManager = NewTTLManager(db, s)
 	if err := s.TTLManager.EnsureBuckets(); err != nil {
@@ -450,6 +473,12 @@ func main() {
 	}
 	log.Printf("Webhook manager initialized (%d hooks loaded)", len(s.WebhookManager.List()))
 
+	// Incident detectors — reuse the WebhookManager to deliver
+	// security.* and ops.* events to whichever hooks subscribed.
+	s.AuthFailureTracker = NewAuthFailureTracker(s.WebhookManager)
+	s.DiskMonitor = NewDiskUsageMonitor(s.WebhookManager, dbPath)
+	s.DiskMonitor.Start()
+
 	// Initialize automation manager (triggers, crons, webhook targets)
 	automationsEnabled := env("MDDB_AUTOMATIONS", "enable") != "disable"
 	if automationsEnabled {
@@ -499,6 +528,36 @@ func main() {
 		log.Fatal(err)
 	}
 	log.Printf("Collection manager initialized (%d collections configured)", len(s.CollectionManager.ListAll()))
+
+	// At-rest encryption (ISO 27001 A.8.24 / SOC 2 CC6.7). The encryptor
+	// is a no-op when MDDB_ENCRYPTION_KEY is unset; a misconfigured key
+	// fatals to avoid silently storing plaintext for a collection that
+	// was explicitly opted in.
+	enc, err := NewEncryptor()
+	if err != nil {
+		log.Fatalf("encryption init: %v", err)
+	}
+	s.Encryptor = enc
+	SetGlobalEncryptor(enc)
+	s.CollectionManager.SetEncryptor(enc)
+	if enc.Enabled() {
+		encCount := 0
+		for _, cfg := range s.CollectionManager.ListAll() {
+			if cfg != nil && cfg.Encrypted {
+				encCount++
+			}
+		}
+		log.Printf("At-rest encryption enabled (%d collection(s) opted in)", encCount)
+	} else {
+		// If any collection is flagged as encrypted but we have no key,
+		// refuse to start — writing plaintext into a supposedly encrypted
+		// collection is a silent compliance failure.
+		for name, cfg := range s.CollectionManager.ListAll() {
+			if cfg != nil && cfg.Encrypted {
+				log.Fatalf("collection %q has encrypted=true but MDDB_ENCRYPTION_KEY is not set", name)
+			}
+		}
+	}
 
 	// Curation manager: loads all pinning/hiding rules into memory so the
 	// search hot path never hits disk.
@@ -666,6 +725,20 @@ func main() {
 
 		log.Println("✓ Authentication enabled")
 	}
+	if s.AuthManager != nil {
+		s.AuthManager.SetServer(s)
+	}
+
+	// Initialize the shared HTTP+gRPC rate limiter (opt-in via
+	// MDDB_RATE_LIMIT_ENABLED). Both transports consume the same
+	// per-client budget. Wire the webhook publisher so rejections
+	// surface as security.rate_limit_exceeded events.
+	s.RateLimiter = NewRateLimiter()
+	s.RateLimiter.SetWebhookManager(s.WebhookManager)
+
+	// Enforce ISO 27001 / SOC 2 guardrails when MDDB_PRODUCTION=true,
+	// or log a one-shot warning otherwise.
+	EnforceProductionGuards(log.Printf, log.Fatalf)
 
 	// MCP stdio mode — replaces normal HTTP/gRPC operation
 	if srvCfg.MCP.Stdio {
@@ -692,6 +765,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/v1/health", s.handleHealth)
+	mux.HandleFunc("/v1/compliance-status", s.handleComplianceStatus)
 	mux.HandleFunc("/v1/add", s.guardWrite(s.handleAdd))
 	mux.HandleFunc("/v1/add-batch", s.guardWrite(s.handleAddBatch))
 	mux.HandleFunc("/v1/bulk-ingest-job", s.guardWrite(s.handleBulkIngestSubmit))
@@ -737,6 +811,7 @@ func main() {
 	mux.HandleFunc("/v1/hybrid-search", s.handleHybridSearch)
 	mux.HandleFunc("/v1/synonyms", s.handleSynonyms)
 	mux.HandleFunc("/v1/stopwords", s.handleStopWords)
+	mux.HandleFunc("/v1/audit", s.handleAudit)
 	mux.HandleFunc("/v1/webhooks", s.handleWebhooks)
 	mux.HandleFunc("/v1/webhooks/delete", s.guardWrite(s.handleWebhookDelete))
 	mux.HandleFunc("/v1/revisions", s.handleRevisions)
@@ -841,12 +916,19 @@ func main() {
 	// Panel mode: internal (default) = CORS enabled, external = CORS disabled (panel proxies)
 	panelMode := env("MDDB_PANEL_MODE", "internal")
 
-	// Wrap mux: CORS → auth middleware → metrics middleware → JSON content type → routes
+	// Wrap mux: CORS → panic-recover → rate limit → auth → metrics → JSON → routes
 	handler := withJSON(mux)
 	handler = s.Metrics.Middleware(handler)
 	if authEnabled && s.AuthManager != nil {
 		handler = s.AuthManager.HTTPMiddleware(handler)
 	}
+	if s.RateLimiter.Enabled() {
+		handler = s.RateLimiter.HTTPMiddleware(handler)
+	}
+	// Panic recovery is the outermost concern so every other
+	// middleware is shielded — a crash in auth/rate-limit/etc.
+	// becomes an ops.panic_recovered event, not a process kill.
+	handler = PanicRecoveryMiddleware(s.WebhookManager, handler)
 	if panelMode != "external" {
 		handler = withCORS(handler)
 	}
@@ -1010,6 +1092,12 @@ func main() {
 		replClient.Start()
 		defer replClient.Stop()
 		log.Printf("Replication client started (leader=%s, follower=%s)", leaderAddr, s.NodeID)
+
+		// Monitor replication lag and fire ops.replication_lag_high
+		// when it crosses the threshold.
+		s.LagMonitor = NewReplicationLagMonitor(s.WebhookManager, replClient)
+		s.LagMonitor.Start()
+		defer s.LagMonitor.Stop()
 	}
 
 	if s.ReplicationRole == "leader" {
@@ -1026,11 +1114,34 @@ func main() {
 		defer s.AutomationLogStore.Stop()
 	}
 
+	// Flush pending audit events on shutdown
+	if s.AuditManager != nil {
+		defer s.AuditManager.Stop()
+	}
+
+	// Stop the disk-usage monitor; LagMonitor is stopped adjacent to
+	// the replication client in the follower branch above.
+	if s.DiskMonitor != nil {
+		defer s.DiskMonitor.Stop()
+	}
+
 	// Start gRPC server
 	if srvCfg.GRPC.Enabled {
 		var grpcOpts []grpc.ServerOption
+		var unaryChain []grpc.UnaryServerInterceptor
+		var streamChain []grpc.StreamServerInterceptor
+		if s.RateLimiter.Enabled() {
+			unaryChain = append(unaryChain, s.RateLimiter.UnaryInterceptor())
+			streamChain = append(streamChain, s.RateLimiter.StreamInterceptor())
+		}
 		if authEnabled && s.AuthManager != nil {
-			grpcOpts = append(grpcOpts, grpc.UnaryInterceptor(s.AuthManager.GRPCUnaryInterceptor()))
+			unaryChain = append(unaryChain, s.AuthManager.GRPCUnaryInterceptor())
+		}
+		if len(unaryChain) > 0 {
+			grpcOpts = append(grpcOpts, grpc.ChainUnaryInterceptor(unaryChain...))
+		}
+		if len(streamChain) > 0 {
+			grpcOpts = append(grpcOpts, grpc.ChainStreamInterceptor(streamChain...))
 		}
 		// TLS / mTLS — same buildServerTLSConfig as the HTTP listener.
 		// Skipped on UDS (filesystem perms authenticate the local peer).
@@ -1126,8 +1237,53 @@ func (s *Server) guardWrite(next http.HandlerFunc) http.HandlerFunc {
 			http.Error(w, `{"error":"read-only mode"}`, http.StatusForbidden)
 			return
 		}
-		next(w, r)
+		if s.AuditManager == nil || !s.AuditManager.enabled {
+			next(w, r)
+			return
+		}
+		aw := &auditResponseWriter{ResponseWriter: w, status: 200}
+		next(aw, r)
+		result := "ok"
+		if aw.status >= 400 {
+			result = "fail"
+		}
+		actor := ""
+		if claims, ok := r.Context().Value(authContextKey).(*JWTClaims); ok && claims != nil {
+			actor = claims.Username
+		}
+		s.AuditManager.Record(AuditEvent{
+			Actor:     actor,
+			Action:    "write." + r.URL.Path,
+			Resource:  r.URL.Path,
+			Result:    result,
+			IP:        ClientIP(r),
+			UserAgent: r.UserAgent(),
+			Detail:    fmt.Sprintf("status=%d", aw.status),
+		})
 	}
+}
+
+// auditResponseWriter captures the first status code written so the
+// guardWrite wrapper can classify the outcome as ok/fail.
+type auditResponseWriter struct {
+	http.ResponseWriter
+	status  int
+	written bool
+}
+
+func (a *auditResponseWriter) WriteHeader(code int) {
+	if !a.written {
+		a.status = code
+		a.written = true
+	}
+	a.ResponseWriter.WriteHeader(code)
+}
+
+func (a *auditResponseWriter) Write(b []byte) (int, error) {
+	if !a.written {
+		a.written = true
+	}
+	return a.ResponseWriter.Write(b)
 }
 
 // effectiveMode returns the per-protocol mode if set, otherwise falls back to the global mode.
@@ -1177,7 +1333,7 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 			doc.ExpiresAt = now + ttl
 		}
 
-		buf, err := marshalDoc(&doc)
+		buf, err := marshalAndEncrypt(&doc, collection)
 		if err != nil {
 			return err
 		}
@@ -1891,6 +2047,29 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(`{"status":"healthy","mode":"` + string(s.Mode) + `"}`))
 }
 
+// handleComplianceStatus returns the ISO 27001 / SOC 2 production-guard
+// state so operators (and the Panel) can see whether the server is
+// running with the required security envelope.
+func (s *Server) handleComplianceStatus(w http.ResponseWriter, r *http.Request) {
+	missing := CheckProductionGuards()
+	type missingEntry struct {
+		EnvVar string `json:"envVar"`
+		Want   string `json:"want"`
+		Reason string `json:"reason"`
+	}
+	entries := make([]missingEntry, 0, len(missing))
+	for _, m := range missing {
+		entries = append(entries, missingEntry{EnvVar: m.EnvVar, Want: m.Want, Reason: m.Reason})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"production":   IsProduction(),
+		"compliant":    len(missing) == 0,
+		"missing":      entries,
+		"missingCount": len(missing),
+	})
+}
+
 func (s *Server) collectionChecksum(collection string) (string, int) {
 	var checksum uint32
 	var count int
@@ -2071,7 +2250,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Persist
-		buf, err := marshalDoc(&doc)
+		buf, err := marshalAndEncrypt(&doc, collection)
 		if err != nil {
 			return err
 		}

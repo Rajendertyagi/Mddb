@@ -101,6 +101,20 @@ func (s *Server) handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	// Authenticate user
 	user, err := s.AuthManager.Authenticate(req.Username, req.Password)
 	if err != nil {
+		ip := ClientIP(r)
+		if s.AuditManager != nil {
+			s.AuditManager.Record(AuditEvent{
+				Actor:     req.Username,
+				Action:    "auth.login",
+				Resource:  r.URL.Path,
+				Result:    "fail",
+				IP:        ip,
+				UserAgent: r.UserAgent(),
+			})
+		}
+		if s.AuthFailureTracker != nil {
+			s.AuthFailureTracker.Record(req.Username, ip)
+		}
 		http.Error(w, `{"error":"invalid credentials"}`, http.StatusUnauthorized)
 		return
 	}
@@ -113,6 +127,16 @@ func (s *Server) handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, `{"error":"failed to generate token"}`, http.StatusInternalServerError)
 		return
+	}
+	if s.AuditManager != nil {
+		s.AuditManager.Record(AuditEvent{
+			Actor:     user.Username,
+			Action:    "auth.login",
+			Resource:  r.URL.Path,
+			Result:    "ok",
+			IP:        ClientIP(r),
+			UserAgent: r.UserAgent(),
+		})
 	}
 
 	// Calculate expiry

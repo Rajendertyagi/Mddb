@@ -163,7 +163,7 @@ func (fbp *FinalBatchProcessor) processDocumentFast(collection string, batchDoc 
 		ContentMD: batchDoc.ContentMd, AddedAt: added, UpdatedAt: now,
 	}
 
-	buf, err := marshalDoc(&doc)
+	buf, err := marshalAndEncrypt(&doc, collection)
 	if err != nil {
 		result.Error = err
 		return result

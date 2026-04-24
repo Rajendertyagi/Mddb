@@ -20,8 +20,17 @@ func marshalDoc(doc *Doc) ([]byte, error) {
 	return compressDoc(data), nil
 }
 
-// Unmarshal document from protobuf bytes with decompression support
+// Unmarshal document from protobuf bytes with decompression support.
+// If data starts with the at-rest encryption magic prefix it is
+// transparently decrypted before decompression.
 func unmarshalDoc(data []byte) (*Doc, error) {
+	if isEncrypted(data) {
+		pt, err := maybeDecrypt(data)
+		if err != nil {
+			return nil, err
+		}
+		data = pt
+	}
 	// Decompress if needed
 	decompressed, err := decompressDoc(data)
 	if err != nil {
@@ -37,10 +46,19 @@ func unmarshalDoc(data []byte) (*Doc, error) {
 
 // loadDoc auto-detects serialization format (JSON or protobuf+compression)
 // and returns the deserialized Doc. JSON starts with '{' (0x7B), while
-// protobuf+compression uses flag bytes 0, 1, or 2.
+// protobuf+compression uses flag bytes 0, 1, or 2. When data starts
+// with the AES-GCM magic prefix (MDDB_ENC_V1\x00), it is transparently
+// decrypted first so the rest of the pipeline sees plaintext.
 func loadDoc(data []byte) (*Doc, error) {
 	if len(data) == 0 {
 		return nil, errors.New("empty document data")
+	}
+	if isEncrypted(data) {
+		pt, err := maybeDecrypt(data)
+		if err != nil {
+			return nil, err
+		}
+		data = pt
 	}
 	// JSON always starts with '{' (0x7B = 123)
 	if data[0] == '{' {

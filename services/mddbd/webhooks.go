@@ -28,12 +28,13 @@ type Webhook struct {
 
 // WebhookPayload is the payload sent to webhook endpoints.
 type WebhookPayload struct {
-	Event      string `json:"event"`
-	Collection string `json:"collection"`
-	Key        string `json:"key"`
-	Lang       string `json:"lang"`
-	Timestamp  int64  `json:"timestamp"`
-	Document   *Doc   `json:"document,omitempty"`
+	Event      string                 `json:"event"`
+	Collection string                 `json:"collection"`
+	Key        string                 `json:"key"`
+	Lang       string                 `json:"lang"`
+	Timestamp  int64                  `json:"timestamp"`
+	Document   *Doc                   `json:"document,omitempty"`
+	Detail     map[string]interface{} `json:"detail,omitempty"` // incident events (security.*, ops.*)
 }
 
 // WebhookManager manages webhook registrations and delivery.
@@ -98,11 +99,22 @@ func (wm *WebhookManager) Register(url string, events []string, collection strin
 		return nil, errors.New("at least one event is required")
 	}
 
-	// Validate events
-	validEvents := map[string]bool{"doc.added": true, "doc.updated": true, "doc.deleted": true}
+	// Validate events. Document-lifecycle events coexist with the
+	// ISO 27001 / SOC 2 incident channel (security.* + ops.*) so a
+	// single webhook can subscribe to whatever subset it cares about.
+	validEvents := map[string]bool{
+		"doc.added":             true,
+		"doc.updated":           true,
+		"doc.deleted":           true,
+		EventAuthFailureBurst:   true,
+		EventRateLimitExceeded:  true,
+		EventReplicationLagHigh: true,
+		EventPanicRecovered:     true,
+		EventDiskUsageHigh:      true,
+	}
 	for _, e := range events {
 		if !validEvents[e] {
-			return nil, fmt.Errorf("invalid event: %s (valid: doc.added, doc.updated, doc.deleted)", e)
+			return nil, fmt.Errorf("invalid event: %s", e)
 		}
 	}
 
@@ -170,6 +182,17 @@ func (wm *WebhookManager) Delete(id string) error {
 
 // Fire sends webhook notifications for a given event.
 func (wm *WebhookManager) Fire(event, collection, key, lang string, doc *Doc) {
+	wm.fire(event, collection, key, lang, doc, nil)
+}
+
+// FireEvent dispatches a typed incident event carrying a free-form
+// detail map (sent to subscribers as JSON). Used by the security and
+// ops incident detectors where the event body is not a Doc.
+func (wm *WebhookManager) FireEvent(event string, detail map[string]interface{}) {
+	wm.fire(event, "", "", "", nil, detail)
+}
+
+func (wm *WebhookManager) fire(event, collection, key, lang string, doc *Doc, detail map[string]interface{}) {
 	wm.mu.RLock()
 	defer wm.mu.RUnlock()
 
@@ -180,6 +203,7 @@ func (wm *WebhookManager) Fire(event, collection, key, lang string, doc *Doc) {
 		Lang:       lang,
 		Timestamp:  time.Now().Unix(),
 		Document:   doc,
+		Detail:     detail,
 	}
 
 	for _, hook := range wm.hooks {

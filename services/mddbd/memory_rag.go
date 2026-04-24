@@ -307,7 +307,7 @@ func (s *Server) touchSession(sessionID string) {
 			return err
 		}
 		docPtr.UpdatedAt = time.Now().Unix()
-		buf, err := marshalDoc(docPtr)
+		buf, err := marshalAndEncrypt(docPtr, memorySessionsCollection)
 		if err != nil {
 			return err
 		}
