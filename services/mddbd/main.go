@@ -688,6 +688,10 @@ func main() {
 		s.AuthManager.SetServer(s)
 	}
 
+	// Enforce ISO 27001 / SOC 2 guardrails when MDDB_PRODUCTION=true,
+	// or log a one-shot warning otherwise.
+	EnforceProductionGuards(log.Printf, log.Fatalf)
+
 	// MCP stdio mode — replaces normal HTTP/gRPC operation
 	if srvCfg.MCP.Stdio {
 		s.runMCPStdio()

@@ -131,6 +131,29 @@ Complete reference for all MDDB configuration parameters.
 
 ---
 
+## Production Hardening (ISO 27001 / SOC 2)
+
+`MDDB_PRODUCTION=true` is a single switch that fails the server start unless every ISO 27001 / SOC 2 guardrail is satisfied. When unset, the guard logs a one-line warning at boot and continues with the same defaults as before — so existing deployments are unaffected.
+
+| Env Var | Required when `MDDB_PRODUCTION=true` | Reason |
+|---------|--------------------------------------|--------|
+| `MDDB_AUTH_ENABLED` | `true` | A.5.15 / CC6.1 — access control |
+| `MDDB_AUTH_JWT_SECRET` | ≥32 bytes | A.8.24 / CC6.7 — key strength |
+| `MDDB_TLS_ENABLED` | `true` (or `MDDB_TLS_INSECURE_OK=true` as an explicit opt-out for dev) | A.8.24 / CC6.7 — encryption in transit |
+| `MDDB_CORS_ORIGIN` | explicit origin list (not `*`) | A.8.23 / CC6.6 — web-origin segmentation |
+| `MDDB_AUDIT_ENABLED` | `true` | A.8.15 / CC7.2 — audit trail |
+| `MDDB_RATE_LIMIT_ENABLED` | `true` | A.5.30 / CC6.6 — resource-exhaustion protection |
+
+On a successful production start the server logs:
+
+```
+✓ Production guards satisfied (ISO 27001 / SOC 2)
+```
+
+When a requirement is missing, startup is aborted with a line-by-line breakdown pointing at each offending env var.
+
+---
+
 ## Audit Log (ISO 27001 / SOC 2)
 
 Structured authentication and mutation trail persisted to a dedicated `audit` BoltDB bucket. Events are buffered and flushed asynchronously so hot-path handlers never block on disk I/O. Queryable via admin-only `GET /v1/audit`.

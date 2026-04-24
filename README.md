@@ -290,6 +290,8 @@ Proto definitions at `proto/mddb.proto` - generate clients for any language supp
 - ✅ **[TLS / HTTPS](docs/TLS.md)** - `MDDB_TLS_ENABLED=true`, `MDDB_TLS_CERT`, `MDDB_TLS_KEY` — user-supplied PEM cert + key, TLS 1.2 minimum
 - ✅ **[Mutual TLS (mTLS)](docs/TLS.md#quick-start-mtls--clients-must-present-certificates)** - `MDDB_TLS_CLIENT_CA` points to a PEM bundle of trusted client CAs; `MDDB_TLS_CLIENT_AUTH=require` (default) or `request`. Rejects unauthenticated clients when `require`
 - ✅ **Unix Domain Socket transport** - `MDDB_HTTP_ADDR=unix:/tmp/mddb-http.sock` and `MDDB_GRPC_ADDR=unix:/tmp/mddb-grpc.sock` — zero-network local transport with `0600` filesystem perms. Clients in Python (`MDDB.connect('unix:/tmp/mddb-http.sock')`), PHP (`mddb::connect('unix:/tmp/mddb-http.sock')`), Node/Python gRPC (`unix:/tmp/mddb-grpc.sock` channel target)
+- ✅ **Audit log (ISO 27001 / SOC 2)** — `MDDB_AUDIT_ENABLED=true` persists structured JSON events (auth attempts, writes, deletes) to a dedicated BoltDB bucket. Admin-only `GET /v1/audit` query with actor / action / result / time-window filters. Retention configurable via `MDDB_AUDIT_RETENTION_DAYS` (default 90)
+- ✅ **Production hardening switch** — `MDDB_PRODUCTION=true` fails startup unless every compliance guardrail is satisfied (auth on, JWT secret ≥32 bytes, TLS on, CORS explicit, audit + rate limit enabled). Unset = silent warning; no breaking change for existing deployments. **[→ Details](docs/config.md#production-hardening-iso-27001--soc-2)**
 
 ### Replication & High Availability
 - ✅ **Leader-Follower Replication** - Binlog streaming for read scaling
