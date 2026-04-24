@@ -50,12 +50,20 @@ func TestTemporalManager_RecordAndQuery(t *testing.T) {
 	tm.RecordAsync(collection, docID, EventAccess, "user1")
 	tm.RecordAsync(collection, docID, EventAccess, "user2")
 
-	// Let the background goroutine flush
-	time.Sleep(600 * time.Millisecond)
-
-	events, err := tm.QueryRange(collection, docID, now-60, now+60, "", 100)
-	if err != nil {
-		t.Fatalf("QueryRange: %v", err)
+	// Poll for flush rather than sleep once — the background writer
+	// can take longer than 600 ms on congested CI runners.
+	var events []TemporalEvent
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		var err error
+		events, err = tm.QueryRange(collection, docID, now-60, now+60, "", 100)
+		if err != nil {
+			t.Fatalf("QueryRange: %v", err)
+		}
+		if len(events) >= 3 {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
 	}
 	if len(events) < 3 {
 		t.Errorf("expected at least 3 events, got %d", len(events))
