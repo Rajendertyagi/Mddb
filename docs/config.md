@@ -154,6 +154,22 @@ When a requirement is missing, startup is aborted with a line-by-line breakdown 
 
 ---
 
+## Rate Limiting (HTTP + gRPC)
+
+Shared sliding-window limiter covering both HTTP and gRPC. Separate from the pre-existing `MDDB_MCP_RATE_LIMIT_*` budget, which continues to apply to the MCP endpoints only.
+
+| Env Var | Default | Type | Description |
+|---------|---------|------|-------------|
+| `MDDB_RATE_LIMIT_ENABLED` | `false` | bool | Enable the limiter. When off, both HTTP and gRPC are passthrough. |
+| `MDDB_RATE_LIMIT_REQUESTS` | `100` | int | Sustained requests per window. |
+| `MDDB_RATE_LIMIT_WINDOW` | `60` | int seconds | Window length. |
+| `MDDB_RATE_LIMIT_BURST` | `50` | int | Additional allowance before a client is blocked. Effective ceiling = `REQUESTS + BURST`. |
+| `MDDB_RATE_LIMIT_BY` | `"ip"` | string | `"ip"` (default) or `"user"`. `user` keys on the authenticated username and falls back to IP for anonymous traffic. |
+
+HTTP responses carry `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`; rejected requests get `429 Too Many Requests` with `Retry-After`. gRPC rejects with `codes.ResourceExhausted`. The paths `/health`, `/v1/health`, and `/metrics` are always exempt so monitoring and load-balancer probes never trip the limiter.
+
+---
+
 ## Audit Log (ISO 27001 / SOC 2)
 
 Structured authentication and mutation trail persisted to a dedicated `audit` BoltDB bucket. Events are buffered and flushed asynchronously so hot-path handlers never block on disk I/O. Queryable via admin-only `GET /v1/audit`.

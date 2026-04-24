@@ -78,6 +78,7 @@ type Server struct {
 	Metrics            *Metrics             // Prometheus-compatible telemetry
 	AuthManager        *AuthManager         // Authentication and authorization
 	AuditManager       *AuditManager        // Audit log (ISO 27001 A.8.15, SOC 2 CC7.2)
+	RateLimiter        *RateLimiter         // Cross-transport rate limiter (ISO 27001 A.5.30, SOC 2 CC6.6)
 	SynonymManager     *SynonymManager      // Synonym dictionaries for FTS
 	StopWordManager    *StopWordManager     // Per-collection custom stop words for FTS
 	AutomationManager  *AutomationManager   // Automation: triggers, crons, webhook targets
@@ -688,6 +689,11 @@ func main() {
 		s.AuthManager.SetServer(s)
 	}
 
+	// Initialize the shared HTTP+gRPC rate limiter (opt-in via
+	// MDDB_RATE_LIMIT_ENABLED). Both transports consume the same
+	// per-client budget.
+	s.RateLimiter = NewRateLimiter()
+
 	// Enforce ISO 27001 / SOC 2 guardrails when MDDB_PRODUCTION=true,
 	// or log a one-shot warning otherwise.
 	EnforceProductionGuards(log.Printf, log.Fatalf)
@@ -867,11 +873,14 @@ func main() {
 	// Panel mode: internal (default) = CORS enabled, external = CORS disabled (panel proxies)
 	panelMode := env("MDDB_PANEL_MODE", "internal")
 
-	// Wrap mux: CORS → auth middleware → metrics middleware → JSON content type → routes
+	// Wrap mux: CORS → rate limit → auth → metrics → JSON → routes
 	handler := withJSON(mux)
 	handler = s.Metrics.Middleware(handler)
 	if authEnabled && s.AuthManager != nil {
 		handler = s.AuthManager.HTTPMiddleware(handler)
+	}
+	if s.RateLimiter.Enabled() {
+		handler = s.RateLimiter.HTTPMiddleware(handler)
 	}
 	if panelMode != "external" {
 		handler = withCORS(handler)
@@ -1060,8 +1069,20 @@ func main() {
 	// Start gRPC server
 	if srvCfg.GRPC.Enabled {
 		var grpcOpts []grpc.ServerOption
+		var unaryChain []grpc.UnaryServerInterceptor
+		var streamChain []grpc.StreamServerInterceptor
+		if s.RateLimiter.Enabled() {
+			unaryChain = append(unaryChain, s.RateLimiter.UnaryInterceptor())
+			streamChain = append(streamChain, s.RateLimiter.StreamInterceptor())
+		}
 		if authEnabled && s.AuthManager != nil {
-			grpcOpts = append(grpcOpts, grpc.UnaryInterceptor(s.AuthManager.GRPCUnaryInterceptor()))
+			unaryChain = append(unaryChain, s.AuthManager.GRPCUnaryInterceptor())
+		}
+		if len(unaryChain) > 0 {
+			grpcOpts = append(grpcOpts, grpc.ChainUnaryInterceptor(unaryChain...))
+		}
+		if len(streamChain) > 0 {
+			grpcOpts = append(grpcOpts, grpc.ChainStreamInterceptor(streamChain...))
 		}
 		// TLS / mTLS — same buildServerTLSConfig as the HTTP listener.
 		// Skipped on UDS (filesystem perms authenticate the local peer).
