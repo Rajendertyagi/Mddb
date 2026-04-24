@@ -3799,6 +3799,109 @@ paths:
               schema:
                 type: string
 
+  /v1/audit:
+    get:
+      tags:
+        - Audit
+      summary: Query audit-log events (admin-only)
+      description: |
+        List structured audit-log events recorded by the server for ISO 27001
+        A.8.15 / SOC 2 CC7.2 compliance. Admin JWT required. Returns 404 when
+        `MDDB_AUDIT_ENABLED` is not set. Events are returned newest-first.
+      operationId: auditQuery
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: RFC3339 lower bound (inclusive)
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: RFC3339 upper bound (inclusive)
+        - name: fromNanos
+          in: query
+          schema:
+            type: integer
+            format: int64
+          description: Nanosecond-precision lower bound (overrides `from`)
+        - name: toNanos
+          in: query
+          schema:
+            type: integer
+            format: int64
+          description: Nanosecond-precision upper bound
+        - name: actor
+          in: query
+          schema:
+            type: string
+          description: Filter by authenticated username
+        - name: action
+          in: query
+          schema:
+            type: string
+          description: e.g. auth.login, auth.jwt, write./v1/add
+        - name: result
+          in: query
+          schema:
+            type: string
+            enum: [ok, fail]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: Matching events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        ts:
+                          type: integer
+                          format: int64
+                        actor:
+                          type: string
+                        action:
+                          type: string
+                        resource:
+                          type: string
+                        collection:
+                          type: string
+                        key:
+                          type: string
+                        result:
+                          type: string
+                        ip:
+                          type: string
+                        userAgent:
+                          type: string
+                        detail:
+                          type: string
+                  count:
+                    type: integer
+                  dropped:
+                    type: integer
+                    format: int64
+        "401":
+          description: Missing or invalid token
+        "403":
+          description: Not an admin
+        "404":
+          description: Audit disabled
+
   /v1/curation:
     get:
       tags:

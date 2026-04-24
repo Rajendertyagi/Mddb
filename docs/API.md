@@ -2456,6 +2456,52 @@ curl http://localhost:11023/v1/webhooks
 
 ---
 
+### GET /v1/audit
+
+List audit-log events. **Admin-only.** Returns 404 when `MDDB_AUDIT_ENABLED` is not set.
+
+**Query parameters**:
+
+| Name | Type | Description |
+|------|------|-------------|
+| `from` | RFC3339 timestamp | Lower bound (inclusive). Converted to nanoseconds internally. |
+| `to` | RFC3339 timestamp | Upper bound (inclusive). |
+| `fromNanos` | int64 | Nanosecond-precision lower bound (takes precedence over `from`). |
+| `toNanos` | int64 | Nanosecond-precision upper bound. |
+| `actor` | string | Filter by authenticated username. |
+| `action` | string | e.g. `auth.login`, `auth.jwt`, `auth.apikey`, `auth.missing`, `write./v1/add`. |
+| `result` | string | `ok` or `fail`. |
+| `limit` | int | Max events returned (default 100). |
+
+**Example**:
+```bash
+curl -H "Authorization: Bearer $ADMIN_JWT" \
+  "http://localhost:11023/v1/audit?actor=alice&result=fail&limit=50"
+```
+
+**Response**:
+```json
+{
+  "events": [
+    {
+      "ts": 1740000000000000000,
+      "actor": "alice",
+      "action": "auth.login",
+      "resource": "/v1/auth/login",
+      "result": "fail",
+      "ip": "203.0.113.5",
+      "userAgent": "curl/8.4.0"
+    }
+  ],
+  "count": 1,
+  "dropped": 0
+}
+```
+
+Events are returned newest-first. `dropped` reports the running total of events that could not fit in the in-memory ring buffer (operational-health signal — a non-zero value means the audit subsystem was under pressure).
+
+---
+
 ### POST /v1/webhooks/delete
 
 Delete a webhook by ID.

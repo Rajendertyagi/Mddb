@@ -1,0 +1,391 @@
+package main
+
+import (
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"log"
+	"net/http"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	json "github.com/goccy/go-json"
+	bolt "go.etcd.io/bbolt"
+)
+
+var bucketAudit = []byte("audit")
+
+// AuditEvent is one immutable record in the audit log.
+// Field names are stable — auditors consume the JSON directly.
+type AuditEvent struct {
+	Timestamp  int64  `json:"ts"`
+	Actor      string `json:"actor,omitempty"`
+	Action     string `json:"action"`
+	Resource   string `json:"resource,omitempty"`
+	Collection string `json:"collection,omitempty"`
+	Key        string `json:"key,omitempty"`
+	Result     string `json:"result"`
+	IP         string `json:"ip,omitempty"`
+	UserAgent  string `json:"userAgent,omitempty"`
+	Detail     string `json:"detail,omitempty"`
+}
+
+// AuditManager persists authentication, authorization, and mutation
+// events to a dedicated BoltDB bucket for ISO 27001 A.8.15 / SOC 2
+// CC7.2 compliance. Writes are buffered and flushed by a single
+// background goroutine so hot-path handlers never block on disk I/O.
+type AuditManager struct {
+	db            *bolt.DB
+	enabled       bool
+	retentionDays int
+	ch            chan AuditEvent
+	stopCh        chan struct{}
+	wg            sync.WaitGroup
+	dropped       uint64
+}
+
+// NewAuditManager wires a manager. The caller must invoke Start
+// after EnsureBuckets; Record is a no-op until Start runs.
+func NewAuditManager(db *bolt.DB, enabled bool, retentionDays int) *AuditManager {
+	if retentionDays <= 0 {
+		retentionDays = 90
+	}
+	return &AuditManager{
+		db:            db,
+		enabled:       enabled,
+		retentionDays: retentionDays,
+		ch:            make(chan AuditEvent, 1024),
+		stopCh:        make(chan struct{}),
+	}
+}
+
+// EnsureBuckets creates the audit bucket.
+func (a *AuditManager) EnsureBuckets() error {
+	if a == nil || !a.enabled {
+		return nil
+	}
+	return a.db.Update(func(tx *bolt.Tx) error {
+		_, err := tx.CreateBucketIfNotExists(bucketAudit)
+		return err
+	})
+}
+
+// Start launches the writer and the retention trimmer.
+func (a *AuditManager) Start() {
+	if a == nil || !a.enabled {
+		return
+	}
+	a.wg.Add(2)
+	go a.writer()
+	go a.trimmer()
+}
+
+// Stop blocks until the buffer is drained.
+func (a *AuditManager) Stop() {
+	if a == nil || !a.enabled {
+		return
+	}
+	close(a.stopCh)
+	a.wg.Wait()
+}
+
+// Record queues an event. Never blocks — when the buffer is full
+// the event is counted as dropped and surfaced via /v1/audit/stats.
+func (a *AuditManager) Record(ev AuditEvent) {
+	if a == nil || !a.enabled {
+		return
+	}
+	if ev.Timestamp == 0 {
+		ev.Timestamp = time.Now().UnixNano()
+	}
+	if ev.Result == "" {
+		ev.Result = "ok"
+	}
+	select {
+	case a.ch <- ev:
+	default:
+		atomic.AddUint64(&a.dropped, 1)
+	}
+}
+
+// Dropped returns the count of events that could not be buffered.
+func (a *AuditManager) Dropped() uint64 {
+	if a == nil {
+		return 0
+	}
+	return atomic.LoadUint64(&a.dropped)
+}
+
+func (a *AuditManager) writer() {
+	defer a.wg.Done()
+	batch := make([]AuditEvent, 0, 64)
+	flush := func() {
+		if len(batch) == 0 {
+			return
+		}
+		if err := a.flushBatch(batch); err != nil {
+			log.Printf("audit: flush failed: %v", err)
+		}
+		batch = batch[:0]
+	}
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-a.stopCh:
+			// Drain remaining events before exit
+			for {
+				select {
+				case ev := <-a.ch:
+					batch = append(batch, ev)
+				default:
+					flush()
+					return
+				}
+			}
+		case ev := <-a.ch:
+			batch = append(batch, ev)
+			if len(batch) >= 64 {
+				flush()
+			}
+		case <-ticker.C:
+			flush()
+		}
+	}
+}
+
+func (a *AuditManager) flushBatch(batch []AuditEvent) error {
+	return a.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(bucketAudit)
+		if b == nil {
+			return errors.New("audit bucket missing")
+		}
+		seq, _ := b.NextSequence()
+		for i, ev := range batch {
+			payload, err := json.Marshal(ev)
+			if err != nil {
+				continue
+			}
+			key := auditKey(ev.Timestamp, seq+uint64(i))
+			if err := b.Put(key, payload); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func (a *AuditManager) trimmer() {
+	defer a.wg.Done()
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-a.stopCh:
+			return
+		case <-ticker.C:
+			cutoff := time.Now().Add(-time.Duration(a.retentionDays) * 24 * time.Hour).UnixNano()
+			if err := a.PurgeOlderThan(cutoff); err != nil {
+				log.Printf("audit: trim failed: %v", err)
+			}
+		}
+	}
+}
+
+// PurgeOlderThan removes events whose timestamp is earlier than the
+// given nanosecond cutoff.
+func (a *AuditManager) PurgeOlderThan(cutoffNanos int64) error {
+	if a == nil || !a.enabled {
+		return nil
+	}
+	return a.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(bucketAudit)
+		if b == nil {
+			return nil
+		}
+		c := b.Cursor()
+		var toDelete [][]byte
+		for k, _ := c.First(); k != nil; k, _ = c.Next() {
+			if len(k) < 8 {
+				continue
+			}
+			ts := int64(binary.BigEndian.Uint64(k[:8])) // #nosec G115 -- audit timestamp fits int64
+			if ts >= cutoffNanos {
+				break
+			}
+			toDelete = append(toDelete, append([]byte(nil), k...))
+		}
+		for _, k := range toDelete {
+			if err := b.Delete(k); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// QueryFilter narrows a Query.
+type QueryFilter struct {
+	FromNanos int64
+	ToNanos   int64
+	Actor     string
+	Action    string
+	Result    string
+	Limit     int
+}
+
+// Query returns events matching the filter, newest first.
+func (a *AuditManager) Query(f QueryFilter) ([]AuditEvent, error) {
+	if a == nil || !a.enabled {
+		return nil, nil
+	}
+	if f.Limit <= 0 {
+		f.Limit = 100
+	}
+	var out []AuditEvent
+	err := a.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket(bucketAudit)
+		if b == nil {
+			return nil
+		}
+		c := b.Cursor()
+		k, v := c.Last()
+		for ; k != nil; k, v = c.Prev() {
+			if len(k) < 8 {
+				continue
+			}
+			ts := int64(binary.BigEndian.Uint64(k[:8])) // #nosec G115 -- audit timestamp fits int64
+			if f.FromNanos > 0 && ts < f.FromNanos {
+				break
+			}
+			if f.ToNanos > 0 && ts > f.ToNanos {
+				continue
+			}
+			var ev AuditEvent
+			if err := json.Unmarshal(v, &ev); err != nil {
+				continue
+			}
+			if f.Actor != "" && ev.Actor != f.Actor {
+				continue
+			}
+			if f.Action != "" && ev.Action != f.Action {
+				continue
+			}
+			if f.Result != "" && ev.Result != f.Result {
+				continue
+			}
+			out = append(out, ev)
+			if len(out) >= f.Limit {
+				break
+			}
+		}
+		return nil
+	})
+	return out, err
+}
+
+func auditKey(tsNanos int64, seq uint64) []byte {
+	var k [16]byte
+	binary.BigEndian.PutUint64(k[:8], uint64(tsNanos)) // #nosec G115 -- monotonic nanosecond timestamp
+	binary.BigEndian.PutUint64(k[8:], seq)
+	return k[:]
+}
+
+// ClientIP returns the best-effort originating IP for the request,
+// honouring X-Forwarded-For only when the direct remote is a trusted
+// proxy (currently any — hardening tightens this later).
+func ClientIP(r *http.Request) string {
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		if comma := strings.Index(xff, ","); comma > 0 {
+			return strings.TrimSpace(xff[:comma])
+		}
+		return strings.TrimSpace(xff)
+	}
+	host, _, err := splitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
+
+func splitHostPort(addr string) (string, string, error) {
+	if addr == "" {
+		return "", "", errors.New("empty addr")
+	}
+	i := strings.LastIndex(addr, ":")
+	if i < 0 {
+		return addr, "", nil
+	}
+	return addr[:i], addr[i+1:], nil
+}
+
+// --- HTTP ---
+
+func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request) {
+	if s.AuditManager == nil || !s.AuditManager.enabled {
+		http.Error(w, `{"error":"audit disabled"}`, http.StatusNotFound)
+		return
+	}
+	if !requireAdmin(w, r, s) {
+		return
+	}
+	q := r.URL.Query()
+	f := QueryFilter{
+		Actor:  q.Get("actor"),
+		Action: q.Get("action"),
+		Result: q.Get("result"),
+	}
+	if v := q.Get("fromNanos"); v != "" {
+		f.FromNanos, _ = strconv.ParseInt(v, 10, 64)
+	}
+	if v := q.Get("toNanos"); v != "" {
+		f.ToNanos, _ = strconv.ParseInt(v, 10, 64)
+	}
+	if v := q.Get("from"); v != "" && f.FromNanos == 0 {
+		if t, err := time.Parse(time.RFC3339, v); err == nil {
+			f.FromNanos = t.UnixNano()
+		}
+	}
+	if v := q.Get("to"); v != "" && f.ToNanos == 0 {
+		if t, err := time.Parse(time.RFC3339, v); err == nil {
+			f.ToNanos = t.UnixNano()
+		}
+	}
+	if v := q.Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			f.Limit = n
+		}
+	}
+	events, err := s.AuditManager.Query(f)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":%q}`, err.Error()), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"events":  events,
+		"count":   len(events),
+		"dropped": s.AuditManager.Dropped(),
+	})
+}
+
+// requireAdmin writes a 401/403 response and returns false if the
+// request does not carry admin claims.
+func requireAdmin(w http.ResponseWriter, r *http.Request, s *Server) bool {
+	if s.AuthManager == nil || !s.AuthManager.enabled {
+		return true
+	}
+	claims, ok := r.Context().Value(authContextKey).(*JWTClaims)
+	if !ok || claims == nil {
+		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+		return false
+	}
+	if !claims.Admin {
+		http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+		return false
+	}
+	return true
+}

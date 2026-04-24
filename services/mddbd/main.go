@@ -77,6 +77,7 @@ type Server struct {
 	SchemaManager      *SchemaManager       // Per-collection metadata schema validation
 	Metrics            *Metrics             // Prometheus-compatible telemetry
 	AuthManager        *AuthManager         // Authentication and authorization
+	AuditManager       *AuditManager        // Audit log (ISO 27001 A.8.15, SOC 2 CC7.2)
 	SynonymManager     *SynonymManager      // Synonym dictionaries for FTS
 	StopWordManager    *StopWordManager     // Per-collection custom stop words for FTS
 	AutomationManager  *AutomationManager   // Automation: triggers, crons, webhook targets
@@ -381,6 +382,23 @@ func main() {
 		log.Printf("Geohash index loaded: %d points in %v", nh, time.Since(start))
 	}()
 
+	// Initialize audit log (ISO 27001 A.8.15 / SOC 2 CC7.2)
+	auditEnabled := env("MDDB_AUDIT_ENABLED", "false") == "true"
+	auditRetention := 90
+	if v := env("MDDB_AUDIT_RETENTION_DAYS", ""); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			auditRetention = n
+		}
+	}
+	s.AuditManager = NewAuditManager(db, auditEnabled, auditRetention)
+	if err := s.AuditManager.EnsureBuckets(); err != nil {
+		log.Fatal(err)
+	}
+	s.AuditManager.Start()
+	if auditEnabled {
+		log.Printf("Audit log enabled (retention %d days)", auditRetention)
+	}
+
 	// Initialize TTL manager
 	s.TTLManager = NewTTLManager(db, s)
 	if err := s.TTLManager.EnsureBuckets(); err != nil {
@@ -666,6 +684,9 @@ func main() {
 
 		log.Println("✓ Authentication enabled")
 	}
+	if s.AuthManager != nil {
+		s.AuthManager.SetServer(s)
+	}
 
 	// MCP stdio mode — replaces normal HTTP/gRPC operation
 	if srvCfg.MCP.Stdio {
@@ -737,6 +758,7 @@ func main() {
 	mux.HandleFunc("/v1/hybrid-search", s.handleHybridSearch)
 	mux.HandleFunc("/v1/synonyms", s.handleSynonyms)
 	mux.HandleFunc("/v1/stopwords", s.handleStopWords)
+	mux.HandleFunc("/v1/audit", s.handleAudit)
 	mux.HandleFunc("/v1/webhooks", s.handleWebhooks)
 	mux.HandleFunc("/v1/webhooks/delete", s.guardWrite(s.handleWebhookDelete))
 	mux.HandleFunc("/v1/revisions", s.handleRevisions)
@@ -1026,6 +1048,11 @@ func main() {
 		defer s.AutomationLogStore.Stop()
 	}
 
+	// Flush pending audit events on shutdown
+	if s.AuditManager != nil {
+		defer s.AuditManager.Stop()
+	}
+
 	// Start gRPC server
 	if srvCfg.GRPC.Enabled {
 		var grpcOpts []grpc.ServerOption
@@ -1126,8 +1153,53 @@ func (s *Server) guardWrite(next http.HandlerFunc) http.HandlerFunc {
 			http.Error(w, `{"error":"read-only mode"}`, http.StatusForbidden)
 			return
 		}
-		next(w, r)
+		if s.AuditManager == nil || !s.AuditManager.enabled {
+			next(w, r)
+			return
+		}
+		aw := &auditResponseWriter{ResponseWriter: w, status: 200}
+		next(aw, r)
+		result := "ok"
+		if aw.status >= 400 {
+			result = "fail"
+		}
+		actor := ""
+		if claims, ok := r.Context().Value(authContextKey).(*JWTClaims); ok && claims != nil {
+			actor = claims.Username
+		}
+		s.AuditManager.Record(AuditEvent{
+			Actor:     actor,
+			Action:    "write." + r.URL.Path,
+			Resource:  r.URL.Path,
+			Result:    result,
+			IP:        ClientIP(r),
+			UserAgent: r.UserAgent(),
+			Detail:    fmt.Sprintf("status=%d", aw.status),
+		})
 	}
+}
+
+// auditResponseWriter captures the first status code written so the
+// guardWrite wrapper can classify the outcome as ok/fail.
+type auditResponseWriter struct {
+	http.ResponseWriter
+	status  int
+	written bool
+}
+
+func (a *auditResponseWriter) WriteHeader(code int) {
+	if !a.written {
+		a.status = code
+		a.written = true
+	}
+	a.ResponseWriter.WriteHeader(code)
+}
+
+func (a *auditResponseWriter) Write(b []byte) (int, error) {
+	if !a.written {
+		a.written = true
+	}
+	return a.ResponseWriter.Write(b)
 }
 
 // effectiveMode returns the per-protocol mode if set, otherwise falls back to the global mode.

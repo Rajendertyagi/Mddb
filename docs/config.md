@@ -131,6 +131,19 @@ Complete reference for all MDDB configuration parameters.
 
 ---
 
+## Audit Log (ISO 27001 / SOC 2)
+
+Structured authentication and mutation trail persisted to a dedicated `audit` BoltDB bucket. Events are buffered and flushed asynchronously so hot-path handlers never block on disk I/O. Queryable via admin-only `GET /v1/audit`.
+
+| Env Var | Default | Type | Description |
+|---------|---------|------|-------------|
+| `MDDB_AUDIT_ENABLED` | `false` | bool | Enable the audit log. When disabled, `AuditManager` is a no-op and `/v1/audit` returns 404. |
+| `MDDB_AUDIT_RETENTION_DAYS` | `90` | int | Retention window. A background trimmer runs every hour and deletes events older than the cutoff. |
+
+Query parameters on `GET /v1/audit`: `from` / `to` (RFC3339) or `fromNanos` / `toNanos`, `actor`, `action`, `result` (`ok`/`fail`), `limit` (default 100). Response shape: `{events: [...], count, dropped}` — `dropped` counts events lost when the in-memory buffer was full.
+
+---
+
 ## Embedding / Vector Search
 
 | Env Var | Default | Type | Description |

@@ -25,6 +25,7 @@ type AuthManager struct {
 	db      *bolt.DB
 	config  AuthConfig
 	enabled bool
+	server  *Server // set after construction; used only for audit log hooks
 
 	// In-memory caches
 	mu               sync.RWMutex
@@ -33,6 +34,14 @@ type AuthManager struct {
 	permissions      map[string][]*Permission      // username -> permissions
 	groups           map[string]*Group             // groupName -> Group
 	groupPermissions map[string][]*GroupPermission // groupName -> permissions
+}
+
+// SetServer wires the owning Server for audit log emission.
+func (am *AuthManager) SetServer(s *Server) {
+	if am == nil {
+		return
+	}
+	am.server = s
 }
 
 // NewAuthManager creates a new authentication manager

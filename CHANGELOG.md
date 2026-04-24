@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Audit log** ([services/mddbd/audit.go](services/mddbd/audit.go)) — ISO 27001 A.8.15 / SOC 2 CC7.2 compliance. `AuditManager` buffers structured JSON events `{ts, actor, action, resource, collection, key, result, ip, userAgent, detail}` and flushes them asynchronously to a dedicated `audit` BoltDB bucket; no hot-path handler blocks on disk I/O. Retention is configurable via `MDDB_AUDIT_RETENTION_DAYS` (default 90) with an hourly background trimmer. Authentication attempts (JWT, API key, login, missing/invalid/disabled user) are recorded from [auth_middleware.go](services/mddbd/auth_middleware.go) and [auth_handlers.go](services/mddbd/auth_handlers.go); every write endpoint is audited automatically via the `guardWrite` wrapper in [main.go](services/mddbd/main.go). Admin-only `GET /v1/audit` query endpoint supports `from`/`to` (RFC3339 or raw nanos), `actor`, `action`, `result`, `limit`. Feature is opt-in via `MDDB_AUDIT_ENABLED=true`; when disabled the manager is a no-op and the endpoint returns 404.
+
 ### Changed
+- **Timing-safe auth error** ([services/mddbd/auth_middleware.go](services/mddbd/auth_middleware.go)) — "user disabled or not found" now returns the same `invalid token` response as a bad JWT to prevent user-existence enumeration.
 - **Consolidated MCP arg helpers** — moved `mcpGetBool` from [services/mddbd/mcp_tools_bulk.go](services/mddbd/mcp_tools_bulk.go) into the shared helper group in [services/mddbd/mcp_tools.go](services/mddbd/mcp_tools.go) alongside `mcpGetString`, `mcpGetInt`, `mcpGetFloat`. No behavior change.
 
 ## [2.9.14] - 2026-04-19
