@@ -80,6 +80,7 @@ type Server struct {
 	AuditManager       *AuditManager          // Audit log (ISO 27001 A.8.15, SOC 2 CC7.2)
 	RateLimiter        *RateLimiter           // Cross-transport rate limiter (ISO 27001 A.5.30, SOC 2 CC6.6)
 	Encryptor          *Encryptor             // At-rest AES-256-GCM encryption (ISO 27001 A.8.24, SOC 2 CC6.7)
+	RotationManager    *RotationManager       // Background re-encryption after key rotation
 	AuthFailureTracker *AuthFailureTracker    // Sliding-window auth failure counter → security.auth_failure_burst
 	LagMonitor         *ReplicationLagMonitor // Periodic replication-lag → ops.replication_lag_high
 	DiskMonitor        *DiskUsageMonitor      // Periodic disk-usage → ops.disk_usage_high
@@ -548,6 +549,8 @@ func main() {
 			}
 		}
 		log.Printf("At-rest encryption enabled (%d collection(s) opted in)", encCount)
+		log.Printf("Encryption primary keyID=%d, previous=%d", enc.PrimaryKeyID(), len(enc.PreviousKeyIDs()))
+		s.RotationManager = NewRotationManager(s, enc)
 	} else {
 		// If any collection is flagged as encrypted but we have no key,
 		// refuse to start — writing plaintext into a supposedly encrypted
@@ -812,6 +815,10 @@ func main() {
 	mux.HandleFunc("/v1/synonyms", s.handleSynonyms)
 	mux.HandleFunc("/v1/stopwords", s.handleStopWords)
 	mux.HandleFunc("/v1/audit", s.handleAudit)
+	mux.HandleFunc("/v1/encryption/status", s.handleEncryptionStatus)
+	mux.HandleFunc("/v1/encryption/rotate", s.handleEncryptionRotate)
+	mux.HandleFunc("/v1/encryption/jobs", s.handleEncryptionJob)
+	mux.HandleFunc("/v1/encryption/jobs/", s.handleEncryptionJob)
 	mux.HandleFunc("/v1/webhooks", s.handleWebhooks)
 	mux.HandleFunc("/v1/webhooks/delete", s.guardWrite(s.handleWebhookDelete))
 	mux.HandleFunc("/v1/revisions", s.handleRevisions)

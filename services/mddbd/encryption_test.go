@@ -141,7 +141,7 @@ func TestDecryptShortPayload(t *testing.T) {
 	t.Setenv("MDDB_ENCRYPTION_KEY", genKey(t))
 	e, _ := NewEncryptor()
 	// Magic prefix present but no room for nonce + tag.
-	short := append([]byte{}, encryptionMagic...)
+	short := append([]byte{}, encryptionMagicV2...)
 	if _, err := e.Decrypt(short); err == nil {
 		t.Fatal("expected error on short ciphertext")
 	}
@@ -175,8 +175,11 @@ func TestIsEncryptedPrefix(t *testing.T) {
 	if isEncrypted([]byte("short")) {
 		t.Fatal("short should not match")
 	}
-	if !isEncrypted(append([]byte(encryptionMagic), 0, 1, 2)) {
-		t.Fatal("magic prefix should match")
+	if !isEncrypted(append([]byte(encryptionMagicV2), 0, 1, 2)) {
+		t.Fatal("V2 magic prefix should match")
+	}
+	if !isEncrypted(append([]byte(encryptionMagicV1), 0, 1, 2)) {
+		t.Fatal("V1 magic prefix should still match (backward compat)")
 	}
 }
 
@@ -259,7 +262,7 @@ func TestMaybeDecryptWithoutGlobalEncryptor(t *testing.T) {
 		t.Fatalf("plaintext passthrough: %q %v", out, err)
 	}
 	// Ciphertext without a global encryptor must error.
-	ct := append([]byte{}, encryptionMagic...)
+	ct := append([]byte{}, encryptionMagicV2...)
 	ct = append(ct, make([]byte, 40)...)
 	if _, err := maybeDecrypt(ct); err == nil {
 		t.Fatal("expected error when globalEncryptor nil")
