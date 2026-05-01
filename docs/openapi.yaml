@@ -68,7 +68,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: "2.9.15"
+  version: "2.9.16"
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -3923,7 +3923,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [production, compliant, missing, missingCount]
+                required: [ production, compliant, missing, missingCount ]
                 properties:
                   production:
                     type: boolean
@@ -3935,7 +3935,7 @@ paths:
                     type: array
                     items:
                       type: object
-                      required: [envVar, want, reason]
+                      required: [ envVar, want, reason ]
                       properties:
                         envVar:
                           type: string
