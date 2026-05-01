@@ -229,6 +229,29 @@ func TestMcpCompletePromptArg(t *testing.T) {
 	}
 }
 
+func TestMcpCompleteCollection(t *testing.T) {
+	s, cleanup := newHandlerTestServer(t)
+	defer cleanup()
+	addTestDoc(t, s, "blog", "k1", "en", "x", nil)
+	addTestDoc(t, s, "blog2", "k1", "en", "x", nil)
+	addTestDoc(t, s, "news", "k1", "en", "x", nil)
+
+	client := NewDirectClient(s)
+
+	all, total, _ := mcpCompleteCollection(context.Background(), client, "")
+	if total < 3 {
+		t.Errorf("expected total>=3, got %d (%v)", total, all)
+	}
+
+	// Prefix match should narrow.
+	got, _, _ := mcpCompleteCollection(context.Background(), client, "blo")
+	for _, c := range got {
+		if !strings.HasPrefix(strings.ToLower(c), "blo") {
+			t.Errorf("unexpected match: %q", c)
+		}
+	}
+}
+
 func TestSafeBackupPath_DefaultDir(t *testing.T) {
 	// When MDDB_BACKUP_DIR is unset, the helper falls back to "./backups".
 	// We point it at a tempdir so the test does not pollute the cwd.
