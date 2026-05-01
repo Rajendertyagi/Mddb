@@ -1893,11 +1893,16 @@ func (s *Server) handleBackup(w http.ResponseWriter, r *http.Request) {
 	if dst == "" {
 		dst = fmt.Sprintf("backup-%d.db", time.Now().Unix())
 	}
-	if err := copyFile(s.Path, dst); err != nil {
+	safeDst, err := safeBackupPath(dst, false)
+	if err != nil {
 		bad(w, err)
 		return
 	}
-	ok(w, map[string]string{"backup": dst})
+	if err := copyFile(s.Path, safeDst); err != nil {
+		bad(w, err)
+		return
+	}
+	ok(w, map[string]string{"backup": safeDst})
 }
 
 func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
@@ -1921,9 +1926,15 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	safeFrom, err := safeBackupPath(body.From, true)
+	if err != nil {
+		bad(w, err)
+		return
+	}
+
 	// zamknij db, podmień plik, otwórz ponownie
 	_ = s.DB.Close()
-	if err := copyFile(body.From, s.Path); err != nil {
+	if err := copyFile(safeFrom, s.Path); err != nil {
 		bad(w, err)
 		return
 	}

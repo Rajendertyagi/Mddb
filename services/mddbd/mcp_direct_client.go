@@ -489,10 +489,14 @@ func (c *DirectClient) Backup(ctx context.Context, req *MCPBackupRequest) (*MCPB
 	if dst == "" {
 		dst = fmt.Sprintf("backup-%d.db", time.Now().Unix())
 	}
-	if err := copyFile(c.server.Path, dst); err != nil {
+	safeDst, err := safeBackupPath(dst, false)
+	if err != nil {
 		return nil, err
 	}
-	return &MCPBackupResponse{Backup: dst}, nil
+	if err := copyFile(c.server.Path, safeDst); err != nil {
+		return nil, err
+	}
+	return &MCPBackupResponse{Backup: safeDst}, nil
 }
 
 // Restore restores documents from a backup via the direct client.
@@ -500,8 +504,12 @@ func (c *DirectClient) Restore(ctx context.Context, req *MCPRestoreRequest) (*MC
 	if req.From == "" {
 		return nil, errors.New("missing from")
 	}
+	safeFrom, err := safeBackupPath(req.From, true)
+	if err != nil {
+		return nil, err
+	}
 	_ = c.server.DB.Close()
-	if err := copyFile(req.From, c.server.Path); err != nil {
+	if err := copyFile(safeFrom, c.server.Path); err != nil {
 		return nil, err
 	}
 	db, err := bolt.Open(c.server.Path, 0600, getOptimizedBoltOptions())
@@ -509,7 +517,7 @@ func (c *DirectClient) Restore(ctx context.Context, req *MCPRestoreRequest) (*MC
 		return nil, err
 	}
 	c.server.DB = db
-	return &MCPRestoreResponse{Restored: req.From}, nil
+	return &MCPRestoreResponse{Restored: safeFrom}, nil
 }
 
 // Truncate removes all documents from a collection via the direct client.

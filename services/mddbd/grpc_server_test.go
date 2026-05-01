@@ -945,19 +945,22 @@ func TestGRPCBackup_Success(t *testing.T) {
 	gs, _, cleanup := newTestGRPCServer(t)
 	defer cleanup()
 
-	backupPath := filepath.Join(t.TempDir(), "backup.db")
+	bdir := t.TempDir()
+	t.Setenv("MDDB_BACKUP_DIR", bdir)
 	resp, err := gs.Backup(context.Background(), &pb.BackupRequest{
-		To: backupPath,
+		To: "backup.db",
 	})
 	if err != nil {
 		t.Fatalf("backup: %v", err)
 	}
-	if resp.Backup != backupPath {
-		t.Errorf("expected backup path %s, got %s", backupPath, resp.Backup)
+	want := filepath.Join(bdir, "backup.db")
+	wantResolved, _ := filepath.EvalSymlinks(bdir)
+	wantResolved = filepath.Join(wantResolved, "backup.db")
+	if resp.Backup != want && resp.Backup != wantResolved {
+		t.Errorf("unexpected backup path %s (want %s or %s)", resp.Backup, want, wantResolved)
 	}
 
-	// Verify backup file exists
-	if _, err := os.Stat(backupPath); os.IsNotExist(err) {
+	if _, err := os.Stat(resp.Backup); os.IsNotExist(err) {
 		t.Error("backup file does not exist")
 	}
 }

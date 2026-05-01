@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -896,26 +897,23 @@ func TestHandleBackup_Success(t *testing.T) {
 	s, cleanup := newHandlerTestServer(t)
 	defer cleanup()
 
-	// Create a temp destination
-	backupPath := s.Path + ".backup"
-	defer func() { _ = os.Remove(backupPath) }()
+	bdir := t.TempDir()
+	t.Setenv("MDDB_BACKUP_DIR", bdir)
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/v1/backup?to="+backupPath, nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/backup?to=snap.db", nil)
 	s.handleBackup(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d; body=%s", rec.Code, rec.Body.String())
 	}
 
-	// Verify backup file exists
-	if _, err := os.Stat(backupPath); os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(bdir, "snap.db")); os.IsNotExist(err) {
 		t.Error("backup file was not created")
 	}
 
-	body := rec.Body.String()
-	if !strings.Contains(body, backupPath) {
-		t.Errorf("expected backup path in response, got: %s", body)
+	if !strings.Contains(rec.Body.String(), "snap.db") {
+		t.Errorf("expected backup path in response, got: %s", rec.Body.String())
 	}
 }
 
@@ -928,19 +926,18 @@ func TestHandleRestore_Success(t *testing.T) {
 	// Add a document so the DB has data
 	addTestDoc(t, s, "blog", "original", "en", "original content", nil)
 
-	// Create a backup
-	backupPath := s.Path + ".backup"
-	defer func() { _ = os.Remove(backupPath) }()
+	bdir := t.TempDir()
+	t.Setenv("MDDB_BACKUP_DIR", bdir)
 
 	recBackup := httptest.NewRecorder()
-	reqBackup := httptest.NewRequest(http.MethodGet, "/v1/backup?to="+backupPath, nil)
+	reqBackup := httptest.NewRequest(http.MethodGet, "/v1/backup?to=snap.db", nil)
 	s.handleBackup(recBackup, reqBackup)
 	if recBackup.Code != http.StatusOK {
 		t.Fatalf("backup failed: %d", recBackup.Code)
 	}
 
 	// Restore from backup
-	restoreBody := map[string]string{"from": backupPath}
+	restoreBody := map[string]string{"from": "snap.db"}
 	rec := doRequest(t, s.handleRestore, restoreBody)
 
 	if rec.Code != http.StatusOK {

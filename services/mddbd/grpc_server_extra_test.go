@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	bolt "go.etcd.io/bbolt"
@@ -215,20 +216,19 @@ func TestGRPCRestore_Success(t *testing.T) {
 	gs, _, cleanup := newTestGRPCServer(t)
 	defer cleanup()
 
-	// First create a backup
-	backupPath := t.TempDir() + "/restore-test.db"
-	_, err := gs.Backup(context.Background(), &pb.BackupRequest{To: backupPath})
+	t.Setenv("MDDB_BACKUP_DIR", t.TempDir())
+
+	_, err := gs.Backup(context.Background(), &pb.BackupRequest{To: "restore-test.db"})
 	if err != nil {
 		t.Fatalf("backup: %v", err)
 	}
 
-	// Restore from it
-	resp, err := gs.Restore(context.Background(), &pb.RestoreRequest{From: backupPath})
+	resp, err := gs.Restore(context.Background(), &pb.RestoreRequest{From: "restore-test.db"})
 	if err != nil {
 		t.Fatalf("restore: %v", err)
 	}
-	if resp.Restored != backupPath {
-		t.Errorf("expected restored=%s, got %s", backupPath, resp.Restored)
+	if !strings.HasSuffix(resp.Restored, "restore-test.db") {
+		t.Errorf("unexpected restored path: %s", resp.Restored)
 	}
 }
 
@@ -240,13 +240,15 @@ func TestGRPCRestore_NonexistentFile(t *testing.T) {
 	gs, _, cleanup := newTestGRPCServer(t)
 	defer cleanup()
 
-	_, err := gs.Restore(context.Background(), &pb.RestoreRequest{From: "/tmp/nonexistent-mddb-backup.db"})
+	t.Setenv("MDDB_BACKUP_DIR", t.TempDir())
+
+	_, err := gs.Restore(context.Background(), &pb.RestoreRequest{From: "nonexistent.db"})
 	if err == nil {
 		t.Fatal("expected error for nonexistent file")
 	}
 	st, _ := status.FromError(err)
-	if st.Code() != codes.Internal {
-		t.Errorf("expected Internal, got %v", st.Code())
+	if st.Code() != codes.InvalidArgument {
+		t.Errorf("expected InvalidArgument, got %v", st.Code())
 	}
 }
 
