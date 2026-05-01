@@ -1041,6 +1041,38 @@ class MDDBClient {
     return this.request('/health', { method: 'GET' });
   }
 
+  /** Audit log exporter health (per-sink delivery counters). */
+  async listAuditExporters() {
+    return this.request('/audit/exporters', { method: 'GET' });
+  }
+
+  /**
+   * At-rest encryption posture: primary keyID, configured previous
+   * keyIDs, per-collection counts of documents sealed under primary
+   * vs legacy keys.
+   */
+  async getEncryptionStatus() {
+    return this.request('/encryption/status', { method: 'GET' });
+  }
+
+  /** Start a re-encryption job; optional collection scope. */
+  async rotateEncryption({ collection } = {}) {
+    return this.request('/encryption/rotate', {
+      method: 'POST',
+      body: JSON.stringify({ collection: collection || '' }),
+    });
+  }
+
+  /** List rotation jobs (newest first). */
+  async listRotationJobs() {
+    return this.request('/encryption/jobs', { method: 'GET' });
+  }
+
+  /** Single rotation job status. */
+  async getRotationJob(id) {
+    return this.request(`/encryption/jobs/${encodeURIComponent(id)}`, { method: 'GET' });
+  }
+
   async spellDictionary(method, { collection, lang, words, frequency }) {
     if (method === 'GET') {
       const params = new URLSearchParams({ lang });

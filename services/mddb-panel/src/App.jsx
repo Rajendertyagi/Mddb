@@ -31,6 +31,7 @@ import GeoPanel from './components/GeoPanel';
 import AuditLogPanel from './components/AuditLogPanel';
 import WebhooksPanel from './components/WebhooksPanel';
 import SecurityDashboard from './components/SecurityDashboard';
+import EncryptionPanel from './components/EncryptionPanel';
 import ComplianceBanner from './components/ComplianceBanner';
 import SSEToast from './components/SSEToast';
 import { useSSE } from './lib/useSSE';
@@ -307,6 +308,11 @@ function App() {
           {viewMode === 'security' && (
             <div className="flex-1 border-l border-gray-200">
               <SecurityDashboard />
+            </div>
+          )}
+          {viewMode === 'encryption' && (
+            <div className="flex-1 border-l border-gray-200">
+              <EncryptionPanel />
             </div>
           )}
           {viewMode === 'documents' && (

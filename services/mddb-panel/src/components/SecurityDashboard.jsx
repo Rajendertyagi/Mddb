@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Shield, CheckCircle2, AlertTriangle, RefreshCw, ExternalLink, FileSearch } from 'lucide-react';
+import { Shield, CheckCircle2, AlertTriangle, RefreshCw, ExternalLink, FileSearch, Send } from 'lucide-react';
 import mddbClient from '../lib/mddb-client';
 import { useStore } from '../lib/store';
 
@@ -12,6 +12,7 @@ export default function SecurityDashboard() {
   const [complianceErr, setComplianceErr] = useState(null);
   const [authFailures, setAuthFailures] = useState([]);
   const [incidents, setIncidents] = useState([]);
+  const [exporters, setExporters] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const load = async () => {
@@ -39,6 +40,12 @@ export default function SecurityDashboard() {
         setIncidents(evs.slice(0, 20));
       } catch {
         setIncidents([]);
+      }
+      try {
+        const data = await mddbClient.listAuditExporters();
+        setExporters(data.exporters || []);
+      } catch {
+        setExporters([]);
       }
     } finally {
       setLoading(false);
@@ -140,6 +147,8 @@ export default function SecurityDashboard() {
           </div>
         </section>
 
+        <ExporterStatusSection exporters={exporters} />
+
         <section className="border border-gray-200 rounded-lg bg-white">
           <header className="px-4 py-2 border-b border-gray-200 flex items-center justify-between">
             <h4 className="text-sm font-semibold text-gray-900">Recent incident events</h4>
@@ -233,6 +242,62 @@ function ProductionStatusCard({ compliance, error }) {
       </div>
     </section>
   );
+}
+
+function ExporterStatusSection({ exporters }) {
+  return (
+    <section className="border border-gray-200 rounded-lg bg-white">
+      <header className="px-4 py-2 border-b border-gray-200 flex items-center gap-2">
+        <Send className="w-4 h-4 text-primary-600" />
+        <h4 className="text-sm font-semibold text-gray-900">Audit log export</h4>
+      </header>
+      <div className="p-3">
+        {exporters.length === 0 ? (
+          <p className="text-xs text-gray-500 italic">
+            No external sinks configured. Set <span className="font-mono">MDDB_AUDIT_EXPORT_WEBHOOK_URL</span>
+            {' '}or <span className="font-mono">MDDB_AUDIT_EXPORT_SYSLOG_ADDR</span> to mirror audit events to a SIEM or syslog collector.
+          </p>
+        ) : (
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left text-gray-600 border-b border-gray-200">
+                <th className="py-1 font-semibold">Sink</th>
+                <th className="py-1 font-semibold">Target</th>
+                <th className="py-1 font-semibold text-right">Delivered</th>
+                <th className="py-1 font-semibold text-right">Failed</th>
+                <th className="py-1 font-semibold text-right">Dropped</th>
+                <th className="py-1 font-semibold">Last error</th>
+              </tr>
+            </thead>
+            <tbody>
+              {exporters.map((e, idx) => (
+                <tr key={idx} className="border-b border-gray-100">
+                  <td className="py-1 font-mono">{e.name}</td>
+                  <td className="py-1 font-mono text-gray-600 truncate max-w-[200px]" title={e.target}>{maskTarget(e.target)}</td>
+                  <td className="py-1 text-right font-mono text-green-700">{e.delivered}</td>
+                  <td className="py-1 text-right font-mono text-red-700">{e.failed}</td>
+                  <td className="py-1 text-right font-mono text-amber-700">{e.dropped}</td>
+                  <td className="py-1 text-gray-500 truncate max-w-[260px]" title={e.lastError || ''}>{e.lastError || ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </section>
+  );
+}
+
+// maskTarget hides any inline credentials in a webhook URL while
+// keeping the host visible so an operator can recognise the sink.
+function maskTarget(target) {
+  if (!target) return '';
+  try {
+    const u = new URL(target);
+    return `${u.protocol}//${u.host}${u.pathname}`;
+  } catch {
+    return target;
+  }
 }
 
 function aggregateFailures(events) {
