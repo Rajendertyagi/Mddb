@@ -202,6 +202,7 @@ type SetCollectionConfigRequest struct {
 	StorageConfig  *StorageConfigDef `json:"storageConfig,omitempty"`
 	Quantization   string            `json:"quantization,omitempty"` // "float32" (default), "int8", "int4"
 	MaxRevisions   int               `json:"maxRevisions,omitempty"` // keep last N revisions per doc (0 = unlimited)
+	Encrypted      bool              `json:"encrypted,omitempty"`    // opt collection into AES-256-GCM at-rest encryption
 }
 
 func (s *Server) handleCollectionConfig(w http.ResponseWriter, r *http.Request) {
@@ -308,6 +309,7 @@ func (s *Server) handleCollectionConfigSet(w http.ResponseWriter, r *http.Reques
 		StorageConfig:  req.StorageConfig,
 		Quantization:   qt,
 		MaxRevisions:   req.MaxRevisions,
+		Encrypted:      req.Encrypted,
 	}
 	if err := s.CollectionManager.Set(req.Collection, cfg); err != nil {
 		bad(w, err)

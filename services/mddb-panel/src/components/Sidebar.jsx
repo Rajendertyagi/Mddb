@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Folder, Database, Trash2, Brain, Server, Settings, Network, Users, UsersIcon, Upload, FolderPlus, Sliders, GitBranch, PanelLeftClose, BookOpen, Ban, Zap, Globe, Image, Music, FileText, Settings2, Shuffle, Clock, Type, Pin, FileSearch, Webhook, Shield } from 'lucide-react';
+import { Folder, Database, Trash2, Brain, Server, Settings, Network, Users, UsersIcon, Upload, FolderPlus, Sliders, GitBranch, PanelLeftClose, BookOpen, Ban, Zap, Globe, Image, Music, FileText, Settings2, Shuffle, Clock, Type, Pin, FileSearch, Webhook, Shield, Lock } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
 import UploadModal from './UploadModal';
@@ -310,6 +310,7 @@ export default function Sidebar({ stats, statsError, onStatsRefresh, onCollapse 
           <NavButton mode="auditLog" icon={FileSearch} label="Audit Log" />
           <NavButton mode="webhooks" icon={Webhook} label="Webhooks" />
           <NavButton mode="security" icon={Shield} label="Security" />
+          <NavButton mode="encryption" icon={Lock} label="Encryption" />
           <NavButton mode="temporal" icon={Clock} label="Temporal Analytics" />
           <NavButton mode="spellcheck" icon={Type} label="Spell Checker" />
           {config?.automationsEnabled !== false && (
@@ -322,7 +323,7 @@ export default function Sidebar({ stats, statsError, onStatsRefresh, onCollapse 
       {/* Version Footer */}
       <div className="px-4 py-2 border-t border-gray-200 text-center">
         <span className="text-[10px] text-gray-400">
-          Server v{config?.version || '...'} · Panel v2.9.15
+          Server v{config?.version || '...'} · Panel v2.9.16
         </span>
       </div>
 

@@ -68,7 +68,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: "2.9.15"
+  version: "2.9.16"
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -3901,6 +3901,171 @@ paths:
           description: Not an admin
         "404":
           description: Audit disabled
+  /v1/audit/exporters:
+    get:
+      tags:
+        - Audit
+      summary: Per-sink audit export delivery counters (2.9.16+)
+      description: |
+        Returns a snapshot of every configured audit-log exporter (webhook,
+        syslog) with delivered / failed / dropped counts and the last error.
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      responses:
+        "200":
+          description: Exporter status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  exporters:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        target:
+                          type: string
+                        queued:
+                          type: integer
+                          format: int64
+                        delivered:
+                          type: integer
+                          format: int64
+                        failed:
+                          type: integer
+                          format: int64
+                        dropped:
+                          type: integer
+                          format: int64
+                        lastError:
+                          type: string
+                        bufferSize:
+                          type: integer
+        "401":
+          description: Missing or invalid token
+        "403":
+          description: Not an admin
+        "404":
+          description: Audit disabled
+  /v1/encryption/status:
+    get:
+      tags:
+        - Encryption
+      summary: At-rest encryption posture (2.9.16+)
+      description: |
+        Primary keyID, configured previous keyIDs, and per-collection counts
+        of how each document is sealed (primary / legacy / plaintext / unknown).
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      responses:
+        "200":
+          description: Encryption status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+                  primaryKeyID:
+                    type: integer
+                  previousKeyIDs:
+                    type: array
+                    items:
+                      type: integer
+                  collections:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        collection:
+                          type: string
+                        encrypted:
+                          type: boolean
+                        total:
+                          type: integer
+                          format: int64
+                        withPrimary:
+                          type: integer
+                          format: int64
+                        withLegacy:
+                          type: integer
+                          format: int64
+                        plaintext:
+                          type: integer
+                          format: int64
+                        unknownKey:
+                          type: integer
+                          format: int64
+                  currentJobID:
+                    type: string
+        "401":
+          description: Missing or invalid token
+        "403":
+          description: Not an admin
+  /v1/encryption/rotate:
+    post:
+      tags:
+        - Encryption
+      summary: Start a re-encryption job (2.9.16+)
+      description: |
+        Walks every encrypted entry sealed under a non-primary key and re-seals
+        it with the current `MDDB_ENCRYPTION_KEY`. Plaintext entries and entries
+        already under the primary keyID are skipped. Single-flight: calling
+        rotate while a job is running returns the existing job's ID.
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                collection:
+                  type: string
+                  description: Optional scope; empty = all collections
+      responses:
+        "200":
+          description: Rotation job descriptor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RotationJob"
+        "400":
+          description: Encryption not configured
+        "401":
+          description: Missing or invalid token
+        "403":
+          description: Read-only mode or not an admin
+  /v1/encryption/jobs:
+    get:
+      tags:
+        - Encryption
+      summary: List rotation jobs (2.9.16+)
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      responses:
+        "200":
+          description: Jobs list (newest first)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RotationJob"
   /v1/compliance-status:
     get:
       tags:
@@ -3923,7 +4088,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [production, compliant, missing, missingCount]
+                required: [ production, compliant, missing, missingCount ]
                 properties:
                   production:
                     type: boolean
@@ -3935,7 +4100,7 @@ paths:
                     type: array
                     items:
                       type: object
-                      required: [envVar, want, reason]
+                      required: [ envVar, want, reason ]
                       properties:
                         envVar:
                           type: string
@@ -4952,6 +5117,38 @@ paths:
 
 components:
   schemas:
+    RotationJob:
+      type: object
+      description: Encryption re-keying job descriptor (2.9.16+).
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [queued, running, completed, failed]
+        primaryKeyID:
+          type: integer
+        startedAt:
+          type: integer
+          format: int64
+          description: Unix nanoseconds
+        finishedAt:
+          type: integer
+          format: int64
+        scanned:
+          type: integer
+          format: int64
+        reencrypted:
+          type: integer
+          format: int64
+        skipped:
+          type: integer
+          format: int64
+        errors:
+          type: integer
+          format: int64
+        lastError:
+          type: string
     WikiImportResponse:
       type: object
       properties:

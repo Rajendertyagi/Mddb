@@ -531,16 +531,20 @@ func (g *GRPCServer) Backup(ctx context.Context, req *proto.BackupRequest) (*pro
 	if filename == "" {
 		filename = fmt.Sprintf("backup-%d.db", time.Now().Unix())
 	}
+	safeName, err := safeBackupPath(filename, false)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
 
-	err := g.server.DB.View(func(tx *bolt.Tx) error {
-		return tx.CopyFile(filename, 0600)
+	err = g.server.DB.View(func(tx *bolt.Tx) error {
+		return tx.CopyFile(safeName, 0600)
 	})
 
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	return &proto.BackupResponse{Backup: filename}, nil
+	return &proto.BackupResponse{Backup: safeName}, nil
 }
 
 // Restore implements the Restore RPC
@@ -559,12 +563,16 @@ func (g *GRPCServer) Restore(ctx context.Context, req *proto.RestoreRequest) (*p
 	if req.From == "" {
 		return nil, status.Error(codes.InvalidArgument, "missing backup filename")
 	}
+	safeFrom, err := safeBackupPath(req.From, true)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
 
-	if err := copyFile(req.From, g.server.Path); err != nil {
+	if err := copyFile(safeFrom, g.server.Path); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	return &proto.RestoreResponse{Restored: req.From}, nil
+	return &proto.RestoreResponse{Restored: safeFrom}, nil
 }
 
 // Truncate implements the Truncate RPC
