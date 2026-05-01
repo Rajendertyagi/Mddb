@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	json "github.com/goccy/go-json"
@@ -181,9 +180,9 @@ func (rm *RotationManager) Start(ctx context.Context, collection string) (*Rotat
 	}
 	rm.mu.Lock()
 	if rm.current != nil && rm.current.Status == RotationRunning {
-		j := rm.current
+		cp := *rm.current
 		rm.mu.Unlock()
-		return j, nil
+		return &cp, nil
 	}
 	job := &RotationJob{
 		ID:         newRotationID(),
@@ -193,10 +192,14 @@ func (rm *RotationManager) Start(ctx context.Context, collection string) (*Rotat
 	}
 	rm.jobs[job.ID] = job
 	rm.current = job
+	cp := *job
 	rm.mu.Unlock()
 
 	go rm.run(ctx, job, collection)
-	return job, nil
+	// Return a defensive copy — the worker mutates `job` concurrently
+	// (Status, FinishedAt, LastError, counters), so handing the live
+	// pointer to the HTTP handler would race with its JSON marshal.
+	return &cp, nil
 }
 
 // Get returns the job with the given ID, or nil.
@@ -236,13 +239,12 @@ func (rm *RotationManager) run(ctx context.Context, job *RotationJob, collection
 	rm.setStatus(job, RotationRunning)
 
 	err := rm.processBuckets(ctx, job, collection)
-	job.FinishedAt = time.Now().UnixNano()
+	finished := time.Now().UnixNano()
 	if err != nil {
-		job.LastError = err.Error()
-		rm.setStatus(job, RotationFailed)
+		rm.finalize(job, RotationFailed, finished, err.Error())
 		rm.audit("encryption.rotation_failed", job)
 	} else {
-		rm.setStatus(job, RotationCompleted)
+		rm.finalize(job, RotationCompleted, finished, "")
 		rm.audit("encryption.rotation_completed", job)
 	}
 	rm.mu.Lock()
@@ -254,6 +256,19 @@ func (rm *RotationManager) setStatus(job *RotationJob, st string) {
 	rm.mu.Lock()
 	job.Status = st
 	rm.mu.Unlock()
+}
+
+// finalize updates Status, FinishedAt, and LastError under the manager
+// mutex so concurrent Get/List/Status calls observe a consistent
+// snapshot once the worker exits.
+func (rm *RotationManager) finalize(job *RotationJob, status string, finishedAt int64, lastErr string) {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+	job.Status = status
+	job.FinishedAt = finishedAt
+	if lastErr != "" {
+		job.LastError = lastErr
+	}
 }
 
 // processBuckets walks docs and rev once each. Re-encryption uses
@@ -293,18 +308,19 @@ func (rm *RotationManager) processBucket(ctx context.Context, job *RotationJob, 
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		atomic.AddInt64(&job.Scanned, 1)
 		rewrote, err := rm.processOne(bucket, k)
-		if err != nil {
-			atomic.AddInt64(&job.Errors, 1)
+		rm.mu.Lock()
+		job.Scanned++
+		switch {
+		case err != nil:
+			job.Errors++
 			job.LastError = err.Error()
-			continue
+		case rewrote:
+			job.Reencrypted++
+		default:
+			job.Skipped++
 		}
-		if rewrote {
-			atomic.AddInt64(&job.Reencrypted, 1)
-		} else {
-			atomic.AddInt64(&job.Skipped, 1)
-		}
+		rm.mu.Unlock()
 	}
 	return nil
 }
@@ -411,13 +427,15 @@ func (rm *RotationManager) audit(action string, job *RotationJob) {
 	if rm.server == nil || rm.server.AuditManager == nil {
 		return
 	}
+	rm.mu.Lock()
 	det, _ := json.Marshal(map[string]interface{}{
 		"jobID":       job.ID,
 		"primaryKey":  job.PrimaryKey,
-		"scanned":     atomic.LoadInt64(&job.Scanned),
-		"reencrypted": atomic.LoadInt64(&job.Reencrypted),
-		"errors":      atomic.LoadInt64(&job.Errors),
+		"scanned":     job.Scanned,
+		"reencrypted": job.Reencrypted,
+		"errors":      job.Errors,
 	})
+	rm.mu.Unlock()
 	rm.server.AuditManager.Record(AuditEvent{
 		Action:   action,
 		Resource: "encryption",
