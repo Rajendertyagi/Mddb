@@ -37,8 +37,8 @@ func NewWebhookExporter(url, headerCSV string, bufSize int, insecureSkipTLSVerif
 	}
 	core := newExporterCore("webhook", url, bufSize)
 	tr := &http.Transport{
-		TLSClientConfig:    &tls.Config{InsecureSkipVerify: insecureSkipTLSVerify}, // #nosec G402 — opt-in via env
-		ForceAttemptHTTP2:  true,
+		TLSClientConfig:     &tls.Config{InsecureSkipVerify: insecureSkipTLSVerify}, // #nosec G402 — opt-in via env
+		ForceAttemptHTTP2:   true,
 		MaxIdleConnsPerHost: 4,
 	}
 	w := &WebhookExporter{

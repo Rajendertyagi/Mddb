@@ -115,7 +115,7 @@ func TestExporterCore_CloseIdempotent(t *testing.T) {
 func TestAuditManagerFanOut(t *testing.T) {
 	tmp := t.TempDir() + "/audit.db"
 	db := openTestBolt(t, tmp)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	am := NewAuditManager(db, true, 1)
 	if err := am.EnsureBuckets(); err != nil {
@@ -145,7 +145,7 @@ func TestAuditManagerFanOut(t *testing.T) {
 func TestAuditManagerExporters_ListAndStop(t *testing.T) {
 	tmp := t.TempDir() + "/audit.db"
 	db := openTestBolt(t, tmp)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	am := NewAuditManager(db, true, 1)
 	if err := am.EnsureBuckets(); err != nil {
 		t.Fatal(err)

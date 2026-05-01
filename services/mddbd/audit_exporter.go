@@ -47,18 +47,18 @@ type ExporterStats struct {
 // UDP/TCP write). The error returned by `deliver` increments Failed
 // and is exposed as LastError; nil increments Delivered.
 type exporterCore struct {
-	name     string
-	target   string
-	bufSize  int
-	ch       chan AuditEvent
-	stopCh   chan struct{}
-	wg       sync.WaitGroup
-	queued   uint64
+	name      string
+	target    string
+	bufSize   int
+	ch        chan AuditEvent
+	stopCh    chan struct{}
+	wg        sync.WaitGroup
+	queued    uint64
 	delivered uint64
-	failed   uint64
-	dropped  uint64
-	mu       sync.Mutex // protects lastErr only
-	lastErr  string
+	failed    uint64
+	dropped   uint64
+	mu        sync.Mutex // protects lastErr only
+	lastErr   string
 }
 
 func newExporterCore(name, target string, bufSize int) *exporterCore {

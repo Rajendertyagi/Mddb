@@ -59,11 +59,11 @@ type previousKey struct {
 // MDDB_ENCRYPTION_KEY_ID, and list every superseded key in
 // MDDB_ENCRYPTION_KEYS_PREVIOUS so historical documents stay readable.
 type Encryptor struct {
-	enabled      bool
-	primaryID    byte
-	primary      cipher.AEAD
-	previous     map[byte]cipher.AEAD // keyID → AEAD; read-only
-	mu           sync.RWMutex
+	enabled   bool
+	primaryID byte
+	primary   cipher.AEAD
+	previous  map[byte]cipher.AEAD // keyID → AEAD; read-only
+	mu        sync.RWMutex
 	// collectionEnabled mirrors CollectionConfig.Encrypted so the
 	// hot path does not need to hit the CollectionManager store on
 	// every marshal.

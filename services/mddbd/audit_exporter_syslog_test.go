@@ -114,10 +114,10 @@ func TestSyslogExporter_FacilityMapping(t *testing.T) {
 // TestSyslogExporter_AddrSchemes parses udp:// and tcp:// schemes.
 func TestSyslogExporter_AddrSchemes(t *testing.T) {
 	cases := map[string][2]string{
-		"host:514":            {"udp", "host:514"},
-		"udp://host:514":      {"udp", "host:514"},
-		"tcp://host:6514":     {"tcp", "host:6514"},
-		"plain.example:1234":  {"udp", "plain.example:1234"},
+		"host:514":           {"udp", "host:514"},
+		"udp://host:514":     {"udp", "host:514"},
+		"tcp://host:6514":    {"tcp", "host:6514"},
+		"plain.example:1234": {"udp", "plain.example:1234"},
 	}
 	for in, want := range cases {
 		net, hp := parseSyslogAddr(in)

@@ -62,22 +62,22 @@ func NewRotationManager(s *Server, e *Encryptor) *RotationManager {
 // Status returns a snapshot of the encryption posture across the
 // configured collections — useful for the admin UI dashboard.
 type RotationStatus struct {
-	Enabled       bool             `json:"enabled"`
-	PrimaryKeyID  byte             `json:"primaryKeyID"`
-	PreviousIDs   []byte           `json:"previousKeyIDs,omitempty"`
-	Collections   []CollectionStat `json:"collections"`
-	CurrentJobID  string           `json:"currentJobID,omitempty"`
+	Enabled      bool             `json:"enabled"`
+	PrimaryKeyID byte             `json:"primaryKeyID"`
+	PreviousIDs  []byte           `json:"previousKeyIDs,omitempty"`
+	Collections  []CollectionStat `json:"collections"`
+	CurrentJobID string           `json:"currentJobID,omitempty"`
 }
 
 // CollectionStat describes how a single collection is sealed today.
 type CollectionStat struct {
-	Collection         string `json:"collection"`
-	Encrypted          bool   `json:"encrypted"`
-	Total              int64  `json:"total"`
-	WithPrimary        int64  `json:"withPrimary"`
-	WithLegacy         int64  `json:"withLegacy"`
-	Plaintext          int64  `json:"plaintext"`
-	UnknownKey         int64  `json:"unknownKey"`
+	Collection  string `json:"collection"`
+	Encrypted   bool   `json:"encrypted"`
+	Total       int64  `json:"total"`
+	WithPrimary int64  `json:"withPrimary"`
+	WithLegacy  int64  `json:"withLegacy"`
+	Plaintext   int64  `json:"plaintext"`
+	UnknownKey  int64  `json:"unknownKey"`
 }
 
 // Status walks the docs bucket once and groups every entry by which

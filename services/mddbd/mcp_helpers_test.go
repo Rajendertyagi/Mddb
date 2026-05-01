@@ -265,4 +265,3 @@ func TestSafeBackupPath_DefaultDir(t *testing.T) {
 		t.Fatal("empty path")
 	}
 }
-

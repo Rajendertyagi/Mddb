@@ -374,13 +374,13 @@ func TestNewRotationID(t *testing.T) {
 // TestCollectionFromDocKey parses keys correctly and rejects nonsense.
 func TestCollectionFromDocKey(t *testing.T) {
 	cases := map[string]string{
-		"doc|blog|post1":   "blog",
-		"doc|c|x":          "c",
-		"doc|":             "",
-		"doc":              "",
-		"rev|blog|x|0":     "",
-		"":                 "",
-		"weird":            "",
+		"doc|blog|post1": "blog",
+		"doc|c|x":        "c",
+		"doc|":           "",
+		"doc":            "",
+		"rev|blog|x|0":   "",
+		"":               "",
+		"weird":          "",
 	}
 	for in, want := range cases {
 		if got := collectionFromDocKey([]byte(in)); got != want {
