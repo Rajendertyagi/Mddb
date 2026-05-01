@@ -76,7 +76,17 @@ This page does not duplicate the configuration reference. Every environment vari
 
 **Known limitations.** Scope is the `docs` and `rev` buckets only. FTS inverted indexes and vector embeddings remain plaintext **by design** — encrypting a queryable structure breaks the query. If your threat model treats those indexes as sensitive, disable FTS and vector search on the affected collections. **Key loss is terminal**: there is no recovery if `MDDB_ENCRYPTION_KEY` is lost. Escrow the key out-of-band.
 
-### 5. Incident events via WebhookManager
+**Key rotation (2.9.16+).** The V2 wire format (`MDDB_ENC_V2\x00 | keyID | nonce | ciphertext+tag`) carries a 1-byte key identifier so the encryptor can hold a primary plus any number of read-only previous keys. Operators rotate by introducing a new `MDDB_ENCRYPTION_KEY` + `MDDB_ENCRYPTION_KEY_ID`, listing the superseded key in `MDDB_ENCRYPTION_KEYS_PREVIOUS`, and triggering `POST /v1/encryption/rotate` to re-seal historical entries under the new primary. V1 ciphertexts continue to decrypt under the current primary so the upgrade is non-breaking. See [config.md#key-rotation-2916](config.md#key-rotation-2916).
+
+### 5. Audit log export to SIEM / syslog (2.9.16+)
+
+**What it protects.** Tamper-evidence of the audit trail itself. Local BoltDB is the source of truth, but if the database is compromised so is its evidence. Off-host export to a SIEM webhook (Splunk HEC, Datadog Logs, ELK) or a syslog collector keeps an attacker from rewriting history in place.
+
+**How to enable.** Set `MDDB_AUDIT_EXPORT_WEBHOOK_URL` (with arbitrary auth headers via `MDDB_AUDIT_EXPORT_WEBHOOK_HEADER`) and/or `MDDB_AUDIT_EXPORT_SYSLOG_ADDR`. Both sinks can run together. Per-sink counters at `GET /v1/audit/exporters`. See [config.md#audit-log-export-iso-27001--soc-2](config.md#audit-log-export-iso-27001--soc-2).
+
+**Known limitations.** Best-effort delivery — sink failures never block the BoltDB write, and there is no on-disk retry queue beyond the in-memory channel. A long SIEM outage drops events past the buffer (counted as `dropped`); operators should backfill from `GET /v1/audit` once the sink recovers. Webhook payloads include the full `AuditEvent` JSON; treat the sink as confidential.
+
+### 6. Incident events via WebhookManager
 
 **What it protects.** Mean time to detect (MTTD). Five named events route through the existing `/v1/webhooks` delivery fabric so operators can pipe them straight into PagerDuty, Slack, Opsgenie, or a SIEM:
 

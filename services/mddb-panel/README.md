@@ -13,6 +13,10 @@ Web-based admin interface for MDDB (Markdown Database). A simple, modern single-
 - ⚡ **Fast** - Built with React 19 and Vite
 - 🔀 **Hybrid Search** - Combined BM25 keyword + vector semantic search mode with alpha blending and RRF strategies
 - 💻 **Command Modal** - Copy-ready API examples in curl, PHP, Python, and JavaScript for every operation
+- 🛡️ **Security Dashboard** - Production-guard compliance state, recent auth failures, incident events, and audit-log export health (SIEM webhook + syslog delivery counters)
+- 🔐 **Encryption Panel** (2.9.16+) - At-rest key posture, per-collection coverage (primary / legacy / plaintext), rotation job table, and a one-click "Start rotation" control
+- 📜 **Audit Log Panel** - Stream `GET /v1/audit` with actor / action / result / time filters and a visible dropped-buffer counter
+- 🪝 **Webhooks Panel** - Register, list, and delete webhooks with one-click subscription to incident events
 
 ## Screenshots
 

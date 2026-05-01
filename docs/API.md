@@ -2502,6 +2502,146 @@ Events are returned newest-first. `dropped` reports the running total of events 
 
 ---
 
+### GET /v1/audit/exporters
+
+> Added in 2.9.16.
+
+Per-sink delivery counters for the audit log export subsystem. Returns a snapshot of every configured exporter (webhook + syslog) with delivered / failed / dropped counts and the last error.
+
+**Authentication**: admin JWT or API key required.
+
+**Response**:
+
+```json
+{
+  "exporters": [
+    {
+      "name": "webhook",
+      "target": "https://splunk.example/services/collector/raw",
+      "queued": 1250,
+      "delivered": 1248,
+      "failed": 2,
+      "dropped": 0,
+      "lastError": "attempt 1: HTTP 503",
+      "bufferSize": 1024
+    },
+    {
+      "name": "syslog",
+      "target": "tcp://logs.example:6514",
+      "queued": 1250,
+      "delivered": 1250,
+      "failed": 0,
+      "dropped": 0,
+      "lastError": "",
+      "bufferSize": 1024
+    }
+  ],
+  "count": 2
+}
+```
+
+Exporters are configured via `MDDB_AUDIT_EXPORT_WEBHOOK_URL`, `MDDB_AUDIT_EXPORT_SYSLOG_ADDR`, etc. — see [config.md](config.md#audit-log-export-iso-27001--soc-2).
+
+---
+
+### GET /v1/encryption/status
+
+> Added in 2.9.16.
+
+At-rest encryption posture: primary keyID, configured previous keyIDs, and per-collection counts of how each document is sealed.
+
+**Authentication**: admin JWT or API key required.
+
+**Response**:
+
+```json
+{
+  "enabled": true,
+  "primaryKeyID": 2,
+  "previousKeyIDs": [1],
+  "collections": [
+    {
+      "collection": "secrets",
+      "encrypted": true,
+      "total": 1500,
+      "withPrimary": 800,
+      "withLegacy": 700,
+      "plaintext": 0,
+      "unknownKey": 0
+    }
+  ]
+}
+```
+
+`withLegacy` counts entries sealed under a previous key (V1 ciphertexts or V2 with a non-primary keyID). Run `POST /v1/encryption/rotate` to converge them on the current primary.
+
+---
+
+### POST /v1/encryption/rotate
+
+> Added in 2.9.16.
+
+Start a re-encryption job that walks every encrypted entry under non-primary keys and re-seals it with the current `MDDB_ENCRYPTION_KEY`. Plaintext entries and entries already sealed under the primary are skipped.
+
+**Authentication**: admin JWT or API key required. Refused in read-only mode.
+
+**Body** (optional):
+
+```json
+{ "collection": "secrets" }
+```
+
+Empty `collection` (or omit the body) scopes the job to every collection.
+
+**Response** (job is started in the background; poll for progress):
+
+```json
+{
+  "id": "rot-a1b2c3d4e5f6a7b8",
+  "status": "queued",
+  "primaryKeyID": 2,
+  "startedAt": 1714560000000000000,
+  "scanned": 0,
+  "reencrypted": 0,
+  "skipped": 0,
+  "errors": 0
+}
+```
+
+Calling rotate while a job is already running returns the running job's ID instead of queueing a second one — the operation is single-flight.
+
+---
+
+### GET /v1/encryption/jobs[/:id]
+
+> Added in 2.9.16.
+
+Without an ID — list every rotation job ever queued in this process (newest first):
+
+```json
+{ "jobs": [ { "id": "rot-...", "status": "completed", ... } ] }
+```
+
+With an ID — single job snapshot:
+
+```json
+{
+  "id": "rot-a1b2c3d4e5f6a7b8",
+  "status": "completed",
+  "primaryKeyID": 2,
+  "startedAt": 1714560000000000000,
+  "finishedAt": 1714560015000000000,
+  "scanned": 1500,
+  "reencrypted": 700,
+  "skipped": 800,
+  "errors": 0
+}
+```
+
+`status` is one of `queued`, `running`, `completed`, `failed`. A failed job carries `lastError` with the most recent failure message.
+
+---
+
 ### GET /v1/compliance-status
 
 Report the live state of the production-hardening guard. **No authentication required** — this endpoint is designed to be called by operator-facing liveness / readiness probes and by external monitoring that must detect a drifted configuration before production traffic hits a non-compliant server.

@@ -177,6 +177,8 @@ Opt-in per-collection AES-256-GCM encryption for documents and revisions. Activa
 | Env Var | Default | Type | Description |
 |---------|---------|------|-------------|
 | `MDDB_ENCRYPTION_KEY` | *(unset)* | base64 string | 32 bytes of random key material, base64-encoded. Unset = encryption disabled globally. Invalid base64 or wrong length aborts startup. |
+| `MDDB_ENCRYPTION_KEY_ID` | `1` | integer 1..255 | Identifier stamped on every new ciphertext (V2 wire format). Pick a fresh value when you rotate so the new entries are distinguishable from legacy ones. |
+| `MDDB_ENCRYPTION_KEYS_PREVIOUS` | *(unset)* | JSON array | Read-only previous keys for rotation: `[{"id":1,"key":"<base64>"}, ...]`. KeyID 0 is reserved (legacy V1 marker); collisions with the primary keyID abort startup. |
 
 Enabling encryption for a collection:
 
@@ -200,6 +202,80 @@ Generate a fresh key:
 ```bash
 export MDDB_ENCRYPTION_KEY="$(openssl rand -base64 32)"
 ```
+
+### Key Rotation (2.9.16+)
+
+The 2.9.16 wire format **V2** prefixes every ciphertext with a 1-byte `keyID` so the encryptor can hold a primary plus any number of read-only previous keys. V1 (2.9.15) ciphertexts continue to decrypt — non-breaking upgrade.
+
+Rotation procedure:
+
+```bash
+# 1. Capture the current key.
+old_key="$MDDB_ENCRYPTION_KEY"
+old_id="${MDDB_ENCRYPTION_KEY_ID:-1}"
+
+# 2. Generate the new key.
+export MDDB_ENCRYPTION_KEY="$(openssl rand -base64 32)"
+export MDDB_ENCRYPTION_KEY_ID=2
+
+# 3. Keep the old key around so historical ciphertexts decrypt.
+export MDDB_ENCRYPTION_KEYS_PREVIOUS="[{\"id\":$old_id,\"key\":\"$old_key\"}]"
+
+# 4. Restart the server. Old documents continue to read; new writes
+#    are sealed under keyID=2.
+
+# 5. Run a re-encryption pass to migrate historical entries.
+curl -X POST localhost:11023/v1/encryption/rotate \
+  -H "Authorization: Bearer $ADMIN_JWT" \
+  -d '{"collection":""}'  # empty = all collections
+
+# 6. Watch progress.
+curl localhost:11023/v1/encryption/status -H "Authorization: Bearer $ADMIN_JWT"
+
+# 7. Once status shows withLegacy=0 across collections, drop the
+#    previous key from the env (and the secret store).
+unset MDDB_ENCRYPTION_KEYS_PREVIOUS
+```
+
+The admin panel exposes the same workflow under **Sidebar → Encryption**: keyID, per-collection coverage, "Start rotation" button, and a job table.
+
+---
+
+## Audit Log Export (ISO 27001 / SOC 2)
+
+The audit log persists locally to BoltDB by default. For tamper-evident, off-host retention (the auditor expectation), mirror events to an external SIEM webhook or a syslog collector. Local BoltDB remains the source of truth — exporters are best-effort.
+
+| Env Var | Default | Type | Description |
+|---------|---------|------|-------------|
+| `MDDB_AUDIT_EXPORT_WEBHOOK_URL` | *(unset)* | URL | Each audit event is POSTed as JSON to this URL with `_mddb_event_type:audit` decoration. Empty = exporter disabled. |
+| `MDDB_AUDIT_EXPORT_WEBHOOK_HEADER` | *(unset)* | comma-separated list | Headers added to every request: `Authorization: Splunk xxx,X-Source: prod`. |
+| `MDDB_AUDIT_EXPORT_WEBHOOK_INSECURE_TLS` | `false` | bool | Skip TLS cert verification — only for self-signed development collectors. |
+| `MDDB_AUDIT_EXPORT_SYSLOG_ADDR` | *(unset)* | host:port or proto://host:port | Syslog target. UDP by default; prefix `tcp://` for TCP. |
+| `MDDB_AUDIT_EXPORT_SYSLOG_FACILITY` | `local0` | facility name | RFC 5424 facility (`local0`–`local7`, `daemon`, `auth`, `authpriv`, ...). |
+| `MDDB_AUDIT_EXPORT_BUFFER` | `1024` | integer | Bounded channel size per exporter. When full, oldest events are dropped (counted as `dropped`). |
+
+Both sinks can run together; per-sink delivery counters are exposed at `GET /v1/audit/exporters` and rendered in the Security panel.
+
+Quick recipe — Splunk HEC + papertrail-style syslog:
+
+```bash
+export MDDB_AUDIT_ENABLED=true
+export MDDB_AUDIT_EXPORT_WEBHOOK_URL="https://splunk.example/services/collector/raw"
+export MDDB_AUDIT_EXPORT_WEBHOOK_HEADER="Authorization: Splunk $HEC_TOKEN"
+export MDDB_AUDIT_EXPORT_SYSLOG_ADDR="tcp://logs.papertrailapp.com:12345"
+```
+
+---
+
+## Backup Path Jail (2.9.16+)
+
+`/v1/backup` and `/v1/restore` accept a user-supplied path. Without bounds an admin (or an attacker who steals admin creds) could read or overwrite arbitrary files. The 2.9.16 jail confines every backup to a single directory.
+
+| Env Var | Default | Type | Description |
+|---------|---------|------|-------------|
+| `MDDB_BACKUP_DIR` | `./backups` | path | Directory backups are written to and restored from. Symlinks that escape the jail are rejected; absolute paths and `../` traversal are rejected; empty / NUL bytes are rejected. |
+
+No further configuration required — the jail is always on.
 
 ---
 
