@@ -45,6 +45,43 @@ type AuditManager struct {
 	stopCh        chan struct{}
 	wg            sync.WaitGroup
 	dropped       uint64
+	exMu          sync.RWMutex
+	exporters     []AuditExporter // optional fan-out to SIEM / syslog
+}
+
+// AddExporter registers an external sink. Safe to call before or
+// after Start. nil receivers and nil exporters are silently ignored.
+func (a *AuditManager) AddExporter(e AuditExporter) {
+	if a == nil || e == nil {
+		return
+	}
+	a.exMu.Lock()
+	a.exporters = append(a.exporters, e)
+	a.exMu.Unlock()
+}
+
+// Exporters returns a snapshot of the current exporter list.
+func (a *AuditManager) Exporters() []AuditExporter {
+	if a == nil {
+		return nil
+	}
+	a.exMu.RLock()
+	defer a.exMu.RUnlock()
+	out := make([]AuditExporter, len(a.exporters))
+	copy(out, a.exporters)
+	return out
+}
+
+// fanOut delivers one event to every registered exporter. Each
+// exporter's Export() is non-blocking by contract, so this stays
+// off the hot path even with several SIEM destinations configured.
+func (a *AuditManager) fanOut(ev AuditEvent) {
+	a.exMu.RLock()
+	exs := a.exporters
+	a.exMu.RUnlock()
+	for _, e := range exs {
+		e.Export(ev)
+	}
 }
 
 // NewAuditManager wires a manager. The caller must invoke Start
@@ -83,13 +120,21 @@ func (a *AuditManager) Start() {
 	go a.trimmer()
 }
 
-// Stop blocks until the buffer is drained.
+// Stop blocks until the buffer is drained and closes every registered
+// exporter so syslog / webhook workers exit cleanly on shutdown.
 func (a *AuditManager) Stop() {
 	if a == nil || !a.enabled {
 		return
 	}
 	close(a.stopCh)
 	a.wg.Wait()
+	a.exMu.Lock()
+	exs := a.exporters
+	a.exporters = nil
+	a.exMu.Unlock()
+	for _, e := range exs {
+		e.Close()
+	}
 }
 
 // Record queues an event. Never blocks — when the buffer is full
@@ -158,7 +203,7 @@ func (a *AuditManager) writer() {
 }
 
 func (a *AuditManager) flushBatch(batch []AuditEvent) error {
-	return a.db.Update(func(tx *bolt.Tx) error {
+	if err := a.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(bucketAudit)
 		if b == nil {
 			return errors.New("audit bucket missing")
@@ -175,7 +220,15 @@ func (a *AuditManager) flushBatch(batch []AuditEvent) error {
 			}
 		}
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	// Fan-out to external sinks AFTER the durable write. Each sink is
+	// best-effort; failures never roll back the BoltDB record.
+	for _, ev := range batch {
+		a.fanOut(ev)
+	}
+	return nil
 }
 
 func (a *AuditManager) trimmer() {
@@ -369,6 +422,33 @@ func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request) {
 		"events":  events,
 		"count":   len(events),
 		"dropped": s.AuditManager.Dropped(),
+	})
+}
+
+// handleAuditExporters serves GET /v1/audit/exporters — per-sink
+// counters so an operator can confirm SIEM / syslog delivery is
+// healthy. Admin-only because the response leaks the sink targets.
+func (s *Server) handleAuditExporters(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+	if s.AuditManager == nil || !s.AuditManager.enabled {
+		http.Error(w, `{"error":"audit disabled"}`, http.StatusNotFound)
+		return
+	}
+	if !requireAdmin(w, r, s) {
+		return
+	}
+	exs := s.AuditManager.Exporters()
+	stats := make([]ExporterStats, 0, len(exs))
+	for _, e := range exs {
+		stats = append(stats, e.Stats())
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"exporters": stats,
+		"count":     len(stats),
 	})
 }
 

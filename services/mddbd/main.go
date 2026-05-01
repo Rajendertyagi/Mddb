@@ -403,6 +403,37 @@ func main() {
 	s.AuditManager.Start()
 	if auditEnabled {
 		log.Printf("Audit log enabled (retention %d days)", auditRetention)
+
+		// Wire optional external sinks (ISO 27001 A.8.15 / SOC 2 CC7.2 —
+		// audit trail must be tamper-evident; pushing to an off-host SIEM
+		// or syslog collector covers the case where the local DB is
+		// compromised).
+		exportBuf := 1024
+		if v := env("MDDB_AUDIT_EXPORT_BUFFER", ""); v != "" {
+			if n, err := strconv.Atoi(v); err == nil && n > 0 {
+				exportBuf = n
+			}
+		}
+		if u := env("MDDB_AUDIT_EXPORT_WEBHOOK_URL", ""); u != "" {
+			insecure := env("MDDB_AUDIT_EXPORT_WEBHOOK_INSECURE_TLS", "") == "true"
+			we, err := NewWebhookExporter(u, env("MDDB_AUDIT_EXPORT_WEBHOOK_HEADER", ""), exportBuf, insecure)
+			if err != nil {
+				log.Printf("audit webhook exporter: %v", err)
+			} else {
+				s.AuditManager.AddExporter(we)
+				log.Printf("Audit webhook exporter active → %s", u)
+			}
+		}
+		if a := env("MDDB_AUDIT_EXPORT_SYSLOG_ADDR", ""); a != "" {
+			fac := env("MDDB_AUDIT_EXPORT_SYSLOG_FACILITY", "local0")
+			se, err := NewSyslogExporter(a, fac, exportBuf)
+			if err != nil {
+				log.Printf("audit syslog exporter: %v", err)
+			} else {
+				s.AuditManager.AddExporter(se)
+				log.Printf("Audit syslog exporter active → %s (facility %s)", a, fac)
+			}
+		}
 	}
 
 	// Initialize TTL manager
@@ -815,6 +846,7 @@ func main() {
 	mux.HandleFunc("/v1/synonyms", s.handleSynonyms)
 	mux.HandleFunc("/v1/stopwords", s.handleStopWords)
 	mux.HandleFunc("/v1/audit", s.handleAudit)
+	mux.HandleFunc("/v1/audit/exporters", s.handleAuditExporters)
 	mux.HandleFunc("/v1/encryption/status", s.handleEncryptionStatus)
 	mux.HandleFunc("/v1/encryption/rotate", s.handleEncryptionRotate)
 	mux.HandleFunc("/v1/encryption/jobs", s.handleEncryptionJob)
