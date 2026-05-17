@@ -1,13 +1,13 @@
 ---
-title: "Integrations: Docling, Langflow & OpenSearch"
+title: "Integrations: Docling, Langflow, OpenSearch & Airbyte"
 slug: "docs/integrations"
-description: "Integrations: Docling, Langflow & OpenSearch"
+description: "Integrations: Docling, Langflow, OpenSearch, SSG, wpexporter, Airbyte"
 status: publish
 ---
 
-# Integrations: Docling, Langflow & OpenSearch
+# Integrations: Docling, Langflow, OpenSearch & Airbyte
 
-Use MDDB alongside popular AI/ML tools to build production document processing and RAG pipelines.
+Use MDDB alongside popular AI/ML and ELT tools to build production document processing and RAG pipelines.
 
 ## Architecture Overview
 
@@ -18,6 +18,7 @@ graph LR
         DOCLING[Docling<br>IBM Document Parser]
         WP[WordPress]
         WPEXP[wpexporter]
+        AB[Airbyte<br>300+ ELT sources]
     end
 
     subgraph Storage & Search
@@ -38,6 +39,7 @@ graph LR
     DOCLING -->|markdown| MDDB
     WP -->|export| WPEXP
     WPEXP -->|markdown| MDDB
+    AB -->|destination-mddb| MDDB
     MDDB --> BOLT
     MDDB --> VEC
     MDDB -.->|sync| OS
@@ -1073,7 +1075,91 @@ graph TB
 
 ---
 
-## 6. Full Pipeline: All Integrations Together
+## 6. Airbyte → MDDB (ELT Destination Connector)
+
+[Airbyte](https://airbyte.com/) is an open-source ELT platform with 300+ source connectors. The MDDB Airbyte destination ships records from any Airbyte source (Postgres, MySQL, Salesforce, Stripe, S3, …) directly into MDDB via `POST /v1/add`. Each Airbyte stream maps to its own MDDB collection.
+
+### Image
+
+| Registry | Image |
+| --- | --- |
+| Docker Hub | `tradik/airbyte-destination-mddb:0.1.1` |
+| GHCR | `ghcr.io/tradik/airbyte-destination-mddb:0.1.1` (multi-arch + SLSA build-provenance) |
+
+Source: [integrations/airbyte-destination/](https://github.com/tradik/mddb/tree/main/integrations/airbyte-destination)
+
+### Register the connector in Airbyte UI
+
+1. **Settings → Destinations → ⊕ New connector**.
+2. Fill in:
+   - **Connector display name:** `MDDB`
+   - **Docker repository name:** `tradik/airbyte-destination-mddb`
+   - **Docker image tag:** `0.1.1`
+   - **Connector documentation URL:** `https://github.com/tradik/mddb/tree/main/integrations/airbyte-destination`
+3. **Add**. Airbyte runs `spec` and renders the form.
+4. **Destinations → ⊕ New destination → MDDB** → fill `mddbUrl` (e.g. `https://mddb.tradik.com`) and optional `apiKey` (bearer `vk_…`) → **Set up destination**. Airbyte executes `check` against the MDDB instance and should report `SUCCEEDED`.
+
+### Configuration (spec)
+
+| Field | Default | Description |
+| --- | --- | --- |
+| `mddbUrl` | `https://mddb.tradik.com` | MDDB base URL, no trailing `/`. |
+| `apiKey` | _(empty)_ | Bearer token (`vk_…`). Empty = MDDB without auth. |
+| `keyField` | `id` | Record field used as the MDDB document key. SHA-1 of the record on miss. |
+| `language` | `en_US` | Locale stored on every document. |
+| `batchSize` | `100` | Records buffered before flush. Flush also triggered on every Airbyte `STATE` message and at end-of-stream. |
+| `timeoutSeconds` | `30` | HTTP timeout per request. |
+| `verifySsl` | `true` | Set `false` only for self-signed dev instances. |
+
+### Record mapping
+
+Airbyte record `{"id":"u-42","email":"a@b.c","tags":["pro","beta"]}` on stream `users` becomes:
+
+```json
+{
+  "collection": "users",
+  "key": "u-42",
+  "lang": "en_US",
+  "meta": {
+    "id": ["u-42"],
+    "email": ["a@b.c"],
+    "tags": ["pro", "beta"]
+  },
+  "contentMd": "<!-- emittedAt=… -->\n```json\n{ …record… }\n```\n"
+}
+```
+
+`contentMd` carries the full record inside a fenced JSON code block — FTS + vector search index it out of the box. `meta` follows the native MDDB `map<string,[]string>` schema.
+
+### Sync modes
+
+- **`append`** — every record upserted by `key` (existing docs replaced, no orphan deletion).
+- **`append_dedup`** — same semantics (`/v1/add` is upsert-by-key by nature).
+- **`overwrite`** — not advertised; if forced by the source, the connector logs `WARN` and falls back to append-upsert. Orphans are not deleted (MDDB has no batch-delete-by-collection).
+
+### Reliability
+
+- HTTP retry 3× with exponential backoff on `429`/`5xx` (`urllib3.Retry`).
+- Flush on every `AirbyteMessage(STATE)` so partial syncs don't lose in-flight batches.
+- 40 unit tests, 97% coverage, CI matrix on Python 3.12 & 3.13.
+
+### Example flow: Postgres → MDDB
+
+1. **Source** → Postgres pointing at the table you want to index (e.g. `wiki.articles`).
+2. **Destination** → MDDB with `keyField=slug`, `language=en_US`.
+3. **Connection** → select streams, sync mode `Append + Deduped` (the connector treats both append modes identically).
+4. Run sync. MDDB ingests each row, embeds it (auto-vector if configured), and indexes for FTS/vector/hybrid search.
+
+```bash
+# Verify on the MDDB side
+curl -s https://mddb.tradik.com/v1/search \
+  -H 'content-type: application/json' \
+  -d '{"collection":"articles","query":"vector index","limit":5}'
+```
+
+---
+
+## 7. Full Pipeline: All Integrations Together
 
 Combine all tools for a complete content platform:
 
