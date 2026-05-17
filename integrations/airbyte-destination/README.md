@@ -93,12 +93,12 @@ The connector is "custom" — Airbyte runs it from a Docker image. With a local 
 2. Fill in:
    - **Connector display name:** `MDDB`
    - **Docker repository name:** `tradik/airbyte-destination-mddb`
-   - **Docker image tag:** `0.1.0` (or `dev` if you built locally)
+   - **Docker image tag:** `0.1.1` (or `dev` if you built locally)
    - **Connector documentation URL:** `https://github.com/tradik/mddb/tree/main/integrations/airbyte-destination`
 3. **Add**. Airbyte runs `spec` in a fresh container and renders the configuration form.
 4. **Destinations → ⊕ New destination → MDDB** → enter `mddbUrl` + optional `apiKey` → **Set up destination**. Airbyte will execute `check` and should report `SUCCEEDED`.
 
-The image must be reachable from the Airbyte host's Docker daemon. A locally built `tradik/airbyte-destination-mddb:0.1.0` is visible immediately. After a release it lives on the public registry (see [Release](#release)).
+The image must be reachable from the Airbyte host's Docker daemon. A locally built `tradik/airbyte-destination-mddb:0.1.1` is visible immediately. After a release it lives on both Docker Hub (`tradik/airbyte-destination-mddb`) and GHCR (`ghcr.io/tradik/airbyte-destination-mddb`) — multi-arch (`linux/amd64,linux/arm64`) with SLSA build-provenance attestation on the GHCR digest. See [Release](#release).
 
 ## Tests
 
