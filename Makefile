@@ -1,4 +1,4 @@
-.PHONY: help dev-start dev-stop dev-logs dev-build dev-clean test lint fmt vet sec test-graphql lint-all test-all ci chat-build chat-dev chat-test widget-build widget-dev dev-logs-chat docs-prep docs-dev docs-build
+.PHONY: help dev-start dev-stop dev-logs dev-build dev-clean test lint fmt vet sec test-graphql lint-all test-all ci chat-build chat-dev chat-test widget-build widget-dev dev-logs-chat docs-prep docs-dev docs-build airbyte-build airbyte-push airbyte-test airbyte-spec airbyte-check airbyte-clean
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -151,5 +151,25 @@ docs-build: docs-prep ## Build static documentation site into docs/
 	  --templates-dir=packages \
 	  --output-dir=docs \
 	  --minify-all
+
+# ----- Airbyte destination connector (integrations/airbyte-destination) -----
+
+airbyte-build: ## Build Airbyte destination docker image
+	@$(MAKE) -C integrations/airbyte-destination build
+
+airbyte-push: ## Push Airbyte destination image to registry
+	@$(MAKE) -C integrations/airbyte-destination push
+
+airbyte-test: ## Run Airbyte destination unit tests (pytest + coverage)
+	@$(MAKE) -C integrations/airbyte-destination test
+
+airbyte-spec: ## Print Airbyte destination spec JSON
+	@$(MAKE) -C integrations/airbyte-destination spec
+
+airbyte-check: ## Smoke-check Airbyte destination (URL=<mddb base url>)
+	@$(MAKE) -C integrations/airbyte-destination check URL=$(URL)
+
+airbyte-clean: ## Remove Airbyte destination local build artifacts
+	@$(MAKE) -C integrations/airbyte-destination clean
 
 .DEFAULT_GOAL := help

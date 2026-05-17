@@ -1,0 +1,25 @@
+data:
+  name: MDDB
+  connectorType: destination
+  connectorSubtype: api
+  definitionId: 1e3a1f9a-0e7d-4e3d-9c1c-2f51b1b1dddb
+  dockerImageTag: 0.1.1
+  dockerRepository: tradik/airbyte-destination-mddb
+  documentationUrl: https://github.com/tradik/mddb/tree/main/integrations/airbyte-destination
+  githubIssueLabel: destination-mddb
+  icon: mddb.svg
+  license: MIT
+  releaseStage: alpha
+  supportLevel: community
+  supportsDbt: false
+  tags:
+    - language:python
+    - cdk:python
+  registries:
+    cloud:
+      enabled: false
+    oss:
+      enabled: true
+  ab_internal:
+    sl: 100
+    ql: 100
