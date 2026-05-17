@@ -1,0 +1,198 @@
+name: Airbyte Destination MDDB
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'integrations/airbyte-destination/**'
+      - '.github/workflows/airbyte-destination.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'integrations/airbyte-destination/**'
+      - '.github/workflows/airbyte-destination.yml'
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: '3.13'
+  WORKING_DIR: integrations/airbyte-destination
+  DOCKER_HUB_USERNAME: tradik
+  IMAGE_NAME: airbyte-destination-mddb
+  GHCR_REGISTRY: ghcr.io
+  # Pin JS-based actions to Node 24 to keep parity with the rest of the workflows.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  test:
+    name: Tests + coverage (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.12', '3.13']
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIR }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: ${{ env.WORKING_DIR }}/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest pytest-cov
+
+      - name: Run pytest with coverage
+        run: |
+          pytest unit_tests/ \
+            --cov=destination_mddb \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-fail-under=90 \
+            -v
+
+      - name: Upload coverage artifact
+        if: matrix.python-version == '3.13'
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-xml
+          path: ${{ env.WORKING_DIR }}/coverage.xml
+          if-no-files-found: error
+
+  smoke-spec:
+    name: Smoke test (docker spec)
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build image (load locally)
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ env.WORKING_DIR }}
+          load: true
+          tags: airbyte-destination-mddb:ci
+          cache-from: type=gha,scope=airbyte-destination
+          cache-to: type=gha,mode=max,scope=airbyte-destination
+
+      - name: Run spec
+        run: |
+          docker run --rm airbyte-destination-mddb:ci spec > spec.json
+          python -m json.tool spec.json > /dev/null
+          # Ensure mddbUrl + apiKey are in the published spec.
+          grep -q '"mddbUrl"' spec.json
+          grep -q '"apiKey"' spec.json
+          echo "Spec OK."
+
+      - name: Run check against public MDDB
+        run: |
+          printf '{"mddbUrl":"https://mddb.tradik.com"}' | \
+            docker run --rm -i airbyte-destination-mddb:ci check --config /dev/stdin > check.json
+          cat check.json
+          grep -q '"status": *"SUCCEEDED"' check.json || \
+            (echo "::warning::Public MDDB check did not return SUCCEEDED" && exit 0)
+
+  build-and-push:
+    name: Build & push image (multi-arch)
+    needs: [test, smoke-spec]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Extract image metadata
+        id: meta
+        run: |
+          TAG=$(awk '/^[[:space:]]*dockerImageTag:/ {print $2}' "${{ env.WORKING_DIR }}/metadata.yaml")
+          if [ -z "$TAG" ]; then
+            echo "::error::Could not read dockerImageTag from metadata.yaml"; exit 1
+          fi
+          echo "TAG=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+          echo "COMMIT_SHA=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ env.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push multi-arch image
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ env.WORKING_DIR }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.TAG }}
+            ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.GHCR_REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.TAG }}
+            ${{ env.GHCR_REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
+          labels: |
+            org.opencontainers.image.title=Airbyte Destination MDDB
+            org.opencontainers.image.description=Airbyte destination connector for MDDB (POST /v1/add).
+            org.opencontainers.image.version=${{ steps.meta.outputs.TAG }}
+            org.opencontainers.image.created=${{ steps.meta.outputs.BUILD_DATE }}
+            org.opencontainers.image.revision=${{ steps.meta.outputs.COMMIT_SHA }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}/tree/main/${{ env.WORKING_DIR }}
+            org.opencontainers.image.url=https://github.com/${{ github.repository }}/tree/main/${{ env.WORKING_DIR }}
+            org.opencontainers.image.documentation=https://github.com/${{ github.repository }}/tree/main/${{ env.WORKING_DIR }}#readme
+            org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.vendor=tradik
+            io.airbyte.name=airbyte/destination-mddb
+            io.airbyte.version=${{ steps.meta.outputs.TAG }}
+          cache-from: type=gha,scope=airbyte-destination-release
+          cache-to: type=gha,mode=max,scope=airbyte-destination-release
+
+      - name: Generate build provenance attestation (GHCR)
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ${{ env.GHCR_REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Summary
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ## Airbyte Destination MDDB — release
+          - Tag pushed: \`${{ steps.meta.outputs.TAG }}\` + \`latest\`
+          - Registries:
+            - \`${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}\`
+            - \`${{ env.GHCR_REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}\`
+          - Platforms: \`linux/amd64\`, \`linux/arm64\`
+          - Commit: \`${{ steps.meta.outputs.COMMIT_SHA }}\`
+          EOF

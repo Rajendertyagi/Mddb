@@ -1,0 +1,70 @@
+{
+  "documentationUrl": "https://github.com/tradik/mddb/tree/main/integrations/airbyte-destination",
+  "supported_destination_sync_modes": ["append", "append_dedup"],
+  "supportsIncremental": true,
+  "connectionSpecification": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "MDDB Destination Spec",
+    "type": "object",
+    "required": ["mddbUrl"],
+    "additionalProperties": false,
+    "properties": {
+      "mddbUrl": {
+        "type": "string",
+        "title": "MDDB Base URL",
+        "description": "Base URL of the MDDB instance. Without trailing slash.",
+        "default": "https://mddb.tradik.com",
+        "examples": ["https://mddb.tradik.com", "http://localhost:11023"],
+        "pattern": "^https?://[^/]+(/.*)?$",
+        "order": 0
+      },
+      "apiKey": {
+        "type": "string",
+        "title": "API Key (Bearer Token)",
+        "description": "Bearer token, typically starting with 'vk_'. Leave empty for unauthenticated MDDB instances.",
+        "airbyte_secret": true,
+        "order": 1
+      },
+      "keyField": {
+        "type": "string",
+        "title": "Primary Key Field",
+        "description": "Record field name used as MDDB document key. If the field is missing or null on a record, a SHA-1 hash of the record is used instead.",
+        "default": "id",
+        "examples": ["id", "uuid", "email", "sku"],
+        "order": 2
+      },
+      "language": {
+        "type": "string",
+        "title": "Document Language",
+        "description": "ISO locale code stored on every document.",
+        "default": "en_US",
+        "pattern": "^[a-z]{2}(_[A-Z]{2})?$",
+        "order": 3
+      },
+      "batchSize": {
+        "type": "integer",
+        "title": "Batch Size",
+        "description": "Records buffered before flushing to MDDB.",
+        "default": 100,
+        "minimum": 1,
+        "maximum": 1000,
+        "order": 4
+      },
+      "timeoutSeconds": {
+        "type": "integer",
+        "title": "HTTP Timeout (seconds)",
+        "default": 30,
+        "minimum": 5,
+        "maximum": 300,
+        "order": 5
+      },
+      "verifySsl": {
+        "type": "boolean",
+        "title": "Verify TLS Certificate",
+        "description": "Disable only for self-signed dev instances.",
+        "default": true,
+        "order": 6
+      }
+    }
+  }
+}
