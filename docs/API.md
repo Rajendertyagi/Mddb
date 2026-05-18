@@ -3011,8 +3011,8 @@ curl http://localhost:11023/v1/system/info
   "os": "linux",
   "arch": "amd64",
   "numCPU": 4,
-  "goVersion": "go1.26.2",
-  "version": "2.9.16",
+  "goVersion": "go1.26.3",
+  "version": "2.9.17",
   "uptimeSeconds": 3600,
   "memoryTotal": 134217728,
   "memoryUsed": 67108864,
@@ -3035,7 +3035,7 @@ curl http://localhost:11023/v1/config
 **Response**:
 ```json
 {
-  "version": "2.9.16",
+  "version": "2.9.17",
   "databasePath": "mddb.db",
   "mode": "wr",
   "protocols": {
