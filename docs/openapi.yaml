@@ -68,7 +68,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: "2.9.16"
+  version: "2.9.17"
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -7000,7 +7000,7 @@ components:
         goVersion:
           type: string
           description: Go runtime version
-          example: go1.26.2
+          example: go1.26.3
         version:
           type: string
           description: MDDB server version

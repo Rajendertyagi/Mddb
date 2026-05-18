@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.17] - 2026-05-18
+
+### Security
+- **Go runtime 1.26.2 → 1.26.3** ([.github/workflows/govulncheck.yml](.github/workflows/govulncheck.yml), [.github/workflows/test.yml](.github/workflows/test.yml), [.github/workflows/release.yml](.github/workflows/release.yml), [services/mddbd/Dockerfile](services/mddbd/Dockerfile), [services/mddbd/Dockerfile.dev](services/mddbd/Dockerfile.dev), [services/mddb-cli/Dockerfile](services/mddb-cli/Dockerfile), [services/mddbd/go.mod](services/mddbd/go.mod), [services/mddb-cli/go.mod](services/mddb-cli/go.mod), [test/go.mod](test/go.mod), [tools/bench/go.mod](tools/bench/go.mod)) — daily `govulncheck` workflow caught four stdlib vulnerabilities reachable from `mddbd`, `mddb-cli`, and `bench`: **GO-2026-4982** and **GO-2026-4980** (XSS via `html/template` escaper bypasses — reachable through `http.Server.Serve` in `mddbd/main.go` and `template.Template.Execute` in `tools/bench/main.go`), **GO-2026-4971** (panic in `net.Dial`/`LookupPort` on NUL byte — reachable through every HTTP/UDP/syslog dialer including `audit_exporter_syslog.go`, `http3.go`, and `main.go`'s listeners), and **GO-2026-4918** (infinite loop in HTTP/2 transport on bad `SETTINGS_MAX_FRAME_SIZE` — reachable through every outbound HTTP client, including `OllamaEmbeddingProvider.Embed`, `fetchURL`, and webhook exporters). All four are fixed in stdlib `go1.26.3`; no third-party module changes required. Toolchain directives in every `go.mod`, both production and dev Dockerfiles, the OpenAPI example response, and the `/v1/stats` example in `docs/API.md` follow the same bump.
+
 ### Changed
 - **[docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)** — added section **6. Airbyte → MDDB (ELT Destination Connector)** with registration walk-through (Connector display name `MDDB`, Docker repository `tradik/airbyte-destination-mddb`, tag `0.1.1`, docs URL), spec table, record-mapping example, sync-mode semantics, and a Postgres → MDDB usage flow. Top-of-file title, frontmatter, and the architecture mermaid graph now list Airbyte alongside Docling/Langflow/OpenSearch/SSG/wpexporter. The "Full Pipeline" section renumbered to **7**. Root `README.md` blurb, ✅-features list, and Documentation TOC updated to mention Airbyte.
 
