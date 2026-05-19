@@ -1,0 +1,220 @@
+<?php
+/**
+ * Settings page + "Test connection" AJAX endpoint.
+ *
+ * @package Tradik\MddbSync
+ */
+
+declare(strict_types=1);
+
+namespace Tradik\MddbSync;
+
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * Renders the Settings → MDDB Sync screen and handles the test-connection POST.
+ */
+final class Admin {
+
+	private const MENU_SLUG = 'mddb-sync';
+
+	private const NONCE_ACTION = 'mddb_sync_test_connection';
+
+	private Settings $settings;
+
+	private Client $client;
+
+	public function __construct( Settings $settings, Client $client ) {
+		$this->settings = $settings;
+		$this->client   = $client;
+	}
+
+	public function register(): void {
+		add_action( 'admin_menu', [ $this, 'addMenu' ] );
+		add_action( 'admin_init', [ $this, 'registerSettings' ] );
+		add_action( 'wp_ajax_mddb_sync_test_connection', [ $this, 'ajaxTestConnection' ] );
+		add_filter(
+			'plugin_action_links_' . MDDB_SYNC_PLUGIN_BASENAME,
+			[ $this, 'addSettingsLink' ]
+		);
+	}
+
+	public function addMenu(): void {
+		add_options_page(
+			__( 'MDDB Sync', 'mddb-sync' ),
+			__( 'MDDB Sync', 'mddb-sync' ),
+			'manage_options',
+			self::MENU_SLUG,
+			[ $this, 'renderPage' ]
+		);
+	}
+
+	public function registerSettings(): void {
+		register_setting(
+			'mddb_sync',
+			Settings::OPTION_NAME,
+			[
+				'type'              => 'array',
+				'sanitize_callback' => [ Settings::class, 'sanitize' ],
+				'default'           => Settings::defaults(),
+			]
+		);
+	}
+
+	/**
+	 * @param array<int,string> $links
+	 * @return array<int,string>
+	 */
+	public function addSettingsLink( array $links ): array {
+		$url            = admin_url( 'options-general.php?page=' . self::MENU_SLUG );
+		$settingsLabel  = __( 'Settings', 'mddb-sync' );
+		$settings_link  = '<a href="' . esc_url( $url ) . '">' . esc_html( $settingsLabel ) . '</a>';
+		array_unshift( $links, $settings_link );
+		return $links;
+	}
+
+	public function renderPage(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		$values    = $this->settings->all();
+		$postTypes = get_post_types( [ 'public' => true ], 'objects' );
+		?>
+		<div class="wrap">
+			<h1><?php esc_html_e( 'MDDB Sync', 'mddb-sync' ); ?></h1>
+			<form method="post" action="options.php">
+				<?php settings_fields( 'mddb_sync' ); ?>
+				<table class="form-table" role="presentation">
+					<tr>
+						<th scope="row"><label for="mddb_sync_url"><?php esc_html_e( 'MDDB URL', 'mddb-sync' ); ?></label></th>
+						<td>
+							<input type="url" id="mddb_sync_url" class="regular-text"
+								name="<?php echo esc_attr( Settings::OPTION_NAME ); ?>[url]"
+								value="<?php echo esc_attr( (string) $values['url'] ); ?>"
+								placeholder="https://mddb.example.com" />
+							<p class="description"><?php esc_html_e( 'Base URL of your MDDB server (no trailing slash).', 'mddb-sync' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="mddb_sync_api_key"><?php esc_html_e( 'API key', 'mddb-sync' ); ?></label></th>
+						<td>
+							<input type="password" id="mddb_sync_api_key" class="regular-text"
+								name="<?php echo esc_attr( Settings::OPTION_NAME ); ?>[apiKey]"
+								value="<?php echo esc_attr( (string) $values['apiKey'] ); ?>"
+								autocomplete="off" />
+							<p class="description"><?php esc_html_e( 'Sent as Authorization: Bearer header. Leave empty for an unauthenticated dev instance.', 'mddb-sync' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="mddb_sync_collection"><?php esc_html_e( 'Collection', 'mddb-sync' ); ?></label></th>
+						<td>
+							<input type="text" id="mddb_sync_collection" class="regular-text"
+								name="<?php echo esc_attr( Settings::OPTION_NAME ); ?>[collection]"
+								value="<?php echo esc_attr( (string) $values['collection'] ); ?>" />
+							<p class="description"><?php esc_html_e( 'MDDB collection that receives every synced post. Defaults to the site host.', 'mddb-sync' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Sync events', 'mddb-sync' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" name="<?php echo esc_attr( Settings::OPTION_NAME ); ?>[syncOnSave]" value="1" <?php checked( ! empty( $values['syncOnSave'] ) ); ?> />
+								<?php esc_html_e( 'On save / publish (POST /v1/add)', 'mddb-sync' ); ?>
+							</label><br />
+							<label>
+								<input type="checkbox" name="<?php echo esc_attr( Settings::OPTION_NAME ); ?>[syncOnDelete]" value="1" <?php checked( ! empty( $values['syncOnDelete'] ) ); ?> />
+								<?php esc_html_e( 'Clean entries on trash / delete (POST /v1/delete)', 'mddb-sync' ); ?>
+							</label><br />
+							<label>
+								<input type="checkbox" name="<?php echo esc_attr( Settings::OPTION_NAME ); ?>[includeDrafts]" value="1" <?php checked( ! empty( $values['includeDrafts'] ) ); ?> />
+								<?php esc_html_e( 'Include drafts (otherwise only publish status is synced)', 'mddb-sync' ); ?>
+							</label>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Post types', 'mddb-sync' ); ?></th>
+						<td>
+							<?php foreach ( $postTypes as $type ) : ?>
+								<label style="display:inline-block; margin-right:1.5em;">
+									<input type="checkbox"
+										name="<?php echo esc_attr( Settings::OPTION_NAME ); ?>[postTypes][]"
+										value="<?php echo esc_attr( $type->name ); ?>"
+										<?php checked( in_array( $type->name, (array) $values['postTypes'], true ) ); ?> />
+									<?php echo esc_html( $type->labels->singular_name ); ?>
+									<code><?php echo esc_html( $type->name ); ?></code>
+								</label>
+							<?php endforeach; ?>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="mddb_sync_language_source"><?php esc_html_e( 'Language detection', 'mddb-sync' ); ?></label></th>
+						<td>
+							<select id="mddb_sync_language_source" name="<?php echo esc_attr( Settings::OPTION_NAME ); ?>[languageSource]">
+								<option value="<?php echo esc_attr( Settings::LANG_AUTO ); ?>" <?php selected( $values['languageSource'], Settings::LANG_AUTO ); ?>><?php esc_html_e( 'Auto (Polylang → WPML → site locale)', 'mddb-sync' ); ?></option>
+								<option value="<?php echo esc_attr( Settings::LANG_POLYLANG ); ?>" <?php selected( $values['languageSource'], Settings::LANG_POLYLANG ); ?>><?php esc_html_e( 'Polylang', 'mddb-sync' ); ?></option>
+								<option value="<?php echo esc_attr( Settings::LANG_WPML ); ?>" <?php selected( $values['languageSource'], Settings::LANG_WPML ); ?>><?php esc_html_e( 'WPML', 'mddb-sync' ); ?></option>
+								<option value="<?php echo esc_attr( Settings::LANG_LOCALE ); ?>" <?php selected( $values['languageSource'], Settings::LANG_LOCALE ); ?>><?php esc_html_e( 'Site locale', 'mddb-sync' ); ?></option>
+							</select>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="mddb_sync_key_strategy"><?php esc_html_e( 'Key strategy', 'mddb-sync' ); ?></label></th>
+						<td>
+							<select id="mddb_sync_key_strategy" name="<?php echo esc_attr( Settings::OPTION_NAME ); ?>[keyStrategy]">
+								<option value="<?php echo esc_attr( Settings::KEY_POST_ID ); ?>" <?php selected( $values['keyStrategy'], Settings::KEY_POST_ID ); ?>><?php esc_html_e( 'Post type + ID  (post-123)', 'mddb-sync' ); ?></option>
+								<option value="<?php echo esc_attr( Settings::KEY_POST_SLUG ); ?>" <?php selected( $values['keyStrategy'], Settings::KEY_POST_SLUG ); ?>><?php esc_html_e( 'Post type + slug (post-hello-world)', 'mddb-sync' ); ?></option>
+								<option value="<?php echo esc_attr( Settings::KEY_PERMALINK ); ?>" <?php selected( $values['keyStrategy'], Settings::KEY_PERMALINK ); ?>><?php esc_html_e( 'Permalink path (2026/05/hello-world)', 'mddb-sync' ); ?></option>
+							</select>
+						</td>
+					</tr>
+				</table>
+				<?php submit_button(); ?>
+			</form>
+
+			<hr />
+			<h2><?php esc_html_e( 'Test connection', 'mddb-sync' ); ?></h2>
+			<p>
+				<button type="button" class="button" id="mddb-sync-test"
+					data-nonce="<?php echo esc_attr( wp_create_nonce( self::NONCE_ACTION ) ); ?>">
+					<?php esc_html_e( 'Probe /v1/search', 'mddb-sync' ); ?>
+				</button>
+				<span id="mddb-sync-test-result" style="margin-left:0.5em;"></span>
+			</p>
+			<script>
+			( function() {
+				var btn = document.getElementById( 'mddb-sync-test' );
+				if ( ! btn ) { return; }
+				btn.addEventListener( 'click', function() {
+					var out = document.getElementById( 'mddb-sync-test-result' );
+					out.textContent = '…';
+					var body = new FormData();
+					body.append( 'action', 'mddb_sync_test_connection' );
+					body.append( '_ajax_nonce', btn.dataset.nonce );
+					fetch( ajaxurl, { method: 'POST', credentials: 'same-origin', body: body } )
+						.then( function( r ) { return r.json(); } )
+						.then( function( j ) {
+							out.textContent = ( j && j.data && j.data.message ) ? j.data.message : 'Unknown response.';
+							out.style.color = ( j && j.success ) ? 'green' : 'red';
+						} )
+						.catch( function( e ) { out.textContent = String( e ); out.style.color = 'red'; } );
+				} );
+			} )();
+			</script>
+		</div>
+		<?php
+	}
+
+	public function ajaxTestConnection(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( [ 'message' => __( 'Forbidden.', 'mddb-sync' ) ], 403 );
+		}
+		check_ajax_referer( self::NONCE_ACTION );
+
+		$result = $this->client->ping();
+		if ( ! empty( $result['ok'] ) ) {
+			wp_send_json_success( [ 'message' => $result['message'] ] );
+		}
+		wp_send_json_error( [ 'message' => $result['message'] ] );
+	}
+}
