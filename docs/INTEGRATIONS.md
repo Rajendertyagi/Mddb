@@ -1159,7 +1159,67 @@ curl -s https://mddb.tradik.com/v1/search \
 
 ---
 
-## 7. Full Pipeline: All Integrations Together
+## 7. WordPress → MDDB (Sync plugin)
+
+[integrations/wordpress-plugin/](https://github.com/tradik/mddb/tree/main/integrations/wordpress-plugin) — first-party WordPress plugin that mirrors **posts** and **pages** (or any public post type) into MDDB. Unlike `wpexporter` (one-shot bulk migration), this plugin keeps the two stores in lock-step: every save / publish / trash / delete in WordPress is reflected in MDDB in real time.
+
+| Property | Value |
+|---|---|
+| Plugin slug | `mddb-sync` |
+| Release tag prefix | `wp-v` (e.g. `wp-v0.1.0`) — separate from core MDDB `vX.Y.Z` tags |
+| Release asset | `mddb-sync-<version>.zip` attached to each GitHub Release |
+| WP requires | 6.2+ |
+| PHP requires | 8.1+ |
+
+### Hooks
+
+- `wp_after_insert_post` → `POST /v1/add` (autosaves & revisions skipped; drafts opt-in).
+- `wp_trash_post` and `before_delete_post` → `POST /v1/delete`.
+- `pre_set_site_transient_update_plugins` + `plugins_api` → self-update channel hitting `repos/tradik/mddb/releases/latest`.
+
+### Settings (Settings → MDDB Sync)
+
+| Field | What |
+|---|---|
+| MDDB URL | Base URL, e.g. `https://mddb.tradik.com`. |
+| API key | Bearer token (`vk_…`); empty for unauthenticated dev instances. |
+| Collection | Defaults to a slug derived from the site host. |
+| Sync events | Toggle save / delete / include-drafts independently. |
+| Post types | Any registered public post type. |
+| Language detection | Auto (Polylang → WPML → site locale), or pin one source. |
+| Key strategy | `posttype-id` (default), `posttype-slug`, or `permalink path`. |
+
+### Document shape
+
+```json
+{
+  "collection": "example_com",
+  "key": "post-42",
+  "lang": "en_US",
+  "meta": {
+    "postType":   ["post"],
+    "status":     ["publish"],
+    "title":      ["Hello world"],
+    "slug":       ["hello-world"],
+    "permalink":  ["https://example.com/hello-world/"],
+    "author":     ["Jane Author"],
+    "publishedAt": ["2026-05-19T10:14:00+00:00"],
+    "categories": ["News"],
+    "tags":       ["intro", "demo"]
+  },
+  "contentMd": "# Hello world\n\nHello world.\n"
+}
+```
+
+`contentMd` runs the post body through the standard `the_content` filter, then strips tags — shortcodes, blocks, and oEmbed embeds are expanded first so the indexed text matches the rendered page.
+
+### Build & release
+
+The workflow [`.github/workflows/wordpress-plugin.yml`](../.github/workflows/wordpress-plugin.yml) runs `composer audit` + PHPCS (WordPress security ruleset) + PHPStan level 5 + PHPUnit on PHP 8.1 / 8.2 / 8.3 / 8.4 on every PR and push touching `integrations/wordpress-plugin/**`. The 8.3 leg enforces ≥90 % line coverage. Pushing a `wp-v*` tag builds the runtime zip and attaches it to a GitHub Release — that asset is what the in-plugin updater downloads.
+
+---
+
+## 8. Full Pipeline: All Integrations Together
 
 Combine all tools for a complete content platform:
 

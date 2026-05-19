@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<ruleset name="mddb-sync">
+    <description>Coding standards for the MDDB Sync WordPress plugin (security-first; we keep short arrays and camelCase variables intentionally).</description>
+
+    <file>mddb-sync.php</file>
+    <file>includes</file>
+
+    <arg name="extensions" value="php"/>
+    <arg name="colors"/>
+    <arg value="sp"/>
+
+    <!-- Security: this is the rule-set we actually care about for a WP plugin
+         that talks to a remote API and renders an admin page. -->
+    <rule ref="WordPress.Security"/>
+    <rule ref="WordPress.DB"/>
+    <rule ref="WordPress.WP.AlternativeFunctions"/>
+    <rule ref="WordPress.WP.DiscouragedConstants"/>
+    <rule ref="WordPress.WP.DeprecatedFunctions"/>
+    <rule ref="WordPress.WP.DeprecatedClasses"/>
+    <rule ref="WordPress.WP.DeprecatedParameters"/>
+    <rule ref="WordPress.WP.I18n">
+        <properties>
+            <property name="text_domain" type="array">
+                <element value="mddb-sync"/>
+            </property>
+        </properties>
+    </rule>
+    <rule ref="WordPress.PHP.NoSilencedErrors"/>
+    <rule ref="WordPress.PHP.StrictInArray"/>
+    <rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+        <properties>
+            <property name="prefixes" type="array">
+                <element value="mddb_sync"/>
+                <element value="MDDB_SYNC"/>
+                <element value="Tradik\MddbSync"/>
+            </property>
+        </properties>
+    </rule>
+
+    <rule ref="PHPCompatibilityWP"/>
+    <config name="testVersion" value="8.1-"/>
+    <config name="minimum_supported_wp_version" value="6.2"/>
+</ruleset>
