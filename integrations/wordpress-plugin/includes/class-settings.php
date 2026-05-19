@@ -47,6 +47,9 @@ final class Settings {
 			'languageSource' => self::LANG_AUTO,
 			'keyStrategy'    => self::KEY_POST_ID,
 			'includeDrafts'  => false,
+			// Per-taxonomy term-id allow-list. Empty array (or missing key)
+			// for a taxonomy means "no filter — sync any value".
+			'termFilter'     => [],
 		];
 	}
 
@@ -120,6 +123,37 @@ final class Settings {
 		) ? $value : self::KEY_POST_ID;
 	}
 
+	/**
+	 * Allow-list of taxonomy → term IDs. A post is synced when it has at least
+	 * one matching term in *every* taxonomy that has a non-empty list. Taxonomies
+	 * absent from the map (or with empty lists) impose no constraint.
+	 *
+	 * @return array<string,array<int,int>>
+	 */
+	public function termFilter(): array {
+		$raw = $this->all()['termFilter'] ?? [];
+		if ( ! is_array( $raw ) ) {
+			return [];
+		}
+		$out = [];
+		foreach ( $raw as $taxonomy => $ids ) {
+			if ( ! is_string( $taxonomy ) || $taxonomy === '' || ! is_array( $ids ) ) {
+				continue;
+			}
+			$normalised = [];
+			foreach ( $ids as $id ) {
+				$intId = (int) $id;
+				if ( $intId > 0 ) {
+					$normalised[] = $intId;
+				}
+			}
+			if ( count( $normalised ) > 0 ) {
+				$out[ $taxonomy ] = array_values( array_unique( $normalised ) );
+			}
+		}
+		return $out;
+	}
+
 	public function isConfigured(): bool {
 		return $this->url() !== '';
 	}
@@ -182,6 +216,27 @@ final class Settings {
 			) ) {
 				$out['keyStrategy'] = $value;
 			}
+		}
+
+		if ( isset( $input['termFilter'] ) && is_array( $input['termFilter'] ) ) {
+			$filter = [];
+			foreach ( $input['termFilter'] as $taxonomy => $ids ) {
+				$taxKey = sanitize_key( (string) $taxonomy );
+				if ( $taxKey === '' || ! is_array( $ids ) ) {
+					continue;
+				}
+				$intIds = [];
+				foreach ( $ids as $id ) {
+					$intId = (int) $id;
+					if ( $intId > 0 ) {
+						$intIds[] = $intId;
+					}
+				}
+				if ( count( $intIds ) > 0 ) {
+					$filter[ $taxKey ] = array_values( array_unique( $intIds ) );
+				}
+			}
+			$out['termFilter'] = $filter;
 		}
 
 		return $out;

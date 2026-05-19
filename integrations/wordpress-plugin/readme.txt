@@ -4,7 +4,7 @@ Tags: mddb, search, sync, markdown, polylang, wpml
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 8.1
-Stable tag: 0.1.0
+Stable tag: 0.1.1
 License: BSD-3-Clause
 License URI: https://opensource.org/licenses/BSD-3-Clause
 
@@ -47,6 +47,12 @@ Yes — the language detector first asks Polylang, then WPML, then falls back to
 The plugin queries GitHub Releases (`repos/tradik/mddb/releases/latest`) once every 12 h. When a newer release ships with a `mddb-sync-<version>.zip` asset, WordPress's standard Dashboard → Updates flow offers it.
 
 == Changelog ==
+
+= 0.1.1 =
+* Mapper now exports every `get_post_meta()` key, every taxonomy attached to the post type, ACF `get_fields()` (namespaced `acf:*`), and normalised SEO fields from Yoast / RankMath / SEOPress.
+* New `mddb_sync_meta` filter for downstream customisation.
+* Term filter — per-taxonomy term-ID checklist on the settings screen scopes what gets synced (AND across taxonomies, OR inside one).
+* "Sync everything" button — paged AJAX bulk re-sync with progress bar.
 
 = 0.1.0 =
 * Initial release. See CHANGELOG.md in the repository for full details.

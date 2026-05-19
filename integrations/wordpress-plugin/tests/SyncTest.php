@@ -39,6 +39,10 @@ final class SyncTest extends TestCase {
 		Functions\when( 'wp_is_post_revision' )->justReturn( false );
 		Functions\when( 'add_action' )->justReturn( true );
 		Functions\when( 'do_action' )->justReturn( null );
+		Functions\when( 'get_object_taxonomies' )->justReturn( [] );
+		Functions\when( 'get_post_meta' )->justReturn( [] );
+		Functions\when( 'get_fields' )->justReturn( [] );
+		Functions\when( 'wp_json_encode' )->alias( static fn( $v ) => json_encode( $v ) );
 		// Brain/Monkey persists `when()`-defined functions across tests within
 		// one process. LanguageTest defines `pll_get_post_language` which then
 		// makes our `function_exists()` guard return true. Force an empty value
@@ -217,6 +221,39 @@ final class SyncTest extends TestCase {
 			$client
 		);
 		$sync->onDelete( 12 );
+	}
+
+	public function testSyncPostReturnsWpErrorWhenNotConfigured(): void {
+		$client = $this->createMock( Client::class );
+		$client->expects( self::never() )->method( 'addDocument' );
+		$sync = $this->syncWith( [ 'url' => '' ], $client );
+		$result = $sync->syncPost( new WP_Post( [ 'ID' => 1, 'post_type' => 'post', 'post_status' => 'publish' ] ) );
+		self::assertInstanceOf( WP_Error::class, $result );
+		self::assertSame( 'mddb_sync_not_configured', $result->get_error_code() );
+	}
+
+	public function testSyncPostReturnsTermFilterSkip(): void {
+		Functions\when( 'get_the_terms' )->justReturn( [] );
+		$client = $this->createMock( Client::class );
+		$client->expects( self::never() )->method( 'addDocument' );
+		$sync = $this->syncWith(
+			[
+				'url'        => 'https://mddb',
+				'postTypes'  => [ 'post' ],
+				'termFilter' => [ 'category' => [ 1 ] ],
+			],
+			$client
+		);
+		$result = $sync->syncPost( new WP_Post( [ 'ID' => 1, 'post_type' => 'post', 'post_status' => 'publish' ] ) );
+		self::assertInstanceOf( WP_Error::class, $result );
+		self::assertSame( 'mddb_sync_term_filter_skip', $result->get_error_code() );
+	}
+
+	public function testSyncPostUpsertsHappyPath(): void {
+		$client = $this->createMock( Client::class );
+		$client->expects( self::once() )->method( 'addDocument' )->willReturn( true );
+		$sync = $this->syncWith( [ 'url' => 'https://mddb', 'postTypes' => [ 'post' ] ], $client );
+		self::assertTrue( $sync->syncPost( new WP_Post( [ 'ID' => 1, 'post_type' => 'post', 'post_status' => 'publish' ] ) ) );
 	}
 
 	public function testRegisterAttachesHooks(): void {

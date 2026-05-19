@@ -114,6 +114,43 @@ final class SettingsTest extends TestCase {
 		self::assertSame( Settings::KEY_PERMALINK, $out['keyStrategy'] );
 	}
 
+	public function testTermFilterRoundTrips(): void {
+		Functions\when( 'get_option' )->justReturn(
+			[
+				'url'        => 'https://mddb',
+				'termFilter' => [
+					'category' => [ '1', 2, 0, -3, 5 ],
+					''         => [ 99 ], // empty taxonomy slug dropped
+					'product_cat' => 'not-an-array', // wrong shape dropped
+				],
+			]
+		);
+		$settings = new Settings();
+		$filter   = $settings->termFilter();
+		self::assertSame( [ 1, 2, 5 ], $filter['category'] );
+		self::assertArrayNotHasKey( '', $filter );
+		self::assertArrayNotHasKey( 'product_cat', $filter );
+	}
+
+	public function testSanitizeNormalisesTermFilterIds(): void {
+		Functions\when( 'sanitize_key' )->alias(
+			static fn( $v ) => (string) preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $v ) )
+		);
+		Functions\when( 'wp_http_validate_url' )->justReturn( false );
+		$out = Settings::sanitize(
+			[
+				'termFilter' => [
+					'category' => [ '1', '1', '2', 'abc' ],
+					'BAD!'     => [ 9 ],
+					'empty'    => [],
+				],
+			]
+		);
+		self::assertSame( [ 1, 2 ], $out['termFilter']['category'] );
+		self::assertSame( [ 9 ], $out['termFilter']['bad'] );
+		self::assertArrayNotHasKey( 'empty', $out['termFilter'] );
+	}
+
 	public function testSanitizeRejectsInvalidUrlAndStrategy(): void {
 		Functions\when( 'wp_http_validate_url' )->justReturn( false );
 		Functions\when( 'sanitize_key' )->alias(
