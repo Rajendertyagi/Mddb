@@ -38,7 +38,7 @@
     "scripts": {
         "lint": "phpcs --standard=phpcs.xml --runtime-set testVersion 8.1- -p",
         "lint:fix": "phpcbf --standard=phpcs.xml",
-        "stan": "phpstan analyse --memory-limit=512M",
+        "stan": "phpstan analyse --memory-limit=2G",
         "test": "phpunit",
         "test:coverage": "XDEBUG_MODE=coverage phpunit --coverage-text --coverage-clover=coverage.xml",
         "audit": "composer audit --abandoned=report",
