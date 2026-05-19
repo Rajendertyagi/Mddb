@@ -12,8 +12,11 @@ declare(strict_types=1);
  * `get_the_terms()` mocks.
  */
 class WP_Term { // phpcs:ignore
+	public int $term_id = 0; // phpcs:ignore
 	public string $name = '';
 	public string $slug = '';
+	public string $taxonomy = '';
+	public int $count = 0;
 
 	/**
 	 * @param array<string,mixed> $fields

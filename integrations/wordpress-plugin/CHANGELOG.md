@@ -2,6 +2,20 @@
 
 All notable changes to this WordPress plugin are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/); the plugin adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Releases are tagged `wp-vX.Y.Z` in this repository to avoid clashing with `vX.Y.Z` tags used for the core MDDB server.
 
+## [0.1.1] - 2026-05-19
+
+### Added
+
+- **Full meta capture in [`Mapper`](includes/class-mapper.php)** — every entry from `get_post_meta($id, '', false)` now ships, with scalar values cast to string and serialized arrays/objects JSON-encoded so they stay indexable. All taxonomies attached to the post type are walked via `get_object_taxonomies()`, not just `category`/`post_tag` (legacy aliases preserved). When ACF is active, `get_fields()` is layered on top with keys prefixed `acf:` so parsed values (URLs, post IDs, arrays) are stored alongside the raw `wp_postmeta` row.
+- **Normalised SEO fields** ([`includes/class-seo.php`](includes/class-seo.php)) — extracts `seoTitle`, `seoDescription`, `seoFocusKeyword`, `seoCanonical`, `seoRobots*`, `ogTitle`/`ogDescription`/`ogImage`, `twitterTitle`/`twitterDescription`/`twitterImage`, and `seoSource` from **Yoast SEO**, **RankMath**, or **SEOPress**. Source with most filled fields wins (Yoast tie-breaker). Raw `_yoast_wpseo_*` / `rank_math_*` / `_seopress_*` keys also ship as-is from the post-meta dump.
+- **`mddb_sync_meta` filter** — `apply_filters('mddb_sync_meta', $meta, $post)` is the last step in `Mapper::metaFor`. Use it to redact secrets, drop noisy keys (`_edit_lock`, `_edit_last`), or inject your own fields without forking.
+- **Term filter ([`Settings::termFilter`](includes/class-settings.php), [`Sync::matchesTermFilter`](includes/class-sync.php))** — per-taxonomy term-ID allow-list rendered as a checklist on **Settings → MDDB Sync**. AND across taxonomies (every constrained taxonomy must match), OR inside one (any allowed term in the list is enough). Empty list for a taxonomy = no constraint. Applied to both the live `wp_after_insert_post` path and the bulk re-sync.
+- **"Sync everything" button + paged AJAX bulk re-sync** ([`includes/class-bulk.php`](includes/class-bulk.php), [`includes/class-admin.php`](includes/class-admin.php)) — admin button walks `WP_Query` in 25-post pages, pushes each through `Sync::syncPost`, and reports progress (`processed / total — ok / skipped / failed`) with a `<progress>` bar. Capability-gated (`manage_options`) + nonce-protected. Stop button aborts the loop client-side. Up to ten last error messages surfaced inline.
+
+### Tests
+
+- 69 PHPUnit tests, **91.69 % line coverage** (Brain Monkey for WP-function mocking). New suites: `SeoTest`, `BulkTest`, `TermFilterTest` plus extended `MapperTest`, `SettingsTest`, `SyncTest`.
+
 ## [0.1.0] - 2026-05-19
 
 ### Added

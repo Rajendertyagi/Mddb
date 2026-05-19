@@ -36,7 +36,8 @@ final class Plugin {
 		$client   = new Client( $options );
 		$mapper   = new Mapper( $language );
 		$sync     = new Sync( $options, $client, $mapper );
-		$admin    = new Admin( $options, $client );
+		$bulk     = new Bulk( $options, $sync );
+		$admin    = new Admin( $options, $client, $bulk );
 		$updater  = new Updater( MDDB_SYNC_PLUGIN_BASENAME, $this->version, MDDB_SYNC_GITHUB_REPO );
 
 		$sync->register();

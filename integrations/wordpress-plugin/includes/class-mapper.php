@@ -14,17 +14,34 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Pure mapping layer — no I/O, no hooks. Receives a `WP_Post` and emits
  * the JSON document we send to MDDB.
+ *
+ * v0.1.1 ships **full meta capture**:
+ *   - All `get_post_meta()` keys (raw values, scalar/array-aware).
+ *   - All taxonomies attached to the post type (not just category/post_tag).
+ *   - ACF parsed values (`get_fields()`) layered on top — wins over raw keys.
+ *   - Normalised SEO fields from Yoast / RankMath / SEOPress.
+ *   - `mddb_sync_meta` filter for downstream customisation.
+ *
+ * Meta-key prefixes that ship as-is so consumers don't need to know which
+ * plugin wrote what:
+ *   - WordPress core (no prefix; e.g. `featured_video`).
+ *   - Underscored "private" keys (`_yoast_wpseo_*`, `_thumbnail_id`, …).
+ *   - Plugin keys (`rank_math_*`, `_seopress_*`, `_elementor_*`, …).
+ *
+ * MDDB schema is `map<string, []string>` — every value gets stringified.
  */
 final class Mapper {
 
 	private Language $language;
 
-	public function __construct( Language $language ) {
+	private Seo $seo;
+
+	public function __construct( Language $language, ?Seo $seo = null ) {
 		$this->language = $language;
+		$this->seo      = $seo ?? new Seo();
 	}
 
 	/**
-	 * @param \WP_Post $post
 	 * @return array{collection:string,key:string,lang:string,meta:array<string,array<int,string>>,contentMd:string}
 	 */
 	public function toDocument( \WP_Post $post, string $collection, string $keyStrategy, string $languageStrategy ): array {
@@ -66,13 +83,15 @@ final class Mapper {
 	 * @return array<string,array<int,string>>
 	 */
 	private function metaFor( \WP_Post $post ): array {
+		$postId = (int) $post->ID;
+
 		$meta = [
-			'postType'   => [ (string) $post->post_type ],
-			'status'     => [ (string) $post->post_status ],
-			'title'      => [ (string) $post->post_title ],
-			'slug'       => [ (string) $post->post_name ],
-			'permalink'  => [ (string) get_permalink( $post ) ],
-			'authorId'   => [ (string) $post->post_author ],
+			'postType'    => [ (string) $post->post_type ],
+			'status'      => [ (string) $post->post_status ],
+			'title'       => [ (string) $post->post_title ],
+			'slug'        => [ (string) $post->post_name ],
+			'permalink'   => [ (string) get_permalink( $post ) ],
+			'authorId'    => [ (string) $post->post_author ],
 			'publishedAt' => [ (string) get_post_time( 'c', true, $post ) ],
 			'modifiedAt'  => [ (string) get_post_modified_time( 'c', true, $post ) ],
 		];
@@ -87,14 +106,123 @@ final class Mapper {
 			$meta['excerpt'] = [ $excerpt ];
 		}
 
-		$meta['categories'] = $this->terms( $post, 'category' );
-		$meta['tags']       = $this->terms( $post, 'post_tag' );
+		$meta = array_merge( $meta, $this->allTaxonomies( $post ) );
+		$meta = array_merge( $meta, $this->postMeta( $postId ) );
+		$meta = array_merge( $meta, $this->acfFields( $postId ) );
+		$meta = array_merge( $meta, $this->seo->extract( $this->rawPostMeta( $postId ) ) );
 
-		// Drop empty arrays so MDDB meta stays compact.
-		return array_filter(
+		// Drop empty arrays / empty single values so MDDB meta stays compact.
+		$meta = array_filter(
 			$meta,
-			static fn( array $values ): bool => count( $values ) > 0 && trim( (string) ( $values[0] ?? '' ) ) !== ''
+			static fn( array $values ): bool => count( $values ) > 0
+				&& trim( implode( '', $values ) ) !== ''
 		);
+
+		/**
+		 * Final say on the meta payload. Use to redact secrets, drop noisy keys
+		 * (`_edit_lock`, `_edit_last`), or inject your own fields.
+		 *
+		 * @param array<string,array<int,string>> $meta
+		 * @param \WP_Post                         $post
+		 */
+		$filtered = apply_filters( 'mddb_sync_meta', $meta, $post );
+		return is_array( $filtered ) ? $filtered : $meta;
+	}
+
+	/**
+	 * @return array<string,array<int,string>>
+	 */
+	private function allTaxonomies( \WP_Post $post ): array {
+		if ( ! function_exists( 'get_object_taxonomies' ) ) {
+			return [];
+		}
+		$taxonomies = get_object_taxonomies( (string) $post->post_type, 'names' );
+		if ( ! is_array( $taxonomies ) ) {
+			return [];
+		}
+		$out = [];
+		foreach ( $taxonomies as $taxonomy ) {
+			$names = $this->terms( $post, (string) $taxonomy );
+			if ( count( $names ) > 0 ) {
+				$key         = $this->taxonomyKey( (string) $taxonomy );
+				$out[ $key ] = $names;
+			}
+		}
+		return $out;
+	}
+
+	private function taxonomyKey( string $taxonomy ): string {
+		// Legacy aliases preserved for backwards compatibility with consumers
+		// of v0.1.0 documents.
+		if ( $taxonomy === 'category' ) {
+			return 'categories';
+		}
+		if ( $taxonomy === 'post_tag' ) {
+			return 'tags';
+		}
+		return $taxonomy;
+	}
+
+	/**
+	 * Raw `wp_postmeta` rows for the post, with every value coerced to string.
+	 *
+	 * @return array<string,array<int,string>>
+	 */
+	private function postMeta( int $postId ): array {
+		$raw = $this->rawPostMeta( $postId );
+		$out = [];
+		foreach ( $raw as $key => $values ) {
+			$strings = [];
+			foreach ( $values as $value ) {
+				$flat = $this->stringify( $value );
+				if ( $flat !== '' ) {
+					$strings[] = $flat;
+				}
+			}
+			if ( count( $strings ) > 0 ) {
+				$out[ (string) $key ] = $strings;
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * @return array<string,array<int,mixed>>
+	 */
+	private function rawPostMeta( int $postId ): array {
+		if ( ! function_exists( 'get_post_meta' ) ) {
+			return [];
+		}
+		$raw = get_post_meta( $postId );
+		return is_array( $raw ) ? $raw : [];
+	}
+
+	/**
+	 * Pulls **parsed** ACF values (`get_fields($postId)`). For an image field
+	 * you get a URL/ID/array depending on the field's "Return format" instead
+	 * of the raw attachment ID stored in `wp_postmeta`.
+	 *
+	 * Keys are namespaced with `acf:` so they don't collide with the raw
+	 * `wp_postmeta` row of the same name.
+	 *
+	 * @return array<string,array<int,string>>
+	 */
+	private function acfFields( int $postId ): array {
+		if ( ! function_exists( 'get_fields' ) ) {
+			return [];
+		}
+		$fields = get_fields( $postId );
+		if ( ! is_array( $fields ) ) {
+			return [];
+		}
+		$out = [];
+		foreach ( $fields as $name => $value ) {
+			$flat = $this->stringify( $value );
+			if ( $flat !== '' ) {
+				$out[ 'acf:' . (string) $name ] = [ $flat ];
+			}
+		}
+		return $out;
 	}
 
 	/**
@@ -112,6 +240,25 @@ final class Mapper {
 			}
 		}
 		return $names;
+	}
+
+	private function stringify( mixed $value ): string {
+		if ( $value === null ) {
+			return '';
+		}
+		if ( is_string( $value ) ) {
+			return $value;
+		}
+		if ( is_bool( $value ) ) {
+			return $value ? '1' : '0';
+		}
+		if ( is_scalar( $value ) ) {
+			return (string) $value;
+		}
+		// WordPress hands back unserialized PHP arrays/objects for serialized
+		// meta values. JSON-encode keeps them indexable while preserving shape.
+		$encoded = wp_json_encode( $value );
+		return is_string( $encoded ) ? $encoded : '';
 	}
 
 	private function bodyFor( \WP_Post $post ): string {

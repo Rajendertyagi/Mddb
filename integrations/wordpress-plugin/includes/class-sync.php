@@ -20,7 +20,7 @@ defined( 'ABSPATH' ) || exit;
  *  - `before_delete_post`   → delete when post is hard-deleted.
  *  - `wp_trash_post`        → delete when post is trashed (treat trash as removal).
  */
-final class Sync {
+class Sync {
 
 	private Settings $settings;
 
@@ -65,6 +65,9 @@ final class Sync {
 		if ( in_array( (string) $post->post_status, [ 'trash', 'auto-draft', 'inherit' ], true ) ) {
 			return;
 		}
+		if ( ! $this->matchesTermFilter( $post ) ) {
+			return;
+		}
 
 		$document = $this->mapper->toDocument(
 			$post,
@@ -77,6 +80,57 @@ final class Sync {
 		if ( is_wp_error( $result ) ) {
 			$this->logError( 'mddb_sync_add', $result, $postId );
 		}
+	}
+
+	/**
+	 * AND-across-taxonomies, OR-within-taxonomy. An empty filter list for a
+	 * given taxonomy imposes no constraint. Posts with no terms in a filtered
+	 * taxonomy are excluded.
+	 */
+	public function matchesTermFilter( \WP_Post $post ): bool {
+		$filter = $this->settings->termFilter();
+		if ( count( $filter ) === 0 ) {
+			return true;
+		}
+		foreach ( $filter as $taxonomy => $allowedIds ) {
+			$terms = get_the_terms( $post, $taxonomy );
+			if ( ! is_array( $terms ) || count( $terms ) === 0 ) {
+				return false;
+			}
+			$postTermIds = [];
+			foreach ( $terms as $term ) {
+				if ( $term instanceof \WP_Term ) {
+					$postTermIds[] = (int) $term->term_id;
+				}
+			}
+			if ( count( array_intersect( $allowedIds, $postTermIds ) ) === 0 ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Sync hook used by the bulk-resync admin endpoint. Re-runs the same logic
+	 * as `onSave` but without autosave/revision checks — the caller has already
+	 * filtered to real posts via `WP_Query`.
+	 *
+	 * @return true|\WP_Error
+	 */
+	public function syncPost( \WP_Post $post ) {
+		if ( ! $this->settings->isConfigured() ) {
+			return new \WP_Error( 'mddb_sync_not_configured', 'MDDB URL is not configured.' );
+		}
+		if ( ! $this->matchesTermFilter( $post ) ) {
+			return new \WP_Error( 'mddb_sync_term_filter_skip', 'Post excluded by term filter.' );
+		}
+		$document = $this->mapper->toDocument(
+			$post,
+			$this->settings->collection(),
+			$this->settings->keyStrategy(),
+			$this->settings->languageSource()
+		);
+		return $this->client->addDocument( $document );
 	}
 
 	public function onDelete( int $postId ): void {
