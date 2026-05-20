@@ -127,6 +127,11 @@ dist/
 output/
 output-custom/
 output-test/
+
+# GitHub Action bundled output MUST be committed — Actions are consumed
+# directly from the repo path (uses: tradik/mddb/integrations/github-action@v1).
+!integrations/github-action/dist/
+!integrations/github-action/dist/**
 output-test2/
 .ssg-output/
 content/

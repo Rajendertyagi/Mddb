@@ -171,7 +171,7 @@ jobs:
             org.opencontainers.image.source=https://github.com/${{ github.repository }}/tree/main/${{ env.WORKING_DIR }}
             org.opencontainers.image.url=https://github.com/${{ github.repository }}/tree/main/${{ env.WORKING_DIR }}
             org.opencontainers.image.documentation=https://github.com/${{ github.repository }}/tree/main/${{ env.WORKING_DIR }}#readme
-            org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.licenses=BSD-3-Clause
             org.opencontainers.image.vendor=tradik
             io.airbyte.name=airbyte/destination-mddb
             io.airbyte.version=${{ steps.meta.outputs.TAG }}

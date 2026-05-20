@@ -1,0 +1,9 @@
+node_modules/
+build/
+coverage/
+*.log
+.DS_Store
+
+# Keep dist/ committed — GitHub Actions consumers reference the action directly
+# from this directory, so the bundled output must be in the repo.
+!dist/

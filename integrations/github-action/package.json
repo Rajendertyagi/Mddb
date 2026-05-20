@@ -1,0 +1,43 @@
+{
+  "name": "@tradik/mddb-sync-action",
+  "version": "0.1.0",
+  "description": "GitHub Action that syncs repository files into an MDDB collection via POST /v1/add.",
+  "private": true,
+  "license": "BSD-3-Clause",
+  "author": "tradik",
+  "homepage": "https://github.com/tradik/mddb/tree/main/integrations/github-action",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tradik/mddb.git",
+    "directory": "integrations/github-action"
+  },
+  "main": "dist/index.js",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "ncc build src/main.ts --source-map --license licenses.txt --minify",
+    "lint": "eslint src __tests__ --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\" \"__tests__/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"__tests__/**/*.ts\"",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "all": "npm run format:check && npm run lint && npm run test:coverage && npm run build"
+  },
+  "dependencies": {
+    "@actions/core": "^1.11.1",
+    "@actions/glob": "^0.5.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.20.0",
+    "@typescript-eslint/parser": "^8.20.0",
+    "@vercel/ncc": "^0.38.3",
+    "eslint": "^9.20.0",
+    "jest": "^30.0.0",
+    "prettier": "^3.4.2",
+    "ts-jest": "^29.2.5",
+    "typescript": "^6.0.3"
+  }
+}

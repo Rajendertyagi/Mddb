@@ -4,7 +4,7 @@
 [![MDDB](https://img.shields.io/badge/MDDB-2.9.5%2B-1f7a8c)](https://github.com/tradik/mddb)
 [![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Coverage](https://img.shields.io/badge/coverage-97%25-brightgreen)](#tests)
-[![License](https://img.shields.io/badge/license-MIT-green)](#license)
+[![License](https://img.shields.io/badge/license-BSD--3--Clause-green)](#license)
 
 Custom Airbyte destination that ships records to [MDDB](https://github.com/tradik/mddb). Each Airbyte stream is mapped to its own MDDB collection; every record becomes one document upserted via `POST /v1/add`.
 
@@ -160,4 +160,4 @@ The connector reads `AirbyteMessage`s from stdin, emits responses on stdout, and
 
 ## License
 
-MIT — see [LICENSE](../../LICENSE) in the MDDB repo root.
+BSD-3-Clause — see [LICENSE](../../LICENSE) in the MDDB repo root.

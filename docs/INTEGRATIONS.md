@@ -1,11 +1,11 @@
 ---
-title: "Integrations: Docling, Langflow, OpenSearch & Airbyte"
+title: "Integrations: Docling, Langflow, OpenSearch, Airbyte & GitHub Action"
 slug: "docs/integrations"
-description: "Integrations: Docling, Langflow, OpenSearch, SSG, wpexporter, Airbyte"
+description: "Integrations: Docling, Langflow, OpenSearch, SSG, wpexporter, Airbyte, WordPress sync, GitHub Action"
 status: publish
 ---
 
-# Integrations: Docling, Langflow, OpenSearch & Airbyte
+# Integrations: Docling, Langflow, OpenSearch, Airbyte & GitHub Action
 
 Use MDDB alongside popular AI/ML and ELT tools to build production document processing and RAG pipelines.
 
@@ -18,7 +18,9 @@ graph LR
         DOCLING[Docling<br>IBM Document Parser]
         WP[WordPress]
         WPEXP[wpexporter]
+        WPSYNC[WordPress<br>Sync plugin]
         AB[Airbyte<br>300+ ELT sources]
+        GHA[GitHub Action<br>repo docs / READMEs]
     end
 
     subgraph Storage & Search
@@ -39,7 +41,10 @@ graph LR
     DOCLING -->|markdown| MDDB
     WP -->|export| WPEXP
     WPEXP -->|markdown| MDDB
+    WP -->|live hooks| WPSYNC
+    WPSYNC -->|/v1/add /v1/delete| MDDB
     AB -->|destination-mddb| MDDB
+    GHA -->|/v1/add per file| MDDB
     MDDB --> BOLT
     MDDB --> VEC
     MDDB -.->|sync| OS
@@ -1219,7 +1224,85 @@ The workflow [`.github/workflows/wordpress-plugin.yml`](../.github/workflows/wor
 
 ---
 
-## 8. Full Pipeline: All Integrations Together
+## 8. GitHub Action → MDDB (CI sync)
+
+[integrations/github-action/](https://github.com/tradik/mddb/tree/main/integrations/github-action) — native Node 24 JavaScript action that ingests repository files into an MDDB collection on every push (or any other workflow trigger). Drop it into a workflow to keep an MDDB collection in sync with your `docs/`, `README.md`, OpenAPI specs, or any other text/markdown/JSON artefacts that live in git.
+
+```yaml
+# .github/workflows/sync-docs.yml
+name: Sync docs to MDDB
+
+on:
+  push:
+    branches: [main]
+    paths: ['docs/**', 'README.md']
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: tradik/mddb/integrations/github-action@gha-v0
+        with:
+          mddb-url: https://mddb.tradik.com
+          api-key: ${{ secrets.MDDB_API_KEY }}
+          collection: project-docs
+          path: |
+            docs/**/*.md
+            README.md
+          ignore: docs/draft/**
+          key-prefix: ${{ github.repository }}/
+```
+
+### Inputs
+
+| Input | Default | Description |
+| --- | --- | --- |
+| `mddb-url` | `https://mddb.tradik.com` | MDDB base URL. |
+| `api-key` | _(empty)_ | Bearer token (`vk_…`). |
+| `collection` | **required** | Target MDDB collection. |
+| `path` | `**/*.md` | Newline-separated globs (inline `!` for negation). |
+| `ignore` | _(empty)_ | Newline-separated exclude globs. |
+| `key-strategy` | `path` | `path` (slug of relative path), `hash` (sha1 of content), `filename` (basename). |
+| `key-prefix` | _(empty)_ | Prefix every key — useful when several repos share one collection. |
+| `concurrency` | `8` | Parallel `/v1/add` requests. |
+| `dry-run` | `false` | Walk + build documents without contacting MDDB. |
+| `fail-on-error` | `true` | Set to `false` to demote upload failures to job warnings. |
+
+### Outputs
+
+`documents-scanned`, `documents-added`, `documents-failed`.
+
+### Document shape
+
+A file at `docs/guide/intro.md` containing `# Hello` produces:
+
+```json
+{
+  "collection": "project-docs",
+  "key": "tradik/mddb/docs/guide/intro.md",
+  "lang": "en_US",
+  "meta": {
+    "source": ["github-action"],
+    "path": ["docs/guide/intro.md"],
+    "extension": [".md"],
+    "size": ["7"],
+    "repository": ["tradik/mddb"],
+    "ref": ["<commit sha>"]
+  },
+  "contentMd": "# Hello"
+}
+```
+
+Markdown and plain-text (`.md`, `.markdown`, `.mdx`, `.txt`, `.rst`, `.adoc`) are stored verbatim. JSON / YAML / TOML / HTML / CSS / JS / TS / Python / Go / Rust / Bash files are wrapped in a fenced code block with the matching language so FTS + vector indexing recognise the structure.
+
+### Tests & release
+
+57 unit tests with 90%+ Jest coverage (statements / branches / functions / lines). The workflow [`.github/workflows/github-action.yml`](../.github/workflows/github-action.yml) runs format check + ESLint + Jest with coverage on a Node 22 & 24 matrix, rebuilds `dist/` and asserts it matches the committed bundle (`verify-dist`), and dry-runs the action against the integration's own README (`smoke`). Pushing a `gha-v*` tag verifies `package.json.version`, force-moves floating `gha-v<major>` / `gha-v<major>.<minor>` tags, and publishes a GitHub Release — so consumers can pin to `@gha-v0`, `@gha-v0.1`, or `@gha-v0.1.0`.
+
+---
+
+## 9. Full Pipeline: All Integrations Together
 
 Combine all tools for a complete content platform:
 

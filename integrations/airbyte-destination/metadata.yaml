@@ -8,7 +8,7 @@ data:
   documentationUrl: https://github.com/tradik/mddb/tree/main/integrations/airbyte-destination
   githubIssueLabel: destination-mddb
   icon: mddb.svg
-  license: MIT
+  license: BSD-3-Clause
   releaseStage: alpha
   supportLevel: community
   supportsDbt: false

@@ -1,4 +1,4 @@
-.PHONY: help dev-start dev-stop dev-logs dev-build dev-clean test lint fmt vet sec test-graphql lint-all test-all ci chat-build chat-dev chat-test widget-build widget-dev dev-logs-chat docs-prep docs-dev docs-build airbyte-build airbyte-push airbyte-test airbyte-spec airbyte-check airbyte-clean
+.PHONY: help dev-start dev-stop dev-logs dev-build dev-clean test lint fmt vet sec test-graphql lint-all test-all ci chat-build chat-dev chat-test widget-build widget-dev dev-logs-chat docs-prep docs-dev docs-build airbyte-build airbyte-push airbyte-test airbyte-spec airbyte-check airbyte-clean gha-install gha-build gha-test gha-coverage gha-lint gha-check gha-verify-dist gha-clean
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -171,5 +171,31 @@ airbyte-check: ## Smoke-check Airbyte destination (URL=<mddb base url>)
 
 airbyte-clean: ## Remove Airbyte destination local build artifacts
 	@$(MAKE) -C integrations/airbyte-destination clean
+
+# ----- GitHub Action: mddb-sync (integrations/github-action) -----
+
+gha-install: ## Install github-action npm dependencies
+	@$(MAKE) -C integrations/github-action install
+
+gha-build: ## Bundle github-action dist/index.js with @vercel/ncc
+	@$(MAKE) -C integrations/github-action build
+
+gha-test: ## Run github-action Jest unit tests
+	@$(MAKE) -C integrations/github-action test
+
+gha-coverage: ## Run github-action tests with coverage (>=90%)
+	@$(MAKE) -C integrations/github-action test-coverage
+
+gha-lint: ## Lint github-action TypeScript sources
+	@$(MAKE) -C integrations/github-action lint
+
+gha-check: ## Format check + lint + tests + build for github-action
+	@$(MAKE) -C integrations/github-action check
+
+gha-verify-dist: ## Build github-action and assert dist/ is up to date
+	@$(MAKE) -C integrations/github-action verify-dist
+
+gha-clean: ## Remove github-action build artefacts and node_modules
+	@$(MAKE) -C integrations/github-action clean
 
 .DEFAULT_GOAL := help
