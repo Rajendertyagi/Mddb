@@ -58,6 +58,10 @@ docker-compose*.yml
 # Node modules
 node_modules/
 
+# Integration: GitHub Action (Node-based; not shipped in any Docker image)
+integrations/github-action/coverage/
+integrations/github-action/build/
+
 # Python
 __pycache__/
 *.py[cod]

@@ -1,0 +1,75 @@
+name: 'MDDB Sync'
+description: 'Ingest markdown / text / JSON / YAML / HTML files from a repository into an MDDB collection via POST /v1/add.'
+author: 'tradik'
+branding:
+  icon: 'upload-cloud'
+  color: 'blue'
+
+inputs:
+  mddb-url:
+    description: 'Base URL of the MDDB instance (no trailing slash).'
+    required: false
+    default: 'https://mddb.tradik.com'
+  api-key:
+    description: 'Bearer token (typically vk_…). Leave empty for unauthenticated instances.'
+    required: false
+    default: ''
+  collection:
+    description: 'Target MDDB collection name.'
+    required: true
+  path:
+    description: 'Glob pattern (relative to working-directory) of files to ingest. Multi-pattern: newline-separated.'
+    required: false
+    default: '**/*.md'
+  ignore:
+    description: 'Glob patterns to exclude. Multi-pattern: newline-separated.'
+    required: false
+    default: ''
+  working-directory:
+    description: 'Root directory the globs resolve against.'
+    required: false
+    default: '.'
+  language:
+    description: 'Document language tag stored on every doc.'
+    required: false
+    default: 'en_US'
+  key-strategy:
+    description: 'How to derive the MDDB document key. One of: path (default, slugified relative path), hash (sha1 of file content), filename (basename without extension).'
+    required: false
+    default: 'path'
+  key-prefix:
+    description: 'String prepended to every derived key. Useful for namespacing multiple repos in one collection.'
+    required: false
+    default: ''
+  concurrency:
+    description: 'Number of parallel /v1/add requests in flight.'
+    required: false
+    default: '8'
+  timeout-seconds:
+    description: 'HTTP timeout per /v1/add request.'
+    required: false
+    default: '30'
+  verify-ssl:
+    description: 'Verify TLS certificates. Set to false only for self-signed dev instances.'
+    required: false
+    default: 'true'
+  dry-run:
+    description: 'Walk files and build documents, but do not call MDDB. Counts and previews are printed.'
+    required: false
+    default: 'false'
+  fail-on-error:
+    description: 'Fail the job if any document fails to upload. When false, errors are summarised and the action succeeds.'
+    required: false
+    default: 'true'
+
+outputs:
+  documents-added:
+    description: 'Number of documents successfully upserted to MDDB.'
+  documents-failed:
+    description: 'Number of documents that failed to upload.'
+  documents-scanned:
+    description: 'Number of files matched by the glob (after applying ignore).'
+
+runs:
+  using: 'node24'
+  main: 'dist/index.js'

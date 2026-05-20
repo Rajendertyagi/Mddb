@@ -4,7 +4,7 @@ LABEL io.airbyte.name=airbyte/destination-mddb \
       io.airbyte.version=0.1.1 \
       org.opencontainers.image.title="Airbyte Destination MDDB" \
       org.opencontainers.image.source="https://github.com/tradik/airbyte" \
-      org.opencontainers.image.licenses="MIT"
+      org.opencontainers.image.licenses="BSD-3-Clause"
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
