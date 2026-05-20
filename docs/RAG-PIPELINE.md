@@ -466,12 +466,12 @@ def supersearch_claude(query: str) -> str:
 
 ```mermaid
 graph TB
-    subgraph "1. Content Ingestion"
+    subgraph r1["1. Content Ingestion"]
         WP[WordPress<br>your-site.com] -->|WP REST API<br>/wp-json/wp/v2/posts| SCRIPT[Import Script<br>wp-import.sh]
         SCRIPT -->|POST /v1/add<br>or /v1/import-url| MDDBD
     end
 
-    subgraph "2. MDDB Processing"
+    subgraph r2["2. MDDB Processing"]
         MDDBD[mddbd<br>:11023 / :11024]
         MDDBD -->|store| BOLT[(BoltDB<br>docs + metadata + FTS)]
         MDDBD -->|async| WORKER[Embedding Worker]
@@ -479,8 +479,8 @@ graph TB
         PROVIDER -->|vectors| VIDX[Vector Index<br>cosine similarity]
     end
 
-    subgraph "3. Query & Response"
-        USER[User Query] -->|"How do I...?"| CLIENT
+    subgraph r3["3. Query and Response"]
+        USER[User Query] -->|How do I| CLIENT
         CLIENT[SuperSearch Client] -->|RAG pipeline| RETRIEVE
         RETRIEVE[Retrieve] -->|POST /v1/vector-search| MDDBD
         MDDBD -->|top K docs| AUGMENT[Augment]
