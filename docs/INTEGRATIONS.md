@@ -1,13 +1,13 @@
 ---
-title: "Integrations: Docling, Langflow, OpenSearch, Airbyte & GitHub Action"
+title: "Integrations: Docling, Langflow, OpenSearch, Airbyte, GitHub Action & Grafana"
 slug: "docs/integrations"
-description: "Integrations: Docling, Langflow, OpenSearch, SSG, wpexporter, Airbyte, WordPress sync, GitHub Action"
+description: "Integrations: Docling, Langflow, OpenSearch, SSG, wpexporter, Airbyte, WordPress sync, GitHub Action, Grafana datasource"
 status: publish
 ---
 
-# Integrations: Docling, Langflow, OpenSearch, Airbyte & GitHub Action
+# Integrations: Docling, Langflow, OpenSearch, Airbyte, GitHub Action & Grafana
 
-Use MDDB alongside popular AI/ML and ELT tools to build production document processing and RAG pipelines.
+Use MDDB alongside popular AI/ML, ELT, and observability tools to build production document processing and RAG pipelines.
 
 ## Architecture Overview
 
@@ -35,6 +35,7 @@ graph LR
         LF[Langflow<br>Visual RAG Builder]
         LLM[LLM<br>Claude / GPT / Llama]
         DEPLOY[GitHub Pages<br>Cloudflare / Netlify]
+        GRAFANA[Grafana<br>datasource plugin]
     end
 
     PDF -->|parse| DOCLING
@@ -55,6 +56,7 @@ graph LR
     LF -->|query| OS
     LF -->|generate| LLM
     LLM -->|answer| LF
+    MDDB -->|/v1/temporal /v1/aggregate| GRAFANA
 ```
 
 ---
@@ -1055,19 +1057,19 @@ sequenceDiagram
 
 ```mermaid
 graph TB
-    subgraph "1. Export"
+    subgraph s1["1. Export"]
         WP[WordPress] -->|REST API| WPEXP[wpexporter]
         WP -->|XML-RPC| WPEXP
         WPEXP -->|markdown + metadata| MD_FILES[Markdown Files]
     end
 
-    subgraph "2. Store & Index"
+    subgraph s2["2. Store and Index"]
         MD_FILES -->|bulk import| MDDB[MDDB]
         MDDB -->|auto-embed| VEC[(Vector Index)]
         MDDB -->|store| BOLT[(BoltDB)]
     end
 
-    subgraph "3. Use"
+    subgraph s3["3. Use"]
         MDDB -->|MCP| CLAUDE[Claude / AI Agents]
         MDDB -->|REST| SSG_N[SSG<br>New Static Site]
         MDDB -->|vector search| RAG[RAG Pipeline]
@@ -1302,18 +1304,82 @@ Markdown and plain-text (`.md`, `.markdown`, `.mdx`, `.txt`, `.rst`, `.adoc`) ar
 
 ---
 
-## 9. Full Pipeline: All Integrations Together
+## 9. Grafana → MDDB (Datasource plugin)
+
+[integrations/grafana-datasource/](https://github.com/tradik/mddb/tree/main/integrations/grafana-datasource) — native Grafana 10/11/12/13 datasource plugin that turns MDDB into a first-class panel source. Five query types map directly to MDDB endpoints, so a dashboard can mix MDDB content signals (hot documents, FTS results, metadata facets, event histograms) with Prometheus/Loki/Tempo on the same page.
+
+> Note: MDDB also exposes a Prometheus-compatible `/metrics` endpoint for server-level metrics (request rate, latency, database size, embedding queue) — see [docs/TELEMETRY.md](TELEMETRY.md). This plugin is the *complement*: it queries MDDB content, not Prometheus metrics.
+
+### Plugin ID & supported versions
+
+| | |
+|---|---|
+| Plugin ID | `tradik-mddb-datasource` |
+| Type | Datasource (frontend-only, no backend Go binary) |
+| Grafana | `>=10.0.0` (tested against Grafana 13.0.1) |
+| MDDB | 2.9.16+ |
+
+Source: [integrations/grafana-datasource/](https://github.com/tradik/mddb/tree/main/integrations/grafana-datasource)
+
+### Install
+
+```bash
+# 1. Build the plugin
+cd integrations/grafana-datasource && make build
+
+# 2. Drop dist/ into Grafana's plugin directory
+docker run --rm -p 3000:3000 \
+  -e GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=tradik-mddb-datasource \
+  -v "$(pwd)/dist:/var/lib/grafana/plugins/tradik-mddb-datasource" \
+  grafana/grafana:13.0.1
+```
+
+Or `make docker` to bake the plugin into a `tradik/mddb-grafana-datasource:<version>` image.
+
+In Grafana: **Configuration → Data sources → Add data source → MDDB**, set the base URL (`https://mddb.tradik.com`), optional default collection, and a bearer API key — stored encrypted in `secureJsonData`. **Save & test** pings `/v1/stats` and distinguishes auth vs server vs network failures.
+
+### Query types
+
+| Query type | MDDB endpoint | Output shape | Best panel |
+|---|---|---|---|
+| **Temporal histogram** | `POST /v1/temporal/histogram` | Time + count time-series | Time series |
+| **Hot documents** | `POST /v1/temporal/hot` | docId / accessCount / lastAccessAt table | Table / Bar chart |
+| **Metadata aggregate** | `POST /v1/aggregate` | value/count table *or* time bucket series | Pie / Bar / Time series |
+| **Full-text search** | `POST /v1/fts` | key / lang / score / highlight table | Table |
+| **Database stats** | `POST /v1/stats` | per-collection documents / revisions / embeddings | Stat / Table |
+
+Dashboard time range is applied automatically as `from` / `to` (seconds). Grafana dashboard variables are interpolated into `collection`, `query`, and `facetKey` via `getTemplateSrv().replace()`.
+
+### Example: temporal access histogram
+
+```text
+Datasource:    MDDB
+Query type:    Temporal histogram (time-series)
+Collection:    blog
+Event type:    access
+Interval:      day
+```
+
+Yields a time series plottable on any Grafana time-series panel; combine with a `documents per collection` Prometheus query on the same dashboard to correlate ingest with reads.
+
+### Tests & release
+
+Pure-logic Jest tests on `query.ts`, `transform.ts`, `client.ts`, and `datasource.ts` enforce ≥90% coverage. `make package` produces a versioned plugin zip; tag-driven releases use `grafana-v<version>` and ship the zip as a GitHub Release asset for `grafana-cli plugins install --pluginUrl` or signing-service submission.
+
+---
+
+## 10. Full Pipeline: All Integrations Together
 
 Combine all tools for a complete content platform:
 
 ```mermaid
 graph TB
-    subgraph "1. Content Sources"
+    subgraph p1["1. Content Sources"]
         WP[WordPress] -->|wpexporter| WPEXP[wpexporter<br>markdown + meta]
         FILES[PDF / DOCX / PPTX] -->|parse| DOCLING[Docling]
     end
 
-    subgraph "2. MDDB — Central Hub"
+    subgraph p2["2. MDDB - Central Hub"]
         WPEXP -->|bulk import| MDDB[MDDB<br>:11023 / :11024]
         DOCLING -->|markdown + chunks| MDDB
         MDDB -->|primary store| BOLT[(BoltDB)]
@@ -1321,7 +1387,7 @@ graph TB
         MDDB -->|webhook sync| OS[(OpenSearch<br>scale search)]
     end
 
-    subgraph "3. Orchestration & AI"
+    subgraph p3["3. Orchestration and AI"]
         LF[Langflow] -->|semantic search| MDDB
         LF -->|BM25 / kNN| OS
         LF -->|generate| LLM[LLM]
@@ -1329,7 +1395,7 @@ graph TB
         MDDB -->|MCP| CLAUDE[Claude Desktop]
     end
 
-    subgraph "4. Output"
+    subgraph p4["4. Output"]
         MDDB -->|REST API| SSG[SSG<br>Static Site Generator]
         SSG -->|HTML/CSS/JS| DEPLOY[GitHub Pages<br>Cloudflare<br>Netlify]
         LF --> WEBAPP[Web App]
