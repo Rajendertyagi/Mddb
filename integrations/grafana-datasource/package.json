@@ -1,0 +1,62 @@
+{
+  "name": "@tradik/mddb-grafana-datasource",
+  "version": "0.1.0",
+  "description": "Grafana datasource plugin that queries an MDDB instance for time-series, table and stat panels.",
+  "private": true,
+  "license": "BSD-3-Clause",
+  "author": "tradik",
+  "homepage": "https://github.com/tradik/mddb/tree/main/integrations/grafana-datasource",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tradik/mddb.git",
+    "directory": "integrations/grafana-datasource"
+  },
+  "main": "dist/module.js",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "webpack --mode=production",
+    "dev": "webpack --mode=development --watch",
+    "lint": "eslint src __tests__ --ext .ts,.tsx",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\" \"__tests__/**/*.{ts,tsx}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"__tests__/**/*.{ts,tsx}\"",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "package": "node scripts/package.js",
+    "all": "npm run format:check && npm run lint && npm run test:coverage && npm run build"
+  },
+  "dependencies": {
+    "tslib": "^2.8.1"
+  },
+  "peerDependencies": {
+    "@grafana/data": "^11.0.0",
+    "@grafana/runtime": "^11.0.0",
+    "@grafana/ui": "^11.0.0",
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@grafana/data": "^11.5.0",
+    "@grafana/runtime": "^11.5.0",
+    "@grafana/ui": "^11.5.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "^18.3.18",
+    "@typescript-eslint/eslint-plugin": "^8.20.0",
+    "@typescript-eslint/parser": "^8.20.0",
+    "copy-webpack-plugin": "^13.0.0",
+    "eslint": "^9.20.0",
+    "eslint-plugin-react": "^7.37.5",
+    "jest": "^30.0.0",
+    "jest-environment-jsdom": "^30.0.0",
+    "prettier": "^3.8.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "rxjs": "^7.8.1",
+    "ts-jest": "^29.2.5",
+    "ts-loader": "^9.5.2",
+    "typescript": "^6.0.3",
+    "webpack": "^5.97.1",
+    "webpack-cli": "^6.0.1"
+  }
+}
