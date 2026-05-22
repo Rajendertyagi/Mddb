@@ -132,6 +132,13 @@ output-test/
 # directly from the repo path (uses: tradik/mddb/integrations/github-action@v1).
 !integrations/github-action/dist/
 !integrations/github-action/dist/**
+
+# Chrome extension build artefacts (rebuilt by CI from src/, never committed).
+integrations/chrome-extension/node_modules/
+integrations/chrome-extension/build/
+integrations/chrome-extension/dist/
+integrations/chrome-extension/coverage/
+integrations/chrome-extension/*.zip
 output-test2/
 .ssg-output/
 content/

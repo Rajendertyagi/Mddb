@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>MDDB Browser — Privacy policy</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="legal-page">
+    <h1>MDDB Browser — Privacy policy</h1>
+    <p>
+      <em>Last updated: 2026-05-21.</em>
+      The canonical, always-current Tradik Limited privacy policy lives at
+      <a href="https://tradik.com/privacy" target="_blank" rel="noopener noreferrer"
+        >https://tradik.com/privacy</a
+      >. This bundled copy describes the extension itself, so it stays available even when offline.
+    </p>
+
+    <h2>1. Data we collect</h2>
+    <p>
+      The MDDB Browser extension does <strong>not</strong> collect, transmit, sell, or share any
+      personal information. It does not contain analytics, telemetry, advertising SDKs, tracking
+      pixels, or third-party calls of any kind.
+    </p>
+
+    <h2>2. Data stored locally</h2>
+    <p>
+      The only data the extension stores lives inside your browser profile via the
+      <code>chrome.storage.local</code> API and never leaves your device:
+    </p>
+    <ul>
+      <li>The MDDB server URL you configured.</li>
+      <li>The optional MDDB API key you configured.</li>
+      <li>The optional admin panel URL you configured.</li>
+      <li>The background refresh interval you chose.</li>
+      <li>
+        A cached copy of the most recent <code>GET /v1/stats</code> response, used to keep the
+        toolbar badge counter fresh without re-querying on every popup open.
+      </li>
+    </ul>
+    <p>
+      Removing the extension (Chrome → Extensions → Remove) wipes all of the above immediately and
+      completely.
+    </p>
+
+    <h2>3. Network requests</h2>
+    <p>
+      The extension only contacts the MDDB server URL you configure. It calls the public endpoints
+      <code>GET /v1/health</code> and <code>GET /v1/stats</code> and — if you set one — sends the
+      API key as an <code>X-API-Key</code> header. No other host is ever contacted by the extension
+      itself.
+    </p>
+
+    <h2>4. Permissions explained</h2>
+    <ul>
+      <li><code>storage</code> — persists the settings and stats cache listed in section 2.</li>
+      <li><code>alarms</code> — schedules the background poll that refreshes the badge counter.</li>
+      <li>
+        <code>optional_host_permissions: http://*/*, https://*/*</code> — requested only for the
+        hostname of the MDDB server you configure, so the extension can make the
+        <code>fetch()</code> calls described in section 3. No permission is requested until you
+        actually save a URL.
+      </li>
+    </ul>
+
+    <h2>5. Children's privacy</h2>
+    <p>
+      The extension is a developer tool. It is not directed at children under 13 and we do not
+      knowingly collect data from anyone.
+    </p>
+
+    <h2>6. Changes to this policy</h2>
+    <p>
+      If we ever change what the extension stores or where it sends data, the change will be
+      documented in
+      <a
+        href="https://github.com/tradik/mddb/blob/main/integrations/chrome-extension/CHANGELOG.md"
+        target="_blank"
+        rel="noopener noreferrer"
+        >CHANGELOG.md</a
+      >
+      and shipped in a new release. For the Tradik corporate policy (analytics, contact handling,
+      your data-protection rights) see
+      <a href="https://tradik.com/privacy" target="_blank" rel="noopener noreferrer"
+        >https://tradik.com/privacy</a
+      >.
+    </p>
+
+    <h2>7. Contact</h2>
+    <p>
+      Questions or concerns: open an issue at
+      <a href="https://github.com/tradik/mddb/issues" target="_blank" rel="noopener noreferrer"
+        >https://github.com/tradik/mddb/issues</a
+      >
+      or use the contact form linked from
+      <a href="https://tradik.com/contact" target="_blank" rel="noopener noreferrer"
+        >tradik.com/contact</a
+      >.
+    </p>
+  </body>
+</html>

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>MDDB Browser</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="popup">
+    <header class="popup__header">
+      <img src="icons/icon-32.png" alt="" width="24" height="24" />
+      <h1>MDDB Browser</h1>
+      <span id="badge" class="badge badge--unknown" aria-live="polite">--</span>
+    </header>
+
+    <section id="empty-state" class="popup__section" hidden>
+      <p class="popup__hint">
+        No MDDB server configured. Open settings to add your server URL and (optional) API key.
+      </p>
+      <button id="open-options" class="btn btn--primary" type="button">Open settings</button>
+    </section>
+
+    <section id="content" class="popup__section" hidden>
+      <dl class="stats">
+        <div class="stats__row">
+          <dt>Server</dt>
+          <dd id="server-url" title=""></dd>
+        </div>
+        <div class="stats__row">
+          <dt>Status</dt>
+          <dd id="status"></dd>
+        </div>
+        <div class="stats__row">
+          <dt>Mode</dt>
+          <dd id="mode"></dd>
+        </div>
+        <div class="stats__row">
+          <dt>Uptime</dt>
+          <dd id="uptime"></dd>
+        </div>
+        <div class="stats__row stats__row--strong">
+          <dt>Documents</dt>
+          <dd id="total-documents">--</dd>
+        </div>
+        <div class="stats__row">
+          <dt>Revisions</dt>
+          <dd id="total-revisions">--</dd>
+        </div>
+        <div class="stats__row">
+          <dt>Collections</dt>
+          <dd id="collection-count">--</dd>
+        </div>
+      </dl>
+
+      <details class="collections">
+        <summary>Top collections</summary>
+        <ul id="collections-list" class="collections__list"></ul>
+      </details>
+
+      <div class="actions">
+        <a id="panel-link" class="btn btn--secondary" href="#" rel="noopener noreferrer"
+          >Open MDDB panel</a
+        >
+        <button id="refresh" class="btn btn--ghost" type="button">Refresh</button>
+      </div>
+    </section>
+
+    <section id="error-state" class="popup__section popup__section--error" hidden>
+      <p id="error-message" role="alert"></p>
+      <button id="retry" class="btn btn--primary" type="button">Retry</button>
+    </section>
+
+    <footer class="popup__footer">
+      <a id="settings-link" href="#">Settings</a>
+      <span aria-hidden="true">·</span>
+      <a id="privacy-link" href="#" rel="noopener noreferrer">Privacy</a>
+      <span aria-hidden="true">·</span>
+      <a id="terms-link" href="#" rel="noopener noreferrer">Terms</a>
+    </footer>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

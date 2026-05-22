@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>MDDB Browser — Settings</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="options">
+    <main class="options__container">
+      <header class="options__header">
+        <img src="icons/icon-48.png" alt="" width="40" height="40" />
+        <div>
+          <h1>MDDB Browser settings</h1>
+          <p class="muted">Local configuration — values never leave your browser profile.</p>
+        </div>
+      </header>
+
+      <form id="settings-form" class="form" novalidate>
+        <div class="form__row">
+          <label for="mddb-url">MDDB server URL</label>
+          <input
+            id="mddb-url"
+            name="mddb-url"
+            type="url"
+            placeholder="https://mddb.example.com"
+            required
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <p class="form__hint">
+            Base URL of your <code>mddbd</code> instance, e.g.
+            <code>https://mddb.tradik.com</code> or <code>http://localhost:11023</code>.
+          </p>
+        </div>
+
+        <div class="form__row">
+          <label for="api-key">API key <span class="muted">(optional)</span></label>
+          <input
+            id="api-key"
+            name="api-key"
+            type="password"
+            placeholder="mk_…"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <p class="form__hint">
+            Sent as <code>X-API-Key</code>. Leave empty for unauthenticated servers.
+          </p>
+        </div>
+
+        <div class="form__row">
+          <label for="panel-url">Admin panel URL <span class="muted">(optional)</span></label>
+          <input
+            id="panel-url"
+            name="panel-url"
+            type="url"
+            placeholder="https://panel.example.com"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <p class="form__hint">
+            Override the link shown in the popup. Defaults to
+            <code>&lt;mddb-url&gt;</code> with port <code>3000</code> when omitted.
+          </p>
+        </div>
+
+        <div class="form__row">
+          <label for="refresh-interval">Background refresh (seconds)</label>
+          <input
+            id="refresh-interval"
+            name="refresh-interval"
+            type="number"
+            min="30"
+            max="3600"
+            step="30"
+            value="60"
+          />
+          <p class="form__hint">
+            How often the badge counter is refreshed. Set <code>0</code> to disable.
+          </p>
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="btn btn--primary">Save</button>
+          <button id="test-button" type="button" class="btn btn--secondary">Test connection</button>
+        </div>
+
+        <p id="status-message" class="status-message" role="status" aria-live="polite"></p>
+      </form>
+
+      <section class="legal">
+        <h2>Legal</h2>
+        <ul>
+          <li>
+            <a
+              id="privacy-link"
+              href="https://tradik.com/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              >Privacy policy</a
+            >
+            (<a href="privacy.html" target="_blank">bundled copy</a>)
+          </li>
+          <li>
+            <a
+              id="terms-link"
+              href="https://tradik.com/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              >Terms of use</a
+            >
+            (<a href="terms.html" target="_blank">bundled copy</a>)
+          </li>
+        </ul>
+      </section>
+    </main>
+
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

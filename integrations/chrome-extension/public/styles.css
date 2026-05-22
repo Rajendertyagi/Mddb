@@ -1,0 +1,351 @@
+/*
+ * MDDB Browser styles. Palette inspired by the MDDB brand teal (#1f7a8c)
+ * with WCAG 2.2 AA contrast against both the dark and light surfaces.
+ */
+:root {
+  color-scheme: light dark;
+  --brand: #1f7a8c;
+  --brand-strong: #0f4c5c;
+  --brand-soft: #e0f2f5;
+  --surface: #ffffff;
+  --surface-muted: #f4f6f8;
+  --text: #14212a;
+  --text-muted: #4a5a66;
+  --border: #d4dde3;
+  --success: #1f7a3f;
+  --warning: #8a5a00;
+  --danger: #9b1e1e;
+  --shadow: 0 1px 3px rgba(15, 76, 92, 0.12);
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: #14212a;
+    --surface-muted: #1c2e39;
+    --text: #f4f6f8;
+    --text-muted: #b6c3cb;
+    --border: #2a3b46;
+    --brand-soft: rgba(31, 122, 140, 0.18);
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  line-height: 1.2;
+}
+
+.btn--primary {
+  background: var(--brand);
+  color: #fff;
+}
+.btn--primary:hover,
+.btn--primary:focus-visible {
+  background: var(--brand-strong);
+  outline: none;
+}
+
+.btn--secondary {
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+  border-color: var(--brand);
+}
+.btn--secondary:hover,
+.btn--secondary:focus-visible {
+  background: var(--brand);
+  color: #fff;
+  outline: none;
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--border);
+}
+.btn--ghost:hover,
+.btn--ghost:focus-visible {
+  background: var(--surface-muted);
+  outline: none;
+}
+
+/* -------- Popup -------- */
+.popup {
+  width: 320px;
+  padding: 12px 14px;
+}
+
+.popup__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.popup__header h1 {
+  font-size: 14px;
+  margin: 0;
+  flex: 1;
+}
+
+.badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+}
+.badge--ok {
+  background: rgba(31, 122, 63, 0.14);
+  color: var(--success);
+}
+.badge--warn {
+  background: rgba(138, 90, 0, 0.14);
+  color: var(--warning);
+}
+.badge--err {
+  background: rgba(155, 30, 30, 0.14);
+  color: var(--danger);
+}
+
+.popup__section {
+  margin: 0 0 12px;
+}
+.popup__section--error {
+  background: rgba(155, 30, 30, 0.08);
+  border: 1px solid rgba(155, 30, 30, 0.4);
+  padding: 10px;
+  border-radius: 6px;
+}
+.popup__hint {
+  margin: 0 0 10px;
+  color: var(--text-muted);
+}
+
+.stats {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+.stats__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 6px 8px;
+  background: var(--surface-muted);
+  border-radius: 6px;
+}
+.stats__row dt {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.stats__row dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 60%;
+  text-align: right;
+}
+.stats__row--strong dd {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--brand-strong);
+}
+
+.collections {
+  margin: 10px 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.collections summary {
+  cursor: pointer;
+  font-weight: 500;
+}
+.collections__list {
+  list-style: none;
+  padding: 6px 0 0;
+  margin: 0;
+  display: grid;
+  gap: 4px;
+  max-height: 140px;
+  overflow-y: auto;
+}
+.collections__list li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+.collections__list li span:last-child {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.actions .btn {
+  flex: 1;
+}
+
+.popup__footer {
+  margin-top: 12px;
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.popup__footer a {
+  color: var(--brand-strong);
+  text-decoration: none;
+}
+.popup__footer a:hover,
+.popup__footer a:focus-visible {
+  text-decoration: underline;
+}
+
+/* -------- Options -------- */
+.options {
+  padding: 24px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+.options__container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px;
+  box-shadow: var(--shadow);
+}
+.options__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.options__header h1 {
+  font-size: 20px;
+  margin: 0;
+}
+.options__header p {
+  margin: 4px 0 0;
+}
+
+.form {
+  display: grid;
+  gap: 18px;
+}
+.form__row {
+  display: grid;
+  gap: 4px;
+}
+.form__row label {
+  font-weight: 600;
+  font-size: 13px;
+}
+.form__row input {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.form__row input:focus-visible {
+  border-color: var(--brand);
+  outline: 2px solid var(--brand-soft);
+}
+.form__hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.form__hint code {
+  background: var(--surface-muted);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.status-message {
+  min-height: 1.2em;
+  margin: 0;
+}
+.status-message--ok {
+  color: var(--success);
+}
+.status-message--err {
+  color: var(--danger);
+}
+
+.legal {
+  margin-top: 28px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+.legal h2 {
+  font-size: 14px;
+  margin: 0 0 6px;
+}
+.legal ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.legal a {
+  color: var(--brand-strong);
+}
+
+/* -------- Legal pages -------- */
+.legal-page {
+  padding: 24px;
+  max-width: 720px;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+.legal-page h1 {
+  font-size: 22px;
+}
+.legal-page h2 {
+  font-size: 16px;
+  margin-top: 24px;
+}
+.legal-page code {
+  background: var(--surface-muted);
+  padding: 1px 4px;
+  border-radius: 4px;
+}

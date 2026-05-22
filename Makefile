@@ -1,4 +1,4 @@
-.PHONY: help dev-start dev-stop dev-logs dev-build dev-clean test lint fmt vet sec test-graphql lint-all test-all ci chat-build chat-dev chat-test widget-build widget-dev dev-logs-chat docs-prep docs-dev docs-build airbyte-build airbyte-push airbyte-test airbyte-spec airbyte-check airbyte-clean gha-install gha-build gha-test gha-coverage gha-lint gha-check gha-verify-dist gha-clean
+.PHONY: help dev-start dev-stop dev-logs dev-build dev-clean test lint fmt vet sec test-graphql lint-all test-all ci chat-build chat-dev chat-test widget-build widget-dev dev-logs-chat docs-prep docs-dev docs-build airbyte-build airbyte-push airbyte-test airbyte-spec airbyte-check airbyte-clean gha-install gha-build gha-test gha-coverage gha-lint gha-check gha-verify-dist gha-clean chrome-install chrome-build chrome-package chrome-test chrome-coverage chrome-lint chrome-audit chrome-check chrome-clean
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -197,5 +197,34 @@ gha-verify-dist: ## Build github-action and assert dist/ is up to date
 
 gha-clean: ## Remove github-action build artefacts and node_modules
 	@$(MAKE) -C integrations/github-action clean
+
+# ----- Chrome extension: mddb-browser (integrations/chrome-extension) -----
+
+chrome-install: ## Install chrome-extension npm dependencies
+	@$(MAKE) -C integrations/chrome-extension install
+
+chrome-build: ## Bundle chrome-extension into ./build via esbuild
+	@$(MAKE) -C integrations/chrome-extension build
+
+chrome-package: ## Build and zip chrome-extension into dist/*.zip
+	@$(MAKE) -C integrations/chrome-extension package
+
+chrome-test: ## Run chrome-extension Jest unit tests
+	@$(MAKE) -C integrations/chrome-extension test
+
+chrome-coverage: ## Run chrome-extension tests with coverage (>=90%)
+	@$(MAKE) -C integrations/chrome-extension test-coverage
+
+chrome-lint: ## Lint chrome-extension TypeScript sources
+	@$(MAKE) -C integrations/chrome-extension lint
+
+chrome-audit: ## npm audit for chrome-extension (production deps, >=high)
+	@$(MAKE) -C integrations/chrome-extension audit
+
+chrome-check: ## Format check + lint + tests + build + package for chrome-extension
+	@$(MAKE) -C integrations/chrome-extension check
+
+chrome-clean: ## Remove chrome-extension build artefacts and node_modules
+	@$(MAKE) -C integrations/chrome-extension clean
 
 .DEFAULT_GOAL := help
