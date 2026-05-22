@@ -62,6 +62,12 @@ node_modules/
 integrations/github-action/coverage/
 integrations/github-action/build/
 
+# Integration: Chrome extension (browser-side; not shipped in any Docker image)
+integrations/chrome-extension/node_modules/
+integrations/chrome-extension/coverage/
+integrations/chrome-extension/build/
+integrations/chrome-extension/dist/
+
 # Python
 __pycache__/
 *.py[cod]

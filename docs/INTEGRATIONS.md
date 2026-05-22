@@ -1,7 +1,7 @@
 ---
-title: "Integrations: Docling, Langflow, OpenSearch, Airbyte, GitHub Action & Grafana"
+title: "Integrations: Docling, Langflow, OpenSearch, Airbyte, GitHub Action, Grafana & Chrome"
 slug: "docs/integrations"
-description: "Integrations: Docling, Langflow, OpenSearch, SSG, wpexporter, Airbyte, WordPress sync, GitHub Action, Grafana datasource"
+description: "Integrations: Docling, Langflow, OpenSearch, SSG, wpexporter, Airbyte, WordPress sync, GitHub Action, Grafana datasource, Chrome browser extension"
 status: publish
 ---
 
@@ -1368,7 +1368,49 @@ Pure-logic Jest tests on `query.ts`, `transform.ts`, `client.ts`, and `datasourc
 
 ---
 
-## 10. Full Pipeline: All Integrations Together
+## 10. Chrome Extension → MDDB (Browser toolbar)
+
+[integrations/chrome-extension/](https://github.com/tradik/mddb/tree/main/integrations/chrome-extension) — Manifest V3 Chrome extension that turns the browser toolbar into a live status panel for an MDDB instance. Configure a server URL and optional API key once, then see the total document count on the toolbar badge, a stats popup (documents / revisions / collections / mode / uptime + top-5 collections), and a one-click link to the MDDB admin panel.
+
+Designed for developers and ops folks who already work in the browser — no terminal round-trip needed to see whether ingestion is flowing.
+
+### Install
+
+| | |
+| --- | --- |
+| Pre-built zip | Download `mddb-browser-<version>.zip` from [releases](https://github.com/tradik/mddb/releases?q=chrome-ext-v), unzip, then `Load unpacked` in `chrome://extensions` (developer mode on). |
+| From source | `cd integrations/chrome-extension && make package` → `dist/mddb-browser-<version>.zip`. |
+| Minimum Chrome | 120 |
+
+### Options
+
+| Field | Notes |
+| --- | --- |
+| MDDB server URL | Base URL, e.g. `https://mddb.tradik.com` or `http://localhost:11023`. Stored in `chrome.storage.local`. |
+| API key | Optional. Sent as `X-API-Key`. |
+| Admin panel URL | Optional override. Defaults to `<server-origin>:3000`. |
+| Background refresh | `30 – 3600` seconds, or `0` to disable the badge poll. |
+
+### Permissions & privacy
+
+Declares only `storage` + `alarms`. Host access is requested **at save time** for the configured server's origin only — no broad `<all_urls>` permission is asked up front. No analytics, no telemetry, no third-party calls. Bundled [privacy policy](https://github.com/tradik/mddb/blob/main/integrations/chrome-extension/public/privacy.html) and [terms of use](https://github.com/tradik/mddb/blob/main/integrations/chrome-extension/public/terms.html); canonical copies at [tradik.com/privacy](https://tradik.com/privacy) and [tradik.com/terms](https://tradik.com/terms).
+
+### Endpoints used
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/v1/health` | "Test connection" button on the options page. |
+| `GET` | `/v1/stats` | Popup body + badge counter. |
+
+Both are sent with `credentials: 'omit'`; the optional API key is forwarded as `X-API-Key`.
+
+### Tests & release
+
+98 Jest (jsdom) unit tests covering the client, refresh worker, popup/options DOM, and background service worker with ≥90% coverage enforced. The workflow [`.github/workflows/chrome-extension.yml`](../.github/workflows/chrome-extension.yml) runs format check + ESLint + tests with coverage on a Node 22 & 24 matrix, runs `npm audit --omit=dev --audit-level=high`, builds + packages the extension, smoke-validates the packaged manifest, and uploads the zip as an artefact. Pushing a `chrome-ext-v<version>` tag verifies that `package.json` and `manifest.json` versions match the tag, rebuilds + repackages from source, force-moves floating `chrome-ext-v<major>` / `chrome-ext-v<major>.<minor>` tags, and publishes a GitHub Release with the zip attached.
+
+---
+
+## 11. Full Pipeline: All Integrations Together
 
 Combine all tools for a complete content platform:
 
