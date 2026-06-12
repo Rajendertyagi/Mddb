@@ -35,6 +35,7 @@ func TestIsDisallowedIP(t *testing.T) {
 }
 
 func TestValidateOutboundURL(t *testing.T) {
+	t.Setenv("MDDB_OUTBOUND_ALLOW_PRIVATE", "") // assert blocking (TestMain enables it)
 	blocked := []string{
 		"http://127.0.0.1/x",
 		"http://169.254.169.254/latest/meta-data/",
@@ -57,6 +58,7 @@ func TestValidateOutboundURL(t *testing.T) {
 }
 
 func TestSafeDialContext_BlocksPrivateLiteralIP(t *testing.T) {
+	t.Setenv("MDDB_OUTBOUND_ALLOW_PRIVATE", "") // assert blocking (TestMain enables it)
 	// A literal private IP is rejected before any connection is attempted.
 	_, err := safeDialContext(context.Background(), "tcp", "169.254.169.254:80")
 	if !errors.Is(err, errSSRFBlocked) {
@@ -79,6 +81,7 @@ func TestSafeDialContext_AllowPrivateOptIn(t *testing.T) {
 }
 
 func TestHostExempt_Allowlist(t *testing.T) {
+	t.Setenv("MDDB_OUTBOUND_ALLOW_PRIVATE", "") // isolate allowlist behaviour (TestMain enables allow-private)
 	t.Setenv("MDDB_OUTBOUND_ALLOWLIST", "internal.example.com, ollama")
 	if !hostExempt("internal.example.com") {
 		t.Error("allowlisted host should be exempt")
@@ -92,6 +95,7 @@ func TestHostExempt_Allowlist(t *testing.T) {
 }
 
 func TestSsrfCheckRedirect(t *testing.T) {
+	t.Setenv("MDDB_OUTBOUND_ALLOW_PRIVATE", "") // assert blocking (TestMain enables it)
 	// Too many redirects.
 	via := make([]*http.Request, 5)
 	req, _ := http.NewRequest(http.MethodGet, "http://8.8.8.8/", nil)
