@@ -121,6 +121,14 @@ func (bp *BatchProcessor) processDocument(collection string, batchDoc *proto.Bat
 	}
 	result.Meta = meta
 
+	// GO-003: schema validation (opt-in) — the batch path previously skipped it.
+	if bp.server.SchemaManager != nil {
+		if err := bp.server.SchemaManager.Validate(collection, meta); err != nil {
+			result.Error = err
+			return result
+		}
+	}
+
 	// Generate ID
 	docID := genID(collection, batchDoc.Key, batchDoc.Lang)
 	result.DocID = docID

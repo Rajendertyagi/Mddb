@@ -1392,6 +1392,21 @@ func effectiveMode(global, perProtocol AccessMode) AccessMode {
 // per-request SaveRevision flag); all other callers pass true to preserve the
 // always-record-a-revision behaviour they have always had.
 func (s *Server) addDocument(collection, key, lang string, meta map[string][]string, contentMD string, ttl int64, saveRevision bool) (Doc, bool, error) {
+	// GO-003: validate in the single write path so EVERY transport is covered.
+	// Previously only gRPC Add and HTTP handleAdd validated; MCP (DirectClient)
+	// and GraphQL went straight to addDocument with no checks, and the batch
+	// path skipped schema validation entirely. Schema validation is opt-in
+	// (no-op unless a schema is registered for the collection), so this is safe
+	// for internal callers (memory/upload/import) too.
+	if collection == "" || key == "" || lang == "" {
+		return Doc{}, false, errors.New("missing required field: collection, key and lang are required")
+	}
+	if s.SchemaManager != nil {
+		if err := s.SchemaManager.Validate(collection, meta); err != nil {
+			return Doc{}, false, err
+		}
+	}
+
 	now := time.Now().Unix()
 	docID := genID(collection, key, lang)
 

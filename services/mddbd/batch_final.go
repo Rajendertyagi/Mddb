@@ -146,6 +146,14 @@ func (fbp *FinalBatchProcessor) processDocumentFast(collection string, batchDoc 
 	}
 	result.Meta = meta
 
+	// GO-003: schema validation (opt-in) — the batch path previously skipped it.
+	if fbp.server.SchemaManager != nil {
+		if err := fbp.server.SchemaManager.Validate(collection, meta); err != nil {
+			result.Error = err
+			return result
+		}
+	}
+
 	docID := genID(collection, batchDoc.Key, batchDoc.Lang)
 	result.DocID = docID
 
