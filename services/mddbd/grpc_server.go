@@ -139,21 +139,11 @@ func (g *GRPCServer) Add(ctx context.Context, req *proto.AddRequest) (*proto.Doc
 
 	// Single write path: full pipeline (meta index in-tx, revisions + trim,
 	// then FTS/geo/webhooks/SSE/temporal/embedding via runPostWriteHooks).
+	// addDocument also refreshes the read cache (GO-002), so the gRPC Get path
+	// stays coherent without re-marshaling here.
 	saved, _, err := g.server.addDocument(req.Collection, req.Key, req.Lang, meta, req.ContentMd, 0, req.SaveRevision)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
-	}
-
-	// Keep the gRPC read cache coherent: addDocument does not touch it (the
-	// HTTP read path bypasses the cache, the gRPC Get path relies on it), so
-	// re-stamp the fresh value here to preserve read-after-write on gRPC.
-	if buf, mErr := marshalAndEncrypt(&saved, req.Collection); mErr == nil {
-		cacheKey := BuildCacheKey(req.Collection, req.Key, req.Lang)
-		if g.server.UseExtreme {
-			g.server.LockFreeCache.Set(cacheKey, buf)
-		} else {
-			g.server.Cache.Set(cacheKey, buf)
-		}
 	}
 
 	return docToProto(&saved), nil

@@ -194,9 +194,12 @@ func TestReplicationApplierCacheInvalidation(t *testing.T) {
 	s, cleanup := newTestServer(t)
 	defer cleanup()
 
-	// Pre-populate cache
-	s.Cache.Set("blog|post1", []byte(`{"id":"post1","key":"hello"}`))
-	if _, ok := s.Cache.Get("blog|post1"); !ok {
+	// The cache is keyed by BuildCacheKey(collection, key, lang) — the same key
+	// the write path uses. The replicated doc carries key + lang, so the applier
+	// derives that exact key from the entry value (GO-002).
+	cacheKey := BuildCacheKey("blog", "hello", "en")
+	s.Cache.Set(cacheKey, []byte(`{"id":"post1","key":"hello","lang":"en"}`))
+	if _, ok := s.Cache.Get(cacheKey); !ok {
 		t.Fatal("cache should have entry")
 	}
 
@@ -208,14 +211,14 @@ func TestReplicationApplierCacheInvalidation(t *testing.T) {
 		Type:       BinlogPut,
 		BucketName: "docs",
 		Key:        []byte("doc|blog|post1"),
-		Value:      []byte(`{"id":"post1","key":"hello","contentMd":"updated"}`),
+		Value:      []byte(`{"id":"post1","key":"hello","lang":"en","contentMd":"updated"}`),
 	}
 	if err := applier.Apply(entry); err != nil {
 		t.Fatalf("Apply failed: %v", err)
 	}
 
 	// Cache should be invalidated
-	if _, ok := s.Cache.Get("blog|post1"); ok {
+	if _, ok := s.Cache.Get(cacheKey); ok {
 		t.Error("expected cache entry to be invalidated after replication apply")
 	}
 }

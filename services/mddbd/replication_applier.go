@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"strings"
 	"sync/atomic"
 
 	bolt "go.etcd.io/bbolt"
@@ -171,17 +172,32 @@ func (ra *ReplicationApplier) applyVector(entry *BinlogEntry) {
 	}
 }
 
-// invalidateDocCache removes the document from caches
+// invalidateDocCache removes the replicated document from the read caches.
+//
+// GO-002: the cache is keyed by BuildCacheKey(collection, key, lang). The doc
+// key is `doc|<collection>|<docID>` where docID itself is `collection|key|lang`,
+// so a naive split (splitKey) over-splits and the previous `collection|docID`
+// key never matched anything. We SplitN to recover collection + the full docID,
+// and for Put entries unmarshal the doc to build the exact write-path key.
 func (ra *ReplicationApplier) invalidateDocCache(entry *BinlogEntry) {
-	// Parse key: doc|collection|docID
-	parts := splitKey(entry.Key)
+	parts := strings.SplitN(string(entry.Key), "|", 3)
 	if len(parts) < 3 {
 		return
 	}
 	collection := parts[1]
-	docID := parts[2]
+	docID := parts[2] // collection|key|lang (already lowercased)
 
-	cacheKey := collection + "|" + docID
+	// Default to the docID form (correct when key/lang are lowercase, the
+	// common case); for Put entries derive the exact BuildCacheKey from the
+	// doc itself so original-case keys match too.
+	cacheKey := docID
+	if len(entry.Value) > 0 {
+		// loadDoc auto-detects JSON / protobuf+compression / encryption.
+		if doc, err := loadDoc(entry.Value); err == nil {
+			cacheKey = BuildCacheKey(collection, doc.Key, doc.Lang)
+		}
+	}
+
 	if ra.server.Cache != nil {
 		ra.server.Cache.Delete(cacheKey)
 	}

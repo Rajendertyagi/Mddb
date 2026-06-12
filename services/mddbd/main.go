@@ -1363,6 +1363,7 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 	var saved Doc
 	var isNew bool
 	var bo BinlogOps
+	var cachedBuf []byte // marshaled doc, reused to refresh the read cache (GO-002)
 	err := s.DB.Update(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bIdx := tx.Bucket([]byte("idxmeta"))
@@ -1395,6 +1396,7 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 		if err != nil {
 			return err
 		}
+		cachedBuf = buf
 		docKey := kDoc(collection, docID)
 		if err := bDocs.Put(docKey, buf); err != nil {
 			return err
@@ -1454,6 +1456,19 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 	}
 	if err != nil {
 		return Doc{}, false, err
+	}
+
+	// Refresh the read cache so a subsequent gRPC Get (the only path that
+	// consults it) sees the new value instead of a stale entry for up to the
+	// 5-minute TTL (GO-002). Keyed identically to gRPC Add/Get via
+	// BuildCacheKey, so every transport stays coherent.
+	if cachedBuf != nil {
+		cacheKey := BuildCacheKey(collection, key, lang)
+		if s.UseExtreme && s.LockFreeCache != nil {
+			s.LockFreeCache.Set(cacheKey, cachedBuf)
+		} else if s.Cache != nil {
+			s.Cache.Set(cacheKey, cachedBuf)
+		}
 	}
 
 	// Side-effect pipeline shared by every write transport (GO-001).
@@ -1643,6 +1658,16 @@ func (s *Server) deleteDocumentInternal(collection, key, lang string) error {
 	// Automation triggers (before FTS cleanup so doc is still searchable)
 	if s.AutomationManager != nil && env("MDDB_TRIGGERS", "false") == "true" {
 		go s.AutomationManager.EvaluateTriggers(collection, deletedDoc, "delete")
+	}
+
+	// Invalidate the read cache so a gRPC Get can't serve the just-deleted doc
+	// for up to the 5-minute TTL (GO-002). Same BuildCacheKey as the write path.
+	cacheKey := BuildCacheKey(collection, key, lang)
+	if s.Cache != nil {
+		s.Cache.Delete(cacheKey)
+	}
+	if s.LockFreeCache != nil {
+		s.LockFreeCache.Delete(cacheKey)
 	}
 
 	// Clean up FTS index
