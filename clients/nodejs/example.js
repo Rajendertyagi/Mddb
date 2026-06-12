@@ -21,8 +21,11 @@ const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
 
 const mddb = grpc.loadPackageDefinition(packageDefinition).mddb;
 
-// Create client
-const client = new mddb.MDDB('localhost:11024', 
+// Create client.
+// INT-011: createInsecure() is for LOCAL DEVELOPMENT ONLY — it disables TLS.
+// In production use grpc.credentials.createSsl(...) (and an authenticated
+// channel) so traffic and the API key are not sent in cleartext.
+const client = new mddb.MDDB('localhost:11024',
   grpc.credentials.createInsecure());
 
 console.log('🔗 Connected to MDDB server\n');
