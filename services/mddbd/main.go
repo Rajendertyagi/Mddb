@@ -955,8 +955,16 @@ func main() {
 	// Panel mode: internal (default) = CORS enabled, external = CORS disabled (panel proxies)
 	panelMode := env("MDDB_PANEL_MODE", "internal")
 
-	// Wrap mux: CORS → panic-recover → rate limit → auth → metrics → JSON → routes
+	// Wrap mux: CORS → panic-recover → rate limit → auth → metrics → max-body → JSON → routes
 	handler := withJSON(mux)
+	// SEC-005: cap request body size globally so a single oversized JSON body
+	// can't OOM the process. Upload/import endpoints legitimately stream large
+	// files and manage their own limits, so they are exempt.
+	handler = withMaxBody(
+		int64(envDefaultInt("MDDB_MAX_BODY_BYTES", 32<<20)), // 32MB default
+		map[string]bool{"/v1/upload": true, "/v1/import-wiki": true},
+		handler,
+	)
 	handler = s.Metrics.Middleware(handler)
 	if authEnabled && s.AuthManager != nil {
 		handler = s.AuthManager.HTTPMiddleware(handler)
@@ -1281,6 +1289,29 @@ func withJSON(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		h.ServeHTTP(w, r)
+	})
+}
+
+// withMaxBody caps the request body size (SEC-005). A declared Content-Length
+// over the limit is rejected immediately with 413; otherwise the body is
+// wrapped in http.MaxBytesReader so reads can never allocate more than `limit`
+// even when Content-Length is absent or lies. Paths in `exempt` (large
+// file uploads / wiki imports that stream from disk and enforce their own
+// caps) are left untouched. Configurable via MDDB_MAX_BODY_BYTES.
+func withMaxBody(limit int64, exempt map[string]bool, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if limit > 0 && !exempt[r.URL.Path] {
+			if r.ContentLength > limit {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusRequestEntityTooLarge)
+				_, _ = w.Write([]byte(`{"error":"request body too large"}`))
+				return
+			}
+			if r.Body != nil {
+				r.Body = http.MaxBytesReader(w, r.Body, limit)
+			}
+		}
+		next.ServeHTTP(w, r)
 	})
 }
 
