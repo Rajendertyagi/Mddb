@@ -1,3 +1,38 @@
+# Reusable anchors (OPS-002): log rotation (max 10 MB × 3) + resource
+# limits/reservations. Dev limits are generous so they don't throttle builds.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-deploy-server: &deploy-server
+  resources:
+    limits:
+      cpus: "2.00"
+      memory: 2G
+    reservations:
+      cpus: "0.25"
+      memory: 256M
+
+x-deploy-medium: &deploy-medium
+  resources:
+    limits:
+      cpus: "2.00"
+      memory: 1G
+    reservations:
+      cpus: "0.10"
+      memory: 128M
+
+x-deploy-small: &deploy-small
+  resources:
+    limits:
+      cpus: "1.00"
+      memory: 512M
+    reservations:
+      cpus: "0.05"
+      memory: 64M
+
 services:
   # MDDB Server (Backend)
   mddbd:
@@ -35,6 +70,8 @@ services:
     networks:
       - mddb-network
     restart: unless-stopped
+    logging: *default-logging
+    deploy: *deploy-server
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:11023/v1/health"]
       interval: 10s
@@ -62,6 +99,8 @@ services:
     depends_on:
       - mddbd
     restart: unless-stopped
+    logging: *default-logging
+    deploy: *deploy-small
     command: npm run dev -- --host 0.0.0.0
 
   # MCP is built into mddbd — runs on port 9000 by default
@@ -89,6 +128,8 @@ services:
       mddbd:
         condition: service_healthy
     restart: unless-stopped
+    logging: *default-logging
+    deploy: *deploy-medium
 
   # MDDB Chat Widget (static JS)
   mddb-chat-widget:
@@ -97,10 +138,12 @@ services:
       dockerfile: services/mddb-chat-widget/Dockerfile
     container_name: mddb-chat-widget
     ports:
-      - "11032:80"
+      - "11032:8080" # nginx-unprivileged listens on 8080 (OPS-006)
     networks:
       - mddb-network
     restart: unless-stopped
+    logging: *default-logging
+    deploy: *deploy-small
 
   # Ollama (Optional - use profile "with-ollama" if no local Ollama)
   ollama:
@@ -113,6 +156,8 @@ services:
     networks:
       - mddb-network
     restart: unless-stopped
+    logging: *default-logging
+    deploy: *deploy-server
     profiles:
       - with-ollama
     healthcheck:
