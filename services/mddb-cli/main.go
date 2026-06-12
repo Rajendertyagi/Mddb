@@ -89,6 +89,37 @@ func fileExists(path string) bool {
 	return err == nil
 }
 
+// --- safe JSON accessors (GO-005) ---
+// Server responses are parsed into map[string]interface{}; bare type assertions
+// (x.(float64)) panic on any missing/null/renamed field. These helpers degrade
+// gracefully to a zero value instead, so the CLI prints a readable line rather
+// than crashing with a stack trace.
+
+func asMap(v interface{}) map[string]interface{} {
+	m, _ := v.(map[string]interface{})
+	return m
+}
+
+func asFloat(v interface{}) float64 {
+	f, _ := v.(float64)
+	return f
+}
+
+func asString(v interface{}) string {
+	s, _ := v.(string)
+	return s
+}
+
+// formatUnix formats a JSON number as an RFC3339 timestamp, or "-" if the value
+// is missing or not a number.
+func formatUnix(v interface{}) string {
+	f, ok := v.(float64)
+	if !ok {
+		return "-"
+	}
+	return time.Unix(int64(f), 0).Format(time.RFC3339)
+}
+
 func main() {
 	rootCmd := &cobra.Command{
 		Use:   "mddb-cli",
@@ -166,8 +197,8 @@ Reads content from stdin or file.`,
 					return fmt.Errorf("parse response: %w", err)
 				}
 				fmt.Printf("✓ Document added: %s\n", doc["id"])
-				fmt.Printf("  Added: %v\n", time.Unix(int64(doc["addedAt"].(float64)), 0).Format(time.RFC3339))
-				fmt.Printf("  Updated: %v\n", time.Unix(int64(doc["updatedAt"].(float64)), 0).Format(time.RFC3339))
+				fmt.Printf("  Added: %v\n", formatUnix(doc["addedAt"]))
+				fmt.Printf("  Updated: %v\n", formatUnix(doc["updatedAt"]))
 			}
 
 			return nil
@@ -227,8 +258,8 @@ Reads content from stdin or file.`,
 				fmt.Printf("ID: %s\n", doc["id"])
 				fmt.Printf("Key: %s\n", doc["key"])
 				fmt.Printf("Lang: %s\n", doc["lang"])
-				fmt.Printf("Added: %v\n", time.Unix(int64(doc["addedAt"].(float64)), 0).Format(time.RFC3339))
-				fmt.Printf("Updated: %v\n", time.Unix(int64(doc["updatedAt"].(float64)), 0).Format(time.RFC3339))
+				fmt.Printf("Added: %v\n", formatUnix(doc["addedAt"]))
+				fmt.Printf("Updated: %v\n", formatUnix(doc["updatedAt"]))
 				if meta, ok := doc["meta"].(map[string]interface{}); ok && len(meta) > 0 {
 					fmt.Println("Meta:")
 					for k, v := range meta {
@@ -297,7 +328,7 @@ Reads content from stdin or file.`,
 				for i, doc := range docs {
 					fmt.Printf("%d. %s (%s)\n", i+1, doc["key"], doc["lang"])
 					fmt.Printf("   ID: %s\n", doc["id"])
-					fmt.Printf("   Updated: %v\n", time.Unix(int64(doc["updatedAt"].(float64)), 0).Format(time.RFC3339))
+					fmt.Printf("   Updated: %v\n", formatUnix(doc["updatedAt"]))
 					if meta, ok := doc["meta"].(map[string]interface{}); ok && len(meta) > 0 {
 						fmt.Print("   Meta: ")
 						metaParts := []string{}
@@ -493,13 +524,13 @@ Reads content from stdin or file.`,
 				fmt.Printf("MDDB Server Statistics\n")
 				fmt.Printf("═══════════════════════════════════════\n\n")
 				fmt.Printf("Database Path: %s\n", stats["databasePath"])
-				fmt.Printf("Database Size: %.2f MB\n", float64(stats["databaseSize"].(float64))/1024/1024)
+				fmt.Printf("Database Size: %.2f MB\n", asFloat(stats["databaseSize"])/1024/1024)
 				fmt.Printf("Access Mode:   %s\n\n", stats["mode"])
 
 				fmt.Printf("Global Totals:\n")
-				fmt.Printf("  Documents:     %d\n", int(stats["totalDocuments"].(float64)))
-				fmt.Printf("  Revisions:     %d\n", int(stats["totalRevisions"].(float64)))
-				fmt.Printf("  Meta Indices:  %d\n\n", int(stats["totalMetaIndices"].(float64)))
+				fmt.Printf("  Documents:     %d\n", int(asFloat(stats["totalDocuments"])))
+				fmt.Printf("  Revisions:     %d\n", int(asFloat(stats["totalRevisions"])))
+				fmt.Printf("  Meta Indices:  %d\n\n", int(asFloat(stats["totalMetaIndices"])))
 
 				if collections, ok := stats["collections"].([]interface{}); ok && len(collections) > 0 {
 					fmt.Printf("Collections:\n")
@@ -507,12 +538,12 @@ Reads content from stdin or file.`,
 					fmt.Printf("%-20s %10s %10s %10s\n", "Name", "Docs", "Revs", "Indices")
 					fmt.Printf("─────────────────────────────────────────\n")
 					for _, c := range collections {
-						coll := c.(map[string]interface{})
+						coll := asMap(c)
 						fmt.Printf("%-20s %10d %10d %10d\n",
 							coll["name"],
-							int(coll["documentCount"].(float64)),
-							int(coll["revisionCount"].(float64)),
-							int(coll["metaIndexCount"].(float64)))
+							int(asFloat(coll["documentCount"])),
+							int(asFloat(coll["revisionCount"])),
+							int(asFloat(coll["metaIndexCount"])))
 					}
 				} else {
 					fmt.Printf("No collections found.\n")
@@ -589,10 +620,10 @@ Reads content from stdin or file.`,
 					fmt.Println("No results found.")
 				} else {
 					for _, r := range results {
-						item := r.(map[string]interface{})
-						doc := item["document"].(map[string]interface{})
-						score := item["score"].(float64)
-						rank := int(item["rank"].(float64))
+						item := asMap(r)
+						doc := asMap(item["document"])
+						score := asFloat(item["score"])
+						rank := int(asFloat(item["rank"]))
 
 						fmt.Printf("#%d  %.0f%%  %s (%s)\n", rank, score*100, doc["key"], doc["lang"])
 						if meta, ok := doc["meta"].(map[string]interface{}); ok && len(meta) > 0 {
@@ -653,9 +684,9 @@ Reads content from stdin or file.`,
 				if err := json.Unmarshal(resp, &result); err != nil {
 					return fmt.Errorf("parse response: %w", err)
 				}
-				embedded := int(result["embedded"].(float64))
-				skipped := int(result["skipped"].(float64))
-				failed := int(result["failed"].(float64))
+				embedded := int(asFloat(result["embedded"]))
+				skipped := int(asFloat(result["skipped"]))
+				failed := int(asFloat(result["failed"]))
 
 				fmt.Printf("Reindex completed for collection: %s\n", collection)
 				fmt.Printf("  Embedded: %d\n", embedded)
@@ -717,9 +748,9 @@ Reads content from stdin or file.`,
 					fmt.Printf("%-20s %12s %12s %10s\n", "Name", "Documents", "Embedded", "Coverage")
 					fmt.Printf("─────────────────────────────────────────\n")
 					for name, v := range collections {
-						coll := v.(map[string]interface{})
-						total := int(coll["total_documents"].(float64))
-						embedded := int(coll["embedded_documents"].(float64))
+						coll := asMap(v)
+						total := int(asFloat(coll["total_documents"]))
+						embedded := int(asFloat(coll["embedded_documents"]))
 						coverage := 0.0
 						if total > 0 {
 							coverage = float64(embedded) / float64(total) * 100
@@ -878,16 +909,16 @@ Reads content from stdin or file.`,
 					fmt.Println("No results found.")
 				} else {
 					for i, r := range results {
-						item := r.(map[string]interface{})
-						doc := item["document"].(map[string]interface{})
-						score := item["score"].(float64)
+						item := asMap(r)
+						doc := asMap(item["document"])
+						score := asFloat(item["score"])
 						terms, _ := item["matchedTerms"].([]interface{})
 
 						fmt.Printf("%d. %.0f%%  %s (%s)\n", i+1, score*100, doc["key"], doc["lang"])
 						if len(terms) > 0 {
 							termStrs := make([]string, len(terms))
 							for j, t := range terms {
-								termStrs[j] = t.(string)
+								termStrs[j] = asString(t)
 							}
 							fmt.Printf("   Matched: %s\n", strings.Join(termStrs, ", "))
 						}
@@ -1153,7 +1184,7 @@ Reads content from stdin or file.`,
 					fmt.Printf("Schemas:\n")
 					fmt.Printf("─────────────────────────────────────────\n")
 					for _, s := range schemas {
-						item := s.(map[string]interface{})
+						item := asMap(s)
 						fmt.Printf("%-20s %v\n", item["collection"], item["schema"])
 					}
 				} else {
@@ -1358,7 +1389,7 @@ Reads content from stdin or file.`,
 					fmt.Printf("Your API Keys (%d total)\n", len(keys))
 					fmt.Printf("═══════════════════════════════════════\n\n")
 					for i, k := range keys {
-						item := k.(map[string]interface{})
+						item := asMap(k)
 						keyHash, _ := item["keyHash"].(string)
 						desc, _ := item["description"].(string)
 						createdAt, _ := item["createdAt"].(float64)
