@@ -86,7 +86,7 @@ func (w *WebhookExporter) deliver(ev AuditEvent) error {
 			lastErr = fmt.Errorf("attempt %d: %w", attempt+1, err)
 			continue
 		}
-		_ = resp.Body.Close()
+		drainAndClose(resp.Body)
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			return nil
 		}

@@ -1,9 +1,30 @@
 package main
 
 import (
+	"io"
 	"net/http"
 	"time"
 )
+
+// drainBodyLimit caps how many bytes drainAndClose reads before closing, so a
+// misbehaving peer can't make us read an unbounded body just to reuse the
+// socket. 64 KiB comfortably covers the small JSON/empty responses these
+// outbound calls (webhooks, automation, bulk callbacks) expect.
+const drainBodyLimit = 64 << 10
+
+// drainAndClose discards the remaining response body (up to drainBodyLimit) and
+// then closes it. Closing a body without reading it to completion prevents the
+// pooled transport from returning the underlying TCP/TLS connection to the
+// keep-alive pool — so every webhook/automation delivery (with up to 4 retries)
+// would otherwise pay a fresh connection + TLS handshake (GO-014). Safe to pass
+// a nil body.
+func drainAndClose(body io.ReadCloser) {
+	if body == nil {
+		return
+	}
+	_, _ = io.Copy(io.Discard, io.LimitReader(body, drainBodyLimit))
+	_ = body.Close()
+}
 
 // SharedHTTPClient is a pre-configured http.Client with connection pooling.
 // It reuses TCP connections via a shared transport, reducing latency and resource usage

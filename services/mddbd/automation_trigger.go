@@ -499,7 +499,7 @@ func fireCronWebhook(webhook *AutomationRule, cronID, cronName string, logStore 
 			continue
 		}
 		lastHTTPStatus = resp.StatusCode
-		_ = resp.Body.Close()
+		drainAndClose(resp.Body)
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			finalStatus = "success"
@@ -603,7 +603,7 @@ func fireAutomationWebhook(webhook *AutomationRule, trigger *AutomationRule, doc
 			continue
 		}
 		lastHTTPStatus = resp.StatusCode
-		_ = resp.Body.Close()
+		drainAndClose(resp.Body)
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			finalStatus = "success"

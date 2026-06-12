@@ -259,7 +259,7 @@ func fireWebhook(hook Webhook, payload WebhookPayload) {
 			log.Printf("webhook %s: attempt %d failed: %v", hook.ID, attempt+1, err)
 			continue
 		}
-		_ = resp.Body.Close()
+		drainAndClose(resp.Body)
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			return // success

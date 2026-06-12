@@ -366,7 +366,7 @@ func (m *BulkIngestManager) fireCallback(job *BulkIngestJob) {
 		log.Printf("bulk ingest callback: POST to %s failed: %v", job.CallbackURL, err)
 		return
 	}
-	_ = resp.Body.Close()
+	drainAndClose(resp.Body)
 }
 
 // newBulkJobID generates a collision-resistant, time-ordered job identifier.
