@@ -109,7 +109,7 @@ lint-all: fmt vet sec lint ## Run all linters
 test-all: test test-graphql ## Run all tests
 	@echo "✅ All tests passed!"
 
-ci: lint-all test-all ## Run full CI pipeline (lint + test)
+ci: check-go-version lint-all test-all ## Run full CI pipeline (lint + test)
 	@echo "✅ CI pipeline complete!"
 
 dev-logs-chat: ## Show logs from chat server only
@@ -132,6 +132,12 @@ widget-dev: ## Run widget dev server
 
 version: ## Show current version
 	@echo "MDDB Version: 2.9.17"
+
+check-go-version: ## Verify Go toolchain pins are consistent (go.work/go.mod/CI/Docker)
+	@bash scripts/check-go-version.sh --print
+
+test-go-version: ## Run the Go-version-drift guard test suite
+	@bash scripts/tests/test-go-version.sh
 
 docs-prep: ## Generate SSG content from docs/ (adds frontmatter to all .md files)
 	@bash scripts/ssg-prep.sh

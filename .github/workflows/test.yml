@@ -9,6 +9,10 @@ on:
       - 'proto/**'
       - 'buf.yaml'
       - 'buf.gen.yaml'
+      - 'go.work'
+      - 'tools/bench/**'
+      - 'test/go.mod'
+      - 'scripts/check-go-version.sh'
       - '.github/workflows/test.yml'
   pull_request:
     branches: [main, develop]
@@ -18,6 +22,10 @@ on:
       - 'proto/**'
       - 'buf.yaml'
       - 'buf.gen.yaml'
+      - 'go.work'
+      - 'tools/bench/**'
+      - 'test/go.mod'
+      - 'scripts/check-go-version.sh'
       - '.github/workflows/test.yml'
 
 env:
@@ -139,6 +147,25 @@ jobs:
             echo "   Run './proto/generate.sh' locally and commit the result."
             exit 1
           fi
+
+  go-version:
+    name: Go Toolchain Consistency
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      # Guards against Go toolchain version drift (DOC-003): every pinned
+      # `toolchain goX.Y.Z` (go.work + each go.mod), every `GO_VERSION:`
+      # workflow env, and every `golang:X.Y.Z` Docker base image must match.
+      # A security bump that misses one place — e.g. go.work lagging at an
+      # unpatched toolchain — fails here instead of silently shipping.
+      - name: Verify Go version pins are consistent
+        run: bash scripts/check-go-version.sh --print
+
+      - name: Run guard test suite
+        run: bash scripts/tests/test-go-version.sh
 
   build:
     name: Build Binaries

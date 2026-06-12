@@ -190,6 +190,11 @@ Before releasing:
 - [ ] Documentation is updated
 - [ ] CHANGELOG.md is updated
 - [ ] Version numbers are correct
+- [ ] **Go toolchain pins are consistent** — run `make check-go-version`
+      (or `scripts/check-go-version.sh`). When bumping Go, update **every**
+      place at once: `go.work`, every `go.mod`, each `GO_VERSION:` in
+      `.github/workflows/*.yml`, and every `golang:X.Y.Z` Dockerfile base
+      image. The guard runs in CI (`go-version` job) and fails on drift.
 - [ ] Performance benchmarks are current
 - [ ] Breaking changes are documented
 - [ ] Migration guide exists (if needed)

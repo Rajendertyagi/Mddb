@@ -21,10 +21,10 @@
 
 go 1.26
 
-toolchain go1.26.2
+toolchain go1.26.3
 
 use (
-	./services/mddbd
 	./services/mddb-cli
+	./services/mddbd
 	./tools/bench
 )
