@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"sort"
 	"strconv"
@@ -1233,6 +1234,12 @@ func (g *GRPCServer) FTS(ctx context.Context, req *proto.FTSRequest) (*proto.FTS
 
 // FTSReindex implements the FTSReindex RPC — re-indexes all documents using their lang field.
 func (g *GRPCServer) FTSReindex(ctx context.Context, req *proto.FTSReindexRequest) (*proto.FTSReindexResponse, error) {
+	// GO-009: FTSReindex rewrites the FTS index — a write — so it must honour
+	// read-only mode like every other mutating RPC, or a read-only replica
+	// could clobber its index and race the replication applier.
+	if g.isReadOnly() {
+		return nil, status.Error(codes.PermissionDenied, "read-only mode")
+	}
 	if g.server.AuthManager != nil {
 		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermWrite); err != nil {
 			return nil, status.Error(codes.PermissionDenied, err.Error())
@@ -1252,7 +1259,9 @@ func (g *GRPCServer) FTSReindex(ctx context.Context, req *proto.FTSReindexReques
 	}
 	var docs []reindexDoc
 	var skipped int
-	_ = g.server.DB.View(func(tx *bolt.Tx) error {
+	// GO-009: propagate the read error instead of silently reporting 0 reindexed
+	// with Status "ok" (e.g. when the DB is mid-restore).
+	if err := g.server.DB.View(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs == nil {
 			return nil
@@ -1272,11 +1281,20 @@ func (g *GRPCServer) FTSReindex(ctx context.Context, req *proto.FTSReindexReques
 			docs = append(docs, reindexDoc{docPtr.ID, docPtr.ContentMD, docPtr.Lang, docPtr.Meta})
 		}
 		return nil
-	})
+	}); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
 
-	reindexed := 0
+	// GO-009: count indexing failures instead of swallowing every error and
+	// always returning Status "ok". A failed doc does not increment reindexed,
+	// and any failure downgrades the status to "partial".
+	reindexed, failed := 0, 0
 	for _, d := range docs {
-		_ = g.server.FTSIndex.IndexWithLang(req.Collection, d.ID, d.ContentMD, d.Lang)
+		if err := g.server.FTSIndex.IndexWithLang(req.Collection, d.ID, d.ContentMD, d.Lang); err != nil {
+			failed++
+			log.Printf("fts reindex %s/%s: %v", req.Collection, d.ID, err)
+			continue
+		}
 		_ = g.server.FTSIndex.IndexPositionsWithLang(req.Collection, d.ID, d.ContentMD, d.Lang)
 		fields := map[string]string{"content": d.ContentMD}
 		for mk, vals := range d.Meta {
@@ -1288,10 +1306,14 @@ func (g *GRPCServer) FTSReindex(ctx context.Context, req *proto.FTSReindexReques
 		reindexed++
 	}
 
+	st := "ok"
+	if failed > 0 {
+		st = "partial"
+	}
 	return &proto.FTSReindexResponse{
-		Status:    "ok",
+		Status:    st,
 		Reindexed: safeInt32(reindexed),
-		Skipped:   safeInt32(skipped),
+		Skipped:   safeInt32(skipped + failed),
 	}, nil
 }
 
