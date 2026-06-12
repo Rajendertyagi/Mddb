@@ -52,6 +52,7 @@ type exporterCore struct {
 	bufSize   int
 	ch        chan AuditEvent
 	stopCh    chan struct{}
+	closeOnce sync.Once
 	wg        sync.WaitGroup
 	queued    uint64
 	delivered uint64
@@ -118,14 +119,12 @@ func (c *exporterCore) handleOne(deliver func(AuditEvent) error, ev AuditEvent) 
 	atomic.AddUint64(&c.delivered, 1)
 }
 
-// Close signals shutdown and waits for the drain.
+// Close signals shutdown and waits for the drain. Safe for concurrent and
+// repeated calls (GO-017): the previous check-then-act on stopCh let two
+// goroutines both reach close(c.stopCh) and panic with "close of closed
+// channel". sync.Once makes the close happen exactly once.
 func (c *exporterCore) Close() {
-	select {
-	case <-c.stopCh:
-		return // already closed
-	default:
-		close(c.stopCh)
-	}
+	c.closeOnce.Do(func() { close(c.stopCh) })
 	c.wg.Wait()
 }
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -108,6 +109,21 @@ func TestExporterCore_CloseIdempotent(t *testing.T) {
 	go c.run(func(ev AuditEvent) error { return nil })
 	c.Close()
 	c.Close() // must not panic on the closed channel
+}
+
+// TestExporterCore_CloseConcurrent — GO-017: many goroutines calling Close at
+// once must not race into a double close(stopCh). Run with -race.
+func TestExporterCore_CloseConcurrent(t *testing.T) {
+	c := newExporterCore("x", "", 4)
+	var wg sync.WaitGroup
+	for i := 0; i < 32; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			c.Close()
+		}()
+	}
+	wg.Wait() // completes without "close of closed channel" panic
 }
 
 // TestAuditManagerFanOut wires a stub exporter and confirms every
