@@ -94,3 +94,17 @@ func envDefaultInt(key string, def int) int {
 	}
 	return n
 }
+
+// envDefaultInt64 reads an int64 env var, falling back to def when unset or
+// unparseable. Used for byte-size limits that may exceed 32-bit range.
+func envDefaultInt64(key string, def int64) int64 {
+	v := os.Getenv(key)
+	if v == "" {
+		return def
+	}
+	var n int64
+	if _, err := fmt.Sscanf(v, "%d", &n); err != nil {
+		return def
+	}
+	return n
+}
