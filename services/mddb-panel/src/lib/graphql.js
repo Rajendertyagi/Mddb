@@ -1,4 +1,5 @@
 import { createClient, cacheExchange, fetchExchange } from 'urql';
+import { authManager, isValidJwtShape } from './auth';
 
 // GraphQL client instance
 let graphqlClient = null;
@@ -15,17 +16,17 @@ export function getGraphQLClient() {
       url: `${serverUrl}/graphql`,
       exchanges: [cacheExchange, fetchExchange],
       fetchOptions: () => {
-        const token = localStorage.getItem('token');
-        const apiKey = localStorage.getItem('apiKey');
+        // FE-005: read the token from the single source of truth (authManager)
+        // instead of the dead 'token' / 'apiKey' keys, and only attach a
+        // well-formed JWT so a corrupt value can't be sent.
+        const token = authManager.getToken();
 
         const headers = {
           'Content-Type': 'application/json',
         };
 
-        if (token) {
+        if (isValidJwtShape(token)) {
           headers['Authorization'] = `Bearer ${token}`;
-        } else if (apiKey) {
-          headers['X-API-Key'] = apiKey;
         }
 
         return { headers };

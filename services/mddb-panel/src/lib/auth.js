@@ -1,7 +1,17 @@
 // Auth manager for MDDB Panel
 // Handles JWT token storage and authentication
 
-const TOKEN_KEY = 'mddb_auth_token';
+import { TOKEN_KEY, LEGACY_TOKEN_KEYS, isValidJwtShape } from './token';
+
+// FE-005: drop stale keys written by older builds so they can never be read
+// back as a "current" token.
+try {
+  LEGACY_TOKEN_KEYS.forEach((k) => localStorage.removeItem(k));
+} catch {
+  /* storage unavailable */
+}
+
+export { isValidJwtShape };
 
 export const authManager = {
   /**
