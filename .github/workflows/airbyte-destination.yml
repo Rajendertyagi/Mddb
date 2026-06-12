@@ -1,5 +1,10 @@
 name: Airbyte Destination MDDB
 
+# OPS-009: least-privilege default — the build-and-push job elevates to
+# packages/id-token/attestations write where it needs them.
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]

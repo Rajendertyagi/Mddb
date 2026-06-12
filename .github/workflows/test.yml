@@ -1,5 +1,9 @@
 name: Tests
 
+# OPS-009: least privilege — tests/lint/build publish nothing.
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main, develop]

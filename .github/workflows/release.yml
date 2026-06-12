@@ -1,5 +1,10 @@
 name: Release
 
+# OPS-009: least-privilege default — individual jobs elevate to
+# contents: write / packages: write / id-token: write where they publish.
+permissions:
+  contents: read
+
 on:
   push:
     tags:
