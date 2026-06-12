@@ -2,6 +2,12 @@
 
 All notable changes to this WordPress plugin are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/); the plugin adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Releases are tagged `wp-vX.Y.Z` in this repository to avoid clashing with `vX.Y.Z` tags used for the core MDDB server.
 
+## [Unreleased]
+
+### Security
+
+- **INT-001 — enforce `https://` for the MDDB endpoint** ([`includes/class-settings.php`](includes/class-settings.php)) — `Settings::sanitize()` accepted any URL that passed `wp_http_validate_url()`, including plain `http://`. Since the client attaches `Authorization: Bearer <apiKey>` to every request, an `http://` endpoint leaked the API key and full document bodies in cleartext (eavesdropping / MITM). A new `Settings::isAllowedUrl()` now requires `https://`, permitting `http://` **only** for local development hosts (`localhost`, `127.0.0.1`, `::1`). Rejected URLs raise an `add_settings_error()` admin notice instead of being silently dropped. Existing `https://` configurations are unaffected. New tests cover https-accepted, remote-http-rejected, and http-localhost/127.0.0.1/`[::1]`-accepted.
+
 ## [0.1.1] - 2026-05-19
 
 ### Added

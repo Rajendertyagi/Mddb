@@ -41,7 +41,7 @@ Settings live under **Settings → MDDB Sync** (or `wp-admin/options-general.php
 
 | Setting | Default | Notes |
 |---|---|---|
-| **MDDB URL** | _empty_ | Base URL, e.g. `https://mddb.example.com`. Trailing slash is stripped. Plugin idles until this is set. |
+| **MDDB URL** | _empty_ | Base URL, e.g. `https://mddb.example.com`. **Must be `https://`** so the API key is never sent in cleartext; `http://` is accepted only for local hosts (`localhost`, `127.0.0.1`, `::1`). Trailing slash is stripped. Plugin idles until this is set. |
 | **API key** | _empty_ | Sent as `Authorization: Bearer <key>`. Leave empty for unauthenticated dev instances. |
 | **Collection** | derived from site host (`example_com`) | One MDDB collection holds every synced post for this site. |
 | **Sync on save / publish** | ✓ | Fires on `wp_after_insert_post`. Autosaves and revisions are ignored. |
