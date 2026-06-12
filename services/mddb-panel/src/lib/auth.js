@@ -3,10 +3,26 @@
 
 import { TOKEN_KEY, LEGACY_TOKEN_KEYS, isValidJwtShape } from './token';
 
-// FE-005: drop stale keys written by older builds so they can never be read
-// back as a "current" token.
+// FE-004: the JWT lives in sessionStorage, not localStorage — it is gone when
+// the tab closes and never written to disk, so a single XSS can no longer
+// exfiltrate a long-lived admin token, and it is invisible to other tabs /
+// browser extensions on the origin.
+//
+// On startup: clear stale keys (FE-005), and migrate any token left in
+// localStorage by an older build into sessionStorage so users stay logged in
+// across the upgrade — then scrub it from disk.
 try {
-  LEGACY_TOKEN_KEYS.forEach((k) => localStorage.removeItem(k));
+  LEGACY_TOKEN_KEYS.forEach((k) => {
+    localStorage.removeItem(k);
+    sessionStorage.removeItem(k);
+  });
+  const legacyToken = localStorage.getItem(TOKEN_KEY);
+  if (legacyToken) {
+    if (!sessionStorage.getItem(TOKEN_KEY)) {
+      sessionStorage.setItem(TOKEN_KEY, legacyToken);
+    }
+    localStorage.removeItem(TOKEN_KEY);
+  }
 } catch {
   /* storage unavailable */
 }
@@ -18,21 +34,21 @@ export const authManager = {
    * Get stored JWT token
    */
   getToken() {
-    return localStorage.getItem(TOKEN_KEY);
+    return sessionStorage.getItem(TOKEN_KEY);
   },
 
   /**
    * Store JWT token
    */
   setToken(token) {
-    localStorage.setItem(TOKEN_KEY, token);
+    sessionStorage.setItem(TOKEN_KEY, token);
   },
 
   /**
    * Clear stored token (logout)
    */
   clearToken() {
-    localStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
   },
 
   /**
