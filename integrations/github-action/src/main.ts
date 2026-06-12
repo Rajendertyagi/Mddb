@@ -113,9 +113,13 @@ async function syncFiles(
             core.info(`  ✓ ${file.relativePath} → key=${doc.key}`);
           } catch (err) {
             failed++;
+            // INT-004: never echo the server response body — Actions logs on
+            // public repos are world-readable, and the body may carry headers,
+            // stack traces or other tenants' data from a misbehaving server.
+            // Log only the status code and our own message.
             const message =
               err instanceof MddbHttpError
-                ? `${err.message} body=${err.body.slice(0, 200)}`
+                ? `${err.message} (status=${err.status})`
                 : err instanceof Error
                   ? err.message
                   : String(err);
