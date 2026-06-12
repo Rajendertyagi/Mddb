@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	proto "mddb/proto"
@@ -164,12 +165,23 @@ func (rc *ReplicationClient) disconnect() {
 	}
 }
 
+// withReplicationSecret attaches MDDB_REPLICATION_SECRET to the outgoing gRPC
+// metadata so the leader's authorizeReplication accepts this follower (SEC-001).
+// No-op when unset (mTLS / main-auth deployments don't need it).
+func withReplicationSecret(ctx context.Context) context.Context {
+	if secret := os.Getenv("MDDB_REPLICATION_SECRET"); secret != "" {
+		ctx = metadata.AppendToOutgoingContext(ctx, "x-mddb-replication-secret", secret)
+	}
+	return ctx
+}
+
 // replicate starts the binlog stream and applies entries
 func (rc *ReplicationClient) replicate() error {
 	fromLSN := rc.applier.LastAppliedLSN()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	ctx = withReplicationSecret(ctx)
 
 	// Start binlog stream
 	stream, err := rc.client.StreamBinlog(ctx, &proto.StreamBinlogRequest{
@@ -226,6 +238,7 @@ func (rc *ReplicationClient) replicate() error {
 
 // requestSnapshot downloads a full database snapshot from the leader
 func (rc *ReplicationClient) requestSnapshot(ctx context.Context) error {
+	ctx = withReplicationSecret(ctx)
 	stream, err := rc.client.RequestSnapshot(ctx, &proto.SnapshotRequest{
 		FollowerId: rc.followerID,
 		CurrentLsn: rc.applier.LastAppliedLSN(),

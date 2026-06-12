@@ -2,19 +2,65 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"sync"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
 	proto "mddb/proto"
 )
+
+// authorizeReplication gates the snapshot / binlog streams (SEC-001). Without
+// it, RequestSnapshot streams the ENTIRE BoltDB — including auth_users (bcrypt
+// hashes) and auth_apikeys — to any host that can reach the gRPC port, and
+// StreamBinlog tails every write live, with no credentials. It accepts, in
+// order: a matching replication secret, a verified mTLS client certificate, or
+// an admin-authenticated context (the SEC-003 stream interceptor injects the
+// claims). With none of those configured it refuses, naming the fix.
+func (rs *ReplicationServer) authorizeReplication(ctx context.Context) error {
+	// 1) Dedicated replication secret (best for cross-host links without full auth).
+	if want := os.Getenv("MDDB_REPLICATION_SECRET"); want != "" {
+		got := ""
+		if md, ok := metadata.FromIncomingContext(ctx); ok {
+			if v := md.Get("x-mddb-replication-secret"); len(v) > 0 {
+				got = v[0]
+			}
+		}
+		if subtle.ConstantTimeCompare([]byte(got), []byte(want)) == 1 {
+			return nil
+		}
+		return status.Error(codes.PermissionDenied, "invalid replication secret")
+	}
+
+	// 2) A verified mTLS client certificate authenticates the peer.
+	if p, ok := peer.FromContext(ctx); ok && p.AuthInfo != nil {
+		if tlsInfo, ok := p.AuthInfo.(credentials.TLSInfo); ok && len(tlsInfo.State.VerifiedChains) > 0 {
+			return nil
+		}
+	}
+
+	// 3) Main auth enabled: require admin (claims injected by the stream interceptor).
+	if rs.server.AuthManager != nil && rs.server.AuthManager.enabled {
+		if err := rs.server.AuthManager.CheckPermission(ctx, "*", PermAdmin); err != nil {
+			return status.Error(codes.PermissionDenied, "replication requires admin credentials")
+		}
+		return nil
+	}
+
+	// 4) Nothing configured — refuse rather than expose the whole database.
+	return status.Error(codes.PermissionDenied,
+		"replication is unauthenticated: set MDDB_REPLICATION_SECRET, enable MDDB_AUTH_ENABLED, or use mTLS")
+}
 
 const snapshotChunkSize = 1024 * 1024 // 1MB
 
@@ -44,6 +90,9 @@ func NewReplicationServer(s *Server) *ReplicationServer {
 
 // RequestSnapshot streams a full BoltDB snapshot to a follower
 func (rs *ReplicationServer) RequestSnapshot(req *proto.SnapshotRequest, stream proto.MDDBReplication_RequestSnapshotServer) error {
+	if err := rs.authorizeReplication(stream.Context()); err != nil {
+		return err
+	}
 	if rs.server.Binlog == nil {
 		return status.Error(codes.FailedPrecondition, "binlog not enabled on this node")
 	}
@@ -109,6 +158,9 @@ func (rs *ReplicationServer) RequestSnapshot(req *proto.SnapshotRequest, stream 
 
 // StreamBinlog streams binlog entries from a given LSN. The stream stays open for continuous tailing.
 func (rs *ReplicationServer) StreamBinlog(req *proto.StreamBinlogRequest, stream proto.MDDBReplication_StreamBinlogServer) error {
+	if err := rs.authorizeReplication(stream.Context()); err != nil {
+		return err
+	}
 	if rs.server.Binlog == nil {
 		return status.Error(codes.FailedPrecondition, "binlog not enabled on this node")
 	}

@@ -94,6 +94,18 @@ func startGRPCServer(s *Server, addr string, opts ...grpc.ServerOption) error {
 		rs := NewReplicationServer(s)
 		s.replServer = rs
 		proto.RegisterMDDBReplicationServer(grpcServer, rs)
+
+		// SEC-001: snapshot/binlog streams expose the entire DB (incl. auth
+		// hashes). Warn loudly if the leader exposes them with no auth, secret,
+		// or mTLS — authorizeReplication will refuse such calls at runtime.
+		hasSecret := os.Getenv("MDDB_REPLICATION_SECRET") != ""
+		authOn := os.Getenv("MDDB_AUTH_ENABLED") == "true"
+		hasMTLS := s.Config.TLS.ClientCAFile != ""
+		if s.ReplicationRole == "leader" && !hasSecret && !authOn && !hasMTLS {
+			log.Printf("⚠️  SECURITY (SEC-001): replication leader has NO auth, MDDB_REPLICATION_SECRET, or mTLS. " +
+				"Snapshot/binlog requests will be refused. Set MDDB_REPLICATION_SECRET, enable MDDB_AUTH_ENABLED, " +
+				"or configure mTLS (TLS client CA) before followers can sync.")
+		}
 	}
 
 	// Register reflection service for grpcurl

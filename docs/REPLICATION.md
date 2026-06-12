@@ -176,6 +176,17 @@ volumes:
 | `MDDB_BINLOG_MAX_AGE` | `24h` | Maximum binlog retention time |
 | `MDDB_REPLICATION_RETRY_INTERVAL` | `5s` | Follower reconnection interval |
 | `MDDB_REPLICATION_MAX_LAG` | `30s` | Maximum lag before follower reports unhealthy |
+| `MDDB_REPLICATION_SECRET` | `""` | Shared secret authenticating the snapshot/binlog streams (SEC-001). Set the **same** value on leader and follower. See [Securing replication](#securing-replication). |
+
+### Securing replication
+
+The leader's snapshot and binlog gRPC streams expose the **entire database** — including the `auth_users` (bcrypt password hashes) and `auth_apikeys` buckets — and a live tail of every write. They are therefore gated by `authorizeReplication` (SEC-001), which runs **before** any database access and accepts a request only when one of the following is satisfied:
+
+1. **Shared secret** — set `MDDB_REPLICATION_SECRET` to the same random string (≥ 32 chars) on **both** the leader and every follower. The follower sends it as the `x-mddb-replication-secret` gRPC metadata header; the leader compares it in constant time (`crypto/subtle.ConstantTimeCompare`). This is the simplest option for cross-host links without full mTLS.
+2. **mTLS** — a verified client certificate (set `MDDB_TLS_CLIENT_CA` to a trusted-CA PEM bundle) authenticates the follower; no secret needed.
+3. **Main auth** — with `MDDB_AUTH_ENABLED=true`, an admin-authenticated context is accepted.
+
+> ⚠️ A node started as `leader` with **none** of these configured refuses every `RequestSnapshot`/`StreamBinlog` call with `PermissionDenied` and logs a loud startup warning. Never expose the gRPC port to an untrusted network without one of the mechanisms above — anyone who can reach it could otherwise exfiltrate the whole database in a single call.
 
 ### Role Behavior
 
