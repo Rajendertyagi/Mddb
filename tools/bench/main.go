@@ -219,8 +219,9 @@ func main() {
 
 		totalDocs += batchSize
 		totalElapsed += elapsed
-		throughput := float64(batchSize) / elapsed.Seconds()
-		cumAvg := float64(totalDocs) / totalElapsed.Seconds()
+		// GO-013: a sub-microsecond batch makes elapsed.Seconds() ~0 → +Inf.
+		throughput := perSecond(float64(batchSize), elapsed.Seconds())
+		cumAvg := perSecond(float64(totalDocs), totalElapsed.Seconds())
 
 		r := batchResult{
 			BatchNum:   b + 1,
@@ -239,7 +240,7 @@ func main() {
 	fmt.Println("--- Summary ---")
 	fmt.Printf("  Total documents: %d\n", totalDocs)
 	fmt.Printf("  Total time:      %s\n", totalElapsed.Round(time.Millisecond))
-	fmt.Printf("  Avg throughput:  %.0f docs/sec\n", float64(totalDocs)/totalElapsed.Seconds())
+	fmt.Printf("  Avg throughput:  %.0f docs/sec\n", perSecond(float64(totalDocs), totalElapsed.Seconds()))
 
 	var minT, maxT float64
 	minT = math.MaxFloat64
@@ -323,21 +324,51 @@ func generateReport(path string, results []batchResult, collection, url string, 
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	// GO-013: don't swallow the report's flush/close error — a truncated HTML
+	// report must surface, not silently "succeed".
+	if err := reportTmpl.Execute(f, data); err != nil {
+		_ = f.Close()
+		return fmt.Errorf("render report: %w", err)
+	}
+	return f.Close()
+}
 
-	return reportTmpl.Execute(f, data)
+// perSecond returns count/secs, guarding against a zero (or negative) interval
+// that would otherwise yield +Inf (GO-013).
+func perSecond(count, secs float64) float64 {
+	if secs <= 0 {
+		return 0
+	}
+	return count / secs
+}
+
+// GO-013: SVG-coordinate helpers guard maxY<=0 so empty benchmark data can't
+// put Inf/NaN into the report.
+func barHeight(val, maxY float64) float64 {
+	if maxY <= 0 {
+		return 0
+	}
+	return (val / maxY) * 300
+}
+
+func barY(val, maxY float64) float64 {
+	if maxY <= 0 {
+		return 300
+	}
+	return 300 - (val/maxY)*300
+}
+
+func lineY(val, maxY float64) float64 {
+	if maxY <= 0 {
+		return 320
+	}
+	return 320 - (val/maxY)*300
 }
 
 var reportTmpl = template.Must(template.New("report").Funcs(template.FuncMap{
-	"barHeight": func(val, maxY float64) float64 {
-		return (val / maxY) * 300
-	},
-	"barY": func(val, maxY float64) float64 {
-		return 300 - (val/maxY)*300
-	},
-	"lineY": func(val, maxY float64) float64 {
-		return 320 - (val/maxY)*300
-	},
+	"barHeight": barHeight,
+	"barY":      barY,
+	"lineY":     lineY,
 	"barX": func(idx, total int) float64 {
 		if total <= 0 {
 			return 0
@@ -475,4 +506,3 @@ var reportTmpl = template.Must(template.New("report").Funcs(template.FuncMap{
 </body>
 </html>
 `))
-
