@@ -9,20 +9,40 @@
 #   Follower 2: HTTP :11043, gRPC :11044
 #   Panel:      :3000
 
+# ── Reusable anchors (OPS-003: DRY — every mddbd node shares these) ──────────
+# Build context for all three mddbd nodes (leader + 2 followers).
+x-mddbd-build: &mddbd-build
+  context: .
+  dockerfile: services/mddbd/Dockerfile
+
+# Environment keys common to every mddbd node.
+x-mddbd-env: &mddbd-env
+  MDDB_PATH: "/app/data/mddb.db"
+
+# Environment keys shared by the read-only follower nodes (merges mddbd-env).
+x-follower-env: &follower-env
+  <<: *mddbd-env
+  MDDB_MODE: "read"
+  MDDB_REPLICATION_ROLE: "follower"
+  MDDB_REPLICATION_LEADER_ADDR: "leader:11024"
+
+# depends_on block reused by both followers and the panel.
+x-leader-healthy: &leader-healthy
+  leader:
+    condition: service_healthy
+
 services:
   # ── Leader Node ──────────────────────────────────────────
   leader:
-    build:
-      context: .
-      dockerfile: services/mddbd/Dockerfile
+    build: *mddbd-build
     container_name: mddb-leader
     ports:
       - "11023:11023"
       - "11024:11024"
     environment:
+      <<: *mddbd-env
       MDDB_ADDR: ":11023"
       MDDB_GRPC_ADDR: ":11024"
-      MDDB_PATH: "/app/data/mddb.db"
       MDDB_MODE: "wr"
       MDDB_REPLICATION_ROLE: "leader"
       MDDB_NODE_ID: "leader-1"
@@ -38,49 +58,35 @@ services:
 
   # ── Follower 1 ──────────────────────────────────────────
   follower-1:
-    build:
-      context: .
-      dockerfile: services/mddbd/Dockerfile
+    build: *mddbd-build
     container_name: mddb-follower-1
     ports:
       - "11033:11033"
       - "11034:11034"
     environment:
+      <<: *follower-env
       MDDB_ADDR: ":11033"
       MDDB_GRPC_ADDR: ":11034"
-      MDDB_PATH: "/app/data/mddb.db"
-      MDDB_MODE: "read"
-      MDDB_REPLICATION_ROLE: "follower"
       MDDB_NODE_ID: "follower-1"
-      MDDB_REPLICATION_LEADER_ADDR: "leader:11024"
     volumes:
       - follower1-data:/app/data
-    depends_on:
-      leader:
-        condition: service_healthy
+    depends_on: *leader-healthy
 
   # ── Follower 2 ──────────────────────────────────────────
   follower-2:
-    build:
-      context: .
-      dockerfile: services/mddbd/Dockerfile
+    build: *mddbd-build
     container_name: mddb-follower-2
     ports:
       - "11043:11043"
       - "11044:11044"
     environment:
+      <<: *follower-env
       MDDB_ADDR: ":11043"
       MDDB_GRPC_ADDR: ":11044"
-      MDDB_PATH: "/app/data/mddb.db"
-      MDDB_MODE: "read"
-      MDDB_REPLICATION_ROLE: "follower"
       MDDB_NODE_ID: "follower-2"
-      MDDB_REPLICATION_LEADER_ADDR: "leader:11024"
     volumes:
       - follower2-data:/app/data
-    depends_on:
-      leader:
-        condition: service_healthy
+    depends_on: *leader-healthy
 
   # ── Panel (dev mode with API proxy to leader) ───────────
   panel:
@@ -93,9 +99,7 @@ services:
       - "3000:3000"
     environment:
       MDDB_SERVER: "http://leader:11023"
-    depends_on:
-      leader:
-        condition: service_healthy
+    depends_on: *leader-healthy
 
 volumes:
   leader-data:
