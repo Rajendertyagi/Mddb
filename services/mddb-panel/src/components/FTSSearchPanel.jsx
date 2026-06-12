@@ -5,6 +5,7 @@ import mddbClient from '../lib/mddb-client';
 import CommandModal from './CommandModal';
 import MetaFilterBar from './MetaFilterBar';
 import SpellSuggestionBadge from './SpellSuggestionBadge';
+import { splitHighlightFragment } from '../lib/highlight';
 
 export default function FTSSearchPanel() {
   const {
@@ -686,15 +687,26 @@ export default function FTSSearchPanel() {
                     </div>
                   )}
 
-                  {/* Highlight fragments (v2.9.14+) — server wraps matches in <mark>. */}
+                  {/* Highlight fragments (v2.9.14+) — server wraps matches in
+                      <mark> inside RAW document content, so the fragment is
+                      attacker-controlled HTML. Render it as escaped text split
+                      on the <mark> markers instead of dangerouslySetInnerHTML
+                      (FE-001 — prevents stored XSS). */}
                   {result.highlights && result.highlights.length > 0 && (
                     <div className="mt-2 space-y-1">
                       {result.highlights.map((h, i) => (
                         <p
                           key={i}
                           className="text-xs text-gray-700 leading-relaxed bg-gray-50 rounded px-2 py-1"
-                          dangerouslySetInnerHTML={{ __html: h.fragment }}
-                        />
+                        >
+                          {splitHighlightFragment(h.fragment).map((seg, j) =>
+                            seg.highlighted ? (
+                              <mark key={j}>{seg.text}</mark>
+                            ) : (
+                              <span key={j}>{seg.text}</span>
+                            )
+                          )}
+                        </p>
                       ))}
                     </div>
                   )}
