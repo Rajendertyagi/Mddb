@@ -38,6 +38,12 @@ jobs:
         with:
           node-version: '24'
 
+      # FE-002 / FE-007: gate the deploy on the SSG-template security regression
+      # tests (XSS sanitization, ?doc validation, CDN SRI pins). A regression
+      # here must block publishing the docs site, not ship silently.
+      - name: Test SSG templates
+        run: node --test services/ssg-template/*.test.mjs
+
       - name: Prepare metadata
         run: echo '{"categories":[],"media":[],"users":[]}' > docs/metadata.json
 
