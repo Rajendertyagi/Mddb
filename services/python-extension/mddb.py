@@ -20,7 +20,12 @@ import http.client
 import json
 import socket
 import urllib.error
+import urllib.parse
 import urllib.request
+
+# INT-010: default request timeout (seconds) so a hung server can't block the
+# client forever. Applied to both TCP and UDS requests.
+DEFAULT_TIMEOUT = 30
 
 
 class _UnixHTTPConnection(http.client.HTTPConnection):
@@ -56,6 +61,7 @@ class MDDB:
         self._mode = 'read'
         self._collection = ''
         self._env = {}
+        self._timeout = DEFAULT_TIMEOUT
         self._opener = urllib.request.build_opener()
 
     @staticmethod
@@ -306,7 +312,9 @@ class MDDB:
         """Create database backup."""
         path = '/backup'
         if filename:
-            path += f'?to={filename}'
+            # INT-010: percent-encode so '&', '#', '?', spaces and traversal
+            # sequences can't inject extra query params or manipulate the path.
+            path += f'?to={urllib.parse.quote(filename, safe="")}'
         return self._get(path)
 
     def export(self, fmt: str = 'ndjson', filter_meta: dict = None) -> str:
@@ -337,7 +345,7 @@ class MDDB:
 
     def _do(self, req):
         try:
-            with self._opener.open(req) as resp:
+            with self._opener.open(req, timeout=self._timeout) as resp:
                 return json.loads(resp.read().decode('utf-8'))
         except urllib.error.HTTPError as e:
             body = e.read().decode('utf-8')
