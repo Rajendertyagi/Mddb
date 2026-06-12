@@ -43,6 +43,37 @@ class TestKeyExtraction(unittest.TestCase):
         record = {"b": 2, "a": 1}
         self.assertEqual(_hashFallback(record), _hashFallback({"a": 1, "b": 2}))
 
+    def test_oversizeKeyFallsBackToHash(self):
+        # INT-006: a multi-KB key field must not become the document key.
+        record = {"id": "x" * 5000}
+        key = _extractKey(record, "id")
+        self.assertEqual(key, _hashFallback(record))
+        self.assertEqual(len(key), 40)
+
+    def test_controlCharKeyFallsBackToHash(self):
+        # INT-006: control characters (e.g. NUL/newline) -> hash fallback.
+        record = {"id": "line1\nline2\x00"}
+        key = _extractKey(record, "id")
+        self.assertEqual(key, _hashFallback(record))
+
+
+class TestMetaKeySanitization(unittest.TestCase):
+    def test_metaKeyStripsPipeAndControlChars(self):
+        # INT-006: the '|' index-key separator and control chars are removed.
+        flat = _flattenToStringLists({"a|b\tc": "v"})
+        self.assertIn("abc", flat)
+        self.assertNotIn("a|b\tc", flat)
+
+    def test_metaKeyLengthBounded(self):
+        flat = _flattenToStringLists({"k" * 500: "v"})
+        (only_key,) = flat.keys()
+        self.assertLessEqual(len(only_key), 128)
+
+    def test_emptyAfterSanitizationIsDropped(self):
+        flat = _flattenToStringLists({"|||": "v", "ok": "w"})
+        self.assertNotIn("", flat)
+        self.assertIn("ok", flat)
+
 
 class TestStringification(unittest.TestCase):
     def test_intToString(self):

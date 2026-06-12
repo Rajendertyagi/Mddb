@@ -13,6 +13,12 @@ from urllib3.util.retry import Retry
 
 logger = logging.getLogger("airbyte")
 
+# INT-006: bound document keys and meta-key names derived from untrusted upstream
+# records so a multi-megabyte/binary key field or a hostile field name can't
+# create a pathological document key or pollute the MDDB meta schema.
+MAX_KEY_LEN = 512
+MAX_META_KEY_LEN = 128
+
 
 class MddbClient:
     """Thin wrapper over MDDB /v1/* endpoints."""
@@ -114,7 +120,13 @@ def _extractKey(record: Mapping[str, Any], keyField: str) -> str:
     raw = record.get(keyField)
     if raw is None or (isinstance(raw, str) and not raw.strip()):
         return _hashFallback(record)
-    return str(raw)
+    key = str(raw)
+    # INT-006: a huge/binary or control-character key field would create a
+    # pathological document key — fall back to a stable content hash rather than
+    # silently mutating the caller's key.
+    if len(key) > MAX_KEY_LEN or not key.isprintable():
+        return _hashFallback(record)
+    return key
 
 
 def _hashFallback(record: Mapping[str, Any]) -> str:
@@ -128,8 +140,20 @@ def _flattenToStringLists(record: Mapping[str, Any]) -> Dict[str, List[str]]:
     for key, value in record.items():
         if value is None:
             continue
-        flat[str(key)] = _stringifyValue(value)
+        metaKey = _sanitizeMetaKey(str(key))
+        if not metaKey:
+            continue
+        flat[metaKey] = _stringifyValue(value)
     return flat
+
+
+def _sanitizeMetaKey(key: str) -> str:
+    """INT-006: untrusted upstream field names become MDDB meta keys. Strip
+    control characters and the '|' index-key separator, and bound the length, so
+    a hostile field name can't break index keys or pollute the meta schema.
+    """
+    cleaned = "".join(ch for ch in key if ch.isprintable() and ch != "|").strip()
+    return cleaned[:MAX_META_KEY_LEN]
 
 
 def _stringifyValue(value: Any) -> List[str]:
