@@ -123,7 +123,7 @@ func newHandlerTestServer(t *testing.T) (*Server, func()) {
 // against pre-existing data.
 func addTestDoc(t *testing.T, s *Server, coll, key, lang, content string, meta map[string][]string) Doc {
 	t.Helper()
-	doc, _, err := s.addDocument(coll, key, lang, meta, content, 0)
+	doc, _, err := s.addDocument(coll, key, lang, meta, content, 0, true)
 	if err != nil {
 		t.Fatalf("addTestDoc(%s/%s/%s): %v", coll, key, lang, err)
 	}

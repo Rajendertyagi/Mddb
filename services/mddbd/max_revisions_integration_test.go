@@ -65,7 +65,7 @@ func TestAddDocumentTriggersTrimWhenCapSet(t *testing.T) {
 	}
 
 	// addDocument writes 1 new rev (live clock) then the trim hook prunes.
-	if _, _, err := s.addDocument("blog", "post-1", "en_US", nil, "final", 0); err != nil {
+	if _, _, err := s.addDocument("blog", "post-1", "en_US", nil, "final", 0, true); err != nil {
 		t.Fatal(err)
 	}
 
@@ -90,7 +90,7 @@ func TestAddDocumentNoTrimWhenCapZero(t *testing.T) {
 
 	docID := seedFakeRevisions(t, s, "blog", "post-1", "en_US", 5)
 
-	if _, _, err := s.addDocument("blog", "post-1", "en_US", nil, "final", 0); err != nil {
+	if _, _, err := s.addDocument("blog", "post-1", "en_US", nil, "final", 0, true); err != nil {
 		t.Fatal(err)
 	}
 
@@ -107,7 +107,7 @@ func TestAddDocumentWithoutCollectionManager(t *testing.T) {
 	defer cleanup()
 	s.CollectionManager = nil
 
-	if _, _, err := s.addDocument("blog", "p", "en_US", nil, "x", 0); err != nil {
+	if _, _, err := s.addDocument("blog", "p", "en_US", nil, "x", 0, true); err != nil {
 		t.Errorf("addDocument must not crash with nil CollectionManager: %v", err)
 	}
 }

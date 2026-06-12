@@ -51,7 +51,13 @@ func (bp *BatchProcessor) ProcessBatch(ctx context.Context, collection string, b
 	processed := bp.parallelProcess(ctx, collection, batchDocs, now)
 
 	// Phase 2: Single transaction commit
-	resp := bp.commitBatch(collection, processed, now)
+	resp, committed := bp.commitBatch(collection, processed, now)
+
+	// Phase 3: post-commit side-effect pipeline (GO-001) — FTS, geo, webhooks,
+	// SSE, temporal, embedding. Previously batch gRPC writes skipped all of
+	// these, so docs were invisible to search and fired no events. Reuses the
+	// same firePostBatchHooks the HTTP batch path uses (DRY).
+	bp.server.firePostBatchHooks(collection, committed, postBatchOptions{})
 
 	return resp, nil
 }
@@ -166,9 +172,12 @@ func (bp *BatchProcessor) processDocument(collection string, batchDoc *proto.Bat
 	return result
 }
 
-// commitBatch commits all processed documents in a single transaction
-func (bp *BatchProcessor) commitBatch(collection string, processed []*ProcessedDoc, now int64) *proto.AddBatchResponse {
+// commitBatch commits all processed documents in a single transaction and
+// returns the response plus the docs that were durably committed (so the
+// caller can run the shared post-write pipeline on exactly those).
+func (bp *BatchProcessor) commitBatch(collection string, processed []*ProcessedDoc, now int64) (*proto.AddBatchResponse, []*ProcessedDoc) {
 	resp := &proto.AddBatchResponse{}
+	committed := make([]*ProcessedDoc, 0, len(processed))
 
 	var bo BinlogOps
 	// Single transaction for all documents
@@ -240,6 +249,18 @@ func (bp *BatchProcessor) commitBatch(collection string, processed []*ProcessedD
 					continue
 				}
 				bo.Put("rev", rkey, p.Buf)
+
+				// Enforce per-collection MaxRevisions so batch writes trim
+				// history just like the single-doc path (GO-001).
+				if bp.server.CollectionManager != nil {
+					if cfg, found := bp.server.CollectionManager.Get(collection); found && cfg.MaxRevisions > 0 {
+						if err := trimRevisions(tx, &bo, collection, p.Doc.ID, cfg.MaxRevisions); err != nil {
+							resp.Failed++
+							resp.Errors = append(resp.Errors, fmt.Sprintf("%s: revision trim error: %v", p.Doc.Key, err))
+							continue
+						}
+					}
+				}
 			}
 
 			// Count success
@@ -248,6 +269,7 @@ func (bp *BatchProcessor) commitBatch(collection string, processed []*ProcessedD
 			} else {
 				resp.Added++
 			}
+			committed = append(committed, p)
 		}
 
 		return nil
@@ -256,9 +278,10 @@ func (bp *BatchProcessor) commitBatch(collection string, processed []*ProcessedD
 	if err != nil {
 		resp.Failed = safeInt32(len(processed))
 		resp.Errors = append(resp.Errors, fmt.Sprintf("transaction error: %v", err))
-	} else {
-		bo.FlushTo(bp.server.Binlog)
+		// The transaction rolled back — nothing was actually committed.
+		return resp, nil
 	}
+	bo.FlushTo(bp.server.Binlog)
 
-	return resp
+	return resp, committed
 }

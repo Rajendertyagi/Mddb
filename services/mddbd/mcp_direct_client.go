@@ -117,7 +117,7 @@ func (c *DirectClient) Stats(ctx context.Context) (*MCPStats, error) {
 
 // Add creates a new document via the direct client.
 func (c *DirectClient) Add(ctx context.Context, req *MCPAddRequest) (*MCPDocument, error) {
-	saved, _, err := c.server.addDocument(req.Collection, req.Key, req.Lang, req.Meta, req.ContentMD, 0)
+	saved, _, err := c.server.addDocument(req.Collection, req.Key, req.Lang, req.Meta, req.ContentMD, 0, true)
 	if err != nil {
 		return nil, err
 	}
@@ -889,7 +889,7 @@ func (c *DirectClient) ImportURL(ctx context.Context, req *MCPImportURLRequest) 
 		mergedMeta[k] = v
 	}
 
-	saved, _, err := c.server.addDocument(req.Collection, key, req.Lang, mergedMeta, body, req.TTL)
+	saved, _, err := c.server.addDocument(req.Collection, key, req.Lang, mergedMeta, body, req.TTL, true)
 	if err != nil {
 		return nil, err
 	}
@@ -1736,7 +1736,7 @@ func (c *DirectClient) RestoreRevision(ctx context.Context, collection, key, lan
 		return nil, err
 	}
 
-	doc, _, err := c.server.addDocument(collection, key, lang, revDoc.Meta, revDoc.ContentMD, 0)
+	doc, _, err := c.server.addDocument(collection, key, lang, revDoc.Meta, revDoc.ContentMD, 0, true)
 	if err != nil {
 		return nil, err
 	}

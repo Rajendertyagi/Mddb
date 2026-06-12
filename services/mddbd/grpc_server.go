@@ -101,7 +101,15 @@ func startGRPCServer(s *Server, addr string, opts ...grpc.ServerOption) error {
 	return grpcServer.Serve(lis)
 }
 
-// Add implements the Add RPC
+// Add implements the Add RPC.
+//
+// GO-001: this is a thin transport adapter over Server.addDocument — the SINGLE
+// document write path shared with HTTP, MCP and GraphQL. Previously gRPC Add
+// re-implemented the BoltDB insert and indexed metadata lazily via IndexQueue,
+// silently skipping FTS, geo, webhooks, SSE, temporal tracking and revision
+// trimming, so a doc added over gRPC was invisible to full-text/geo search and
+// fired no live events. Routing through addDocument makes every transport
+// behave identically.
 func (g *GRPCServer) Add(ctx context.Context, req *proto.AddRequest) (*proto.Document, error) {
 	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
@@ -129,112 +137,23 @@ func (g *GRPCServer) Add(ctx context.Context, req *proto.AddRequest) (*proto.Doc
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	now := time.Now().Unix()
-	docID := genID(req.Collection, req.Key, req.Lang)
-
-	// Use KeyBuilder for efficient key construction
-	var kb KeyBuilder
-
-	var saved Doc
-	var cachedBuf []byte
-	var bo BinlogOps
-	err := g.server.DB.Update(func(tx *bolt.Tx) error {
-		bDocs := tx.Bucket(g.server.BucketNames.Docs)
-		bRev := tx.Bucket(g.server.BucketNames.Rev)
-		bByK := tx.Bucket(g.server.BucketNames.ByKey)
-
-		// Load existing
-		existing := Doc{}
-		docKey := kb.BuildDocKey(req.Collection, docID)
-		if v := bDocs.Get(docKey); v != nil {
-			existingDoc, err := unmarshalDoc(v)
-			if err != nil {
-				return err
-			}
-			existing = *existingDoc
-		}
-		added := existing.AddedAt
-		if added == 0 {
-			added = now
-		}
-
-		doc := Doc{
-			ID: docID, Key: req.Key, Lang: req.Lang, Meta: meta,
-			ContentMD: req.ContentMd, AddedAt: added, UpdatedAt: now,
-		}
-		buf, err := marshalAndEncrypt(&doc, req.Collection)
-		if err != nil {
-			return err
-		}
-		cachedBuf = buf // Save for cache
-
-		// Use KeyBuilder for all keys
-		docKey = kb.BuildDocKey(req.Collection, docID)
-		if err := bDocs.Put(docKey, buf); err != nil {
-			return err
-		}
-		bo.Put("docs", docKey, buf)
-
-		byKeyKey := kb.BuildByKey(req.Collection, req.Key, req.Lang)
-		if err := bByK.Put(byKeyKey, []byte(docID)); err != nil {
-			return err
-		}
-		bo.Put("bykey", byKeyKey, []byte(docID))
-
-		// Lazy metadata indexing - queue for async processing
-		if metadataChanged(existing.Meta, doc.Meta) {
-			g.server.IndexQueue.Enqueue(&IndexJob{
-				Collection: req.Collection,
-				DocID:      docID,
-				OldMeta:    existing.Meta,
-				NewMeta:    doc.Meta,
-			})
-		}
-
-		// Revision (optional - only if requested)
-		if req.SaveRevision {
-			revKey := kb.BuildRevKey(req.Collection, doc.ID, now)
-			if err := bRev.Put(revKey, buf); err != nil {
-				return err
-			}
-			bo.Put("rev", revKey, buf)
-		}
-
-		saved = doc
-		return nil
-	})
-	if err == nil {
-		bo.FlushTo(g.server.Binlog)
-	}
-
+	// Single write path: full pipeline (meta index in-tx, revisions + trim,
+	// then FTS/geo/webhooks/SSE/temporal/embedding via runPostWriteHooks).
+	saved, _, err := g.server.addDocument(req.Collection, req.Key, req.Lang, meta, req.ContentMd, 0, req.SaveRevision)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	// Update cache (use lock-free cache if extreme mode)
-	cacheKey := BuildCacheKey(req.Collection, req.Key, req.Lang)
-	if g.server.UseExtreme {
-		g.server.LockFreeCache.Set(cacheKey, cachedBuf)
-	} else {
-		g.server.Cache.Set(cacheKey, cachedBuf)
-	}
-
-	// Trigger async embedding
-	if g.server.EmbeddingWorker != nil && saved.ContentMD != "" {
-		g.server.EmbeddingWorker.Enqueue(EmbeddingJob{
-			Collection: req.Collection,
-			DocID:      saved.ID,
-			ContentMD:  saved.ContentMD,
-		})
-	}
-
-	// Automation triggers
-	if g.server.AutomationManager != nil && env("MDDB_TRIGGERS", "false") == "true" {
-		triggerEvent := "update"
-		if saved.AddedAt == saved.UpdatedAt {
-			triggerEvent = "insert"
+	// Keep the gRPC read cache coherent: addDocument does not touch it (the
+	// HTTP read path bypasses the cache, the gRPC Get path relies on it), so
+	// re-stamp the fresh value here to preserve read-after-write on gRPC.
+	if buf, mErr := marshalAndEncrypt(&saved, req.Collection); mErr == nil {
+		cacheKey := BuildCacheKey(req.Collection, req.Key, req.Lang)
+		if g.server.UseExtreme {
+			g.server.LockFreeCache.Set(cacheKey, buf)
+		} else {
+			g.server.Cache.Set(cacheKey, buf)
 		}
-		go g.server.AutomationManager.EvaluateTriggers(req.Collection, saved, triggerEvent)
 	}
 
 	return docToProto(&saved), nil
@@ -1089,7 +1008,7 @@ func (g *GRPCServer) ImportURL(ctx context.Context, req *proto.ImportURLRequest)
 		mergedMeta[k] = v.Values
 	}
 
-	saved, _, err := g.server.addDocument(req.Collection, key, req.Lang, mergedMeta, body, req.Ttl)
+	saved, _, err := g.server.addDocument(req.Collection, key, req.Lang, mergedMeta, body, req.Ttl, true)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -3037,7 +2956,7 @@ func (g *GRPCServer) RestoreRevision(ctx context.Context, req *proto.RestoreRevi
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 
-	doc, _, err := g.server.addDocument(req.Collection, req.Key, req.Lang, revDoc.Meta, revDoc.ContentMD, 0)
+	doc, _, err := g.server.addDocument(req.Collection, req.Key, req.Lang, revDoc.Meta, revDoc.ContentMD, 0, true)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

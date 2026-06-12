@@ -198,7 +198,7 @@ func (s *Server) handleMemorySessionCreate(w http.ResponseWriter, r *http.Reques
 	content := fmt.Sprintf("# Session: %s\n\nUser: %s\nScenario: %s\nCreated: %s",
 		title, req.UserID, req.Scenario, time.Unix(now, 0).UTC().Format(time.RFC3339))
 
-	saved, _, err := s.addDocument(memorySessionsCollection, sessionID, "en", meta, content, ttl)
+	saved, _, err := s.addDocument(memorySessionsCollection, sessionID, "en", meta, content, ttl, true)
 	if err != nil {
 		bad(w, err)
 		return
@@ -266,7 +266,7 @@ func (s *Server) handleMemoryMessageAdd(w http.ResponseWriter, r *http.Request) 
 	// Key format: sessionID/timestamp-msgID for chronological ordering
 	msgKey := fmt.Sprintf("%s/%020d-%s", req.SessionID, now, msgID)
 
-	saved, _, err := s.addDocument(memoryMessagesCollection, msgKey, "en", meta, req.Content, 0)
+	saved, _, err := s.addDocument(memoryMessagesCollection, msgKey, "en", meta, req.Content, 0, true)
 	if err != nil {
 		bad(w, err)
 		return
@@ -669,7 +669,7 @@ func (s *Server) handleMemorySummarize(w http.ResponseWriter, r *http.Request) {
 		meta["userId"] = []string{req.UserID}
 	}
 
-	saved, _, err := s.addDocument(memorySummariesCollection, summaryKey, "en", meta, summary, 0)
+	saved, _, err := s.addDocument(memorySummariesCollection, summaryKey, "en", meta, summary, 0, true)
 	if err != nil {
 		bad(w, err)
 		return

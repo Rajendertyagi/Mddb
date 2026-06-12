@@ -1344,7 +1344,15 @@ func effectiveMode(global, perProtocol AccessMode) AccessMode {
 
 // addDocument is the shared internal method for adding/updating a document.
 // Returns the saved document, whether it was newly created, and any error.
-func (s *Server) addDocument(collection, key, lang string, meta map[string][]string, contentMD string, ttl int64) (Doc, bool, error) {
+// addDocument is the single write path for one document, shared by every
+// transport (HTTP, gRPC, MCP, GraphQL). It performs the in-transaction insert,
+// metadata index, and — when saveRevision is true — the revision write plus
+// MaxRevisions trimming, then runs the shared post-write side-effect pipeline.
+//
+// saveRevision lets the transport opt out of revision history (gRPC exposes a
+// per-request SaveRevision flag); all other callers pass true to preserve the
+// always-record-a-revision behaviour they have always had.
+func (s *Server) addDocument(collection, key, lang string, meta map[string][]string, contentMD string, ttl int64, saveRevision bool) (Doc, bool, error) {
 	now := time.Now().Unix()
 	docID := genID(collection, key, lang)
 
@@ -1416,18 +1424,20 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 			}
 		}
 
-		rkey := append(kRevPrefix(collection, doc.ID), []byte(fmt.Sprintf("%020d", now))...)
-		if err := bRev.Put(rkey, buf); err != nil {
-			return err
-		}
-		bo.Put("rev", rkey, buf)
+		if saveRevision {
+			rkey := append(kRevPrefix(collection, doc.ID), []byte(fmt.Sprintf("%020d", now))...)
+			if err := bRev.Put(rkey, buf); err != nil {
+				return err
+			}
+			bo.Put("rev", rkey, buf)
 
-		// Enforce per-collection MaxRevisions: drop oldest revs over the cap so
-		// history never grows unbounded on high-churn collections.
-		if s.CollectionManager != nil {
-			if cfg, found := s.CollectionManager.Get(collection); found && cfg.MaxRevisions > 0 {
-				if err := trimRevisions(tx, &bo, collection, doc.ID, cfg.MaxRevisions); err != nil {
-					return err
+			// Enforce per-collection MaxRevisions: drop oldest revs over the cap so
+			// history never grows unbounded on high-churn collections.
+			if s.CollectionManager != nil {
+				if cfg, found := s.CollectionManager.Get(collection); found && cfg.MaxRevisions > 0 {
+					if err := trimRevisions(tx, &bo, collection, doc.ID, cfg.MaxRevisions); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -1442,6 +1452,25 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 		return Doc{}, false, err
 	}
 
+	// Side-effect pipeline shared by every write transport (GO-001).
+	s.runPostWriteHooks(collection, saved, isNew)
+
+	return saved, isNew, nil
+}
+
+// runPostWriteHooks runs the side-effect pipeline that must fire after a
+// document write commits to BoltDB, regardless of the transport that produced
+// it — HTTP, gRPC (single Add or AddBatch), MCP, or GraphQL. Centralising it
+// here is what guarantees identical behaviour across transports (GO-001):
+// async embedding, TTL bucket registration, FTS (content + positional +
+// field/BM25F), geo (R-tree + geohash + GeoStore), temporal tracking,
+// webhooks, SSE broadcast, and automation triggers. Every dependency is
+// nil-guarded so partially-configured servers (and tests) are safe.
+//
+// Revision writing and MaxRevisions trimming are intentionally NOT here: they
+// must happen inside the write transaction (see addDocument / the batch
+// commits) so a crash can never leave a doc without its revision.
+func (s *Server) runPostWriteHooks(collection string, saved Doc, isNew bool) {
 	// Trigger async embedding
 	if s.EmbeddingWorker != nil && saved.ContentMD != "" {
 		s.EmbeddingWorker.Enqueue(EmbeddingJob{
@@ -1507,10 +1536,10 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 		event = "doc.added"
 	}
 	if s.WebhookManager != nil {
-		s.WebhookManager.Fire(event, collection, key, lang, &saved)
+		s.WebhookManager.Fire(event, collection, saved.Key, saved.Lang, &saved)
 	}
 	if s.SSEHub != nil {
-		s.SSEHub.BroadcastWithAuth(event, collection, key, lang, s.AuthManager)
+		s.SSEHub.BroadcastWithAuth(event, collection, saved.Key, saved.Lang, s.AuthManager)
 	}
 
 	// Automation triggers
@@ -1521,8 +1550,6 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 		}
 		go s.AutomationManager.EvaluateTriggers(collection, saved, triggerEvent)
 	}
-
-	return saved, isNew, nil
 }
 
 // deleteDocumentInternal deletes a document and all its associated data.
@@ -1665,7 +1692,7 @@ func (s *Server) handleAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	saved, _, err := s.addDocument(req.Collection, req.Key, req.Lang, req.Meta, req.ContentMD, req.TTL)
+	saved, _, err := s.addDocument(req.Collection, req.Key, req.Lang, req.Meta, req.ContentMD, req.TTL, true)
 	if err != nil {
 		bad(w, err)
 		return

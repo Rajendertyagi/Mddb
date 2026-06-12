@@ -44,7 +44,13 @@ func (fbp *FinalBatchProcessor) ProcessBatch(ctx context.Context, collection str
 	processed := fbp.parallelMarshal(ctx, collection, batchDocs, existingMap, now)
 
 	// Phase 3: Single write transaction
-	resp := fbp.commitBatch(collection, processed, now)
+	resp, committed := fbp.commitBatch(collection, processed, now)
+
+	// Phase 4: post-commit side-effect pipeline (GO-001) — FTS, geo, webhooks,
+	// SSE, temporal, embedding. The extreme path skipped these entirely, so
+	// batch-ingested docs were invisible to search. Reuses firePostBatchHooks
+	// (DRY with the HTTP and standard-batch paths).
+	fbp.server.firePostBatchHooks(collection, committed, postBatchOptions{})
 
 	return resp, nil
 }
@@ -177,8 +183,13 @@ func (fbp *FinalBatchProcessor) processDocumentFast(collection string, batchDoc 
 }
 
 // commitBatch commits with optimized key building
-func (fbp *FinalBatchProcessor) commitBatch(collection string, processed []*ProcessedDoc, now int64) *proto.AddBatchResponse {
+func (fbp *FinalBatchProcessor) commitBatch(collection string, processed []*ProcessedDoc, now int64) (*proto.AddBatchResponse, []*ProcessedDoc) {
 	resp := &proto.AddBatchResponse{}
+	committed := make([]*ProcessedDoc, 0, len(processed))
+
+	// bo records ops for trimRevisions; the extreme path does not flush a
+	// binlog, but the trim deletes are durable in-transaction regardless.
+	var bo BinlogOps
 
 	err := fbp.server.DB.Update(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(fbp.server.BucketNames.Docs)
@@ -276,6 +287,13 @@ func (fbp *FinalBatchProcessor) commitBatch(collection string, processed []*Proc
 				revKeyBuf = append(revKeyBuf, ts...)
 
 				_ = bRev.Put(revKeyBuf, p.Buf)
+
+				// Enforce per-collection MaxRevisions (GO-001 parity).
+				if fbp.server.CollectionManager != nil {
+					if cfg, found := fbp.server.CollectionManager.Get(collection); found && cfg.MaxRevisions > 0 {
+						_ = trimRevisions(tx, &bo, collection, p.Doc.ID, cfg.MaxRevisions)
+					}
+				}
 			}
 
 			// Update cache
@@ -291,6 +309,7 @@ func (fbp *FinalBatchProcessor) commitBatch(collection string, processed []*Proc
 			} else {
 				resp.Added++
 			}
+			committed = append(committed, p)
 		}
 
 		return nil
@@ -299,7 +318,8 @@ func (fbp *FinalBatchProcessor) commitBatch(collection string, processed []*Proc
 	if err != nil {
 		resp.Failed = safeInt32(len(processed))
 		resp.Errors = append(resp.Errors, fmt.Sprintf("transaction error: %v", err))
+		return resp, nil
 	}
 
-	return resp
+	return resp, committed
 }

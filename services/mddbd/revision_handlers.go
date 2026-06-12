@@ -184,7 +184,7 @@ func (s *Server) handleRevisionRestore(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Restore by saving through addDocument (handles binlog, FTS, embeddings, webhooks)
-	doc, _, err := s.addDocument(req.Collection, req.Key, req.Lang, revDoc.Meta, revDoc.ContentMD, 0)
+	doc, _, err := s.addDocument(req.Collection, req.Key, req.Lang, revDoc.Meta, revDoc.ContentMD, 0, true)
 	if err != nil {
 		bad(w, err)
 		return
