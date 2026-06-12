@@ -27,6 +27,10 @@ type AuthManager struct {
 	enabled bool
 	server  *Server // set after construction; used only for audit log hooks
 
+	// publicEndpoints is the auth-exempt path set, computed once from the
+	// environment at construction (see buildPublicEndpoints / SEC-009).
+	publicEndpoints map[string]bool
+
 	// In-memory caches
 	mu               sync.RWMutex
 	users            map[string]*User
@@ -50,6 +54,7 @@ func NewAuthManager(db *bolt.DB, config AuthConfig) *AuthManager {
 		db:               db,
 		config:           config,
 		enabled:          true,
+		publicEndpoints:  buildPublicEndpoints(),
 		users:            make(map[string]*User),
 		apiKeys:          make(map[string]*APIKey),
 		permissions:      make(map[string][]*Permission),

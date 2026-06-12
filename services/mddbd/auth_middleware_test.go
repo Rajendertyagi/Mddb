@@ -82,7 +82,10 @@ func TestAuthMiddleware_PublicEndpoints(t *testing.T) {
 
 	handler := am.HTTPMiddleware(authMwDummyHandler())
 
-	endpoints := []string{"/health", "/v1/health", "/v1/auth/login", "/metrics"}
+	// /metrics is intentionally NOT in this always-public list anymore — its
+	// auth gating is opt-in via MDDB_METRICS_PUBLIC and is covered by
+	// TestHTTPMiddleware_MetricsPrivateByDefault / _MetricsPublicOptIn (SEC-009).
+	endpoints := []string{"/health", "/v1/health", "/v1/auth/login"}
 	for _, ep := range endpoints {
 		req := httptest.NewRequest("GET", ep, nil)
 		w := httptest.NewRecorder()
@@ -389,7 +392,34 @@ func TestExtractTokenFromRequest_BasicAuth(t *testing.T) {
 	}
 }
 
+// TestBuildPublicEndpoints covers SEC-009: /metrics is only auth-exempt when
+// MDDB_METRICS_PUBLIC=true; the liveness/login endpoints are always exempt.
+func TestBuildPublicEndpoints(t *testing.T) {
+	t.Setenv("MDDB_METRICS_PUBLIC", "") // default: metrics private
+	eps := buildPublicEndpoints()
+	for _, p := range []string{"/health", "/v1/health", "/v1/auth/login"} {
+		if !eps[p] {
+			t.Errorf("expected %q to be public by default", p)
+		}
+	}
+	if eps["/metrics"] {
+		t.Error("/metrics must NOT be public when MDDB_METRICS_PUBLIC is unset (SEC-009)")
+	}
+
+	t.Setenv("MDDB_METRICS_PUBLIC", "true")
+	if !buildPublicEndpoints()["/metrics"] {
+		t.Error("/metrics must be public when MDDB_METRICS_PUBLIC=true (opt-in)")
+	}
+
+	t.Setenv("MDDB_METRICS_PUBLIC", "1")
+	if buildPublicEndpoints()["/metrics"] {
+		t.Error(`only the exact value "true" should make /metrics public`)
+	}
+}
+
 func TestIsPublicEndpoint(t *testing.T) {
+	t.Setenv("MDDB_METRICS_PUBLIC", "") // default: metrics private
+	am := &AuthManager{publicEndpoints: buildPublicEndpoints()}
 	tests := []struct {
 		path   string
 		public bool
@@ -397,7 +427,7 @@ func TestIsPublicEndpoint(t *testing.T) {
 		{"/health", true},
 		{"/v1/health", true},
 		{"/v1/auth/login", true},
-		{"/metrics", true},
+		{"/metrics", false}, // SEC-009: gated unless explicitly opted in
 		{"/v1/docs/test", false},
 		{"/v1/collections", false},
 		{"/v1/auth/register", false},
@@ -406,10 +436,66 @@ func TestIsPublicEndpoint(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
-			got := isPublicEndpoint(tt.path)
+			got := am.isPublicEndpoint(tt.path)
 			if got != tt.public {
 				t.Errorf("isPublicEndpoint(%q) = %v, want %v", tt.path, got, tt.public)
 			}
 		})
+	}
+
+	// Opt-in flips /metrics public.
+	t.Setenv("MDDB_METRICS_PUBLIC", "true")
+	amPub := &AuthManager{publicEndpoints: buildPublicEndpoints()}
+	if !amPub.isPublicEndpoint("/metrics") {
+		t.Error("/metrics should be public with MDDB_METRICS_PUBLIC=true")
+	}
+
+	// Fail closed: a manager built without buildPublicEndpoints (nil set)
+	// must treat every path as private.
+	var amNil AuthManager
+	if amNil.isPublicEndpoint("/health") {
+		t.Error("nil publicEndpoints must fail closed (nothing public)")
+	}
+}
+
+// metricsProbe builds the middleware around a sentinel that records whether a
+// request reached the backend, then issues an unauthenticated GET /metrics.
+func metricsProbe(t *testing.T) (code int, reached bool) {
+	t.Helper()
+	am, cleanup := authMwSetup(t)
+	defer cleanup()
+
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reached = true
+		w.WriteHeader(http.StatusOK)
+	})
+	h := am.HTTPMiddleware(next)
+
+	req := httptest.NewRequest("GET", "/metrics", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	return rec.Code, reached
+}
+
+// TestHTTPMiddleware_MetricsPrivateByDefault — SEC-009: with auth on and no
+// opt-in, anonymous /metrics is rejected before reaching the handler.
+func TestHTTPMiddleware_MetricsPrivateByDefault(t *testing.T) {
+	t.Setenv("MDDB_METRICS_PUBLIC", "")
+	code, reached := metricsProbe(t)
+	if code != http.StatusUnauthorized {
+		t.Errorf("GET /metrics without creds: got %d, want 401", code)
+	}
+	if reached {
+		t.Error("request reached backend — /metrics must be gated when auth is enabled")
+	}
+}
+
+// TestHTTPMiddleware_MetricsPublicOptIn — MDDB_METRICS_PUBLIC=true restores the
+// previous behaviour: anonymous /metrics passes straight through.
+func TestHTTPMiddleware_MetricsPublicOptIn(t *testing.T) {
+	t.Setenv("MDDB_METRICS_PUBLIC", "true")
+	code, reached := metricsProbe(t)
+	if code != http.StatusOK || !reached {
+		t.Errorf("GET /metrics with opt-in: got code=%d reached=%v, want 200 true", code, reached)
 	}
 }
