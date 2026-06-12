@@ -360,8 +360,8 @@ func (m *BulkIngestManager) fireCallback(job *BulkIngestJob) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-MDDB-Event", "bulk_ingest.completed")
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
+	// SEC-004: use the SSRF-guarded pooled client (callback URL is user-supplied).
+	resp, err := NewPooledClientWithTimeout(10 * time.Second).Do(req)
 	if err != nil {
 		log.Printf("bulk ingest callback: POST to %s failed: %v", job.CallbackURL, err)
 		return

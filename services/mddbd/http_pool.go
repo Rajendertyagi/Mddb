@@ -1,7 +1,6 @@
 package main
 
 import (
-	"net"
 	"net/http"
 	"time"
 )
@@ -23,10 +22,12 @@ func init() {
 	idleTimeout := envDefaultInt("MDDB_HTTP_POOL_IDLE_TIMEOUT", 90)
 
 	transport := &http.Transport{
-		DialContext: (&net.Dialer{
-			Timeout:   10 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).DialContext,
+		// SEC-004: safeDialContext blocks SSRF targets (private/loopback/
+		// link-local / cloud-metadata) and dials a pre-resolved IP to defeat
+		// DNS rebinding. This shared transport backs all user-URL outbound
+		// paths (webhooks, import-url, automation, bulk callbacks); internal
+		// embedding providers use their own clients and are unaffected.
+		DialContext:         safeDialContext,
 		MaxIdleConns:        maxIdle,
 		MaxIdleConnsPerHost: maxPerHost,
 		IdleConnTimeout:     time.Duration(idleTimeout) * time.Second,
@@ -35,17 +36,20 @@ func init() {
 	}
 
 	SharedHTTPClient = &http.Client{
-		Transport: transport,
-		Timeout:   30 * time.Second,
+		Transport:     transport,
+		Timeout:       30 * time.Second,
+		CheckRedirect: ssrfCheckRedirect,
 	}
 }
 
 // NewPooledClientWithTimeout returns the shared pooled client's transport
 // wrapped in a new http.Client with a custom timeout.
-// This reuses the same connection pool but allows per-use timeout control.
+// This reuses the same connection pool (and SSRF-safe dialer) but allows
+// per-use timeout control.
 func NewPooledClientWithTimeout(timeout time.Duration) *http.Client {
 	return &http.Client{
-		Transport: SharedHTTPClient.Transport,
-		Timeout:   timeout,
+		Transport:     SharedHTTPClient.Transport,
+		Timeout:       timeout,
+		CheckRedirect: ssrfCheckRedirect,
 	}
 }
