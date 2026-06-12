@@ -1,4 +1,4 @@
-.PHONY: help dev-start dev-stop dev-logs dev-build dev-clean test lint fmt vet sec test-graphql lint-all test-all ci chat-build chat-dev chat-test widget-build widget-dev dev-logs-chat docs-prep docs-dev docs-build airbyte-build airbyte-push airbyte-test airbyte-spec airbyte-check airbyte-clean gha-install gha-build gha-test gha-coverage gha-lint gha-check gha-verify-dist gha-clean chrome-install chrome-build chrome-package chrome-test chrome-coverage chrome-lint chrome-audit chrome-check chrome-clean
+.PHONY: help dev-start dev-stop dev-logs dev-build dev-clean test lint fmt vet sec test-graphql lint-all test-all ci chat-build chat-dev chat-test widget-build widget-dev dev-logs-chat docs-prep docs-dev docs-build airbyte-build airbyte-push airbyte-test airbyte-spec airbyte-check airbyte-clean gha-install gha-build gha-test gha-coverage gha-lint gha-check gha-verify-dist gha-clean chrome-install chrome-build chrome-package chrome-test chrome-coverage chrome-lint chrome-audit chrome-check chrome-clean grafana-install grafana-build grafana-test grafana-coverage grafana-lint grafana-check grafana-package grafana-docker grafana-clean
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -226,5 +226,34 @@ chrome-check: ## Format check + lint + tests + build + package for chrome-extens
 
 chrome-clean: ## Remove chrome-extension build artefacts and node_modules
 	@$(MAKE) -C integrations/chrome-extension clean
+
+# ----- Grafana datasource plugin (integrations/grafana-datasource) -----
+
+grafana-install: ## Install grafana-datasource npm dependencies
+	@$(MAKE) -C integrations/grafana-datasource install
+
+grafana-build: ## Bundle grafana-datasource into dist/ (webpack production)
+	@$(MAKE) -C integrations/grafana-datasource build
+
+grafana-test: ## Run grafana-datasource Jest unit tests
+	@$(MAKE) -C integrations/grafana-datasource test
+
+grafana-coverage: ## Run grafana-datasource tests with coverage (>=90%)
+	@$(MAKE) -C integrations/grafana-datasource test-coverage
+
+grafana-lint: ## Lint grafana-datasource TypeScript sources
+	@$(MAKE) -C integrations/grafana-datasource lint
+
+grafana-check: ## Format check + lint + tests + build for grafana-datasource
+	@$(MAKE) -C integrations/grafana-datasource check
+
+grafana-package: ## Build + zip grafana-datasource plugin for distribution
+	@$(MAKE) -C integrations/grafana-datasource package
+
+grafana-docker: ## Build Grafana image with the MDDB datasource preinstalled
+	@$(MAKE) -C integrations/grafana-datasource docker
+
+grafana-clean: ## Remove grafana-datasource build artefacts and node_modules
+	@$(MAKE) -C integrations/grafana-datasource clean
 
 .DEFAULT_GOAL := help

@@ -1,0 +1,59 @@
+{
+  "$schema": "https://raw.githubusercontent.com/grafana/grafana/main/docs/sources/developers/plugins/plugin.schema.json",
+  "type": "datasource",
+  "name": "MDDB",
+  "id": "tradik-mddb-datasource",
+  "metrics": true,
+  "annotations": false,
+  "alerting": false,
+  "backend": false,
+  "info": {
+    "description": "Query an MDDB instance from Grafana — time-series from /v1/temporal/histogram, leaderboards from /v1/temporal/hot, facets/histograms from /v1/aggregate, FTS results and database stats.",
+    "author": {
+      "name": "tradik",
+      "url": "https://github.com/tradik"
+    },
+    "keywords": [
+      "mddb",
+      "ai",
+      "rag",
+      "vector",
+      "fts",
+      "documents",
+      "knowledge-base"
+    ],
+    "logos": {
+      "small": "img/logo.svg",
+      "large": "img/logo.svg"
+    },
+    "links": [
+      { "name": "Project site", "url": "https://github.com/tradik/mddb" },
+      { "name": "Documentation", "url": "https://github.com/tradik/mddb/blob/main/integrations/grafana-datasource/README.md" },
+      { "name": "Changelog", "url": "https://github.com/tradik/mddb/blob/main/integrations/grafana-datasource/CHANGELOG.md" },
+      { "name": "License", "url": "https://github.com/tradik/mddb/blob/main/LICENSE" }
+    ],
+    "screenshots": [],
+    "version": "0.1.0",
+    "updated": "2026-05-22"
+  },
+  "routes": [
+    {
+      "path": "auth",
+      "url": "{{ .JsonData.url }}",
+      "headers": [
+        {
+          "name": "Authorization",
+          "content": "Bearer {{ .SecureJsonData.apiKey }}"
+        }
+      ]
+    },
+    {
+      "path": "noauth",
+      "url": "{{ .JsonData.url }}"
+    }
+  ],
+  "dependencies": {
+    "grafanaDependency": ">=11.0.0",
+    "plugins": []
+  }
+}

@@ -139,6 +139,13 @@ integrations/chrome-extension/build/
 integrations/chrome-extension/dist/
 integrations/chrome-extension/coverage/
 integrations/chrome-extension/*.zip
+
+# Grafana datasource plugin — dist/ and zip are release artefacts, not committed.
+integrations/grafana-datasource/dist/
+integrations/grafana-datasource/build/
+integrations/grafana-datasource/coverage/
+integrations/grafana-datasource/node_modules/
+integrations/grafana-datasource/*.zip
 output-test2/
 .ssg-output/
 content/
