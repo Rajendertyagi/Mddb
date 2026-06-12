@@ -1,9 +1,41 @@
 package main
 
 import (
+	"runtime"
 	"testing"
 	"time"
 )
+
+// TestAdaptiveIndexManager_CloseStopsWorker — GO-007: NewAdaptiveIndexManager
+// starts a ticker goroutine; Close() must stop it (no leak) and be safe to call
+// more than once.
+func TestAdaptiveIndexManager_CloseStopsWorker(t *testing.T) {
+	before := runtime.NumGoroutine()
+
+	aim := NewAdaptiveIndexManager()
+	aim.Close()
+	aim.Close() // idempotent — must not panic on a double close
+
+	// The worker observes done and returns; poll until the goroutine count
+	// drops back to (at most) the baseline.
+	deadline := time.Now().Add(2 * time.Second)
+	for runtime.NumGoroutine() > before && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if got := runtime.NumGoroutine(); got > before {
+		t.Errorf("worker goroutine did not exit after Close: before=%d now=%d", before, got)
+	}
+}
+
+// TestAdaptiveIndexManager_CloseNilSafe — Close on a nil receiver or a
+// zero-value manager (nil done channel) must be a no-op, not a panic.
+func TestAdaptiveIndexManager_CloseNilSafe(t *testing.T) {
+	var aim *AdaptiveIndexManager
+	aim.Close() // nil receiver
+
+	zero := &AdaptiveIndexManager{}
+	zero.Close() // nil done channel
+}
 
 func TestAdaptiveIndexManagerNew(t *testing.T) {
 	aim := &AdaptiveIndexManager{}

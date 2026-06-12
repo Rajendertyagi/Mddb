@@ -8,8 +8,10 @@ import (
 
 // AdaptiveIndexManager manages adaptive indexing strategies
 type AdaptiveIndexManager struct {
-	queryStats      sync.Map // query pattern -> *QueryStats
-	indexStrategies sync.Map // collection -> *IndexStrategy
+	queryStats      sync.Map      // query pattern -> *QueryStats
+	indexStrategies sync.Map      // collection -> *IndexStrategy
+	done            chan struct{} // closed by Close() to stop optimizationWorker
+	closeOnce       sync.Once
 }
 
 // QueryStats tracks query performance statistics
@@ -45,12 +47,22 @@ type IndexStrategy struct {
 
 // NewAdaptiveIndexManager creates a new adaptive index manager
 func NewAdaptiveIndexManager() *AdaptiveIndexManager {
-	aim := &AdaptiveIndexManager{}
+	aim := &AdaptiveIndexManager{done: make(chan struct{})}
 
 	// Start optimization worker
 	go aim.optimizationWorker()
 
 	return aim
+}
+
+// Close stops the optimization worker goroutine. Safe to call more than once.
+// Without it the 5-minute ticker goroutine would leak for the lifetime of the
+// process — and one per Server created in tests (GO-007).
+func (aim *AdaptiveIndexManager) Close() {
+	if aim == nil || aim.done == nil {
+		return
+	}
+	aim.closeOnce.Do(func() { close(aim.done) })
 }
 
 // RecordQuery records a query execution
@@ -145,8 +157,13 @@ func (aim *AdaptiveIndexManager) optimizationWorker() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		aim.optimize()
+	for {
+		select {
+		case <-aim.done:
+			return
+		case <-ticker.C:
+			aim.optimize()
+		}
 	}
 }
 

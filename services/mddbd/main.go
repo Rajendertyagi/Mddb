@@ -1232,6 +1232,10 @@ func main() {
 	if s.LockFreeCache != nil {
 		s.LockFreeCache.Close()
 	}
+	// Stop the adaptive-index optimization worker goroutine (GO-007).
+	if s.AdaptiveIndex != nil {
+		s.AdaptiveIndex.Close()
+	}
 }
 
 // --- helpers / buckets
