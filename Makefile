@@ -8,7 +8,7 @@ help: ## Show this help message
 
 dev-start: ## Start all services in development mode
 	@echo "🚀 Starting MDDB development environment..."
-	docker-compose -f docker-compose.dev.yml up -d
+	docker compose -f docker-compose.dev.yml up -d
 	@echo "✅ Services started!"
 	@echo ""
 	@echo "📍 Available services:"
@@ -25,43 +25,43 @@ dev-start: ## Start all services in development mode
 
 dev-start-with-ollama: ## Start all services including Ollama
 	@echo "🚀 Starting MDDB with Ollama for vector embeddings..."
-	docker-compose -f docker-compose.dev.yml --profile with-ollama up -d
+	docker compose -f docker-compose.dev.yml --profile with-ollama up -d
 	@echo "✅ Services started with Ollama!"
 
 dev-stop: ## Stop all development services
 	@echo "🛑 Stopping MDDB development environment..."
-	docker-compose -f docker-compose.dev.yml down
+	docker compose -f docker-compose.dev.yml down
 	@echo "✅ Services stopped!"
 
 dev-logs: ## Show logs from all services
-	docker-compose -f docker-compose.dev.yml logs -f
+	docker compose -f docker-compose.dev.yml logs -f
 
 dev-logs-server: ## Show logs from MDDB server only
-	docker-compose -f docker-compose.dev.yml logs -f mddbd
+	docker compose -f docker-compose.dev.yml logs -f mddbd
 
 dev-logs-panel: ## Show logs from MDDB panel only
-	docker-compose -f docker-compose.dev.yml logs -f mddb-panel
+	docker compose -f docker-compose.dev.yml logs -f mddb-panel
 
-dev-logs-mcp: ## Show logs from MCP server only
-	docker-compose -f docker-compose.dev.yml logs -f mddb-mcp
+dev-logs-mcp: ## Show MCP logs (MCP is built into the mddbd server)
+	docker compose -f docker-compose.dev.yml logs -f mddbd
 
 dev-build: ## Rebuild all Docker images
 	@echo "🔨 Rebuilding Docker images..."
-	docker-compose -f docker-compose.dev.yml build --no-cache
+	docker compose -f docker-compose.dev.yml build --no-cache
 	@echo "✅ Build complete!"
 
 dev-clean: ## Stop services and remove volumes
 	@echo "🧹 Cleaning up development environment..."
-	docker-compose -f docker-compose.dev.yml down -v
+	docker compose -f docker-compose.dev.yml down -v
 	@echo "✅ Cleanup complete!"
 
 dev-restart: dev-stop dev-start ## Restart all services
 
 dev-shell-server: ## Open shell in MDDB server container
-	docker-compose -f docker-compose.dev.yml exec mddbd sh
+	docker compose -f docker-compose.dev.yml exec mddbd sh
 
 dev-shell-panel: ## Open shell in MDDB panel container
-	docker-compose -f docker-compose.dev.yml exec mddb-panel sh
+	docker compose -f docker-compose.dev.yml exec mddb-panel sh
 
 test: ## Run all tests
 	@echo "🧪 Running backend tests..."
@@ -113,7 +113,7 @@ ci: check-go-version lint-all test-all ## Run full CI pipeline (lint + test)
 	@echo "✅ CI pipeline complete!"
 
 dev-logs-chat: ## Show logs from chat server only
-	docker-compose -f docker-compose.dev.yml logs -f mddb-chat
+	docker compose -f docker-compose.dev.yml logs -f mddb-chat
 
 chat-build: ## Build chat server (requires Rust)
 	cd services/mddb-chat && cargo build --release
