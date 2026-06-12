@@ -5816,6 +5816,25 @@ components:
         totalMetaIndices:
           type: integer
           example: 84
+        indexQueue:
+          type: object
+          description: >-
+            Async metadata-indexing queue health. `fallbacks` counts jobs that
+            were indexed synchronously because the queue was full (they are
+            never dropped). Omitted when the queue is not initialised.
+          properties:
+            processed:
+              type: integer
+              example: 12034
+            failed:
+              type: integer
+              example: 0
+            fallbacks:
+              type: integer
+              example: 3
+            queueLen:
+              type: integer
+              example: 0
         uptime:
           type: string
           example: 2h15m30s

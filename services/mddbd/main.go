@@ -2616,6 +2616,16 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// IndexQueueStats surfaces async meta-indexing health (GO-010): how many
+	// jobs were processed, failed, or had to be indexed synchronously because
+	// the queue was full (fallbacks), plus the current queue depth.
+	type IndexQueueStats struct {
+		Processed uint64 `json:"processed"`
+		Failed    uint64 `json:"failed"`
+		Fallbacks uint64 `json:"fallbacks"`
+		QueueLen  int    `json:"queueLen"`
+	}
+
 	type Stats struct {
 		DatabasePath     string            `json:"databasePath"`
 		DatabaseSize     int64             `json:"databaseSize"`
@@ -2624,6 +2634,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		TotalDocuments   int               `json:"totalDocuments"`
 		TotalRevisions   int               `json:"totalRevisions"`
 		TotalMetaIndices int               `json:"totalMetaIndices"`
+		IndexQueue       *IndexQueueStats  `json:"indexQueue,omitempty"`
 		Uptime           string            `json:"uptime"`
 	}
 
@@ -2730,6 +2741,17 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	sort.Slice(stats.Collections, func(i, j int) bool {
 		return stats.Collections[i].Name < stats.Collections[j].Name
 	})
+
+	// Async meta-indexing queue health
+	if s.IndexQueue != nil {
+		processed, failed, fallbacks, queueLen := s.IndexQueue.Stats()
+		stats.IndexQueue = &IndexQueueStats{
+			Processed: processed,
+			Failed:    failed,
+			Fallbacks: fallbacks,
+			QueueLen:  queueLen,
+		}
+	}
 
 	ok(w, stats)
 }

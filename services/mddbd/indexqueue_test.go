@@ -1,12 +1,96 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"os"
 	"testing"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
 )
+
+// TestIndexQueue_EnqueueFallbackWhenFull — GO-010: a full queue must NOT drop
+// the job; Enqueue indexes it synchronously (fallback) so it is never lost.
+func TestIndexQueue_EnqueueFallbackWhenFull(t *testing.T) {
+	s, cleanup := newTestServerForIndexQueue(t)
+	defer cleanup()
+
+	// No workers drain this queue, and the buffer holds exactly one job, so
+	// the second Enqueue is guaranteed to hit the full-queue fallback path.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	iq := &IndexQueue{
+		server: s,
+		queue:  make(chan *IndexJob, 1),
+		ctx:    ctx,
+		cancel: cancel,
+	}
+	iq.queue <- &IndexJob{Collection: "c", DocID: "filler"} // buffer now full
+
+	job := &IndexJob{
+		Collection: "c",
+		DocID:      "doc1",
+		NewMeta:    map[string][]string{"tag": {"x"}},
+	}
+	if err := iq.Enqueue(job); err != nil {
+		t.Fatalf("Enqueue fallback returned error: %v", err)
+	}
+
+	_, _, fallbacks, _ := iq.Stats()
+	if fallbacks != 1 {
+		t.Errorf("fallbacks = %d, want 1", fallbacks)
+	}
+
+	// The fallback must have written the meta index entry synchronously.
+	found := false
+	_ = s.DB.View(func(tx *bolt.Tx) error {
+		bIdx := tx.Bucket(s.BucketNames.IdxMeta)
+		key := append(kMetaKeyPrefix("c", "tag", "x"), []byte("doc1")...)
+		found = bIdx.Get(key) != nil
+		return nil
+	})
+	if !found {
+		t.Error("full-queue job was not indexed synchronously — job lost (GO-010)")
+	}
+}
+
+// TestIndexQueue_EnqueueFallbackError — when the synchronous fallback fails to
+// write (here: the DB is closed), Enqueue surfaces the error and counts it as a
+// failure rather than swallowing it.
+func TestIndexQueue_EnqueueFallbackError(t *testing.T) {
+	s, cleanup := newTestServerForIndexQueue(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	iq := &IndexQueue{server: s, queue: make(chan *IndexJob, 1), ctx: ctx, cancel: cancel}
+	iq.queue <- &IndexJob{Collection: "c", DocID: "filler"} // full
+
+	cleanup() // close the DB so the fallback's write transaction fails
+
+	err := iq.Enqueue(&IndexJob{Collection: "c", DocID: "doc1", NewMeta: map[string][]string{"k": {"v"}}})
+	if err == nil {
+		t.Fatal("expected an error from the fallback when the DB is closed")
+	}
+	if _, failed, fallbacks, _ := iq.Stats(); failed != 1 || fallbacks != 1 {
+		t.Errorf("failed=%d fallbacks=%d, want 1 and 1", failed, fallbacks)
+	}
+}
+
+// TestIndexQueue_EnqueueAfterShutdown — Enqueue returns ErrQueueClosed (and does
+// not panic) once the queue has been shut down.
+func TestIndexQueue_EnqueueAfterShutdown(t *testing.T) {
+	s, cleanup := newTestServerForIndexQueue(t)
+	defer cleanup()
+
+	iq := NewIndexQueue(s, 2)
+	iq.Shutdown()
+
+	err := iq.Enqueue(&IndexJob{Collection: "c", DocID: "d", NewMeta: map[string][]string{"k": {"v"}}})
+	if !errors.Is(err, ErrQueueClosed) {
+		t.Errorf("Enqueue after shutdown: got %v, want ErrQueueClosed", err)
+	}
+}
 
 // newTestServerForIndexQueue creates a minimal Server with a temp BoltDB and required buckets.
 func newTestServerForIndexQueue(t *testing.T) (*Server, func()) {
@@ -121,7 +205,7 @@ func TestIndexQueue_Stats_Initial(t *testing.T) {
 	iq := NewIndexQueue(srv, 2)
 	defer iq.Shutdown()
 
-	processed, failed, qLen := iq.Stats()
+	processed, failed, _, qLen := iq.Stats()
 	if processed != 0 {
 		t.Errorf("initial processed should be 0, got %d", processed)
 	}
@@ -154,7 +238,7 @@ func TestIndexQueue_EnqueueAndProcess(t *testing.T) {
 	// Wait for processing
 	time.Sleep(100 * time.Millisecond)
 
-	processed, failed, _ := iq.Stats()
+	processed, failed, _, _ := iq.Stats()
 	if processed != 1 {
 		t.Errorf("expected 1 processed, got %d", processed)
 	}
@@ -224,7 +308,7 @@ func TestIndexQueue_EnqueueUpdateMeta(t *testing.T) {
 	iq.Enqueue(job2)
 	time.Sleep(100 * time.Millisecond)
 
-	processed, failed, _ := iq.Stats()
+	processed, failed, _, _ := iq.Stats()
 	if processed != 2 {
 		t.Errorf("expected 2 processed, got %d", processed)
 	}
@@ -401,7 +485,7 @@ func TestIndexQueue_MultipleJobs(t *testing.T) {
 	// Wait for all to process
 	time.Sleep(500 * time.Millisecond)
 
-	processed, failed, _ := iq.Stats()
+	processed, failed, _, _ := iq.Stats()
 	if processed != 20 {
 		t.Errorf("expected 20 processed, got %d", processed)
 	}
@@ -449,7 +533,7 @@ func TestIndexQueue_ShutdownPreventsNewEnqueue(t *testing.T) {
 
 	// After shutdown, channel is closed so Enqueue will panic with "send on closed channel".
 	// Verify the queue was shut down properly by checking stats.
-	processed, failed, queueLen := iq.Stats()
+	processed, failed, _, queueLen := iq.Stats()
 	if queueLen != 0 {
 		t.Errorf("expected empty queue after shutdown, got %d", queueLen)
 	}
@@ -562,7 +646,7 @@ func TestIndexQueue_StatsAfterProcessing(t *testing.T) {
 
 	time.Sleep(200 * time.Millisecond)
 
-	processed, failed, qLen := iq.Stats()
+	processed, failed, _, qLen := iq.Stats()
 	if processed != 5 {
 		t.Errorf("expected 5 processed, got %d", processed)
 	}

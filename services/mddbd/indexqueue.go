@@ -2,11 +2,15 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"sync"
 
 	bolt "go.etcd.io/bbolt"
 )
+
+// ErrQueueClosed is returned by Enqueue when the queue is shutting down.
+var ErrQueueClosed = errors.New("index queue closed")
 
 // IndexJob represents a metadata indexing job
 type IndexJob struct {
@@ -26,6 +30,7 @@ type IndexQueue struct {
 	cancel    context.CancelFunc
 	processed uint64
 	failed    uint64
+	fallbacks uint64 // jobs processed synchronously because the queue was full
 	mu        sync.RWMutex
 }
 
@@ -54,16 +59,41 @@ func NewIndexQueue(server *Server, workers int) *IndexQueue {
 	return iq
 }
 
-// Enqueue adds an indexing job to the queue
-func (iq *IndexQueue) Enqueue(job *IndexJob) {
+// Enqueue submits a metadata indexing job. It NEVER drops the job (GO-010):
+//
+//   - normally the job is handed to a worker (async, non-blocking);
+//   - if the buffer is full, the job is indexed SYNCHRONOUSLY in the caller's
+//     goroutine (fallback) so it is never silently lost — the previous
+//     behaviour left a doc permanently missing from the meta index;
+//   - if the queue is shutting down, ErrQueueClosed is returned.
+//
+// IMPORTANT: the synchronous fallback opens its own write transaction, so
+// Enqueue must NOT be called from inside an open bolt DB.Update — callers
+// collect jobs during the write tx and Enqueue them AFTER it commits.
+func (iq *IndexQueue) Enqueue(job *IndexJob) error {
+	// Fail fast once shut down — also avoids ever selecting a send on a
+	// queue whose drain has stopped.
+	if iq.ctx.Err() != nil {
+		return ErrQueueClosed
+	}
 	select {
 	case iq.queue <- job:
-		// Job queued successfully
-	case <-iq.ctx.Done():
-		// Queue is shutting down
+		return nil
 	default:
-		// Queue is full, log warning
-		log.Printf("Index queue full, dropping job for doc %s", job.DocID)
+		// Queue full — index inline so the job is never lost.
+		iq.mu.Lock()
+		iq.fallbacks++
+		iq.mu.Unlock()
+		if err := iq.processJob(job); err != nil {
+			iq.mu.Lock()
+			iq.failed++
+			iq.mu.Unlock()
+			return err
+		}
+		iq.mu.Lock()
+		iq.processed++
+		iq.mu.Unlock()
+		return nil
 	}
 }
 
@@ -130,16 +160,20 @@ func (iq *IndexQueue) processJob(job *IndexJob) error {
 	return err
 }
 
-// Shutdown gracefully shuts down the index queue
+// Shutdown gracefully shuts down the index queue. Workers exit on ctx.Done();
+// the queue channel is intentionally NOT closed — Enqueue could otherwise race
+// into a send on a closed channel and panic. After Shutdown, Enqueue returns
+// ErrQueueClosed.
 func (iq *IndexQueue) Shutdown() {
 	iq.cancel()
 	iq.wg.Wait()
-	close(iq.queue)
 }
 
-// Stats returns queue statistics
-func (iq *IndexQueue) Stats() (processed, failed uint64, queueLen int) {
+// Stats returns queue statistics: jobs processed, jobs failed, jobs indexed
+// synchronously because the queue was full (fallbacks), and the current queue
+// depth.
+func (iq *IndexQueue) Stats() (processed, failed, fallbacks uint64, queueLen int) {
 	iq.mu.RLock()
 	defer iq.mu.RUnlock()
-	return iq.processed, iq.failed, len(iq.queue)
+	return iq.processed, iq.failed, iq.fallbacks, len(iq.queue)
 }
