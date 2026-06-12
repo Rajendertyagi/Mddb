@@ -127,6 +127,14 @@ var mcpToolAnnotations = map[string]*MCPToolAnnotations{
 	"delete_collection":      destructive(),
 	"truncate_revisions":     destructive(),
 	"restore_backup":         destructive(),
+
+	// --- Memory (conversation memory / RAG) — GO-016 ---
+	"memory_start_session":   writeNonIdempotent(),
+	"memory_add_message":     writeNonIdempotent(),
+	"memory_recall":          readOnly(),
+	"memory_list_sessions":   readOnly(),
+	"memory_session_history": readOnly(),
+	"memory_summarize":       writeIdempotent(), // persists a session summary doc
 }
 
 // annotateTools applies annotations to a tool list in-place.
