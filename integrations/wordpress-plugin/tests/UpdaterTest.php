@@ -80,6 +80,29 @@ final class UpdaterTest extends TestCase {
 		self::assertSame( '0.2.0', $result->response['mddb-sync/mddb-sync.php']->new_version );
 	}
 
+	public function testReleaseNotesAreSanitizedInPluginInformation(): void {
+		// INT-003: release notes render as HTML in the wp-admin "View details"
+		// modal, so they must pass through wp_kses_post.
+		Functions\when( 'get_site_transient' )->justReturn(
+			[
+				'version'     => '0.2.0',
+				'tagName'     => 'v0.2.0',
+				'htmlUrl'     => '',
+				'zipUrl'      => 'https://example.com/asset.zip',
+				'body'        => '<script>alert(document.cookie)</script>Real notes',
+				'requiresPhp' => '8.1',
+				'tested'      => '6.7',
+			]
+		);
+		$updater = new Updater( 'mddb-sync/mddb-sync.php', '0.1.0', 'tradik/mddb' );
+		$info    = $updater->providePluginInformation( false, 'plugin_information', (object) [ 'slug' => 'mddb-sync' ] );
+
+		self::assertIsObject( $info );
+		self::assertStringNotContainsString( '<script>', $info->sections['description'] );
+		self::assertStringNotContainsString( '<script>', $info->sections['changelog'] );
+		self::assertStringContainsString( 'Real notes', $info->sections['description'] );
+	}
+
 	public function testInjectUpdateLeavesNonObjectAlone(): void {
 		$updater = new Updater( 'mddb-sync/mddb-sync.php', '0.1.0', 'tradik/mddb' );
 		self::assertNull( $updater->injectUpdate( null ) );

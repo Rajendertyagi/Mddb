@@ -107,9 +107,12 @@ final class Updater {
 			'download_link' => $release['zipUrl'],
 			'requires_php'  => $release['requiresPhp'],
 			'tested'        => $release['tested'],
+			// INT-003: GitHub release notes are rendered as HTML in the wp-admin
+			// "View details" modal. Run them through wp_kses_post() so only
+			// post-safe markup survives (no <script>, event handlers, etc.).
 			'sections'      => [
-				'description' => $release['body'],
-				'changelog'   => $release['body'],
+				'description' => wp_kses_post( $release['body'] ),
+				'changelog'   => wp_kses_post( $release['body'] ),
 			],
 		];
 	}

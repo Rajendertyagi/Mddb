@@ -100,7 +100,7 @@ class Client {
 		if ( $code < 200 || $code >= 300 ) {
 			return new \WP_Error(
 				'mddb_sync_add_failed',
-				sprintf( 'MDDB /v1/add returned HTTP %d: %s', $code, wp_remote_retrieve_body( $response ) ),
+				sprintf( 'MDDB /v1/add returned HTTP %d: %s', $code, self::responseSnippet( $response ) ),
 				[ 'status' => $code ]
 			);
 		}
@@ -132,11 +132,31 @@ class Client {
 		if ( $code < 200 || $code >= 300 ) {
 			return new \WP_Error(
 				'mddb_sync_delete_failed',
-				sprintf( 'MDDB /v1/delete returned HTTP %d: %s', $code, wp_remote_retrieve_body( $response ) ),
+				sprintf( 'MDDB /v1/delete returned HTTP %d: %s', $code, self::responseSnippet( $response ) ),
 				[ 'status' => $code ]
 			);
 		}
 		return true;
+	}
+
+	/**
+	 * Bounded, single-line snippet of a response body for error messages (INT-003).
+	 *
+	 * Server responses are untrusted: the full body landed in PHP logs verbatim,
+	 * allowing log spam, log forging (CR/LF injection) and disclosure of large
+	 * payloads. Truncate to 200 chars and collapse whitespace so log entries stay
+	 * one line.
+	 *
+	 * @param array<string,mixed> $response
+	 */
+	private static function responseSnippet( $response ): string {
+		$body = (string) wp_remote_retrieve_body( $response );
+		$body = (string) preg_replace( '/\s+/', ' ', $body );
+		$body = trim( $body );
+		if ( strlen( $body ) > 200 ) {
+			$body = substr( $body, 0, 200 ) . '…';
+		}
+		return $body;
 	}
 
 	/**
