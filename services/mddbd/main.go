@@ -1182,6 +1182,10 @@ func main() {
 		}
 		if authEnabled && s.AuthManager != nil {
 			unaryChain = append(unaryChain, s.AuthManager.GRPCUnaryInterceptor())
+			// SEC-003: streaming RPCs (Export, replication) must be
+			// authenticated too — and claims injected so stream handlers'
+			// CheckPermission sees them.
+			streamChain = append(streamChain, s.AuthManager.GRPCStreamInterceptor())
 		}
 		if len(unaryChain) > 0 {
 			grpcOpts = append(grpcOpts, grpc.ChainUnaryInterceptor(unaryChain...))
