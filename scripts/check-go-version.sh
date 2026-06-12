@@ -4,8 +4,8 @@
 #
 # A security bump of the Go toolchain must touch EVERY place that pins a
 # patch version, otherwise local workspace builds, CI, and the shipped
-# Docker images silently diverge (e.g. go.work lagging at go1.26.2 while
-# every go.mod is on go1.26.3 — the exact drift that motivated this guard).
+# Docker images silently diverge (e.g. go.work lagging at go1.26.4 while
+# every go.mod is on go1.26.4 — the exact drift that motivated this guard).
 #
 # This script collects every pinned `toolchain goX.Y.Z` directive, every
 # `GO_VERSION:` workflow env, and every `golang:X.Y.Z` Docker base image,
@@ -27,7 +27,7 @@ cd "${ROOT}"
 PRINT=0
 [[ "${1:-}" == "--print" ]] && PRINT=1
 
-# version_re matches a semantic patch version like 1.26.3
+# version_re matches a semantic patch version like 1.26.4
 version_re='[0-9]+\.[0-9]+\.[0-9]+'
 
 declare -a sources=()  # "file:label=version" rows for reporting

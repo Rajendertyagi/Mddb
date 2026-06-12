@@ -7019,7 +7019,7 @@ components:
         goVersion:
           type: string
           description: Go runtime version
-          example: go1.26.3
+          example: go1.26.4
         version:
           type: string
           description: MDDB server version

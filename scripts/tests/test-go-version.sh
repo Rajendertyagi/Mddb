@@ -53,7 +53,7 @@ expect_exit "synthetic consistent tree" 0 bash "${TMP}/ok/scripts/check-go-versi
 
 # Case 2: drift go.work behind go.mod (the exact DOC-003 regression) -> 1
 scaffold "${TMP}/drift" "1.26.3"
-printf 'go 1.26\n\ntoolchain go1.26.2\n\nuse (\n\t./svc\n)\n' > "${TMP}/drift/go.work"
+printf 'go 1.26\n\ntoolchain go1.26.4\n\nuse (\n\t./svc\n)\n' > "${TMP}/drift/go.work"
 expect_exit "drifted go.work is rejected" 1 bash "${TMP}/drift/scripts/check-go-version.sh"
 
 # Case 3: empty tree (no pins) -> 2
