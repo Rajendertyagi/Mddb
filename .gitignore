@@ -154,3 +154,7 @@ docs/metadata.json
 
 # Wrangler cache
 .wrangler/
+
+# Local audit findings — internal issue tracker, never pushed to the repo
+/audit/
+AUDIT_REPORT.md

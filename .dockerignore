@@ -78,3 +78,7 @@ build/
 # Go
 vendor/
 go.work
+
+# Local audit findings — never shipped in any image
+audit/
+AUDIT_REPORT.md
