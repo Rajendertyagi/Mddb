@@ -43,6 +43,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **DOC-003 — Go toolchain drift in `go.work`** ([go.work](go.work), [scripts/check-go-version.sh](scripts/check-go-version.sh), [.github/workflows/test.yml](.github/workflows/test.yml), [Makefile](Makefile), [RELEASING.md](RELEASING.md)) — the 2.9.17 security bump to `go1.26.3` updated every `go.mod`, both Dockerfiles, and all CI `GO_VERSION` envs, but **`go.work` was left pinned to the unpatched `toolchain go1.26.2`**. Local workspace builds (`GOWORK` on) could therefore compile with a toolchain missing the four stdlib CVE fixes that the bump shipped. `go.work` is now on `go1.26.3` (all 11 pins consistent). To stop the drift recurring, a new guard `scripts/check-go-version.sh` collects every `toolchain` directive, `GO_VERSION:` env, and `golang:X.Y.Z` base image and fails on any mismatch; it runs in CI as the `go-version` job, is wired into `make ci` (target `make check-go-version`), and is covered by `scripts/tests/test-go-version.sh` (consistent → exit 0, drifted → exit 1, no pins → exit 2). A new RELEASING.md checklist item documents updating **all** Go-version locations atomically on future bumps.
 
+### Changed
+- **DOC-009 — Coverage badge in README** ([README.md](README.md)) — CI already uploads coverage to Codecov on every run, but the README badge row had no coverage badge despite the documented ≥90% threshold. Added the `codecov.io/gh/tradik/mddb` badge after the Tests badge.
+
 ## [2.9.17] - 2026-05-18
 
 ### Security
