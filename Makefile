@@ -1,4 +1,4 @@
-.PHONY: help dev-start dev-stop dev-logs dev-build dev-clean test lint fmt vet sec test-graphql lint-all test-all ci chat-build chat-dev chat-test widget-build widget-dev dev-logs-chat docs-prep docs-dev docs-build airbyte-build airbyte-push airbyte-test airbyte-spec airbyte-check airbyte-clean gha-install gha-build gha-test gha-coverage gha-lint gha-check gha-verify-dist gha-clean chrome-install chrome-build chrome-package chrome-test chrome-coverage chrome-lint chrome-audit chrome-check chrome-clean grafana-install grafana-build grafana-test grafana-coverage grafana-lint grafana-check grafana-package grafana-docker grafana-clean
+.PHONY: help dev-start dev-stop dev-logs dev-build dev-clean test lint fmt fmt-check vet sec test-graphql lint-all test-all ci chat-build chat-dev chat-test widget-build widget-dev dev-logs-chat docs-prep docs-dev docs-build airbyte-build airbyte-push airbyte-test airbyte-spec airbyte-check airbyte-clean gha-install gha-build gha-test gha-coverage gha-lint gha-check gha-verify-dist gha-clean chrome-install chrome-build chrome-package chrome-test chrome-coverage chrome-lint chrome-audit chrome-check chrome-clean grafana-install grafana-build grafana-test grafana-coverage grafana-lint grafana-check grafana-package grafana-docker grafana-clean
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -79,11 +79,20 @@ lint: ## Run linter
 	cd services/mddbd && golangci-lint run --timeout 5m
 	@echo "✅ Linting passed!"
 
-fmt: ## Format Go code
+fmt: ## Format Go code (all modules)
 	@echo "🎨 Formatting Go code..."
-	cd services/mddbd && gofmt -s -w .
-	cd services/mddb-cli && gofmt -s -w .
+	gofmt -s -w services/ tools/ test/
 	@echo "✅ Code formatted!"
+
+fmt-check: ## Fail if any Go file is not gofmt-formatted (GO-012 — CI gate)
+	@echo "🎨 Checking Go formatting..."
+	@UNFORMATTED=$$(gofmt -s -l services/ tools/ test/); \
+	if [ -n "$$UNFORMATTED" ]; then \
+		echo "❌ Files not gofmt-formatted (run 'make fmt'):"; \
+		echo "$$UNFORMATTED"; \
+		exit 1; \
+	fi
+	@echo "✅ All Go files gofmt-formatted!"
 
 vet: ## Run go vet
 	@echo "🔍 Running go vet..."
@@ -109,7 +118,7 @@ lint-all: fmt vet sec lint ## Run all linters
 test-all: test test-graphql ## Run all tests
 	@echo "✅ All tests passed!"
 
-ci: check-go-version lint-all test-all ## Run full CI pipeline (lint + test)
+ci: check-go-version fmt-check lint-all test-all ## Run full CI pipeline (lint + test)
 	@echo "✅ CI pipeline complete!"
 
 dev-logs-chat: ## Show logs from chat server only

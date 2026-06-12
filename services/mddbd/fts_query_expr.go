@@ -15,16 +15,16 @@ type tokenType int
 const (
 	tokEOF tokenType = iota
 	tokTerm
-	tokPhrase     // "quoted phrase" — no distance modifier
-	tokProximity  // "quoted phrase"~N — phrase plus explicit word distance
-	tokWildcard   // term containing * or ?
-	tokFuzzy      // bare term with trailing ~N edit-distance modifier
-	tokLParen     // (
-	tokRParen     // )
-	tokAnd        // AND
-	tokOr         // OR
-	tokNot        // NOT or leading -
-	tokRequire    // leading +
+	tokPhrase    // "quoted phrase" — no distance modifier
+	tokProximity // "quoted phrase"~N — phrase plus explicit word distance
+	tokWildcard  // term containing * or ?
+	tokFuzzy     // bare term with trailing ~N edit-distance modifier
+	tokLParen    // (
+	tokRParen    // )
+	tokAnd       // AND
+	tokOr        // OR
+	tokNot       // NOT or leading -
+	tokRequire   // leading +
 )
 
 // token pairs a category with the payload the parser will need later. For

@@ -54,8 +54,8 @@ func TestTokenize_FuzzyAndProximityPayload(t *testing.T) {
 func TestParseQueryExpression_Precedence(t *testing.T) {
 	// AND binds tighter than OR: `a AND b OR c` parses as (a AND b) OR c.
 	cases := []struct {
-		in     string
-		wantS  string
+		in    string
+		wantS string
 	}{
 		{"a", "a"},
 		{"a AND b", "(a AND b)"},
