@@ -90,7 +90,7 @@ services:
     container_name: mddb-chat-widget
     restart: unless-stopped
     ports:
-      - "11032:80"
+      - "11032:8080" # nginx-unprivileged listens on 8080 (OPS-006)
     networks:
       - mddb-network
     labels:

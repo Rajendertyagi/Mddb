@@ -59,5 +59,14 @@ COPY --from=builder /app/dist ./dist
 # Expose port
 EXPOSE 3000
 
+# OPS-006: drop root — the official node image ships an unprivileged `node`
+# user. The proxy binds the non-privileged port 3000, so no root is needed.
+USER node
+
+# OPS-006: liveness probe so compose can gate dependents (service_healthy) and
+# restart a hung process.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -q --spider http://localhost:3000/ || exit 1
+
 # Start production server with reverse proxy
 CMD ["node", "server.js"]
