@@ -1,11 +1,93 @@
-# To get started with Dependabot version updates, you'll need to specify which
-# package ecosystems to update and where the package manifests are located.
-# Please see the documentation for all configuration options:
-# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
-
+# Dependabot version + security updates for the MDDB monorepo (OPS-007).
+# Replaces the empty scaffold (package-ecosystem: "") that monitored nothing.
+# Minor/patch bumps are grouped per ecosystem to keep PR noise down; majors
+# come as individual PRs.
 version: 2
 updates:
-  - package-ecosystem: "" # See documentation for possible values
-    directory: "/" # Location of package manifests
+  # --- Go modules (4) ---
+  - package-ecosystem: gomod
+    directories:
+      - /services/mddbd
+      - /services/mddb-cli
+      - /tools/bench
+      - /test
     schedule:
-      interval: "weekly"
+      interval: weekly
+    open-pull-requests-limit: 10
+    labels: [dependencies, go]
+    groups:
+      go-minor-patch:
+        update-types: [minor, patch]
+
+  # --- npm (5) ---
+  - package-ecosystem: npm
+    directories:
+      - /services/mddb-panel
+      - /services/mddb-chat-widget
+      - /integrations/chrome-extension
+      - /integrations/github-action
+      - /integrations/grafana-datasource
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    labels: [dependencies, javascript]
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+
+  # --- Python (Airbyte destination) ---
+  - package-ecosystem: pip
+    directory: /integrations/airbyte-destination
+    schedule:
+      interval: weekly
+    labels: [dependencies, python]
+    groups:
+      pip-minor-patch:
+        update-types: [minor, patch]
+
+  # --- Composer (WordPress plugin) ---
+  - package-ecosystem: composer
+    directory: /integrations/wordpress-plugin
+    schedule:
+      interval: weekly
+    labels: [dependencies, php]
+    groups:
+      composer-minor-patch:
+        update-types: [minor, patch]
+
+  # --- Cargo (chat server) ---
+  - package-ecosystem: cargo
+    directory: /services/mddb-chat
+    schedule:
+      interval: weekly
+    labels: [dependencies, rust]
+    groups:
+      cargo-minor-patch:
+        update-types: [minor, patch]
+
+  # --- Docker base images ---
+  - package-ecosystem: docker
+    directories:
+      - /services/mddbd
+      - /services/mddb-cli
+      - /services/mddb-chat
+      - /services/mddb-chat-widget
+      - /services/mddb-panel
+      - /integrations/airbyte-destination
+      - /integrations/grafana-datasource
+    schedule:
+      interval: weekly
+    labels: [dependencies, docker]
+    groups:
+      docker-minor-patch:
+        update-types: [minor, patch]
+
+  # --- GitHub Actions used by all workflows ---
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels: [dependencies, ci]
+    groups:
+      actions-minor-patch:
+        update-types: [minor, patch]
