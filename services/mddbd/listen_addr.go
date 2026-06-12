@@ -41,6 +41,37 @@ func isUnixAddr(addr string) bool {
 	return strings.HasPrefix(addr, unixScheme)
 }
 
+// isLoopbackListenAddr reports whether a listen address is confined to the
+// local host: a Unix domain socket, "localhost", or a loopback IP literal.
+//
+// A bare ":port" or "0.0.0.0:port" (all interfaces) and any routable host/IP
+// are NOT loopback. Used to decide whether an unauthenticated listener is
+// network-exposed (SEC-002).
+func isLoopbackListenAddr(addr string) bool {
+	if isUnixAddr(addr) {
+		// UDS is filesystem-scoped, not reachable over the network.
+		return true
+	}
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		// No host:port split (e.g. a bare hostname) — treat the whole string
+		// as the host.
+		host = addr
+	}
+	switch host {
+	case "":
+		// ":9000" → bound to every interface.
+		return false
+	case "localhost":
+		return true
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback()
+	}
+	// A non-IP hostname (external DNS name) is not loopback.
+	return false
+}
+
 // openListener opens a TCP or UDS listener based on the scheme embedded in
 // addr. For UDS it removes any stale socket file left by a previous run and
 // restricts permissions to owner-only (0600).

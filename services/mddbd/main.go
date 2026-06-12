@@ -1080,6 +1080,13 @@ func main() {
 			s.mcpAuth = mcpAuth
 			mcpHandler = mcpAuth.Wrap(mcpHandler)
 
+			// SEC-002: tie MCP exposure to the main auth config. When
+			// MDDB_AUTH_ENABLED=true and MCP has no key auth of its own, gate
+			// the listener with the main AuthManager so it can't be an
+			// anonymous full-R/W bypass; warn loudly if MCP is unauthenticated
+			// and bound beyond loopback.
+			mcpHandler = s.applyMCPAuth(mcpHandler, srvCfg.MCP.Addr)
+
 			if panelMode != "external" {
 				mcpHandler = withCORS(mcpHandler)
 			}
