@@ -28,8 +28,12 @@ app.use(createProxyMiddleware({
 // Serve static files from dist/
 app.use(express.static(join(__dirname, 'dist')));
 
-// SPA fallback — serve index.html for all non-API routes
-app.get('{*path}', (_req, res) => {
+// SPA fallback — serve index.html for all non-API routes.
+// FE-008: Express 5 (path-to-regexp v8) requires route patterns to start with
+// '/'. The leading-slash-less '{*path}' failed to match deep links (e.g. a
+// refresh on /documents/123 returned 404 instead of the SPA). '/{*path}' is the
+// correct optional catch-all and also matches '/'.
+app.get('/{*path}', (_req, res) => {
   res.sendFile(join(__dirname, 'dist', 'index.html'));
 });
 
