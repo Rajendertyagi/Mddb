@@ -1,4 +1,4 @@
-import React, { type ChangeEvent } from 'react';
+import React, { type ChangeEvent, type ReactElement } from 'react';
 import { InlineField, Input, Select } from '@grafana/ui';
 import type { QueryEditorProps, SelectableValue } from '@grafana/data';
 import { MddbDataSource } from '../datasource';
@@ -35,7 +35,7 @@ const EVENT_TYPES: Array<SelectableValue<MddbEventType>> = [
 const LABEL_WIDTH = 18;
 const INPUT_WIDTH = 30;
 
-export function QueryEditor(props: Props): JSX.Element {
+export function QueryEditor(props: Props): ReactElement {
   const { query, onChange, onRunQuery } = props;
 
   const update = (patch: Partial<MddbQuery>) => {

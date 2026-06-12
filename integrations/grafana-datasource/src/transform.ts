@@ -1,4 +1,4 @@
-import { FieldType, MutableDataFrame, type DataFrame } from '@grafana/data';
+import { FieldType, createDataFrame, type DataFrame } from '@grafana/data';
 import type {
   AggregateResponse,
   FtsResponse,
@@ -22,7 +22,7 @@ export function toDataFrame(query: MddbQuery, payload: unknown): DataFrame {
     case 'stats':
       return statsFrame(query.refId, payload as StatsResponse);
     default:
-      return new MutableDataFrame({ refId: query.refId, fields: [] });
+      return createDataFrame({ refId: query.refId, fields: [] });
   }
 }
 
@@ -35,7 +35,7 @@ function histogramFrame(refId: string, payload: TemporalHistogramResponse): Data
     times.push(b.from * 1000);
     counts.push(b.count);
   }
-  return new MutableDataFrame({
+  return createDataFrame({
     refId,
     name: `${payload?.collection ?? 'mddb'} / ${payload?.eventType ?? 'access'}`,
     fields: [
@@ -47,7 +47,7 @@ function histogramFrame(refId: string, payload: TemporalHistogramResponse): Data
 
 function hotFrame(refId: string, payload: TemporalHotResponse): DataFrame {
   const entries = payload?.entries ?? [];
-  return new MutableDataFrame({
+  return createDataFrame({
     refId,
     name: `${payload?.collection ?? 'mddb'} / hot`,
     fields: [
@@ -68,7 +68,7 @@ function hotFrame(refId: string, payload: TemporalHotResponse): DataFrame {
 
 function aggregateFrame(refId: string, payload: AggregateResponse): DataFrame {
   if (payload?.buckets && payload.buckets.length > 0) {
-    return new MutableDataFrame({
+    return createDataFrame({
       refId,
       name: `${payload?.collection ?? 'mddb'} / ${payload?.key ?? 'agg'}`,
       fields: [
@@ -86,7 +86,7 @@ function aggregateFrame(refId: string, payload: AggregateResponse): DataFrame {
     });
   }
   const values = payload?.values ?? [];
-  return new MutableDataFrame({
+  return createDataFrame({
     refId,
     name: `${payload?.collection ?? 'mddb'} / ${payload?.key ?? 'agg'}`,
     fields: [
@@ -98,7 +98,7 @@ function aggregateFrame(refId: string, payload: AggregateResponse): DataFrame {
 
 function ftsFrame(refId: string, payload: FtsResponse): DataFrame {
   const results = payload?.results ?? [];
-  return new MutableDataFrame({
+  return createDataFrame({
     refId,
     name: 'mddb / fts',
     fields: [
@@ -117,7 +117,7 @@ function ftsFrame(refId: string, payload: FtsResponse): DataFrame {
 function statsFrame(refId: string, payload: StatsResponse): DataFrame {
   const collections = payload?.collections ?? {};
   const names = Object.keys(collections).sort();
-  return new MutableDataFrame({
+  return createDataFrame({
     refId,
     name: 'mddb / stats',
     fields: [

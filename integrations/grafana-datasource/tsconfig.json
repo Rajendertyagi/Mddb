@@ -1,10 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "jsx": "react",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["jest", "node"],
     "rootDir": ".",
     "outDir": "build",
     "strict": true,

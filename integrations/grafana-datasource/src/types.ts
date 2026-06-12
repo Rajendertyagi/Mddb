@@ -16,12 +16,7 @@ export interface MddbSecureJsonData {
 }
 
 /** Query types exposed by the MDDB datasource. */
-export type MddbQueryType =
-  | 'temporal-histogram'
-  | 'temporal-hot'
-  | 'aggregate'
-  | 'fts'
-  | 'stats';
+export type MddbQueryType = 'temporal-histogram' | 'temporal-hot' | 'aggregate' | 'fts' | 'stats';
 
 export type MddbHistogramInterval = 'day' | 'week' | 'month';
 export type MddbEventType = 'create' | 'update' | 'access';

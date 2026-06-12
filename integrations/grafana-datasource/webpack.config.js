@@ -40,13 +40,7 @@ module.exports = (_env, argv) => {
         },
       ],
     },
-    externals: [
-      'react',
-      'react-dom',
-      'rxjs',
-      'tslib',
-      /^@grafana\//,
-    ],
+    externals: ['react', 'react-dom', 'tslib', /^@grafana\//],
     plugins: [
       new CopyPlugin({
         patterns: [

@@ -1,4 +1,4 @@
-import React, { type ChangeEvent } from 'react';
+import React, { type ChangeEvent, type ReactElement } from 'react';
 import { InlineField, Input, SecretInput } from '@grafana/ui';
 import type { DataSourcePluginOptionsEditorProps } from '@grafana/data';
 import type { MddbDataSourceOptions, MddbSecureJsonData } from '../types';
@@ -8,14 +8,14 @@ type Props = DataSourcePluginOptionsEditorProps<MddbDataSourceOptions, MddbSecur
 const LABEL_WIDTH = 24;
 const INPUT_WIDTH = 50;
 
-export function ConfigEditor(props: Props): JSX.Element {
+export function ConfigEditor(props: Props): ReactElement {
   const { options, onOptionsChange } = props;
   const jsonData = options.jsonData ?? {};
   const secureJsonFields = options.secureJsonFields ?? {};
   const secureJsonData = (options.secureJsonData ?? {}) as MddbSecureJsonData;
 
-  const onJsonChange = (field: keyof MddbDataSourceOptions) =>
-    (event: ChangeEvent<HTMLInputElement>) => {
+  const onJsonChange =
+    (field: keyof MddbDataSourceOptions) => (event: ChangeEvent<HTMLInputElement>) => {
       onOptionsChange({ ...options, jsonData: { ...jsonData, [field]: event.target.value } });
     };
 

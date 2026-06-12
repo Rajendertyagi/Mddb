@@ -34,10 +34,26 @@
     ],
     "screenshots": [],
     "version": "0.1.0",
-    "updated": "2026-05-20"
+    "updated": "2026-05-22"
   },
+  "routes": [
+    {
+      "path": "auth",
+      "url": "{{ .JsonData.url }}",
+      "headers": [
+        {
+          "name": "Authorization",
+          "content": "Bearer {{ .SecureJsonData.apiKey }}"
+        }
+      ]
+    },
+    {
+      "path": "noauth",
+      "url": "{{ .JsonData.url }}"
+    }
+  ],
   "dependencies": {
-    "grafanaDependency": ">=10.0.0",
+    "grafanaDependency": ">=11.0.0",
     "plugins": []
   }
 }

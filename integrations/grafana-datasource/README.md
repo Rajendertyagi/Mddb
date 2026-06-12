@@ -1,16 +1,18 @@
 # MDDB — Grafana Datasource Plugin
 
 [![Plugin](https://img.shields.io/badge/Grafana%20Plugin-tradik--mddb--datasource-F46800?logo=grafana&logoColor=white)](https://github.com/tradik/mddb/tree/main/integrations/grafana-datasource)
-[![Grafana](https://img.shields.io/badge/Grafana-%E2%89%A5%2010.0-F46800?logo=grafana&logoColor=white)](https://grafana.com/)
+[![Grafana](https://img.shields.io/badge/Grafana-%E2%89%A5%2011.0-F46800?logo=grafana&logoColor=white)](https://grafana.com/)
 [![Node](https://img.shields.io/badge/Node-24-3C873A?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![MDDB](https://img.shields.io/badge/MDDB-2.9.16%2B-1f7a8c)](https://github.com/tradik/mddb)
 [![Coverage](https://img.shields.io/badge/coverage-%E2%89%A5%2090%25-brightgreen)](#tests)
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-green)](#license)
 
-Native Grafana datasource plugin that lets dashboards query an [MDDB](https://github.com/tradik/mddb) instance directly. Five built-in query types cover MDDB's analytics surface — temporal histograms, hot-doc leaderboards, metadata aggregates, full-text search, and instance stats — and route through the Grafana `BackendSrv` proxy so CORS and auth are handled by the Grafana server.
+Native Grafana datasource plugin that lets dashboards query an [MDDB](https://github.com/tradik/mddb) instance directly. Five built-in query types cover MDDB's analytics surface — temporal histograms, hot-doc leaderboards, metadata aggregates, full-text search, and instance stats — and route through Grafana's datasource proxy so CORS and auth are handled by the Grafana server, not the browser.
 
 This is a *frontend* plugin (no backend Go binary), so installation is a single drop-in directory and the plugin works the same way in Grafana OSS, Enterprise, and Cloud (with the appropriate unsigned-plugin or private-plugin policy).
+
+> **Auth model.** Grafana never ships `secureJsonData` (the API key) back to the frontend after save — only `secureJsonFields.apiKey: true` (a boolean) is exposed. The plugin therefore declares two proxy routes in `plugin.json`: `auth` (with `Authorization: Bearer {{ .SecureJsonData.apiKey }}`) and `noauth` (no header). The browser picks one based on whether the API key is configured, and Grafana's `pluginproxy` injects the bearer token server-side before forwarding to MDDB. No secret ever touches the browser.
 
 ## Contents
 
@@ -178,17 +180,23 @@ Grafana panel
     │  React (QueryEditor / ConfigEditor)
     ▼
 MddbDataSource  (DataSourceApi<MddbQuery, MddbDataSourceOptions>)
-    │  buildRequest(query, range, defaults) → { path, body }
-    │  client.post(path, body) ──── BackendSrv proxy ───▶ MDDB
-    │  toDataFrame(query, payload)
+    │  buildRequest(target, range, defaults) → { path, body }
+    │  client.post(path, body)
+    │      ▼
+    │  /api/datasources/proxy/uid/<uid>/<auth|noauth><path>
+    │      ▼  ← Grafana pluginproxy substitutes {{ .JsonData.url }} and
+    │            injects "Authorization: Bearer {{ .SecureJsonData.apiKey }}"
+    │            (only on the "auth" route).
+    │  ────▶ MDDB
+    │  toDataFrame(target, payload)
     ▼
 Grafana DataFrame  →  Time-series / Table / Stat panel
 ```
 
 - `query.ts` builds the JSON body for each MDDB endpoint and validates inputs.
-- `transform.ts` converts the response into a Grafana `MutableDataFrame` (time-series with `FieldType.time` for `temporal-histogram` and bucketed `aggregate`; tables otherwise).
-- `client.ts` wraps the injected `HttpFetcher` with base-URL handling, bearer auth, and `/testDatasource` probe classification.
-- `datasource.ts` wires the three together and lives behind `module.ts`, which exposes the `DataSourcePlugin` Grafana picks up at load time.
+- `transform.ts` converts the response into a Grafana `DataFrame` (via `createDataFrame`) — time-series with `FieldType.time` for `temporal-histogram` and bucketed `aggregate`; tables otherwise.
+- `client.ts` builds the `/api/datasources/proxy/uid/<uid>/<route>` URL and classifies the response for the `/testDatasource` probe; it never sees the API key itself.
+- `datasource.ts` reads `secureJsonFields.apiKey` (boolean) to pick the `auth` vs `noauth` route, applies template variables only in `applyTemplateVariables()` (Grafana calls it exactly once per target — `query()` must not re-interpolate), and lives behind `module.ts`, which exposes the `DataSourcePlugin` Grafana picks up at load time.
 
 ## License
 

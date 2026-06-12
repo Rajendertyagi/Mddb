@@ -8,7 +8,7 @@ const Q = (queryType: MddbQuery['queryType']): MddbQuery =>
 function values(frame: ReturnType<typeof toDataFrame>, fieldName: string): unknown[] {
   const f = frame.fields.find((field) => field.name === fieldName);
   if (!f) throw new Error(`field ${fieldName} missing`);
-  return f.values.toArray ? f.values.toArray() : (f.values as unknown[]);
+  return f.values as unknown[];
 }
 
 describe('toDataFrame', () => {
@@ -88,10 +88,7 @@ describe('toDataFrame', () => {
   });
 
   it('returns an empty frame for unknown query types and handles empty payloads', () => {
-    const empty = toDataFrame(
-      { refId: 'A', queryType: 'nope' } as unknown as MddbQuery,
-      {},
-    );
+    const empty = toDataFrame({ refId: 'A', queryType: 'nope' } as unknown as MddbQuery, {});
     expect(empty.fields).toEqual([]);
     const noHist = toDataFrame(Q('temporal-histogram'), {});
     expect(values(noHist, 'time')).toEqual([]);
@@ -103,5 +100,50 @@ describe('toDataFrame', () => {
     expect(values(noFts, 'key')).toEqual([]);
     const noStats = toDataFrame(Q('stats'), {});
     expect(values(noStats, 'collection')).toEqual([]);
+  });
+
+  it('falls back on default field values when MDDB payload omits them', () => {
+    // hot entries without docId / accessCount / lastAccessAt — covers `?? 0 / ''`.
+    const hot = toDataFrame(Q('temporal-hot'), { entries: [{} as never] });
+    expect(values(hot, 'docId')).toEqual(['']);
+    expect(values(hot, 'accessCount')).toEqual([0]);
+    expect(values(hot, 'lastAccessAt')).toEqual([0]);
+    expect(hot.name).toBe('mddb / hot');
+
+    // aggregate values entry without value/count — covers `?? '' / 0`.
+    const agg = toDataFrame(Q('aggregate'), {
+      values: [{} as { value: string; count: number }],
+    });
+    expect(values(agg, 'value')).toEqual(['']);
+    expect(values(agg, 'count')).toEqual([0]);
+    expect(agg.name).toBe('mddb / agg');
+
+    // aggregate bucket without count — covers the bucket branch `?? 0`.
+    const aggBuckets = toDataFrame(Q('aggregate'), {
+      buckets: [{} as { from: number; to: number; count: number }],
+    });
+    expect(values(aggBuckets, 'time')).toEqual([0]);
+    expect(values(aggBuckets, 'count')).toEqual([0]);
+
+    // fts result without key/lang/score/highlights.
+    const fts = toDataFrame(Q('fts'), {
+      results: [{} as { key: string; lang: string; score: number }],
+    });
+    expect(values(fts, 'key')).toEqual(['']);
+    expect(values(fts, 'lang')).toEqual(['']);
+    expect(values(fts, 'score')).toEqual([0]);
+    expect(values(fts, 'highlight')).toEqual(['']);
+
+    // stats collection without documents/revisions.
+    const stats = toDataFrame(Q('stats'), {
+      collections: { blog: {} as { documents: number; revisions: number } },
+    });
+    expect(values(stats, 'documents')).toEqual([0]);
+    expect(values(stats, 'revisions')).toEqual([0]);
+    expect(values(stats, 'embeddings')).toEqual([0]);
+
+    // histogram without collection / eventType — covers the `?? 'mddb' / 'access'` defaults.
+    const hist = toDataFrame(Q('temporal-histogram'), { buckets: [] });
+    expect(hist.name).toBe('mddb / access');
   });
 });

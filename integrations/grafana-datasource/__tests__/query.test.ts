@@ -80,9 +80,9 @@ describe('buildRequest', () => {
   });
 
   it('throws when aggregate has no facetKey', () => {
-    expect(() =>
-      buildRequest(Q({ queryType: 'aggregate', collection: 'blog' }), RANGE),
-    ).toThrow(/facetKey/);
+    expect(() => buildRequest(Q({ queryType: 'aggregate', collection: 'blog' }), RANGE)).toThrow(
+      /facetKey/,
+    );
   });
 
   it('builds /v1/fts when query string is set', () => {
@@ -97,9 +97,7 @@ describe('buildRequest', () => {
   });
 
   it('throws when fts has no query', () => {
-    expect(() =>
-      buildRequest(Q({ queryType: 'fts', collection: 'blog' }), RANGE),
-    ).toThrow(/query/);
+    expect(() => buildRequest(Q({ queryType: 'fts', collection: 'blog' }), RANGE)).toThrow(/query/);
   });
 
   it('throws for unsupported query types', () => {

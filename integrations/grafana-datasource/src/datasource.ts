@@ -6,15 +6,10 @@ import {
   type ScopedVars,
 } from '@grafana/data';
 import { getBackendSrv, getTemplateSrv } from '@grafana/runtime';
-import { lastValueFrom } from 'rxjs';
 import { MddbClient, type HttpFetcher } from './client';
 import { buildRequest, type TimeRangeSeconds } from './query';
 import { toDataFrame } from './transform';
-import type {
-  MddbDataSourceOptions,
-  MddbQuery,
-  MddbSecureJsonData,
-} from './types';
+import type { MddbDataSourceOptions, MddbQuery } from './types';
 import { DEFAULT_QUERY } from './types';
 
 export interface MddbDataSourceDeps {
@@ -25,26 +20,33 @@ export interface MddbDataSourceDeps {
 /** Build the default Grafana-backed HTTP fetcher (uses BackendSrv proxy). */
 /* istanbul ignore next — exercised only when running inside Grafana; tests inject fetcher. */
 function defaultFetcher(): HttpFetcher {
-  return async (url, body, headers) => {
-    const obs = getBackendSrv().fetch<unknown>({
-      url,
-      method: 'POST',
-      headers,
-      data: body,
-      showErrorAlert: false,
+  return (url, body, headers) =>
+    new Promise((resolve) => {
+      const obs = getBackendSrv().fetch<unknown>({
+        url,
+        method: 'POST',
+        headers,
+        data: body,
+        showErrorAlert: false,
+      });
+      // BackendSrv's fetch returns an Observable from a different `rxjs` copy
+      // than ours, so we consume it with `.subscribe` directly to dodge the
+      // dual-rxjs type incompatibility.
+      const sub = obs.subscribe({
+        next: (res: { status: number; data: unknown }) => {
+          resolve({ status: res.status, data: res.data, bodyText: JSON.stringify(res.data) });
+          sub.unsubscribe();
+        },
+        error: (err: unknown) => {
+          const e = err as { status?: number; data?: unknown; statusText?: string };
+          resolve({
+            status: e.status ?? 0,
+            data: e.data ?? null,
+            bodyText: e.statusText ?? (err as Error).message,
+          });
+        },
+      });
     });
-    try {
-      const res = await lastValueFrom(obs);
-      return { status: res.status, data: res.data, bodyText: JSON.stringify(res.data) };
-    } catch (err) {
-      const e = err as { status?: number; data?: unknown; statusText?: string };
-      return {
-        status: e.status ?? 0,
-        data: e.data ?? null,
-        bodyText: e.statusText ?? (err as Error).message,
-      };
-    }
-  };
 }
 
 /* istanbul ignore next — exercised only when running inside Grafana; tests inject templateInterpolate. */
@@ -64,24 +66,31 @@ export class MddbDataSource extends DataSourceApi<MddbQuery, MddbDataSourceOptio
   ) {
     super(instanceSettings);
     const json = instanceSettings.jsonData ?? {};
-    const secure = ((instanceSettings as unknown as {
-      secureJsonData?: MddbSecureJsonData;
-    }).secureJsonData) ?? {};
+    const secureFields =
+      (instanceSettings as unknown as { secureJsonFields?: Record<string, boolean> })
+        .secureJsonFields ?? {};
     this.defaultCollection = json.defaultCollection;
     this.defaultLanguage = json.defaultLanguage ?? 'en_US';
     this.client = new MddbClient({
-      baseUrl: json.url ?? '',
-      apiKey: secure.apiKey,
+      uid: instanceSettings.uid,
+      hasApiKey: Boolean(secureFields.apiKey),
       fetcher: deps.fetcher ?? defaultFetcher(),
     });
     this.interpolate = deps.templateInterpolate ?? defaultInterpolate;
   }
 
-  /** Apply dashboard variables / scoped vars to every string field on the query. */
+  /**
+   * Apply dashboard variables / scoped vars to every interpolatable field on
+   * the query. Grafana calls this automatically before `query()`, so do NOT
+   * call it again inside `query()` — that would re-interpolate already-resolved
+   * values and corrupt anything containing a literal `$...`.
+   */
   applyTemplateVariables(query: MddbQuery, scopedVars: ScopedVars): MddbQuery {
     return {
       ...query,
-      collection: query.collection ? this.interpolate(query.collection, scopedVars) : query.collection,
+      collection: query.collection
+        ? this.interpolate(query.collection, scopedVars)
+        : query.collection,
       query: query.query ? this.interpolate(query.query, scopedVars) : query.query,
       facetKey: query.facetKey ? this.interpolate(query.facetKey, scopedVars) : query.facetKey,
     };
@@ -101,15 +110,15 @@ export class MddbDataSource extends DataSourceApi<MddbQuery, MddbDataSourceOptio
       toSec: Math.floor(request.range.to.valueOf() / 1000),
     };
     const tasks = request.targets
-      .filter((t) => this.filterQuery(t))
+      .filter((target) => this.filterQuery(target))
       .map(async (target) => {
-        const interpolated = this.applyTemplateVariables(target, request.scopedVars ?? {});
-        const { path, body } = buildRequest(interpolated, range, {
+        // Grafana already invoked applyTemplateVariables() on `target` for us.
+        const { path, body } = buildRequest(target, range, {
           collection: this.defaultCollection,
           language: this.defaultLanguage,
         });
         const payload = await this.client.post(path, body);
-        return toDataFrame(interpolated, payload);
+        return toDataFrame(target, payload);
       });
     const data = await Promise.all(tasks);
     return { data };

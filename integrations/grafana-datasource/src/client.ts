@@ -1,4 +1,15 @@
-/** HTTP fetcher signature — abstracts both Grafana BackendSrv and node/browser fetch. */
+/**
+ * Thin HTTP client that talks to MDDB *through* a Grafana datasource proxy route.
+ *
+ * Reasoning: Grafana never ships `secureJsonData` (e.g. the API key) back to the
+ * frontend after save — only `secureJsonFields.apiKey: true` (a boolean). The
+ * Bearer token therefore has to be injected on Grafana's server side, via a
+ * `routes` entry in `plugin.json`. This client just picks one of two configured
+ * proxy paths (`auth` when an API key is set, `noauth` otherwise) and builds
+ * `/api/datasources/proxy/uid/<uid>/<routePath><mddbPath>`. The configured
+ * route copies the request to `{{ .JsonData.url }}{{ mddbPath }}` and adds the
+ * `Authorization: Bearer {{ .SecureJsonData.apiKey }}` header when applicable.
+ */
 export type HttpFetcher = (
   url: string,
   body: unknown,
@@ -6,8 +17,10 @@ export type HttpFetcher = (
 ) => Promise<{ status: number; data: unknown; bodyText?: string }>;
 
 export interface MddbClientOptions {
-  baseUrl: string;
-  apiKey?: string;
+  /** Grafana datasource UID — used to build the proxy URL. */
+  uid: string;
+  /** True if `secureJsonFields.apiKey === true`. Chooses `auth` vs `noauth` route. */
+  hasApiKey: boolean;
   fetcher: HttpFetcher;
 }
 
@@ -22,25 +35,29 @@ export class MddbHttpError extends Error {
   }
 }
 
-/** Thin wrapper around an injected fetcher; centralises base URL + auth header + error mapping. */
 export class MddbClient {
-  private readonly baseUrl: string;
-  private readonly apiKey: string;
+  private readonly uid: string;
+  private readonly routePath: 'auth' | 'noauth';
   private readonly fetcher: HttpFetcher;
 
   constructor(opts: MddbClientOptions) {
-    this.baseUrl = (opts.baseUrl || '').replace(/\/+$/, '');
-    this.apiKey = (opts.apiKey ?? '').trim();
+    if (!opts.uid) {
+      throw new Error('MddbClient requires a Grafana datasource UID.');
+    }
+    this.uid = opts.uid;
+    this.routePath = opts.hasApiKey ? 'auth' : 'noauth';
     this.fetcher = opts.fetcher;
   }
 
+  /** Build the Grafana proxy URL for a given MDDB endpoint path. */
+  proxyUrl(path: string): string {
+    const normalised = path.startsWith('/') ? path : `/${path}`;
+    return `/api/datasources/proxy/uid/${this.uid}/${this.routePath}${normalised}`;
+  }
+
   async post(path: string, body: Record<string, unknown>): Promise<unknown> {
-    if (!this.baseUrl) {
-      throw new Error('MDDB datasource is missing "url" — set it in the datasource settings.');
-    }
-    const url = `${this.baseUrl}${path}`;
+    const url = this.proxyUrl(path);
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (this.apiKey) headers.Authorization = `Bearer ${this.apiKey}`;
     const res = await this.fetcher(url, body, headers);
     if (res.status < 200 || res.status >= 300) {
       throw new MddbHttpError(
@@ -53,17 +70,13 @@ export class MddbClient {
   }
 
   /**
-   * Cheap connectivity + auth probe used by /testDatasource. Treats 2xx as healthy,
-   * 401/403 as credential failure, 5xx as server failure, and 404/405 as "alive but
-   * the probe endpoint isn't supported" — still healthy.
+   * Cheap connectivity + auth probe used by `/testDatasource`. Treats 2xx as
+   * healthy, 401/403 as credential failure, 5xx as server failure, and 404/405
+   * as "alive but the probe endpoint isn't supported" — still healthy.
    */
   async ping(): Promise<{ ok: boolean; message: string }> {
-    if (!this.baseUrl) {
-      return { ok: false, message: 'Missing URL.' };
-    }
-    const url = `${this.baseUrl}/v1/stats`;
+    const url = this.proxyUrl('/v1/stats');
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (this.apiKey) headers.Authorization = `Bearer ${this.apiKey}`;
     try {
       const res = await this.fetcher(url, {}, headers);
       if (res.status === 401 || res.status === 403) {
