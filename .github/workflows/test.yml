@@ -15,7 +15,7 @@ on:
       - 'buf.gen.yaml'
       - 'go.work'
       - 'tools/bench/**'
-      - 'test/go.mod'
+      - 'test/**'
       - 'scripts/check-go-version.sh'
       - '.github/workflows/test.yml'
   pull_request:
@@ -28,7 +28,7 @@ on:
       - 'buf.gen.yaml'
       - 'go.work'
       - 'tools/bench/**'
-      - 'test/go.mod'
+      - 'test/**'
       - 'scripts/check-go-version.sh'
       - '.github/workflows/test.yml'
 
@@ -207,3 +207,30 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
         run: go build -o mddb-cli-${{ matrix.goos }}-${{ matrix.goarch }} .
+
+  bench:
+    name: Benchmark Module Build & Vet
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: test/go.sum
+
+      # GO-011: the cross-database benchmark binaries (test/) used to be excluded
+      # from CI because the files all sat in one package with duplicate `main`
+      # symbols. They are now split one-`package main`-per-directory, so build +
+      # vet keep them honest against server/proto API drift. GOWORK=off (workflow
+      # env) builds the module standalone via its own `replace mddb => ...`.
+      - name: Build benchmark binaries
+        working-directory: test
+        run: go build ./...
+
+      - name: Vet benchmark binaries
+        working-directory: test
+        run: go vet ./...

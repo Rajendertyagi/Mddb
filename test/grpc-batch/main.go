@@ -3,20 +3,19 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	
+
 	pb "mddb/proto"
 )
 
 const (
 	grpcAddr   = "localhost:11024"
 	totalDocs  = 1000
-	batchSize  = 100  // Send 100 documents per batch
+	batchSize  = 100 // Send 100 documents per batch
 	collection = "perftest-grpc-batch"
 )
 
@@ -82,7 +81,7 @@ func loadDocuments() map[string]string {
 
 	files := []string{"lorem-short.md", "lorem-medium.md", "lorem-long.md"}
 	for _, file := range files {
-		content, err := ioutil.ReadFile(file)
+		content, err := os.ReadFile(file)
 		if err != nil {
 			continue
 		}
@@ -145,7 +144,7 @@ func runBatchTest(client pb.MDDBClient, docs map[string]string) Stats {
 		}
 
 		if resp.Failed > 0 {
-			fmt.Printf("⚠ Batch partial failure: %d added, %d updated, %d failed\n", 
+			fmt.Printf("⚠ Batch partial failure: %d added, %d updated, %d failed\n",
 				resp.Added, resp.Updated, resp.Failed)
 		}
 
@@ -155,7 +154,7 @@ func runBatchTest(client pb.MDDBClient, docs map[string]string) Stats {
 		// Progress indicator
 		if (i+batchSize)%1000 == 0 || end == len(allDocs) {
 			avgMs := elapsed.Milliseconds()
-			fmt.Printf("  Progress: %d/%d documents (%.1f%%) - batch: %dms\n", 
+			fmt.Printf("  Progress: %d/%d documents (%.1f%%) - batch: %dms\n",
 				docNum, totalDocs, float64(docNum)/float64(totalDocs)*100, avgMs)
 		}
 	}
@@ -227,7 +226,7 @@ func saveResults(stats Stats) {
 	fmt.Fprintf(f, "  Total documents: %d\n", totalDocs)
 	fmt.Fprintf(f, "  Batch size: %d\n", batchSize)
 	fmt.Fprintf(f, "  Batches sent: %d\n\n", len(stats.times))
-	
+
 	fmt.Fprintf(f, "Batch Statistics:\n")
 	fmt.Fprintf(f, "  Total time: %s\n", stats.total.Round(time.Millisecond))
 	fmt.Fprintf(f, "  Average per batch: %s\n", stats.avg.Round(time.Microsecond))

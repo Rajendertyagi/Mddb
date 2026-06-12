@@ -1,21 +1,23 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"os"
 	"sort"
 	"time"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const (
-	couchURL  = "http://mddb:benchmark123@localhost:5984"
-	totalDocs = 3000
-	batchSize = 100
-	dbName    = "mddb_test"
+	mongoURI   = "mongodb://mddb:benchmark123@localhost:27017"
+	totalDocs  = 3000
+	batchSize  = 100
+	dbName     = "mddb_test"
+	collection = "documents"
 )
 
 type Stats struct {
@@ -28,42 +30,35 @@ type Stats struct {
 	Throughput float64
 }
 
-type CouchDoc struct {
-	Key     string `json:"key"`
-	Lang    string `json:"lang"`
-	Content string `json:"content"`
-}
-
 func main() {
 	fmt.Println("════════════════════════════════════════════════")
-	fmt.Println("  CouchDB Performance Test")
+	fmt.Println("  MongoDB Performance Test")
 	fmt.Println("════════════════════════════════════════════════")
 	fmt.Println()
 
-	// Check connection
-	fmt.Print("Connecting to CouchDB... ")
-	resp, err := http.Get(couchURL)
+	// Connect to MongoDB
+	fmt.Print("Connecting to MongoDB... ")
+	ctx := context.Background()
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoURI))
 	if err != nil {
 		fmt.Printf("✗ Failed: %v\n", err)
 		os.Exit(1)
 	}
-	resp.Body.Close()
+	defer client.Disconnect(ctx)
+
+	// Ping to verify connection
+	if err := client.Ping(ctx, nil); err != nil {
+		fmt.Printf("✗ Failed: %v\n", err)
+		os.Exit(1)
+	}
 	fmt.Println("✓ Connected")
 
-	// Create/recreate database
-	fmt.Print("Preparing database... ")
-	// Delete if exists
-	req, _ := http.NewRequest("DELETE", couchURL+"/"+dbName, nil)
-	http.DefaultClient.Do(req)
+	// Get collection
+	coll := client.Database(dbName).Collection(collection)
 
-	// Create new
-	req, _ = http.NewRequest("PUT", couchURL+"/"+dbName, nil)
-	resp, err = http.DefaultClient.Do(req)
-	if err != nil {
-		fmt.Printf("✗ Failed: %v\n", err)
-		os.Exit(1)
-	}
-	resp.Body.Close()
+	// Drop collection to start fresh
+	fmt.Print("Preparing collection... ")
+	coll.Drop(ctx)
 	fmt.Println("✓ Ready")
 	fmt.Println()
 
@@ -75,7 +70,7 @@ func main() {
 	}
 
 	// Run test
-	stats := runTest(docs)
+	stats := runTest(ctx, coll, docs)
 
 	// Print results
 	printStats(stats)
@@ -89,7 +84,7 @@ func loadDocuments() map[string]string {
 
 	files := []string{"lorem-short.md", "lorem-medium.md", "lorem-long.md"}
 	for _, file := range files {
-		content, err := ioutil.ReadFile(file)
+		content, err := os.ReadFile(file)
 		if err != nil {
 			continue
 		}
@@ -99,14 +94,13 @@ func loadDocuments() map[string]string {
 	return docs
 }
 
-func runTest(docs map[string]string) Stats {
+func runTest(ctx context.Context, coll *mongo.Collection, docs map[string]string) Stats {
 	var stats Stats
 	stats.Times = make([]time.Duration, 0, totalDocs)
 
 	fmt.Printf("Inserting %d documents...\n\n", totalDocs)
 
 	startTotal := time.Now()
-	client := &http.Client{}
 
 	for i := 0; i < totalDocs; i++ {
 		var content string
@@ -119,28 +113,18 @@ func runTest(docs map[string]string) Stats {
 			content = docs["lorem-long.md"]
 		}
 
-		doc := CouchDoc{
-			Key:     fmt.Sprintf("doc-%d", i+1),
-			Lang:    "en_US",
-			Content: content,
+		doc := bson.M{
+			"key":     fmt.Sprintf("doc-%d", i+1),
+			"lang":    "en_US",
+			"content": content,
 		}
 
-		jsonData, _ := json.Marshal(doc)
-
 		start := time.Now()
-		req, _ := http.NewRequest("POST", couchURL+"/"+dbName, bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-		resp, err := client.Do(req)
+		_, err := coll.InsertOne(ctx, doc)
 		elapsed := time.Since(start)
 
 		if err != nil {
 			fmt.Printf("✗ Insert failed: %v\n", err)
-			continue
-		}
-		resp.Body.Close()
-
-		if resp.StatusCode != 201 {
-			fmt.Printf("✗ Insert failed with status: %d\n", resp.StatusCode)
 			continue
 		}
 
@@ -204,7 +188,7 @@ func printStats(stats Stats) {
 }
 
 func saveResults(stats Stats) {
-	filename := "couchdb-performance-results.txt"
+	filename := "mongodb-performance-results.txt"
 	f, err := os.Create(filename)
 	if err != nil {
 		fmt.Printf("Warning: Could not save results: %v\n", err)
@@ -212,7 +196,7 @@ func saveResults(stats Stats) {
 	}
 	defer f.Close()
 
-	fmt.Fprintf(f, "CouchDB Performance Test Results\n")
+	fmt.Fprintf(f, "MongoDB Performance Test Results\n")
 	fmt.Fprintf(f, "=================================\n\n")
 	fmt.Fprintf(f, "Test Date: %s\n\n", time.Now().Format("2006-01-02 15:04:05"))
 	fmt.Fprintf(f, "Documents inserted: %d\n", len(stats.Times))

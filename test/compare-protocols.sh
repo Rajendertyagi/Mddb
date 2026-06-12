@@ -47,7 +47,7 @@ if [ ! -f "../services/mddbd/proto/mddb.pb.go" ]; then
     cd .. && make generate-proto && cd test
 fi
 
-go build -o grpc-perf-test grpc-performance-test.go
+go build -o grpc-perf-test ./grpc-perf
 echo -e "${GREEN}✓ gRPC test client built${NC}"
 echo ""
 

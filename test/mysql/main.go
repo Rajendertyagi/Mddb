@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"sort"
 	"time"
@@ -12,9 +11,9 @@ import (
 )
 
 const (
-	mysqlDSN   = "mddb:benchmark123@tcp(localhost:13306)/mddb_test?charset=utf8mb4&parseTime=True"
-	totalDocs  = 3000
-	batchSize  = 100
+	mysqlDSN  = "mddb:benchmark123@tcp(localhost:13306)/mddb_test?charset=utf8mb4&parseTime=True"
+	totalDocs = 3000
+	batchSize = 100
 )
 
 type Stats struct {
@@ -102,7 +101,7 @@ func loadDocuments() map[string]string {
 
 	files := []string{"lorem-short.md", "lorem-medium.md", "lorem-long.md"}
 	for _, file := range files {
-		content, err := ioutil.ReadFile(file)
+		content, err := os.ReadFile(file)
 		if err != nil {
 			continue
 		}

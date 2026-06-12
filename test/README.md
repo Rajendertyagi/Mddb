@@ -11,9 +11,17 @@ This directory contains performance testing scripts for MDDB and comparison benc
 - `compare-all-databases.sh` - **Complete benchmark: MDDB vs MySQL vs PostgreSQL**
 
 ### Test Clients
-- `grpc-performance-test.go` - MDDB gRPC/Protobuf performance test
-- `mysql-benchmark.go` - MySQL performance test client
-- `postgres-benchmark.go` - PostgreSQL performance test client
+
+Each benchmark is its own `package main` in a dedicated sub-directory (one
+`main.go` per directory), so the `test/` module builds cleanly and is covered by
+CI build + vet (GO-011). Build/run any of them with `go run ./<dir>`:
+
+- `grpc-perf/` - MDDB gRPC/Protobuf performance test
+- `grpc-batch/` - MDDB gRPC batch-add performance test
+- `mysql/` - MySQL performance test client
+- `postgres/` - PostgreSQL performance test client
+- `mongodb/` - MongoDB performance test client
+- `couchdb/` - CouchDB performance test client
 
 ### Docker
 - `docker-compose.benchmark.yml` - MySQL 9.1 and PostgreSQL 17 containers
@@ -63,16 +71,26 @@ cd test
 ./performance-test.sh
 
 # gRPC test
-go run grpc-performance-test.go
+go run ./grpc-perf
+
+# gRPC batch test
+go run ./grpc-batch
 
 # MySQL test (requires Docker containers)
 docker-compose -f docker-compose.benchmark.yml up -d
-go run mysql-benchmark.go
+go run ./mysql
 
 # PostgreSQL test (requires Docker containers)
 docker-compose -f docker-compose.benchmark.yml up -d
-go run postgres-benchmark.go
+go run ./postgres
+
+# MongoDB / CouchDB tests (requires Docker containers)
+go run ./mongodb
+go run ./couchdb
 ```
+
+> **Build & vet everything** (matches CI): `go build ./... && go vet ./...` from
+> the `test/` directory.
 
 ## What it Tests
 
