@@ -1,4 +1,5 @@
 import { ChatWidget, type WidgetOptions } from './widget';
+import { validateServerUrl } from './utils/serverUrl';
 
 function init(): void {
   // Find the script tag that loaded us
@@ -10,9 +11,14 @@ function init(): void {
     return;
   }
 
-  const server = script.getAttribute('data-server');
+  // FE-006: validate the WebSocket endpoint before connecting. Reject anything
+  // that isn't wss:// (or ws:// to localhost for dev) so the chat session can't
+  // be redirected to an attacker host or sent in plaintext on a public page.
+  const server = validateServerUrl(script.getAttribute('data-server') ?? '');
   if (!server) {
-    console.error('[mddb-chat] data-server is required');
+    console.error(
+      '[mddb-chat] data-server must be an absolute wss:// URL (ws:// is allowed only for localhost)',
+    );
     return;
   }
 
