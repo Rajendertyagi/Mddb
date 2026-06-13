@@ -57,6 +57,22 @@ export function assertKeyStrategy(value: string): KeyStrategy {
   );
 }
 
+// INT-005: key-prefix is concatenated directly onto every document key, so an
+// unvalidated value (control chars, spaces, traversal-like sequences, a huge
+// string) pollutes the key space and causes confusing server-side errors. Allow
+// only a conservative, key-safe charset and bound the length — fail fast in the
+// action, consistent with the other validated inputs.
+const KEY_PREFIX_PATTERN = /^[A-Za-z0-9._/-]{0,100}$/;
+
+export function assertKeyPrefix(value: string): string {
+  if (!KEY_PREFIX_PATTERN.test(value)) {
+    throw new Error(
+      'Invalid key-prefix. It may only contain [A-Za-z0-9._/-] and be at most 100 characters.',
+    );
+  }
+  return value;
+}
+
 export function normaliseUrl(url: string): string {
   const trimmed = url.trim().replace(/\/+$/, '');
   if (!/^https?:\/\//i.test(trimmed)) {
@@ -85,7 +101,7 @@ export function readInputs(getInput: (name: string) => string = core.getInput): 
     workingDirectory: (getInput('working-directory') || '.').trim(),
     language: (getInput('language') || 'en_US').trim(),
     keyStrategy: assertKeyStrategy(getInput('key-strategy') || 'path'),
-    keyPrefix: getInput('key-prefix'),
+    keyPrefix: assertKeyPrefix(getInput('key-prefix')),
     concurrency: parseInteger(getInput('concurrency') || '8', 'concurrency', 1, 64),
     timeoutSeconds: parseInteger(getInput('timeout-seconds') || '30', 'timeout-seconds', 1, 600),
     verifySsl: parseBool(getInput('verify-ssl') || 'true', true),

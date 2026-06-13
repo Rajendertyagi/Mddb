@@ -67,7 +67,7 @@ jobs:
 | `working-directory` | `.` | Directory the globs resolve against. |
 | `language` | `en_US` | `lang` recorded on every document. |
 | `key-strategy` | `path` | `path` (slugified relative path), `hash` (sha1 of content), `filename` (basename). |
-| `key-prefix` | _(empty)_ | String prepended to every key. Useful when multiple repos share one collection. |
+| `key-prefix` | _(empty)_ | String prepended to every key. Useful when multiple repos share one collection. Validated: only `A-Z a-z 0-9 . _ / -`, max 100 chars (else the action fails fast). |
 | `concurrency` | `8` | Parallel `/v1/add` requests in flight (1–64). |
 | `timeout-seconds` | `30` | HTTP timeout per request (1–600). |
 | `verify-ssl` | `true` | Disable only for self-signed dev MDDB instances. |
