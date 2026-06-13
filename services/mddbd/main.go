@@ -1248,6 +1248,10 @@ func main() {
 	if s.LockFreeCache != nil {
 		s.LockFreeCache.Close()
 	}
+	// Stop the DocumentCache cleanup goroutine (GO-006).
+	if s.Cache != nil {
+		s.Cache.Close()
+	}
 	// Stop the adaptive-index optimization worker goroutine (GO-007).
 	if s.AdaptiveIndex != nil {
 		s.AdaptiveIndex.Close()

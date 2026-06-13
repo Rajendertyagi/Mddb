@@ -384,3 +384,64 @@ func TestCacheDeleteThenSet(t *testing.T) {
 		t.Errorf("expected 'v2', got %q", string(data))
 	}
 }
+
+// TestCacheStatsRaceGetAndStats is the GO-006 regression: Get increments
+// hits/misses with atomic.AddUint64 under only an RLock, so a plain read in
+// Stats() would race a concurrent Get. Run with `go test -race`.
+func TestCacheStatsRaceGetAndStats(t *testing.T) {
+	c := NewDocumentCache(100, 60)
+	defer c.Close()
+	c.Set("k", []byte("v"))
+
+	var wg sync.WaitGroup
+	stop := make(chan struct{})
+
+	// Readers hammering Get (hit) and a missing key (miss) → counter writes.
+	for i := 0; i < 6; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+				}
+				_, _ = c.Get("k")
+				_, _ = c.Get("absent")
+			}
+		}()
+	}
+	// Concurrent Stats() readers.
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+				}
+				_, _, _ = c.Stats()
+			}
+		}()
+	}
+
+	time.Sleep(50 * time.Millisecond)
+	close(stop)
+	wg.Wait()
+
+	hits, misses, _ := c.Stats()
+	if hits == 0 || misses == 0 {
+		t.Errorf("expected non-zero hits and misses, got hits=%d misses=%d", hits, misses)
+	}
+}
+
+// TestCacheCloseIdempotent documents that Close() is safe to call repeatedly
+// (sync.Once) — restore and shutdown paths may both close the same cache.
+func TestCacheCloseIdempotent(t *testing.T) {
+	c := NewDocumentCache(10, 60)
+	c.Close()
+	c.Close() // must not panic on a second close
+}

@@ -83,9 +83,10 @@ func (dc *DocumentCache) Set(key string, data []byte) {
 	dc.mu.Lock()
 	defer dc.mu.Unlock()
 
-	// Evict if cache is full (simple FIFO, not true LRU)
+	// Evict when full. NOTE: Go map iteration order is randomized, so this
+	// evicts an ARBITRARY entry — not FIFO and not LRU (GO-006: comment was
+	// previously misleading). Good enough for a best-effort hot-doc cache.
 	if len(dc.cache) >= dc.maxSize {
-		// Remove first entry (simple eviction)
 		for k := range dc.cache {
 			delete(dc.cache, k)
 			break
@@ -112,11 +113,13 @@ func (dc *DocumentCache) Clear() {
 	dc.cache = make(map[string]*CacheEntry, dc.maxSize)
 }
 
-// Stats returns cache statistics
+// Stats returns cache statistics. hits/misses are read atomically (GO-006):
+// Get increments them with atomic.AddUint64 while holding only the shared
+// RLock, so a plain read here would race a concurrent Get under -race.
 func (dc *DocumentCache) Stats() (hits, misses uint64, size int) {
 	dc.mu.RLock()
 	defer dc.mu.RUnlock()
-	return dc.hits, dc.misses, len(dc.cache)
+	return atomic.LoadUint64(&dc.hits), atomic.LoadUint64(&dc.misses), len(dc.cache)
 }
 
 // cleanup periodically removes expired entries until Close() stops it.
