@@ -148,6 +148,10 @@ check-go-version: ## Verify Go toolchain pins are consistent (go.work/go.mod/CI/
 test-go-version: ## Run the Go-version-drift guard test suite
 	@bash scripts/tests/test-go-version.sh
 
+mcp-tools-count: ## Verify docs' built-in MCP tool count matches the code (DOC-001)
+	@cd services/mddbd && go test -run TestMCPToolCountDocsInSync -count=1 . && \
+		echo "✅ docs MCP tool count matches len(mcpBuiltinTools())"
+
 docs-prep: ## Generate SSG content from docs/ (adds frontmatter to all .md files)
 	@bash scripts/ssg-prep.sh
 
