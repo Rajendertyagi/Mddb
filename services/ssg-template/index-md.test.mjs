@@ -8,31 +8,14 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
+import { extractFunctionSource } from './extract-fn.mjs';
+
 const here = dirname(fileURLToPath(import.meta.url));
 const html = readFileSync(join(here, 'index.html'), 'utf8');
 
-// Extract `function md(...) { ... }` by brace-matching and build a callable.
-function loadMd() {
-  const start = html.indexOf('function md(');
-  assert.notEqual(start, -1, 'md() not found in index.html');
-  const open = html.indexOf('{', start);
-  let depth = 0;
-  let end = -1;
-  for (let i = open; i < html.length; i++) {
-    if (html[i] === '{') depth++;
-    else if (html[i] === '}') {
-      depth--;
-      if (depth === 0) {
-        end = i + 1;
-        break;
-      }
-    }
-  }
-  // eslint-disable-next-line no-new-func
-  return new Function(`return (${html.slice(start, end)})`)();
-}
-
-const md = loadMd();
+// Extract `function md(...) { ... }` and build a callable.
+// eslint-disable-next-line no-new-func
+const md = new Function(`return (${extractFunctionSource(html, 'md')})`)();
 
 test('FE-010: a multi-line ```code``` block renders as <pre><code>', () => {
   const out = md('intro\n```js\nconst x = 1;\nconst y = 2;\n```\nouttro');

@@ -9,32 +9,17 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
+import { extractFunctionSource } from './extract-fn.mjs';
+
 const here = dirname(fileURLToPath(import.meta.url));
 const html = readFileSync(join(here, 'md-viewer.html'), 'utf8');
-
-// Slice out a `function name(...) { ... }` definition by brace-matching, so the
-// pure validation helpers can be exercised in isolation (no DOM needed).
-function extractFn(src, name) {
-  const start = src.indexOf(`function ${name}(`);
-  assert.notEqual(start, -1, `function ${name} not found in md-viewer.html`);
-  const open = src.indexOf('{', start);
-  let depth = 0;
-  for (let i = open; i < src.length; i++) {
-    if (src[i] === '{') depth++;
-    else if (src[i] === '}') {
-      depth--;
-      if (depth === 0) return src.slice(start, i + 1);
-    }
-  }
-  throw new Error(`unbalanced braces for ${name}`);
-}
 
 // Build callable versions of the inline helpers with an injected window mock.
 function loadHelpers(locationHref, locationOrigin) {
   const src = `
     const window = { location: { href: ${JSON.stringify(locationHref)}, origin: ${JSON.stringify(locationOrigin)} } };
-    ${extractFn(html, 'escapeHtml')}
-    ${extractFn(html, 'resolveDocParam')}
+    ${extractFunctionSource(html, 'escapeHtml')}
+    ${extractFunctionSource(html, 'resolveDocParam')}
     return { escapeHtml, resolveDocParam };
   `;
   // eslint-disable-next-line no-new-func

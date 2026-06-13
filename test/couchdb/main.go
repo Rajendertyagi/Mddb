@@ -41,6 +41,19 @@ type CouchDoc struct {
 	Content string `json:"content"`
 }
 
+// checkConnection verifies CouchDB is reachable, exiting on failure. The
+// response body is closed via defer so it can't leak (SonarCloud S2095).
+func checkConnection() {
+	fmt.Print("Connecting to CouchDB... ")
+	resp, err := http.Get(couchURL)
+	if err != nil {
+		fmt.Printf("✗ Failed: %v\n", err)
+		os.Exit(1)
+	}
+	defer drainClose(resp.Body)
+	fmt.Println("✓ Connected")
+}
+
 func main() {
 	fmt.Println("════════════════════════════════════════════════")
 	fmt.Println("  CouchDB Performance Test")
@@ -48,14 +61,7 @@ func main() {
 	fmt.Println()
 
 	// Check connection
-	fmt.Print("Connecting to CouchDB... ")
-	resp, err := http.Get(couchURL)
-	if err != nil {
-		fmt.Printf("✗ Failed: %v\n", err)
-		os.Exit(1)
-	}
-	drainClose(resp.Body)
-	fmt.Println("✓ Connected")
+	checkConnection()
 
 	// Create/recreate database
 	fmt.Print("Preparing database... ")
@@ -75,7 +81,7 @@ func main() {
 		fmt.Printf("✗ Failed to build PUT request: %v\n", err)
 		os.Exit(1)
 	}
-	resp, err = http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		fmt.Printf("✗ Failed: %v\n", err)
 		os.Exit(1)
