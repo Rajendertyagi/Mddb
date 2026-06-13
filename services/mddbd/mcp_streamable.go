@@ -55,11 +55,11 @@ func (t *MCPStreamableTransport) Handle(w http.ResponseWriter, r *http.Request) 
 }
 
 func (t *MCPStreamableTransport) handlePost(w http.ResponseWriter, r *http.Request) {
-	// Validate Origin header for security
-	if origin := r.Header.Get("Origin"); origin != "" {
-		// Allow localhost origins and same-origin
-		w.Header().Set("Access-Control-Allow-Origin", origin)
-	}
+	// SEC-008: apply the same CORS allowlist as the REST surface instead of
+	// reflecting whatever Origin the request carried (which defeated same-origin
+	// protection and let any site read MCP responses). A disallowed origin gets
+	// no Allow-Origin header and the browser blocks the cross-origin read.
+	envCORSConfig().applyOrigin(w, r.Header.Get("Origin"))
 
 	r.Body = http.MaxBytesReader(w, r.Body, 4<<20) // 4MB
 	body, err := io.ReadAll(r.Body)

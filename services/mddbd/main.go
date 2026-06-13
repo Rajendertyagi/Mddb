@@ -986,6 +986,18 @@ func main() {
 	handler = PanicRecoveryMiddleware(s.WebhookManager, handler)
 	if panelMode != "external" {
 		handler = withCORS(handler)
+		// SEC-008: a wildcard CORS policy lets any website read responses from a
+		// user's browser. Warn so operators set MDDB_CORS_ORIGINS for non-public
+		// deployments.
+		if envCORSConfig().wildcard {
+			if s.AuthManager != nil && s.AuthManager.enabled {
+				log.Printf("⚠️  SECURITY (SEC-008): CORS is wildcard (*) with auth enabled — " +
+					"any origin can attempt credentialed cross-origin reads. Set MDDB_CORS_ORIGINS to an allowlist.")
+			} else {
+				log.Printf("⚠️  SECURITY (SEC-008): CORS is wildcard (*) — any website can read this instance " +
+					"from a user's browser. Set MDDB_CORS_ORIGINS to an allowlist for non-public deployments.")
+			}
+		}
 	}
 	if panelMode == "external" {
 		log.Printf("Panel mode: external (CORS disabled, panel proxies requests)")
@@ -1282,9 +1294,12 @@ func kMetaKeyPrefix(coll, mk, mv string) []byte {
 // --- middleware
 
 func withCORS(h http.Handler) http.Handler {
-	origin := env("MDDB_CORS_ORIGIN", "*")
+	// SEC-008: resolve the origin policy once. Prefer the MDDB_CORS_ORIGINS
+	// allowlist over a wildcard so a hostile site can't read responses from a
+	// user's local/intranet MDDB instance through their browser.
+	cfg := envCORSConfig()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", origin)
+		cfg.applyOrigin(w, r.Header.Get("Origin"))
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
 		w.Header().Set("Access-Control-Expose-Headers", "X-Total-Count")

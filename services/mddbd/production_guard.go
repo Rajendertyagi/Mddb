@@ -90,16 +90,14 @@ func productionRequirements() []ProductionRequirement {
 			},
 		},
 		{
-			EnvVar: "MDDB_CORS_ORIGIN",
-			Want:   "explicit origin list (not *)",
+			EnvVar: "MDDB_CORS_ORIGINS",
+			Want:   "explicit origin allowlist (not *)",
 			Reason: "ISO 27001 A.8.23 / SOC 2 CC6.6 — web-origin segmentation",
 			Checker: func() bool {
-				v := os.Getenv("MDDB_CORS_ORIGIN")
-				if v == "" {
-					// unset => later defaults to "*" in main — treat as missing
-					return false
-				}
-				return v != "*"
+				// SEC-008: pass when a non-wildcard allowlist is configured via
+				// either MDDB_CORS_ORIGINS (preferred) or the legacy
+				// MDDB_CORS_ORIGIN. An unset/`*` value resolves to wildcard.
+				return !envCORSConfig().wildcard
 			},
 		},
 		{
