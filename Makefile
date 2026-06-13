@@ -140,7 +140,7 @@ widget-dev: ## Run widget dev server
 	cd services/mddb-chat-widget && npm run dev
 
 version: ## Show current version
-	@echo "MDDB Version: 2.9.17"
+	@echo "MDDB Version: 2.10.0"
 
 check-go-version: ## Verify Go toolchain pins are consistent (go.work/go.mod/CI/Docker)
 	@bash scripts/check-go-version.sh --print
