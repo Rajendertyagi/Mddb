@@ -30,7 +30,7 @@ func NewDirectClient(s *Server) *DirectClient {
 
 // Health checks if the database is healthy via the direct client.
 func (c *DirectClient) Health(ctx context.Context) (*MCPHealth, error) {
-	err := c.server.DB.View(func(tx *bolt.Tx) error { return nil })
+	err := c.server.DBView(func(tx *bolt.Tx) error { return nil })
 	if err != nil {
 		return &MCPHealth{Status: "unhealthy", Mode: string(c.server.Mode)}, err
 	}
@@ -50,7 +50,7 @@ func (c *DirectClient) Stats(ctx context.Context) (*MCPStats, error) {
 
 	collectionMap := make(map[string]*MCPCollectionStats)
 
-	err := c.server.DB.View(func(tx *bolt.Tx) error {
+	err := c.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs != nil {
 			c2 := bDocs.Cursor()
@@ -117,7 +117,7 @@ func (c *DirectClient) Stats(ctx context.Context) (*MCPStats, error) {
 
 // Add creates a new document via the direct client.
 func (c *DirectClient) Add(ctx context.Context, req *MCPAddRequest) (*MCPDocument, error) {
-	saved, _, err := c.server.addDocument(req.Collection, req.Key, req.Lang, req.Meta, req.ContentMD, 0)
+	saved, _, err := c.server.addDocument(req.Collection, req.Key, req.Lang, req.Meta, req.ContentMD, 0, true)
 	if err != nil {
 		return nil, err
 	}
@@ -213,7 +213,7 @@ func (c *DirectClient) DeleteBatch(ctx context.Context, req *MCPDeleteBatchReque
 // Get retrieves a document via the direct client.
 func (c *DirectClient) Get(ctx context.Context, req *MCPGetRequest) (*MCPDocument, error) {
 	var doc Doc
-	err := c.server.DB.View(func(tx *bolt.Tx) error {
+	err := c.server.DBView(func(tx *bolt.Tx) error {
 		bByK := tx.Bucket([]byte("bykey"))
 		docID := bByK.Get(kByKey(req.Collection, req.Key, req.Lang))
 		if docID == nil {
@@ -256,7 +256,7 @@ func (c *DirectClient) Search(ctx context.Context, req *MCPSearchRequest) (*MCPS
 	type row struct{ Doc Doc }
 	var rows []row
 
-	err := c.server.DB.View(func(tx *bolt.Tx) error {
+	err := c.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bIdx := tx.Bucket([]byte("idxmeta"))
 		seen := make(map[string]bool)
@@ -371,7 +371,7 @@ func (c *DirectClient) Delete(ctx context.Context, req *MCPDeleteRequest) error 
 func (c *DirectClient) DeleteCollection(ctx context.Context, req *MCPDeleteCollectionRequest) (*MCPDeleteCollectionResponse, error) {
 	var deletedCount int
 
-	err := c.server.DB.Update(func(tx *bolt.Tx) error {
+	err := c.server.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bIdx := tx.Bucket([]byte("idxmeta"))
 		bRev := tx.Bucket([]byte("rev"))
@@ -425,7 +425,7 @@ func (c *DirectClient) Export(ctx context.Context, req *MCPExportRequest) (io.Re
 	// Collect matching documents
 	var docs []Doc
 
-	err := c.server.DB.View(func(tx *bolt.Tx) error {
+	err := c.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bIdx := tx.Bucket([]byte("idxmeta"))
 
@@ -522,7 +522,7 @@ func (c *DirectClient) Restore(ctx context.Context, req *MCPRestoreRequest) (*MC
 
 // Truncate removes all documents from a collection via the direct client.
 func (c *DirectClient) Truncate(ctx context.Context, req *MCPTruncateRequest) (*MCPTruncateResponse, error) {
-	err := c.server.DB.Update(func(tx *bolt.Tx) error {
+	err := c.server.DBUpdate(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket([]byte("rev"))
 		bDocs := tx.Bucket([]byte("docs"))
 
@@ -643,7 +643,7 @@ func (c *DirectClient) VectorSearch(ctx context.Context, req *MCPVectorSearchReq
 	}
 
 	items := make([]MCPVectorSearchResult, 0, len(results))
-	_ = s.DB.View(func(tx *bolt.Tx) error {
+	_ = s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs == nil {
 			return nil
@@ -700,7 +700,7 @@ func (c *DirectClient) VectorReindex(ctx context.Context, req *MCPVectorReindexR
 	}
 	var docs []docEntry
 
-	err := s.DB.View(func(tx *bolt.Tx) error {
+	err := s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs == nil {
 			return nil
@@ -828,7 +828,7 @@ func (c *DirectClient) VectorStats(ctx context.Context) (*MCPVectorStatsResponse
 	vectorCounts, _ := s.VectorStore.CountByCollection()
 
 	docCounts := make(map[string]int)
-	_ = s.DB.View(func(tx *bolt.Tx) error {
+	_ = s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs == nil {
 			return nil
@@ -889,7 +889,7 @@ func (c *DirectClient) ImportURL(ctx context.Context, req *MCPImportURLRequest) 
 		mergedMeta[k] = v
 	}
 
-	saved, _, err := c.server.addDocument(req.Collection, key, req.Lang, mergedMeta, body, req.TTL)
+	saved, _, err := c.server.addDocument(req.Collection, key, req.Lang, mergedMeta, body, req.TTL, true)
 	if err != nil {
 		return nil, err
 	}
@@ -913,7 +913,7 @@ func (c *DirectClient) SetTTL(ctx context.Context, req *MCPSetTTLRequest) (*MCPD
 	}
 
 	var updated Doc
-	err := c.server.DB.Update(func(tx *bolt.Tx) error {
+	err := c.server.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		dk := kDoc(req.Collection, docID)
 		v := bDocs.Get(dk)
@@ -1011,7 +1011,7 @@ func (c *DirectClient) FTSSearch(ctx context.Context, req *MCPFTSSearchRequest) 
 		Results:   make([]MCPFTSResult, 0, len(results)),
 	}
 
-	_ = c.server.DB.View(func(tx *bolt.Tx) error {
+	_ = c.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		for _, res := range results {
 			v := bDocs.Get(kDoc(req.Collection, res.DocID))
@@ -1054,7 +1054,7 @@ func (c *DirectClient) FTSReindex(ctx context.Context, req *MCPFTSReindexRequest
 	}
 	var docs []reindexDoc
 	var skipped int
-	_ = c.server.DB.View(func(tx *bolt.Tx) error {
+	_ = c.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs == nil {
 			return nil
@@ -1327,7 +1327,7 @@ func (c *DirectClient) UpdateDocument(ctx context.Context, req *MCPUpdateDocumen
 	now := time.Now().Unix()
 	var saved Doc
 
-	err := c.server.DB.Update(func(tx *bolt.Tx) error {
+	err := c.server.DBUpdate(func(tx *bolt.Tx) error {
 		bByK := tx.Bucket([]byte("bykey"))
 		bDocs := tx.Bucket([]byte("docs"))
 
@@ -1387,7 +1387,7 @@ func (c *DirectClient) GetDocumentMeta(ctx context.Context, req *MCPGetDocMetaRe
 	}
 
 	var doc Doc
-	err := c.server.DB.View(func(tx *bolt.Tx) error {
+	err := c.server.DBView(func(tx *bolt.Tx) error {
 		bByK := tx.Bucket([]byte("bykey"))
 		bDocs := tx.Bucket([]byte("docs"))
 		docID := bByK.Get(kByKey(req.Collection, req.Key, req.Lang))
@@ -1527,7 +1527,7 @@ func (c *DirectClient) DeleteStopWords(ctx context.Context, collection string, w
 // GetMetaKeys returns all metadata keys for a collection via the direct client.
 func (c *DirectClient) GetMetaKeys(ctx context.Context, collection string) (*MCPMetaKeysResponse, error) {
 	meta := make(map[string][]string)
-	_ = c.server.DB.View(func(tx *bolt.Tx) error {
+	_ = c.server.DBView(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket([]byte("idxmeta"))
 		if bIdx == nil {
 			return nil
@@ -1668,7 +1668,7 @@ func (c *DirectClient) ListAutomationLogs(ctx context.Context, limit int, cursor
 func (c *DirectClient) ListRevisions(ctx context.Context, collection, key, lang string) (*RevisionListResponse, error) {
 	docID := genID(collection, key, lang)
 	var revisions []RevisionEntry
-	err := c.server.DB.View(func(tx *bolt.Tx) error {
+	err := c.server.DBView(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket([]byte("rev"))
 		if bRev == nil {
 			return nil
@@ -1719,7 +1719,7 @@ func (c *DirectClient) RestoreRevision(ctx context.Context, collection, key, lan
 	revKey := append(kRevPrefix(collection, docID), []byte(tsKey)...)
 
 	var revDoc *Doc
-	err := c.server.DB.View(func(tx *bolt.Tx) error {
+	err := c.server.DBView(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket([]byte("rev"))
 		if bRev == nil {
 			return fmt.Errorf("revision not found")
@@ -1736,7 +1736,7 @@ func (c *DirectClient) RestoreRevision(ctx context.Context, collection, key, lan
 		return nil, err
 	}
 
-	doc, _, err := c.server.addDocument(collection, key, lang, revDoc.Meta, revDoc.ContentMD, 0)
+	doc, _, err := c.server.addDocument(collection, key, lang, revDoc.Meta, revDoc.ContentMD, 0, true)
 	if err != nil {
 		return nil, err
 	}
@@ -1934,7 +1934,7 @@ func (c *DirectClient) CrossSearch(ctx context.Context, req *MCPCrossSearchReque
 
 	// Load full documents
 	items := make([]CrossSearchResultItem, 0, len(allTagged))
-	_ = s.DB.View(func(tx *bolt.Tx) error {
+	_ = s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs == nil {
 			return nil

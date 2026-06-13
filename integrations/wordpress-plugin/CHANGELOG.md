@@ -2,6 +2,18 @@
 
 All notable changes to this WordPress plugin are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/); the plugin adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Releases are tagged `wp-vX.Y.Z` in this repository to avoid clashing with `vX.Y.Z` tags used for the core MDDB server.
 
+## [Unreleased]
+
+### Changed
+
+- **PHP support window moved to 8.2–8.5** (`.github/workflows/wordpress-plugin.yml`, `composer.json`, `phpcs.xml`, `mddb-sync.php`, `README.md`) — the CI matrix now tests PHP **8.2, 8.3, 8.4, 8.5** (added 8.5, dropped the near-EOL 8.1). The declared minimum (`composer.json` `php: >=8.2`, plugin header `Requires PHP: 8.2`) and the PHPCompatibility `testVersion 8.2-` are aligned so "tested == declared". Verified locally on PHP 8.5.7: phpcs (11/11), PHPUnit (77/77), PHPStan all green.
+
+### Security
+
+- **data hygiene for logs and release notes** ([`includes/class-client.php`](includes/class-client.php), [`includes/class-updater.php`](includes/class-updater.php)) — (1) `Client::addDocument()/deleteDocument()` put the **entire** server response body into the `WP_Error` message that ends up in `error_log()`, allowing log spam, CR/LF log forging, and disclosure of large/sensitive payloads. A new `responseSnippet()` truncates the body to 200 chars on a single line. (2) `Updater::providePluginInformation()` returned the GitHub release body as `description`/`changelog` unsanitised, rendering arbitrary HTML in the wp-admin "View details" modal — now passed through `wp_kses_post()`. New PHPUnit tests cover both.
+- **validate the release-ZIP download host** ([`includes/class-updater.php`](includes/class-updater.php)) — `latestRelease()` passed the GitHub asset URL straight to WordPress's auto-updater, which downloads and installs the ZIP (arbitrary PHP). A manipulated API response / poisoned transient could substitute a hostile package (RCE). New `isTrustedZipUrl()` requires https + a GitHub-releases host allowlist; anything else yields an empty `zipUrl` (no update offered). Test covers a malicious host.
+- **enforce `https://` for the MDDB endpoint** ([`includes/class-settings.php`](includes/class-settings.php)) — `Settings::sanitize()` accepted any URL that passed `wp_http_validate_url()`, including plain `http://`. Since the client attaches `Authorization: Bearer <apiKey>` to every request, an `http://` endpoint leaked the API key and full document bodies in cleartext (eavesdropping / MITM). A new `Settings::isAllowedUrl()` now requires `https://`, permitting `http://` **only** for local development hosts (`localhost`, `127.0.0.1`, `::1`). Rejected URLs raise an `add_settings_error()` admin notice instead of being silently dropped. Existing `https://` configurations are unaffected. New tests cover https-accepted, remote-http-rejected, and http-localhost/127.0.0.1/`[::1]`-accepted.
+
 ## [0.1.1] - 2026-05-19
 
 ### Added

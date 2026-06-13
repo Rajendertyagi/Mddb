@@ -38,6 +38,59 @@ func swapParallelWorkers(workers int32) func() {
 // Compile-time assertion that atomic.Int32 is used (catches accidental revert to plain int).
 var _ = atomic.Int32{}
 
+// TestScoreRangeInvertedAndEmptyRange — GO-018: an inverted (start>end) or
+// empty (start==end) range, or topK<=0, must never reach a negative makeslice
+// capacity. scoreRange must return safely instead of panicking.
+func TestScoreRangeInvertedAndEmptyRange(t *testing.T) {
+	entries := []vectorEntry{
+		{docID: "a", vector: []float32{1, 0}},
+		{docID: "b", vector: []float32{0, 1}},
+	}
+	q := []float32{1, 0}
+
+	if got := scoreRange(entries, 5, 2, q, 10, -999, cosineSimilarity, nil); got != nil {
+		t.Errorf("inverted range (start>end): want nil, got %v", got)
+	}
+	if got := scoreRange(entries, 1, 1, q, 10, -999, cosineSimilarity, nil); len(got) != 0 {
+		t.Errorf("empty range (start==end): want 0 results, got %d", len(got))
+	}
+	// topK<=0 previously made min(end-start, topK*2) negative.
+	if got := scoreRange(entries, 0, 2, q, 0, -999, cosineSimilarity, nil); len(got) != 2 {
+		t.Errorf("topK=0: want 2 results, got %d", len(got))
+	}
+}
+
+// TestParallelScoreSmallNManyWorkersNoPanic — GO-018 end-to-end: with more
+// workers than non-empty chunks, a later worker's start index runs past n
+// (start>end). This used to panic in scoreRange with "makeslice: cap out of
+// range". Result must still match the single-worker path.
+func TestParallelScoreSmallNManyWorkersNoPanic(t *testing.T) {
+	defer swapParallelConfig(7, 1)() // force 7 workers even for a tiny collection
+
+	dims := 8
+	rng := rand.New(rand.NewSource(1)) // #nosec G404 -- deterministic seed for a reproducible test, not security-sensitive
+	n := 10
+	entries := make([]vectorEntry, n)
+	for i := 0; i < n; i++ {
+		entries[i] = vectorEntry{docID: fmt.Sprintf("d%d", i), vector: randVecP(dims, rng)}
+	}
+	query := randVecP(dims, rng)
+
+	parallel := parallelScore(entries, query, 10, -999.0, cosineSimilarity, nil)
+
+	defer swapParallelWorkers(1)()
+	sequential := parallelScore(entries, query, 10, -999.0, cosineSimilarity, nil)
+
+	if len(parallel) != len(sequential) {
+		t.Fatalf("parallel returned %d results, single-worker %d", len(parallel), len(sequential))
+	}
+	for i := range sequential {
+		if parallel[i].DocID != sequential[i].DocID {
+			t.Errorf("result %d: parallel docID %q != single-worker %q", i, parallel[i].DocID, sequential[i].DocID)
+		}
+	}
+}
+
 // TestParallelScoreCorrectness verifies parallel results match sequential.
 func TestParallelScoreCorrectness(t *testing.T) {
 	const dims = 768

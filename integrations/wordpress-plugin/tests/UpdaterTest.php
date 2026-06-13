@@ -36,7 +36,7 @@ final class UpdaterTest extends TestCase {
 			'assets'   => [
 				[
 					'name'                 => 'mddb-sync-' . ltrim( $tag, 'vV' ) . '.zip',
-					'browser_download_url' => 'https://example.com/asset.zip',
+					'browser_download_url' => 'https://github.com/tradik/mddb/releases/download/' . $tag . '/mddb-sync.zip',
 				],
 			],
 		];
@@ -80,6 +80,29 @@ final class UpdaterTest extends TestCase {
 		self::assertSame( '0.2.0', $result->response['mddb-sync/mddb-sync.php']->new_version );
 	}
 
+	public function testReleaseNotesAreSanitizedInPluginInformation(): void {
+		// INT-003: release notes render as HTML in the wp-admin "View details"
+		// modal, so they must pass through wp_kses_post.
+		Functions\when( 'get_site_transient' )->justReturn(
+			[
+				'version'     => '0.2.0',
+				'tagName'     => 'v0.2.0',
+				'htmlUrl'     => '',
+				'zipUrl'      => 'https://example.com/asset.zip',
+				'body'        => '<script>alert(document.cookie)</script>Real notes',
+				'requiresPhp' => '8.1',
+				'tested'      => '6.7',
+			]
+		);
+		$updater = new Updater( 'mddb-sync/mddb-sync.php', '0.1.0', 'tradik/mddb' );
+		$info    = $updater->providePluginInformation( false, 'plugin_information', (object) [ 'slug' => 'mddb-sync' ] );
+
+		self::assertIsObject( $info );
+		self::assertStringNotContainsString( '<script>', $info->sections['description'] );
+		self::assertStringNotContainsString( '<script>', $info->sections['changelog'] );
+		self::assertStringContainsString( 'Real notes', $info->sections['description'] );
+	}
+
 	public function testInjectUpdateLeavesNonObjectAlone(): void {
 		$updater = new Updater( 'mddb-sync/mddb-sync.php', '0.1.0', 'tradik/mddb' );
 		self::assertNull( $updater->injectUpdate( null ) );
@@ -101,8 +124,24 @@ final class UpdaterTest extends TestCase {
 		$updater = new Updater( 'mddb-sync/mddb-sync.php', '0.1.0', 'tradik/mddb' );
 		$release = $updater->latestRelease();
 		self::assertSame( '0.2.0', $release['version'] );
-		self::assertSame( 'https://example.com/asset.zip', $release['zipUrl'] );
+		self::assertSame( 'https://github.com/tradik/mddb/releases/download/v0.2.0/mddb-sync.zip', $release['zipUrl'] );
 		self::assertSame( $captured, $release );
+	}
+
+	public function testRejectsUntrustedZipHost(): void {
+		// INT-002: a manipulated API response pointing the asset at a hostile
+		// host must not become a download_link the WP updater would install.
+		Functions\when( 'get_site_transient' )->justReturn( false );
+		Functions\when( 'set_site_transient' )->justReturn( true );
+		$malicious = $this->releaseFixture();
+		$malicious['assets'][0]['browser_download_url'] = 'https://evil.example.com/mddb-sync.zip';
+		Functions\when( 'wp_remote_get' )->justReturn(
+			[ 'response' => [ 'code' => 200, 'message' => 'OK' ], 'body' => json_encode( $malicious ) ]
+		);
+
+		$updater = new Updater( 'mddb-sync/mddb-sync.php', '0.1.0', 'tradik/mddb' );
+		$release = $updater->latestRelease();
+		self::assertSame( '', $release['zipUrl'], 'untrusted host must yield empty zipUrl (INT-002)' );
 	}
 
 	public function testLatestReleaseRecordsErrorOnHttpFailure(): void {

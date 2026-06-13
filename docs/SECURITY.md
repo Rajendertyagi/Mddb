@@ -24,7 +24,7 @@ This page does not duplicate the configuration reference. Every environment vari
 | A.8.9 | Configuration management | `MDDB_PRODUCTION=true` refuses to boot unless every ISO/SOC guardrail is satisfied; unauthenticated `/v1/compliance-status` endpoint publishes the live state for operator health checks | `services/mddbd/production_guard.go`, `services/mddbd/main.go` |
 | A.8.15 | Logging | Structured JSON audit log (`AuditManager`) persisted to a dedicated BoltDB bucket; async flush so hot-path handlers never block on disk I/O; configurable retention | `services/mddbd/audit.go`, `services/mddbd/auth_middleware.go` |
 | A.8.16 | Monitoring activities | Incident detectors emit webhook events for auth-failure bursts, rate-limit rejections, replication lag, recovered panics, and disk pressure; panic-recovery middleware converts handler crashes into structured 500 + event | `services/mddbd/incident_detector.go`, `services/mddbd/webhook_manager.go` |
-| A.8.23 | Web filtering | Explicit `MDDB_CORS_ORIGIN` required in production (rejects `*`); per-origin allow list enforced before any handler runs | `services/mddbd/main.go`, `services/mddbd/production_guard.go` |
+| A.8.23 | Web filtering | Explicit `MDDB_CORS_ORIGINS` (allowlist) required in production (rejects `*`); per-origin allow list enforced before any handler runs | `services/mddbd/main.go`, `services/mddbd/production_guard.go` |
 | A.8.24 | Use of cryptography | AES-256-GCM at-rest encryption (opt-in per collection); TLS 1.2+ in transit on HTTP and gRPC listeners; mTLS option with client-CA verification; JWT secret ≥32 bytes enforced in production | `services/mddbd/encryption.go`, `services/mddbd/tls_config.go` |
 
 ---
@@ -56,7 +56,7 @@ This page does not duplicate the configuration reference. Every environment vari
 
 **What it protects.** Misconfiguration — the most common root cause of compliance failure in embedded databases. With `MDDB_PRODUCTION=true` the server refuses to accept connections unless every ISO/SOC control is wired up.
 
-**How to enable.** Export `MDDB_PRODUCTION=true` alongside the six required variables: `MDDB_AUTH_ENABLED=true`, `MDDB_AUTH_JWT_SECRET` ≥32 bytes, `MDDB_TLS_ENABLED=true` (or explicit `MDDB_TLS_INSECURE_OK=true` for dev), `MDDB_CORS_ORIGIN` not `*`, `MDDB_AUDIT_ENABLED=true`, `MDDB_RATE_LIMIT_ENABLED=true`. A missing requirement aborts startup with a per-variable checklist pointing at the failing control. Live state is readable at unauthenticated `GET /v1/compliance-status` — operators can wire a liveness probe that alerts if `compliant=false`. See [config.md#production-hardening-iso-27001--soc-2](config.md#production-hardening-iso-27001--soc-2).
+**How to enable.** Export `MDDB_PRODUCTION=true` alongside the six required variables: `MDDB_AUTH_ENABLED=true`, `MDDB_AUTH_JWT_SECRET` ≥32 bytes, `MDDB_TLS_ENABLED=true` (or explicit `MDDB_TLS_INSECURE_OK=true` for dev), `MDDB_CORS_ORIGINS` not `*`, `MDDB_AUDIT_ENABLED=true`, `MDDB_RATE_LIMIT_ENABLED=true`. A missing requirement aborts startup with a per-variable checklist pointing at the failing control. Live state is readable at unauthenticated `GET /v1/compliance-status` — operators can wire a liveness probe that alerts if `compliant=false`. See [config.md#production-hardening-iso-27001--soc-2](config.md#production-hardening-iso-27001--soc-2).
 
 **Known limitations.** The guard checks configuration inputs, not the runtime health of every downstream dependency. A valid JWT secret does not prove keys have been rotated; a CORS origin being non-`*` does not prove it matches your actual frontend. Combine this guard with periodic access reviews.
 
@@ -152,7 +152,7 @@ A deployment is only compliant once every one of these is done. Treat this as a 
 2. Provision a TLS certificate chain from a CA your clients trust; install as `MDDB_TLS_CERT` + `MDDB_TLS_KEY`.
 3. Set `MDDB_TLS_ENABLED=true`. Do **not** use `MDDB_TLS_INSECURE_OK=true` outside a dev box.
 4. If you require mTLS, set `MDDB_TLS_CLIENT_CA` to the trusted client-CA bundle and `MDDB_TLS_CLIENT_AUTH=require`.
-5. Lock CORS down: `MDDB_CORS_ORIGIN=https://app.example.com` (never `*`).
+5. Lock CORS down: `MDDB_CORS_ORIGINS=https://app.example.com` (never `*`).
 6. Enable the audit log: `MDDB_AUDIT_ENABLED=true`. Pick a retention window that matches your compliance obligation: `MDDB_AUDIT_RETENTION_DAYS=365` for most financial/health contexts.
 7. Enable the rate limiter: `MDDB_RATE_LIMIT_ENABLED=true`. Tune `REQUESTS`, `WINDOW`, `BURST`, `BY` to your SLOs.
 8. Generate an encryption key: `MDDB_ENCRYPTION_KEY=$(openssl rand -base64 32)`. Store the key in your secret manager **and** maintain an offline escrow copy. Test the recovery procedure before going live.

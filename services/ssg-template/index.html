@@ -55,7 +55,7 @@
         "priceCurrency": "USD"
       },
       "description": "AI-native knowledge base with built-in MCP server, vector search, RAG support, and semantic retrieval for AI agents and LLM workflows",
-      "softwareVersion": "2.9.16",
+      "softwareVersion": "2.10.0",
       "featureList": [
         "Built-in MCP server (2025-11-25) with 72 tools, tool annotations, prompts, completion, structured output — stdio, Streamable HTTP, SSE transports for Claude, Cursor, Windsurf, ChatGPT, Ollama, DeepSeek",
         "Vector/semantic search with 7 index algorithms: Flat, HNSW, IVF, PQ, OPQ, SQ, BQ + per-collection int8/int4 quantization (OpenAI, Ollama, Cohere, Voyage AI)",
@@ -124,7 +124,7 @@
                 <div class="footer-section">
                     <h4>MDDB</h4>
                     <p>AI-native knowledge base</p>
-                    <p class="footer-version" id="footer-version">Version 2.9.16</p>
+                    <p class="footer-version" id="footer-version">Version 2.10.0</p>
                 </div>
                 <div class="footer-section">
                     <h4>Documentation</h4>
@@ -165,7 +165,7 @@
 
     <script defer>
         // Single source of truth for version — change here to update everywhere
-        const MDDB_VERSION = '2.9.16';
+        const MDDB_VERSION = '2.10.0';
         const MDDB_RELEASE_DATE = 'April 7, 2026';
 
         // Replace all version references in the page
@@ -430,7 +430,7 @@
             // --- Minimal markdown ---
             function md(text) {
                 let h = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                h = h.replace(/\`\`\`\\w*\\n([\\s\\S]*?)\`\`\`/g, '<pre><code>$1</code></pre>');
+                h = h.replace(/\`\`\`\w*\n([\s\S]*?)\`\`\`/g, '<pre><code>$1</code></pre>');
                 h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
                 h = h.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
                 h = h.replace(/\n/g, '<br>');

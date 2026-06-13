@@ -260,7 +260,7 @@ curl -H "Authorization: Bearer $TOKEN" \
 - **API key storage:** SHA256 hash
 - **Permission model:** RBAC with collection isolation
 - **Token expiry:** Configurable (default 24h)
-- **Public endpoints:** /health, /v1/auth/login, /metrics
+- **Public endpoints:** /health, /v1/health, /v1/auth/login (and /metrics only when `MDDB_METRICS_PUBLIC=true` — SEC-009)
 
 ---
 

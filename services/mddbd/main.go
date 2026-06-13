@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -25,7 +26,7 @@ import (
 )
 
 // VERSION is the current release version of the MDDB server.
-const VERSION = "2.9.17"
+const VERSION = "2.10.0"
 
 // AccessMode defines the database access mode (read, write, or both).
 type AccessMode string
@@ -39,6 +40,13 @@ const (
 
 // Server is the main MDDB server instance holding the database and all subsystems.
 type Server struct {
+	// restoreMu guards the swappable DB handle (and the in-place reload of the
+	// caches/managers) against a replication snapshot restore (GO-004). All
+	// production BoltDB access goes through DBView/DBUpdate, which hold a read
+	// lock; the follower's restore holds the write lock for the whole swap, so
+	// in-flight reads drain before the old *bolt.DB is closed and never observe
+	// a half-swapped handle.
+	restoreMu           sync.RWMutex
 	DB                  *bolt.DB
 	Path                string
 	Mode                AccessMode
@@ -955,8 +963,16 @@ func main() {
 	// Panel mode: internal (default) = CORS enabled, external = CORS disabled (panel proxies)
 	panelMode := env("MDDB_PANEL_MODE", "internal")
 
-	// Wrap mux: CORS → panic-recover → rate limit → auth → metrics → JSON → routes
+	// Wrap mux: CORS → panic-recover → rate limit → auth → metrics → max-body → JSON → routes
 	handler := withJSON(mux)
+	// SEC-005: cap request body size globally so a single oversized JSON body
+	// can't OOM the process. Upload/import endpoints legitimately stream large
+	// files and manage their own limits, so they are exempt.
+	handler = withMaxBody(
+		int64(envDefaultInt("MDDB_MAX_BODY_BYTES", 32<<20)), // 32MB default
+		map[string]bool{"/v1/upload": true, "/v1/import-wiki": true},
+		handler,
+	)
 	handler = s.Metrics.Middleware(handler)
 	if authEnabled && s.AuthManager != nil {
 		handler = s.AuthManager.HTTPMiddleware(handler)
@@ -970,6 +986,18 @@ func main() {
 	handler = PanicRecoveryMiddleware(s.WebhookManager, handler)
 	if panelMode != "external" {
 		handler = withCORS(handler)
+		// SEC-008: a wildcard CORS policy lets any website read responses from a
+		// user's browser. Warn so operators set MDDB_CORS_ORIGINS for non-public
+		// deployments.
+		if envCORSConfig().wildcard {
+			if s.AuthManager != nil && s.AuthManager.enabled {
+				log.Printf("⚠️  SECURITY (SEC-008): CORS is wildcard (*) with auth enabled — " +
+					"any origin can attempt credentialed cross-origin reads. Set MDDB_CORS_ORIGINS to an allowlist.")
+			} else {
+				log.Printf("⚠️  SECURITY (SEC-008): CORS is wildcard (*) — any website can read this instance " +
+					"from a user's browser. Set MDDB_CORS_ORIGINS to an allowlist for non-public deployments.")
+			}
+		}
 	}
 	if panelMode == "external" {
 		log.Printf("Panel mode: external (CORS disabled, panel proxies requests)")
@@ -1080,6 +1108,13 @@ func main() {
 			s.mcpAuth = mcpAuth
 			mcpHandler = mcpAuth.Wrap(mcpHandler)
 
+			// SEC-002: tie MCP exposure to the main auth config. When
+			// MDDB_AUTH_ENABLED=true and MCP has no key auth of its own, gate
+			// the listener with the main AuthManager so it can't be an
+			// anonymous full-R/W bypass; warn loudly if MCP is unauthenticated
+			// and bound beyond loopback.
+			mcpHandler = s.applyMCPAuth(mcpHandler, srvCfg.MCP.Addr)
+
 			if panelMode != "external" {
 				mcpHandler = withCORS(mcpHandler)
 			}
@@ -1175,6 +1210,10 @@ func main() {
 		}
 		if authEnabled && s.AuthManager != nil {
 			unaryChain = append(unaryChain, s.AuthManager.GRPCUnaryInterceptor())
+			// SEC-003: streaming RPCs (Export, replication) must be
+			// authenticated too — and claims injected so stream handlers'
+			// CheckPermission sees them.
+			streamChain = append(streamChain, s.AuthManager.GRPCStreamInterceptor())
 		}
 		if len(unaryChain) > 0 {
 			grpcOpts = append(grpcOpts, grpc.ChainUnaryInterceptor(unaryChain...))
@@ -1221,12 +1260,20 @@ func main() {
 	if s.LockFreeCache != nil {
 		s.LockFreeCache.Close()
 	}
+	// Stop the DocumentCache cleanup goroutine (GO-006).
+	if s.Cache != nil {
+		s.Cache.Close()
+	}
+	// Stop the adaptive-index optimization worker goroutine (GO-007).
+	if s.AdaptiveIndex != nil {
+		s.AdaptiveIndex.Close()
+	}
 }
 
 // --- helpers / buckets
 
 func (s *Server) ensureBuckets() error {
-	return s.DB.Update(func(tx *bolt.Tx) error {
+	return s.DBUpdate(func(tx *bolt.Tx) error {
 		_, _ = tx.CreateBucketIfNotExists(s.BucketNames.Docs)          // doc|collection|id -> json
 		_, _ = tx.CreateBucketIfNotExists(s.BucketNames.IdxMeta)       // meta|collection|key|value|docID -> 1
 		_, _ = tx.CreateBucketIfNotExists(s.BucketNames.Rev)           // rev|collection|docID|ts -> json
@@ -1247,9 +1294,12 @@ func kMetaKeyPrefix(coll, mk, mv string) []byte {
 // --- middleware
 
 func withCORS(h http.Handler) http.Handler {
-	origin := env("MDDB_CORS_ORIGIN", "*")
+	// SEC-008: resolve the origin policy once. Prefer the MDDB_CORS_ORIGINS
+	// allowlist over a wildcard so a hostile site can't read responses from a
+	// user's local/intranet MDDB instance through their browser.
+	cfg := envCORSConfig()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", origin)
+		cfg.applyOrigin(w, r.Header.Get("Origin"))
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
 		w.Header().Set("Access-Control-Expose-Headers", "X-Total-Count")
@@ -1266,6 +1316,29 @@ func withJSON(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		h.ServeHTTP(w, r)
+	})
+}
+
+// withMaxBody caps the request body size (SEC-005). A declared Content-Length
+// over the limit is rejected immediately with 413; otherwise the body is
+// wrapped in http.MaxBytesReader so reads can never allocate more than `limit`
+// even when Content-Length is absent or lies. Paths in `exempt` (large
+// file uploads / wiki imports that stream from disk and enforce their own
+// caps) are left untouched. Configurable via MDDB_MAX_BODY_BYTES.
+func withMaxBody(limit int64, exempt map[string]bool, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if limit > 0 && !exempt[r.URL.Path] {
+			if r.ContentLength > limit {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusRequestEntityTooLarge)
+				_, _ = w.Write([]byte(`{"error":"request body too large"}`))
+				return
+			}
+			if r.Body != nil {
+				r.Body = http.MaxBytesReader(w, r.Body, limit)
+			}
+		}
+		next.ServeHTTP(w, r)
 	})
 }
 
@@ -1337,14 +1410,38 @@ func effectiveMode(global, perProtocol AccessMode) AccessMode {
 
 // addDocument is the shared internal method for adding/updating a document.
 // Returns the saved document, whether it was newly created, and any error.
-func (s *Server) addDocument(collection, key, lang string, meta map[string][]string, contentMD string, ttl int64) (Doc, bool, error) {
+// addDocument is the single write path for one document, shared by every
+// transport (HTTP, gRPC, MCP, GraphQL). It performs the in-transaction insert,
+// metadata index, and — when saveRevision is true — the revision write plus
+// MaxRevisions trimming, then runs the shared post-write side-effect pipeline.
+//
+// saveRevision lets the transport opt out of revision history (gRPC exposes a
+// per-request SaveRevision flag); all other callers pass true to preserve the
+// always-record-a-revision behaviour they have always had.
+func (s *Server) addDocument(collection, key, lang string, meta map[string][]string, contentMD string, ttl int64, saveRevision bool) (Doc, bool, error) {
+	// GO-003: validate in the single write path so EVERY transport is covered.
+	// Previously only gRPC Add and HTTP handleAdd validated; MCP (DirectClient)
+	// and GraphQL went straight to addDocument with no checks, and the batch
+	// path skipped schema validation entirely. Schema validation is opt-in
+	// (no-op unless a schema is registered for the collection), so this is safe
+	// for internal callers (memory/upload/import) too.
+	if collection == "" || key == "" || lang == "" {
+		return Doc{}, false, errors.New("missing required field: collection, key and lang are required")
+	}
+	if s.SchemaManager != nil {
+		if err := s.SchemaManager.Validate(collection, meta); err != nil {
+			return Doc{}, false, err
+		}
+	}
+
 	now := time.Now().Unix()
 	docID := genID(collection, key, lang)
 
 	var saved Doc
 	var isNew bool
 	var bo BinlogOps
-	err := s.DB.Update(func(tx *bolt.Tx) error {
+	var cachedBuf []byte // marshaled doc, reused to refresh the read cache (GO-002)
+	err := s.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bIdx := tx.Bucket([]byte("idxmeta"))
 		bRev := tx.Bucket([]byte("rev"))
@@ -1376,6 +1473,7 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 		if err != nil {
 			return err
 		}
+		cachedBuf = buf
 		docKey := kDoc(collection, docID)
 		if err := bDocs.Put(docKey, buf); err != nil {
 			return err
@@ -1409,18 +1507,20 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 			}
 		}
 
-		rkey := append(kRevPrefix(collection, doc.ID), []byte(fmt.Sprintf("%020d", now))...)
-		if err := bRev.Put(rkey, buf); err != nil {
-			return err
-		}
-		bo.Put("rev", rkey, buf)
+		if saveRevision {
+			rkey := append(kRevPrefix(collection, doc.ID), []byte(fmt.Sprintf("%020d", now))...)
+			if err := bRev.Put(rkey, buf); err != nil {
+				return err
+			}
+			bo.Put("rev", rkey, buf)
 
-		// Enforce per-collection MaxRevisions: drop oldest revs over the cap so
-		// history never grows unbounded on high-churn collections.
-		if s.CollectionManager != nil {
-			if cfg, found := s.CollectionManager.Get(collection); found && cfg.MaxRevisions > 0 {
-				if err := trimRevisions(tx, &bo, collection, doc.ID, cfg.MaxRevisions); err != nil {
-					return err
+			// Enforce per-collection MaxRevisions: drop oldest revs over the cap so
+			// history never grows unbounded on high-churn collections.
+			if s.CollectionManager != nil {
+				if cfg, found := s.CollectionManager.Get(collection); found && cfg.MaxRevisions > 0 {
+					if err := trimRevisions(tx, &bo, collection, doc.ID, cfg.MaxRevisions); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -1435,6 +1535,38 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 		return Doc{}, false, err
 	}
 
+	// Refresh the read cache so a subsequent gRPC Get (the only path that
+	// consults it) sees the new value instead of a stale entry for up to the
+	// 5-minute TTL (GO-002). Keyed identically to gRPC Add/Get via
+	// BuildCacheKey, so every transport stays coherent.
+	if cachedBuf != nil {
+		cacheKey := BuildCacheKey(collection, key, lang)
+		if s.UseExtreme && s.LockFreeCache != nil {
+			s.LockFreeCache.Set(cacheKey, cachedBuf)
+		} else if s.Cache != nil {
+			s.Cache.Set(cacheKey, cachedBuf)
+		}
+	}
+
+	// Side-effect pipeline shared by every write transport (GO-001).
+	s.runPostWriteHooks(collection, saved, isNew)
+
+	return saved, isNew, nil
+}
+
+// runPostWriteHooks runs the side-effect pipeline that must fire after a
+// document write commits to BoltDB, regardless of the transport that produced
+// it — HTTP, gRPC (single Add or AddBatch), MCP, or GraphQL. Centralising it
+// here is what guarantees identical behaviour across transports (GO-001):
+// async embedding, TTL bucket registration, FTS (content + positional +
+// field/BM25F), geo (R-tree + geohash + GeoStore), temporal tracking,
+// webhooks, SSE broadcast, and automation triggers. Every dependency is
+// nil-guarded so partially-configured servers (and tests) are safe.
+//
+// Revision writing and MaxRevisions trimming are intentionally NOT here: they
+// must happen inside the write transaction (see addDocument / the batch
+// commits) so a crash can never leave a doc without its revision.
+func (s *Server) runPostWriteHooks(collection string, saved Doc, isNew bool) {
 	// Trigger async embedding
 	if s.EmbeddingWorker != nil && saved.ContentMD != "" {
 		s.EmbeddingWorker.Enqueue(EmbeddingJob{
@@ -1500,10 +1632,10 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 		event = "doc.added"
 	}
 	if s.WebhookManager != nil {
-		s.WebhookManager.Fire(event, collection, key, lang, &saved)
+		s.WebhookManager.Fire(event, collection, saved.Key, saved.Lang, &saved)
 	}
 	if s.SSEHub != nil {
-		s.SSEHub.BroadcastWithAuth(event, collection, key, lang, s.AuthManager)
+		s.SSEHub.BroadcastWithAuth(event, collection, saved.Key, saved.Lang, s.AuthManager)
 	}
 
 	// Automation triggers
@@ -1514,8 +1646,6 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 		}
 		go s.AutomationManager.EvaluateTriggers(collection, saved, triggerEvent)
 	}
-
-	return saved, isNew, nil
 }
 
 // deleteDocumentInternal deletes a document and all its associated data.
@@ -1524,7 +1654,7 @@ func (s *Server) deleteDocumentInternal(collection, key, lang string) error {
 
 	var bo BinlogOps
 	var deletedDoc Doc // captured for trigger evaluation
-	err := s.DB.Update(func(tx *bolt.Tx) error {
+	err := s.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bIdx := tx.Bucket([]byte("idxmeta"))
 		bRev := tx.Bucket([]byte("rev"))
@@ -1607,6 +1737,16 @@ func (s *Server) deleteDocumentInternal(collection, key, lang string) error {
 		go s.AutomationManager.EvaluateTriggers(collection, deletedDoc, "delete")
 	}
 
+	// Invalidate the read cache so a gRPC Get can't serve the just-deleted doc
+	// for up to the 5-minute TTL (GO-002). Same BuildCacheKey as the write path.
+	cacheKey := BuildCacheKey(collection, key, lang)
+	if s.Cache != nil {
+		s.Cache.Delete(cacheKey)
+	}
+	if s.LockFreeCache != nil {
+		s.LockFreeCache.Delete(cacheKey)
+	}
+
 	// Clean up FTS index
 	if s.FTSIndex != nil {
 		_ = s.FTSIndex.Remove(collection, docID)
@@ -1658,7 +1798,7 @@ func (s *Server) handleAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	saved, _, err := s.addDocument(req.Collection, req.Key, req.Lang, req.Meta, req.ContentMD, req.TTL)
+	saved, _, err := s.addDocument(req.Collection, req.Key, req.Lang, req.Meta, req.ContentMD, req.TTL, true)
 	if err != nil {
 		bad(w, err)
 		return
@@ -1686,7 +1826,7 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var doc Doc
-	err := s.DB.View(func(tx *bolt.Tx) error {
+	err := s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bByK := tx.Bucket([]byte("bykey"))
 		docID := bByK.Get(kByKey(req.Collection, req.Key, req.Lang))
@@ -1754,7 +1894,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	type row struct{ Doc Doc }
 	var rows []row
 
-	err := s.DB.View(func(tx *bolt.Tx) error {
+	err := s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bIdx := tx.Bucket([]byte("idxmeta"))
 		seen := make(map[string]bool)
@@ -2015,7 +2155,7 @@ func (s *Server) handleTruncate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var bo BinlogOps
-	err := s.DB.Update(func(tx *bolt.Tx) error {
+	err := s.DBUpdate(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket([]byte("rev"))
 		bDocs := tx.Bucket([]byte("docs"))
 
@@ -2083,7 +2223,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if database is accessible
-	err := s.DB.View(func(tx *bolt.Tx) error {
+	err := s.DBView(func(tx *bolt.Tx) error {
 		return nil
 	})
 
@@ -2124,7 +2264,7 @@ func (s *Server) collectionChecksum(collection string) (string, int) {
 	var checksum uint32
 	var count int
 
-	_ = s.DB.View(func(tx *bolt.Tx) error {
+	_ = s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs == nil {
 			return nil
@@ -2253,7 +2393,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	var bo BinlogOps
 	var metaDidChange bool
 
-	err := s.DB.Update(func(tx *bolt.Tx) error {
+	err := s.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bIdx := tx.Bucket([]byte("idxmeta"))
 		bRev := tx.Bucket([]byte("rev"))
@@ -2453,7 +2593,7 @@ func (s *Server) handleDocMeta(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var doc Doc
-	err := s.DB.View(func(tx *bolt.Tx) error {
+	err := s.DBView(func(tx *bolt.Tx) error {
 		bByK := tx.Bucket([]byte("bykey"))
 		bDocs := tx.Bucket([]byte("docs"))
 		docID := bByK.Get(kByKey(collection, key, lang))
@@ -2525,7 +2665,7 @@ func (s *Server) handleMetaKeys(w http.ResponseWriter, r *http.Request) {
 
 	meta := make(map[string][]string)
 
-	_ = s.DB.View(func(tx *bolt.Tx) error {
+	_ = s.DBView(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket([]byte("idxmeta"))
 		if bIdx == nil {
 			return nil
@@ -2578,6 +2718,16 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// IndexQueueStats surfaces async meta-indexing health (GO-010): how many
+	// jobs were processed, failed, or had to be indexed synchronously because
+	// the queue was full (fallbacks), plus the current queue depth.
+	type IndexQueueStats struct {
+		Processed uint64 `json:"processed"`
+		Failed    uint64 `json:"failed"`
+		Fallbacks uint64 `json:"fallbacks"`
+		QueueLen  int    `json:"queueLen"`
+	}
+
 	type Stats struct {
 		DatabasePath     string            `json:"databasePath"`
 		DatabaseSize     int64             `json:"databaseSize"`
@@ -2586,6 +2736,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		TotalDocuments   int               `json:"totalDocuments"`
 		TotalRevisions   int               `json:"totalRevisions"`
 		TotalMetaIndices int               `json:"totalMetaIndices"`
+		IndexQueue       *IndexQueueStats  `json:"indexQueue,omitempty"`
 		Uptime           string            `json:"uptime"`
 	}
 
@@ -2603,7 +2754,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	// Collect statistics per collection
 	collectionMap := make(map[string]*CollectionStats)
 
-	err := s.DB.View(func(tx *bolt.Tx) error {
+	err := s.DBView(func(tx *bolt.Tx) error {
 		// Count documents per collection
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs != nil {
@@ -2692,6 +2843,17 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	sort.Slice(stats.Collections, func(i, j int) bool {
 		return stats.Collections[i].Name < stats.Collections[j].Name
 	})
+
+	// Async meta-indexing queue health
+	if s.IndexQueue != nil {
+		processed, failed, fallbacks, queueLen := s.IndexQueue.Stats()
+		stats.IndexQueue = &IndexQueueStats{
+			Processed: processed,
+			Failed:    failed,
+			Fallbacks: fallbacks,
+			QueueLen:  queueLen,
+		}
+	}
 
 	ok(w, stats)
 }
@@ -2933,7 +3095,7 @@ func (s *Server) handleDeleteCollection(w http.ResponseWriter, r *http.Request) 
 	var deletedCount int
 	var bo BinlogOps
 
-	err := s.DB.Update(func(tx *bolt.Tx) error {
+	err := s.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bIdx := tx.Bucket([]byte("idxmeta"))
 		bRev := tx.Bucket([]byte("rev"))

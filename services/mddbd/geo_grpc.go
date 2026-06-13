@@ -51,7 +51,7 @@ func (g *GRPCServer) GeoSearch(ctx context.Context, req *proto.GeoSearchRequest)
 
 	hits := g.server.GeoIndex.Search(req.Collection, req.Lat, req.Lng, req.RadiusMeters, int(req.TopK), allowed)
 	results := make([]*proto.GeoSearchResultItem, 0, len(hits))
-	_ = g.server.DB.View(func(tx *bolt.Tx) error {
+	_ = g.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(g.server.BucketNames.Docs)
 		if bDocs == nil {
 			return nil
@@ -120,7 +120,7 @@ func (g *GRPCServer) GeoWithin(ctx context.Context, req *proto.GeoWithinRequest)
 
 	hits := g.server.GeoIndex.Within(req.Collection, req.MinLat, req.MaxLat, req.MinLng, req.MaxLng, allowed)
 	results := make([]*proto.GeoSearchResultItem, 0, len(hits))
-	_ = g.server.DB.View(func(tx *bolt.Tx) error {
+	_ = g.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(g.server.BucketNames.Docs)
 		if bDocs == nil {
 			return nil

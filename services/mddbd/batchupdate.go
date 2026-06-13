@@ -119,7 +119,7 @@ func (bu *BatchUpdater) processDocument(collection string, updateDoc *proto.Upda
 
 	// Load existing
 	existing := Doc{}
-	err := bu.server.DB.View(func(tx *bolt.Tx) error {
+	err := bu.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(bu.server.BucketNames.Docs)
 		if v := bDocs.Get(kDoc(collection, docID)); v != nil {
 			existingDoc, err := unmarshalDoc(v)
@@ -173,8 +173,12 @@ func (bu *BatchUpdater) commitUpdate(collection string, updated []*UpdatedDoc, n
 	resp := &proto.UpdateBatchResponse{}
 
 	var bo BinlogOps
+	// Metadata reindex jobs collected during the tx and enqueued AFTER commit:
+	// Enqueue's full-queue fallback opens its own write transaction, so it must
+	// never run inside this one (GO-010 — would deadlock BoltDB's single writer).
+	var indexJobs []*IndexJob
 	// Single transaction for all updates
-	err := bu.server.DB.Update(func(tx *bolt.Tx) error {
+	err := bu.server.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(bu.server.BucketNames.Docs)
 		bRev := tx.Bucket(bu.server.BucketNames.Rev)
 
@@ -198,9 +202,9 @@ func (bu *BatchUpdater) commitUpdate(collection string, updated []*UpdatedDoc, n
 			}
 			bo.Put("docs", docKey, u.Buf)
 
-			// Queue metadata reindexing (lazy)
+			// Collect metadata reindex job; enqueued after the tx commits.
 			if metadataChanged(u.Existing.Meta, u.Doc.Meta) {
-				bu.server.IndexQueue.Enqueue(&IndexJob{
+				indexJobs = append(indexJobs, &IndexJob{
 					Collection: collection,
 					DocID:      u.DocID,
 					OldMeta:    u.Existing.Meta,
@@ -232,8 +236,20 @@ func (bu *BatchUpdater) commitUpdate(collection string, updated []*UpdatedDoc, n
 	if err != nil {
 		resp.Failed++
 		resp.Errors = append(resp.Errors, fmt.Sprintf("transaction error: %v", err))
-	} else {
-		bo.FlushTo(bu.server.Binlog)
+		return resp
+	}
+	bo.FlushTo(bu.server.Binlog)
+
+	// Enqueue metadata reindex jobs now that the write tx has committed.
+	// Enqueue never drops (synchronous fallback on a full queue); a returned
+	// error means the index entry could not be written — surface it rather
+	// than letting the doc silently fall out of meta queries (GO-010).
+	if bu.server.IndexQueue != nil {
+		for _, job := range indexJobs {
+			if jerr := bu.server.IndexQueue.Enqueue(job); jerr != nil {
+				resp.Errors = append(resp.Errors, fmt.Sprintf("%s: meta index error: %v", job.DocID, jerr))
+			}
+		}
 	}
 
 	return resp

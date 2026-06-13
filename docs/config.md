@@ -41,7 +41,8 @@ Complete reference for all MDDB configuration parameters.
 | `MDDB_PATH` | `"mddb.db"` | string | Path to the BoltDB database file (also `--db` CLI flag, `database.path` in YAML) |
 | `MDDB_MODE` | `"wr"` | string | Access mode: `"read"`, `"write"`, or `"wr"` (read+write) (also `--mode` CLI flag, `database.mode` in YAML) |
 | `MDDB_PANEL_MODE` | `"internal"` | string | Panel mode: `"internal"` (CORS enabled) or `"external"` (reverse proxy) |
-| `MDDB_CORS_ORIGIN` | `"*"` | string | CORS `Access-Control-Allow-Origin` header value |
+| `MDDB_CORS_ORIGINS` | `"*"` | string | CORS allowlist (SEC-008): comma-separated exact origins, e.g. `https://app.example.com,https://admin.example.com`. Only a matching request `Origin` is echoed (with `Vary: Origin`); others get no `Access-Control-Allow-Origin`. `*` = wildcard (read-only, no credentials). Takes precedence over `MDDB_CORS_ORIGIN`. |
+| `MDDB_CORS_ORIGIN` | `"*"` | string | Legacy single-origin form of `MDDB_CORS_ORIGINS` (kept for compatibility). Prefer `MDDB_CORS_ORIGINS`. |
 | `MDDB_METRICS` | `"true"` | bool | Enable Prometheus-compatible `/metrics` endpoint |
 | `MDDB_SEARCH_STATS` | `"true"` | bool | Include `searchStats` in search responses |
 

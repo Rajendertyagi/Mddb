@@ -167,4 +167,66 @@ final class SettingsTest extends TestCase {
 		self::assertSame( Settings::LANG_AUTO, $out['languageSource'] );
 		self::assertSame( Settings::KEY_POST_ID, $out['keyStrategy'] );
 	}
+
+	/**
+	 * INT-001: a well-formed but plain-http endpoint (non-local host) must be
+	 * rejected so the API key is never sent in cleartext.
+	 */
+	public function testSanitizeRejectsPlainHttpUrl(): void {
+		Functions\when( 'wp_http_validate_url' )->justReturn( true );
+		Functions\when( 'esc_url_raw' )->returnArg();
+		Functions\when( 'untrailingslashit' )->alias( static fn( $v ) => rtrim( (string) $v, '/' ) );
+		Functions\when( 'sanitize_key' )->alias(
+			static fn( $v ) => preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $v ) )
+		);
+
+		$out = Settings::sanitize( [ 'url' => 'http://mddb.example.com' ] );
+
+		self::assertSame( '', $out['url'], 'plain http to a remote host must be rejected (INT-001)' );
+	}
+
+	/**
+	 * INT-001: https endpoints are always accepted.
+	 */
+	public function testSanitizeAcceptsHttpsUrl(): void {
+		Functions\when( 'wp_http_validate_url' )->justReturn( true );
+		Functions\when( 'esc_url_raw' )->returnArg();
+		Functions\when( 'untrailingslashit' )->alias( static fn( $v ) => rtrim( (string) $v, '/' ) );
+		Functions\when( 'sanitize_key' )->alias(
+			static fn( $v ) => preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $v ) )
+		);
+
+		$out = Settings::sanitize( [ 'url' => 'https://mddb.example.com/' ] );
+
+		self::assertSame( 'https://mddb.example.com', $out['url'] );
+	}
+
+	/**
+	 * INT-001: http is permitted for local development hosts only.
+	 *
+	 * @dataProvider localHostUrlProvider
+	 */
+	public function testSanitizeAllowsHttpForLocalHosts( string $url, string $expected ): void {
+		Functions\when( 'wp_http_validate_url' )->justReturn( true );
+		Functions\when( 'esc_url_raw' )->returnArg();
+		Functions\when( 'untrailingslashit' )->alias( static fn( $v ) => rtrim( (string) $v, '/' ) );
+		Functions\when( 'sanitize_key' )->alias(
+			static fn( $v ) => preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $v ) )
+		);
+
+		$out = Settings::sanitize( [ 'url' => $url ] );
+
+		self::assertSame( $expected, $out['url'] );
+	}
+
+	/**
+	 * @return array<string,array{0:string,1:string}>
+	 */
+	public static function localHostUrlProvider(): array {
+		return [
+			'localhost'      => [ 'http://localhost:11023', 'http://localhost:11023' ],
+			'127.0.0.1'      => [ 'http://127.0.0.1:11023', 'http://127.0.0.1:11023' ],
+			'ipv6 loopback'  => [ 'http://[::1]:11023', 'http://[::1]:11023' ],
+		];
+	}
 }

@@ -26,7 +26,7 @@ type EmbeddingConfig struct {
 // SaveEmbeddingConfig saves an embedding configuration to the database
 func (s *Server) SaveEmbeddingConfig(config *EmbeddingConfig) error {
 	var bo BinlogOps
-	err := s.DB.Update(func(tx *bolt.Tx) error {
+	err := s.DBUpdate(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte("embedding_configs"))
 		if bucket == nil {
 			return fmt.Errorf("embedding_configs bucket not found")
@@ -66,7 +66,7 @@ func (s *Server) SaveEmbeddingConfig(config *EmbeddingConfig) error {
 // GetEmbeddingConfig retrieves an embedding configuration by ID
 func (s *Server) GetEmbeddingConfig(id string) (*EmbeddingConfig, error) {
 	var config EmbeddingConfig
-	err := s.DB.View(func(tx *bolt.Tx) error {
+	err := s.DBView(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte("embedding_configs"))
 		if bucket == nil {
 			return fmt.Errorf("embedding_configs bucket not found")
@@ -87,7 +87,7 @@ func (s *Server) GetEmbeddingConfig(id string) (*EmbeddingConfig, error) {
 func (s *Server) ListEmbeddingConfigs() ([]*EmbeddingConfig, error) {
 	var configs []*EmbeddingConfig
 
-	err := s.DB.View(func(tx *bolt.Tx) error {
+	err := s.DBView(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte("embedding_configs"))
 		if bucket == nil {
 			return fmt.Errorf("embedding_configs bucket not found")
@@ -125,7 +125,7 @@ func (s *Server) GetDefaultEmbeddingConfig() (*EmbeddingConfig, error) {
 // DeleteEmbeddingConfig deletes an embedding configuration
 func (s *Server) DeleteEmbeddingConfig(id string) error {
 	key := []byte(id)
-	err := s.DB.Update(func(tx *bolt.Tx) error {
+	err := s.DBUpdate(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte("embedding_configs"))
 		if bucket == nil {
 			return fmt.Errorf("embedding_configs bucket not found")

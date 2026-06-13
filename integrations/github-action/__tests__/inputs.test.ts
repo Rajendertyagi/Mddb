@@ -1,4 +1,5 @@
 import {
+  assertKeyPrefix,
   assertKeyStrategy,
   normaliseUrl,
   parseBool,
@@ -59,6 +60,29 @@ describe('assertKeyStrategy', () => {
   });
 });
 
+describe('assertKeyPrefix', () => {
+  it('accepts an empty prefix and key-safe characters', () => {
+    for (const v of ['', 'site/', 'docs.v2-', 'a_b/c.d', 'A1/B2_3', '/']) {
+      expect(assertKeyPrefix(v)).toBe(v);
+    }
+  });
+
+  it('accepts a prefix of exactly 100 characters', () => {
+    const v = 'a'.repeat(100);
+    expect(assertKeyPrefix(v)).toBe(v);
+  });
+
+  it('rejects disallowed characters', () => {
+    for (const v of ['site:', 'a b', 'emoji😀', 'has\tcontrol', 'with|pipe', 'q?x']) {
+      expect(() => assertKeyPrefix(v)).toThrow(/Invalid key-prefix/);
+    }
+  });
+
+  it('rejects a prefix longer than 100 characters', () => {
+    expect(() => assertKeyPrefix('a'.repeat(101))).toThrow(/Invalid key-prefix/);
+  });
+});
+
 describe('normaliseUrl', () => {
   it('strips trailing slashes', () => {
     expect(normaliseUrl('https://mddb.tradik.com///')).toBe('https://mddb.tradik.com');
@@ -85,7 +109,7 @@ describe('readInputs', () => {
         'working-directory': './subdir',
         language: 'pl_PL',
         'key-strategy': 'filename',
-        'key-prefix': 'site:',
+        'key-prefix': 'site/',
         concurrency: '4',
         'timeout-seconds': '15',
         'verify-ssl': 'false',
@@ -102,7 +126,7 @@ describe('readInputs', () => {
       workingDirectory: './subdir',
       language: 'pl_PL',
       keyStrategy: 'filename',
-      keyPrefix: 'site:',
+      keyPrefix: 'site/',
       concurrency: 4,
       timeoutSeconds: 15,
       verifySsl: false,

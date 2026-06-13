@@ -103,7 +103,7 @@ func (bd *BatchDeleter) lookupDocument(collection string, deleteDoc *proto.Delet
 	result.DocID = docID
 
 	// Load existing document (to get metadata for cleanup)
-	err := bd.server.DB.View(func(tx *bolt.Tx) error {
+	err := bd.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(bd.server.BucketNames.Docs)
 		if v := bDocs.Get(kDoc(collection, docID)); v != nil {
 			existingDoc, err := unmarshalDoc(v)
@@ -130,7 +130,7 @@ func (bd *BatchDeleter) commitDelete(collection string, deleted []*DeletedDoc) *
 
 	var bo BinlogOps
 	// Single transaction for all deletions
-	err := bd.server.DB.Update(func(tx *bolt.Tx) error {
+	err := bd.server.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(bd.server.BucketNames.Docs)
 		bIdx := tx.Bucket(bd.server.BucketNames.IdxMeta)
 		bRev := tx.Bucket(bd.server.BucketNames.Rev)

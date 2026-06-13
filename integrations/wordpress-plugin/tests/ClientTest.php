@@ -30,6 +30,20 @@ final class ClientTest extends TestCase {
 		parent::tearDown();
 	}
 
+	public function testResponseSnippetTruncatesAndSingleLines(): void {
+		// INT-003: untrusted server bodies must not flood / forge PHP logs.
+		$big = str_repeat( "secret line\n", 200 ); // ~2400 chars, multi-line
+		Functions\when( 'wp_remote_retrieve_body' )->justReturn( $big );
+
+		$m = new \ReflectionMethod( Client::class, 'responseSnippet' );
+		$m->setAccessible( true );
+		$out = $m->invoke( null, [] );
+
+		self::assertLessThanOrEqual( 201, mb_strlen( $out ), 'snippet must be bounded' );
+		self::assertStringNotContainsString( "\n", $out, 'snippet must be single-line (no log forging)' );
+		self::assertStringEndsWith( '…', $out, 'truncated snippet is marked with an ellipsis' );
+	}
+
 	private function settingsWith( string $url, string $key = '' ): Settings {
 		Functions\when( 'get_option' )->justReturn(
 			[ 'url' => $url, 'apiKey' => $key, 'collection' => 'c' ]

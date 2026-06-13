@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	proto "mddb/proto"
@@ -164,12 +165,23 @@ func (rc *ReplicationClient) disconnect() {
 	}
 }
 
+// withReplicationSecret attaches MDDB_REPLICATION_SECRET to the outgoing gRPC
+// metadata so the leader's authorizeReplication accepts this follower (SEC-001).
+// No-op when unset (mTLS / main-auth deployments don't need it).
+func withReplicationSecret(ctx context.Context) context.Context {
+	if secret := os.Getenv("MDDB_REPLICATION_SECRET"); secret != "" {
+		ctx = metadata.AppendToOutgoingContext(ctx, "x-mddb-replication-secret", secret)
+	}
+	return ctx
+}
+
 // replicate starts the binlog stream and applies entries
 func (rc *ReplicationClient) replicate() error {
 	fromLSN := rc.applier.LastAppliedLSN()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	ctx = withReplicationSecret(ctx)
 
 	// Start binlog stream
 	stream, err := rc.client.StreamBinlog(ctx, &proto.StreamBinlogRequest{
@@ -226,6 +238,7 @@ func (rc *ReplicationClient) replicate() error {
 
 // requestSnapshot downloads a full database snapshot from the leader
 func (rc *ReplicationClient) requestSnapshot(ctx context.Context) error {
+	ctx = withReplicationSecret(ctx)
 	stream, err := rc.client.RequestSnapshot(ctx, &proto.SnapshotRequest{
 		FollowerId: rc.followerID,
 		CurrentLsn: rc.applier.LastAppliedLSN(),
@@ -273,18 +286,24 @@ func (rc *ReplicationClient) requestSnapshot(ctx context.Context) error {
 	_ = tmpFile.Close()
 	log.Printf("Replication: received snapshot (%d bytes, LSN=%d)", totalReceived, snapshotLSN)
 
-	// Replace the database
-	if err := rc.replaceDatabase(tmpPath); err != nil {
+	// Replace the database and rebuild in-memory state atomically with respect
+	// to live readers (GO-004). The restore write lock drains in-flight
+	// DBView/DBUpdate calls and blocks new ones, so no handler observes a
+	// closed or half-swapped *bolt.DB.
+	if err := rc.server.withRestoreLock(func() error {
+		if err := rc.replaceDatabase(tmpPath); err != nil {
+			return err
+		}
+		rc.rebuildInMemoryState()
+		return nil
+	}); err != nil {
 		_ = os.Remove(tmpPath)
 		return fmt.Errorf("failed to replace database: %w", err)
 	}
 
-	// Set the applier's LSN to the snapshot LSN
+	// Set the applier's LSN to the snapshot LSN (atomic, lock-free).
 	rc.applier.SetLastAppliedLSN(snapshotLSN)
 	rc.lastAppliedAt.Store(time.Now().Unix())
-
-	// Rebuild in-memory state
-	rc.rebuildInMemoryState()
 
 	log.Printf("Replication: snapshot applied, now at LSN=%d", snapshotLSN)
 	return nil
@@ -315,31 +334,41 @@ func (rc *ReplicationClient) replaceDatabase(snapshotPath string) error {
 	return nil
 }
 
-// rebuildInMemoryState reloads all in-memory state from the new database
+// rebuildInMemoryState reloads all in-memory state from the new database.
+// MUST be called while holding the restore write lock (see requestSnapshot):
+// it reads the freshly swapped rc.server.DB and re-points the caches/managers.
+// The managers and cache are reloaded IN PLACE (same pointers) so concurrent
+// readers of Server.WebhookManager / SchemaManager / Cache never see a swapped
+// field (GO-004). The manager reload helpers use their own (lowercase) db
+// handle, not DBView/DBUpdate, so they don't re-enter the restore lock.
 func (rc *ReplicationClient) rebuildInMemoryState() {
-	// Reload vector index
+	// Reload vector index. The store wraps the new DB; the in-memory index is
+	// rebuilt asynchronously (loadVectorIndex acquires the restore read lock via
+	// DBView, so it waits until this restore releases the write lock).
 	if rc.server.VectorIndex != nil && rc.server.VectorStore != nil {
 		rc.server.VectorStore = NewVectorStore(rc.server.DB)
 		go rc.server.loadVectorIndex()
 	}
 
-	// Reload webhooks
+	// Reload webhooks in place.
 	if rc.server.WebhookManager != nil {
-		rc.server.WebhookManager = NewWebhookManager(rc.server.DB)
-		_ = rc.server.WebhookManager.EnsureBucket()
-		_ = rc.server.WebhookManager.LoadAll()
+		if err := rc.server.WebhookManager.reload(rc.server.DB); err != nil {
+			log.Printf("Replication: webhook reload after snapshot failed: %v", err)
+		}
 	}
 
-	// Reload schemas
+	// Reload schemas in place.
 	if rc.server.SchemaManager != nil {
-		rc.server.SchemaManager = NewSchemaManager(rc.server.DB)
-		_ = rc.server.SchemaManager.EnsureBucket()
-		_ = rc.server.SchemaManager.LoadAll()
+		if err := rc.server.SchemaManager.reload(rc.server.DB); err != nil {
+			log.Printf("Replication: schema reload after snapshot failed: %v", err)
+		}
 	}
 
-	// Reset caches
+	// Reset the document cache in place — same DocumentCache (and its single
+	// cleanup goroutine), contents cleared. Avoids both the Server.Cache pointer
+	// race and the per-restore goroutine leak of allocating a fresh cache.
 	if rc.server.Cache != nil {
-		rc.server.Cache = NewDocumentCache(1000, 300)
+		rc.server.Cache.Clear()
 	}
 
 	log.Println("Replication: in-memory state rebuilt after snapshot")

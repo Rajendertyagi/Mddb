@@ -1,6 +1,6 @@
 {
   "name": "mddb-panel",
-  "version": "2.9.17",
+  "version": "2.10.0",
   "description": "Web admin panel for MDDB - Markdown Database",
   "license": "BSD-3-Clause",
   "type": "module",
@@ -9,6 +9,7 @@
     "build": "vite build",
     "start": "node server.js",
     "preview": "vite preview",
+    "test": "node --test '*.test.js' 'src/**/*.test.js'",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {

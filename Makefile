@@ -1,4 +1,4 @@
-.PHONY: help dev-start dev-stop dev-logs dev-build dev-clean test lint fmt vet sec test-graphql lint-all test-all ci chat-build chat-dev chat-test widget-build widget-dev dev-logs-chat docs-prep docs-dev docs-build airbyte-build airbyte-push airbyte-test airbyte-spec airbyte-check airbyte-clean gha-install gha-build gha-test gha-coverage gha-lint gha-check gha-verify-dist gha-clean chrome-install chrome-build chrome-package chrome-test chrome-coverage chrome-lint chrome-audit chrome-check chrome-clean grafana-install grafana-build grafana-test grafana-coverage grafana-lint grafana-check grafana-package grafana-docker grafana-clean
+.PHONY: help dev-start dev-stop dev-logs dev-build dev-clean test lint fmt fmt-check vet sec test-graphql lint-all test-all ci chat-build chat-dev chat-test widget-build widget-dev dev-logs-chat docs-prep docs-dev docs-build airbyte-build airbyte-push airbyte-test airbyte-spec airbyte-check airbyte-clean gha-install gha-build gha-test gha-coverage gha-lint gha-check gha-verify-dist gha-clean chrome-install chrome-build chrome-package chrome-test chrome-coverage chrome-lint chrome-audit chrome-check chrome-clean grafana-install grafana-build grafana-test grafana-coverage grafana-lint grafana-check grafana-package grafana-docker grafana-clean
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -8,7 +8,7 @@ help: ## Show this help message
 
 dev-start: ## Start all services in development mode
 	@echo "🚀 Starting MDDB development environment..."
-	docker-compose -f docker-compose.dev.yml up -d
+	docker compose -f docker-compose.dev.yml up -d
 	@echo "✅ Services started!"
 	@echo ""
 	@echo "📍 Available services:"
@@ -25,43 +25,43 @@ dev-start: ## Start all services in development mode
 
 dev-start-with-ollama: ## Start all services including Ollama
 	@echo "🚀 Starting MDDB with Ollama for vector embeddings..."
-	docker-compose -f docker-compose.dev.yml --profile with-ollama up -d
+	docker compose -f docker-compose.dev.yml --profile with-ollama up -d
 	@echo "✅ Services started with Ollama!"
 
 dev-stop: ## Stop all development services
 	@echo "🛑 Stopping MDDB development environment..."
-	docker-compose -f docker-compose.dev.yml down
+	docker compose -f docker-compose.dev.yml down
 	@echo "✅ Services stopped!"
 
 dev-logs: ## Show logs from all services
-	docker-compose -f docker-compose.dev.yml logs -f
+	docker compose -f docker-compose.dev.yml logs -f
 
 dev-logs-server: ## Show logs from MDDB server only
-	docker-compose -f docker-compose.dev.yml logs -f mddbd
+	docker compose -f docker-compose.dev.yml logs -f mddbd
 
 dev-logs-panel: ## Show logs from MDDB panel only
-	docker-compose -f docker-compose.dev.yml logs -f mddb-panel
+	docker compose -f docker-compose.dev.yml logs -f mddb-panel
 
-dev-logs-mcp: ## Show logs from MCP server only
-	docker-compose -f docker-compose.dev.yml logs -f mddb-mcp
+dev-logs-mcp: ## Show MCP logs (MCP is built into the mddbd server)
+	docker compose -f docker-compose.dev.yml logs -f mddbd
 
 dev-build: ## Rebuild all Docker images
 	@echo "🔨 Rebuilding Docker images..."
-	docker-compose -f docker-compose.dev.yml build --no-cache
+	docker compose -f docker-compose.dev.yml build --no-cache
 	@echo "✅ Build complete!"
 
 dev-clean: ## Stop services and remove volumes
 	@echo "🧹 Cleaning up development environment..."
-	docker-compose -f docker-compose.dev.yml down -v
+	docker compose -f docker-compose.dev.yml down -v
 	@echo "✅ Cleanup complete!"
 
 dev-restart: dev-stop dev-start ## Restart all services
 
 dev-shell-server: ## Open shell in MDDB server container
-	docker-compose -f docker-compose.dev.yml exec mddbd sh
+	docker compose -f docker-compose.dev.yml exec mddbd sh
 
 dev-shell-panel: ## Open shell in MDDB panel container
-	docker-compose -f docker-compose.dev.yml exec mddb-panel sh
+	docker compose -f docker-compose.dev.yml exec mddb-panel sh
 
 test: ## Run all tests
 	@echo "🧪 Running backend tests..."
@@ -79,11 +79,20 @@ lint: ## Run linter
 	cd services/mddbd && golangci-lint run --timeout 5m
 	@echo "✅ Linting passed!"
 
-fmt: ## Format Go code
+fmt: ## Format Go code (all modules)
 	@echo "🎨 Formatting Go code..."
-	cd services/mddbd && gofmt -s -w .
-	cd services/mddb-cli && gofmt -s -w .
+	gofmt -s -w services/ tools/ test/
 	@echo "✅ Code formatted!"
+
+fmt-check: ## Fail if any Go file is not gofmt-formatted (GO-012 — CI gate)
+	@echo "🎨 Checking Go formatting..."
+	@UNFORMATTED=$$(gofmt -s -l services/ tools/ test/); \
+	if [ -n "$$UNFORMATTED" ]; then \
+		echo "❌ Files not gofmt-formatted (run 'make fmt'):"; \
+		echo "$$UNFORMATTED"; \
+		exit 1; \
+	fi
+	@echo "✅ All Go files gofmt-formatted!"
 
 vet: ## Run go vet
 	@echo "🔍 Running go vet..."
@@ -109,11 +118,11 @@ lint-all: fmt vet sec lint ## Run all linters
 test-all: test test-graphql ## Run all tests
 	@echo "✅ All tests passed!"
 
-ci: lint-all test-all ## Run full CI pipeline (lint + test)
+ci: check-go-version fmt-check lint-all test-all ## Run full CI pipeline (lint + test)
 	@echo "✅ CI pipeline complete!"
 
 dev-logs-chat: ## Show logs from chat server only
-	docker-compose -f docker-compose.dev.yml logs -f mddb-chat
+	docker compose -f docker-compose.dev.yml logs -f mddb-chat
 
 chat-build: ## Build chat server (requires Rust)
 	cd services/mddb-chat && cargo build --release
@@ -131,7 +140,17 @@ widget-dev: ## Run widget dev server
 	cd services/mddb-chat-widget && npm run dev
 
 version: ## Show current version
-	@echo "MDDB Version: 2.9.17"
+	@echo "MDDB Version: 2.10.0"
+
+check-go-version: ## Verify Go toolchain pins are consistent (go.work/go.mod/CI/Docker)
+	@bash scripts/check-go-version.sh --print
+
+test-go-version: ## Run the Go-version-drift guard test suite
+	@bash scripts/tests/test-go-version.sh
+
+mcp-tools-count: ## Verify docs' built-in MCP tool count matches the code (DOC-001)
+	@cd services/mddbd && go test -run TestMCPToolCountDocsInSync -count=1 . && \
+		echo "✅ docs MCP tool count matches len(mcpBuiltinTools())"
 
 docs-prep: ## Generate SSG content from docs/ (adds frontmatter to all .md files)
 	@bash scripts/ssg-prep.sh

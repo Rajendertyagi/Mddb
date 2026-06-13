@@ -159,6 +159,28 @@ final class Settings {
 	}
 
 	/**
+	 * Whether an MDDB endpoint URL is allowed to be saved.
+	 *
+	 * Enforces https:// so the bearer API key and synced document bodies are
+	 * never transmitted in cleartext; http:// is permitted ONLY for local
+	 * development hosts (localhost / 127.0.0.1 / ::1) where there is no network
+	 * hop to eavesdrop (INT-001).
+	 *
+	 * @param string $url
+	 */
+	private static function isAllowedUrl( string $url ): bool {
+		$scheme = strtolower( (string) wp_parse_url( $url, PHP_URL_SCHEME ) );
+		$host   = strtolower( trim( (string) wp_parse_url( $url, PHP_URL_HOST ), '[]' ) );
+
+		if ( $scheme === 'https' ) {
+			return true;
+		}
+
+		return $scheme === 'http'
+			&& in_array( $host, [ 'localhost', '127.0.0.1', '::1' ], true );
+	}
+
+	/**
 	 * @param array<string,mixed> $input
 	 * @return array<string,mixed>
 	 */
@@ -167,8 +189,17 @@ final class Settings {
 
 		if ( isset( $input['url'] ) ) {
 			$url = trim( (string) $input['url'] );
-			if ( $url !== '' && wp_http_validate_url( $url ) ) {
+			if ( $url !== '' && wp_http_validate_url( $url ) && self::isAllowedUrl( $url ) ) {
 				$out['url'] = untrailingslashit( esc_url_raw( $url ) );
+			} elseif ( $url !== '' ) {
+				// Reject insecure / malformed endpoints: the API key and document
+				// bodies travel in the request, so plain http would leak them on
+				// the wire (INT-001). Surface a clear admin notice on rejection.
+				add_settings_error(
+					'mddb_sync',
+					'mddb_sync_insecure_url',
+					__( 'MDDB URL must use https:// (http is allowed only for localhost, 127.0.0.1 or ::1).', 'mddb-sync' )
+				);
 			}
 		}
 

@@ -3,15 +3,25 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	
+
 	pb "mddb/proto"
 )
+
+// mustReadFile reads a lorem fixture, aborting the benchmark if it is missing —
+// otherwise the run would silently measure empty documents (GO-011).
+func mustReadFile(path string) []byte {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Printf("\033[31m✗ Failed to read %s: %v\033[0m\n", path, err)
+		os.Exit(1)
+	}
+	return content
+}
 
 const (
 	grpcAddr   = "localhost:11024"
@@ -68,9 +78,9 @@ func main() {
 	fmt.Println()
 
 	// Load test files
-	shortContent, _ := ioutil.ReadFile("lorem-short.md")
-	mediumContent, _ := ioutil.ReadFile("lorem-medium.md")
-	longContent, _ := ioutil.ReadFile("lorem-long.md")
+	shortContent := mustReadFile("lorem-short.md")
+	mediumContent := mustReadFile("lorem-medium.md")
+	longContent := mustReadFile("lorem-long.md")
 
 	fmt.Println("\033[36mTest Configuration:\033[0m")
 	fmt.Printf("  Collection: %s\n", collection)

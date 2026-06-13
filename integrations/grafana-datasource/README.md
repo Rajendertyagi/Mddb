@@ -1,5 +1,6 @@
 # MDDB — Grafana Datasource Plugin
 
+[![CI](https://github.com/tradik/mddb/actions/workflows/grafana-datasource.yml/badge.svg)](https://github.com/tradik/mddb/actions/workflows/grafana-datasource.yml)
 [![Plugin](https://img.shields.io/badge/Grafana%20Plugin-tradik--mddb--datasource-F46800?logo=grafana&logoColor=white)](https://github.com/tradik/mddb/tree/main/integrations/grafana-datasource)
 [![Grafana](https://img.shields.io/badge/Grafana-%E2%89%A5%2011.0-F46800?logo=grafana&logoColor=white)](https://grafana.com/)
 [![Node](https://img.shields.io/badge/Node-24-3C873A?logo=node.js&logoColor=white)](https://nodejs.org/)

@@ -1,5 +1,9 @@
 name: Tests
 
+# OPS-009: least privilege — tests/lint/build publish nothing.
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main, develop]
@@ -9,6 +13,10 @@ on:
       - 'proto/**'
       - 'buf.yaml'
       - 'buf.gen.yaml'
+      - 'go.work'
+      - 'tools/bench/**'
+      - 'test/**'
+      - 'scripts/check-go-version.sh'
       - '.github/workflows/test.yml'
   pull_request:
     branches: [main, develop]
@@ -18,10 +26,15 @@ on:
       - 'proto/**'
       - 'buf.yaml'
       - 'buf.gen.yaml'
+      - 'go.work'
+      - 'tools/bench/**'
+      - 'test/**'
+      - 'scripts/check-go-version.sh'
       - '.github/workflows/test.yml'
 
 env:
-  GO_VERSION: "1.26.3"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  GO_VERSION: "1.26.4"
   # Disable Go workspace mode in CI so each module builds/tests in isolation.
   # This catches missing `require` entries that go.work would hide by
   # transparently resolving sibling modules. Developers get the workspace
@@ -56,7 +69,7 @@ jobs:
         run: go test -v -race -coverprofile=coverage.out ./...
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: ./services/mddbd/coverage.out
           flags: unittests
@@ -68,13 +81,26 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: services/mddbd/go.sum
+
+      # GO-012: gofmt gate. Files that aren't `gofmt -s` formatted produce diff
+      # noise and merge conflicts and signal the standard toolchain isn't
+      # enforced. Fails listing the offenders; `make fmt` fixes them locally.
+      - name: Check gofmt formatting
+        run: |
+          UNFORMATTED=$(gofmt -s -l services/ tools/ test/)
+          if [ -n "$UNFORMATTED" ]; then
+            echo "::error::Files not gofmt-formatted (run 'make fmt'):"
+            echo "$UNFORMATTED"
+            exit 1
+          fi
+          echo "All Go files are gofmt-formatted."
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
@@ -89,7 +115,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           # buf breaking needs the full history of the target branch to
           # compare against.
@@ -140,6 +166,25 @@ jobs:
             exit 1
           fi
 
+  go-version:
+    name: Go Toolchain Consistency
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      # Guards against Go toolchain version drift (DOC-003): every pinned
+      # `toolchain goX.Y.Z` (go.work + each go.mod), every `GO_VERSION:`
+      # workflow env, and every `golang:X.Y.Z` Docker base image must match.
+      # A security bump that misses one place — e.g. go.work lagging at an
+      # unpatched toolchain — fails here instead of silently shipping.
+      - name: Verify Go version pins are consistent
+        run: bash scripts/check-go-version.sh --print
+
+      - name: Run guard test suite
+        run: bash scripts/tests/test-go-version.sh
+
   build:
     name: Build Binaries
     runs-on: ubuntu-latest
@@ -150,7 +195,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -175,3 +220,30 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
         run: go build -o mddb-cli-${{ matrix.goos }}-${{ matrix.goarch }} .
+
+  bench:
+    name: Benchmark Module Build & Vet
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: test/go.sum
+
+      # GO-011: the cross-database benchmark binaries (test/) used to be excluded
+      # from CI because the files all sat in one package with duplicate `main`
+      # symbols. They are now split one-`package main`-per-directory, so build +
+      # vet keep them honest against server/proto API drift. GOWORK=off (workflow
+      # env) builds the module standalone via its own `replace mddb => ...`.
+      - name: Build benchmark binaries
+        working-directory: test
+        run: go build ./...
+
+      - name: Vet benchmark binaries
+        working-directory: test
+        run: go vet ./...

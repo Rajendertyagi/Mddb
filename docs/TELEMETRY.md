@@ -40,6 +40,7 @@ mddb_documents_total{collection="docs"} 42
 | Environment Variable | Default | Description |
 |---|---|---|
 | `MDDB_METRICS` | `true` | Set to `false` to disable the `/metrics` endpoint |
+| `MDDB_METRICS_PUBLIC` | `false` | When auth is enabled (`MDDB_AUTH_ENABLED=true`), expose `/metrics` **without** credentials. Default keeps it gated (SEC-009). No effect when auth is disabled. |
 
 ```bash
 # Disable metrics
@@ -50,6 +51,43 @@ MDDB_METRICS=true ./mddbd
 ```
 
 When disabled, `GET /metrics` returns 404 and no request tracking middleware is active (zero overhead).
+
+### Authenticating `/metrics` (SEC-009)
+
+When `MDDB_AUTH_ENABLED=true`, `/metrics` is **not** public by default — an
+unauthenticated scrape gets `401`, the same as every other gated endpoint. This
+prevents leaking operational reconnaissance (per-endpoint operation counts,
+collection labels, traffic volumes, build version) to anonymous callers.
+
+Two supported options:
+
+1. **Scrape with credentials** (recommended) — issue Prometheus a read-capable
+   API key / JWT and pass it as a Bearer token:
+
+   ```yaml
+   # prometheus.yml
+   scrape_configs:
+     - job_name: mddb
+       metrics_path: /metrics
+       authorization:
+         type: Bearer
+         credentials_file: /etc/prometheus/mddb-token
+       static_configs:
+         - targets: ["mddb:11023"]
+   ```
+
+2. **Opt back into public metrics** — only on a trusted network where the
+   scraper cannot present a token:
+
+   ```bash
+   MDDB_AUTH_ENABLED=true MDDB_METRICS_PUBLIC=true ./mddbd
+   ```
+
+| `MDDB_AUTH_ENABLED` | `MDDB_METRICS_PUBLIC` | `GET /metrics` (no creds) |
+|---|---|---|
+| `false` | _(any)_ | `200` — open (no auth layer at all) |
+| `true`  | unset / `false` | `401` — credentials required |
+| `true`  | `true` | `200` — explicitly opted in |
 
 ## Available Metrics
 

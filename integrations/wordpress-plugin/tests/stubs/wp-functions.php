@@ -128,6 +128,20 @@ if ( ! function_exists( 'esc_attr' ) ) {
 if ( ! function_exists( 'esc_url' ) ) {
 	function esc_url( $url ): string { return is_string( $url ) ? $url : ''; }
 }
+if ( ! function_exists( 'add_settings_error' ) ) {
+	function add_settings_error( $setting, $code, $message, $type = 'error' ): void { unset( $setting, $code, $message, $type ); }
+}
+if ( ! function_exists( 'wp_kses_post' ) ) {
+	// Test stub: a coarse stand-in for WordPress's post-content sanitizer —
+	// enough to prove dangerous markup is stripped. Drops <script> blocks and
+	// inline event handlers; keeps other text.
+	function wp_kses_post( $content ): string {
+		$content = (string) $content;
+		$content = (string) preg_replace( '#<script\b[^>]*>.*?</script>#is', '', $content );
+		$content = (string) preg_replace( '/\son\w+\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)/i', '', $content );
+		return $content;
+	}
+}
 if ( ! function_exists( 'wp_remote_post' ) ) {
 	function wp_remote_post( $url, $args = [] ) { unset( $url, $args ); return [ 'response' => [ 'code' => 200, 'message' => 'OK' ], 'body' => '{}' ]; }
 }

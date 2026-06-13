@@ -28,6 +28,27 @@ final class Updater {
 
 	private const TRANSIENT_TTL = 12 * HOUR_IN_SECONDS;
 
+	/** Hosts a release ZIP may be downloaded from (INT-002). */
+	private const ALLOWED_ZIP_HOSTS = [
+		'github.com',
+		'objects.githubusercontent.com',
+		'github-releases.githubusercontent.com',
+		'release-assets.githubusercontent.com',
+	];
+
+	/**
+	 * Whether a release-asset URL is safe to hand to the WordPress updater:
+	 * https scheme and a trusted GitHub releases host only (INT-002).
+	 */
+	private static function isTrustedZipUrl( string $url ): bool {
+		$parts = wp_parse_url( $url );
+		if ( ! is_array( $parts ) ) {
+			return false;
+		}
+		return ( $parts['scheme'] ?? '' ) === 'https'
+			&& in_array( strtolower( (string) ( $parts['host'] ?? '' ) ), self::ALLOWED_ZIP_HOSTS, true );
+	}
+
 	private string $basename;
 
 	private string $currentVersion;
@@ -107,9 +128,12 @@ final class Updater {
 			'download_link' => $release['zipUrl'],
 			'requires_php'  => $release['requiresPhp'],
 			'tested'        => $release['tested'],
+			// INT-003: GitHub release notes are rendered as HTML in the wp-admin
+			// "View details" modal. Run them through wp_kses_post() so only
+			// post-safe markup survives (no <script>, event handlers, etc.).
 			'sections'      => [
-				'description' => $release['body'],
-				'changelog'   => $release['body'],
+				'description' => wp_kses_post( $release['body'] ),
+				'changelog'   => wp_kses_post( $release['body'] ),
 			],
 		];
 	}
@@ -157,6 +181,16 @@ final class Updater {
 				$zipUrl = (string) ( $asset['browser_download_url'] ?? '' );
 				break;
 			}
+		}
+
+		// INT-002: the download URL feeds WordPress's auto-updater, which
+		// downloads and installs the ZIP (arbitrary PHP execution). Reject any
+		// URL whose scheme isn't https or whose host isn't a trusted GitHub
+		// releases host, so a manipulated API response / poisoned transient
+		// can't substitute a hostile package — an empty zipUrl means no update
+		// is offered.
+		if ( $zipUrl !== '' && ! self::isTrustedZipUrl( $zipUrl ) ) {
+			$zipUrl = '';
 		}
 
 		$release = [

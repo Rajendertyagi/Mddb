@@ -414,7 +414,7 @@ func (m *Metrics) getDBStats() *dbStats {
 	}
 
 	// Collection-level stats from BoltDB
-	_ = m.server.DB.View(func(tx *bolt.Tx) error {
+	_ = m.server.DBView(func(tx *bolt.Tx) error {
 		// Documents
 		if b := tx.Bucket([]byte("docs")); b != nil {
 			c := b.Cursor()

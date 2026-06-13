@@ -71,10 +71,11 @@ describe('background service worker wiring', () => {
     expect(chrome.action.setBadgeText).not.toHaveBeenCalled();
   });
 
-  it('handles refresh messages via runtime.onMessage', async () => {
+  it('handles refresh messages from an internal sender (popup)', async () => {
     await import('../src/background');
     const sendResponse = jest.fn();
-    const result = listeners.runtimeMessage[0]({ type: 'mddb:refresh' }, {}, sendResponse);
+    const sender = { id: chrome.runtime.id }; // no tab => popup/internal page
+    const result = listeners.runtimeMessage[0]({ type: 'mddb:refresh' }, sender, sendResponse);
     expect(result).toBe(true);
     await new Promise((r) => setTimeout(r, 0));
     expect(sendResponse).toHaveBeenCalled();
@@ -83,7 +84,33 @@ describe('background service worker wiring', () => {
   it('returns false for unknown messages', async () => {
     await import('../src/background');
     const sendResponse = jest.fn();
-    const result = listeners.runtimeMessage[0]({ type: 'other' }, {}, sendResponse);
+    const sender = { id: chrome.runtime.id };
+    const result = listeners.runtimeMessage[0]({ type: 'other' }, sender, sendResponse);
     expect(result).toBe(false);
+  });
+
+  it('INT-008: rejects refresh from a foreign extension id', async () => {
+    await import('../src/background');
+    (chrome.action.setBadgeText as jest.Mock).mockClear();
+    const sendResponse = jest.fn();
+    const result = listeners.runtimeMessage[0](
+      { type: 'mddb:refresh' },
+      { id: 'some-other-extension' },
+      sendResponse,
+    );
+    expect(result).toBe(false);
+    expect(sendResponse).not.toHaveBeenCalled();
+  });
+
+  it('INT-008: rejects refresh that carries a sender.tab (content script)', async () => {
+    await import('../src/background');
+    const sendResponse = jest.fn();
+    const result = listeners.runtimeMessage[0](
+      { type: 'mddb:refresh' },
+      { id: chrome.runtime.id, tab: { id: 7 } },
+      sendResponse,
+    );
+    expect(result).toBe(false);
+    expect(sendResponse).not.toHaveBeenCalled();
   });
 });

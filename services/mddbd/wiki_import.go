@@ -14,6 +14,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	json "github.com/goccy/go-json"
 	proto "mddb/proto"
 )
 
@@ -23,6 +24,36 @@ const wikiImportBatchSize = 500
 
 // wikiProgressInterval controls how often progress is logged during import.
 const wikiProgressInterval = 10000
+
+// SEC-006 defaults: server-side caps on a wiki import. They bound a bz2
+// decompression bomb and an unbounded page count; both are overridable via
+// MDDB_WIKI_MAX_DECOMPRESSED_BYTES / MDDB_WIKI_MAX_PAGES for full-dump imports.
+const (
+	wikiDefaultMaxDecompressedBytes int64 = 4 << 30 // 4 GiB of decompressed XML
+	wikiDefaultMaxPages                   = 500000
+)
+
+// errWikiDecompressedLimit is returned once a wiki import's decompressed byte
+// budget is exceeded, so the parse stops with a controlled error instead of
+// silently truncating the XML.
+var errWikiDecompressedLimit = errors.New("decompressed size limit exceeded")
+
+// cappedReader returns errWikiDecompressedLimit once more than `limit` bytes
+// have been read from the wrapped reader (SEC-006).
+type cappedReader struct {
+	r     io.Reader
+	limit int64
+	read  int64
+}
+
+func (c *cappedReader) Read(p []byte) (int, error) {
+	n, err := c.r.Read(p)
+	c.read += int64(n)
+	if c.read > c.limit {
+		return n, errWikiDecompressedLimit
+	}
+	return n, err
+}
 
 // WikiImportRequest is the JSON / multipart request body for /v1/import-wiki.
 type WikiImportRequest struct {
@@ -119,13 +150,23 @@ func (s *Server) handleWikiImport(w http.ResponseWriter, r *http.Request) {
 		batchSize = wikiImportBatchSize
 	}
 
-	// Auto-detect bz2 compression
-	var xmlReader io.Reader
-	if strings.HasSuffix(strings.ToLower(filename), ".bz2") {
-		xmlReader = bzip2.NewReader(reader)
-	} else {
-		xmlReader = reader
+	// SEC-006: clamp page count to a server default so a client can't request
+	// (or default into) an unbounded import.
+	serverMaxPages := envDefaultInt("MDDB_WIKI_MAX_PAGES", wikiDefaultMaxPages)
+	if req.MaxPages <= 0 || req.MaxPages > serverMaxPages {
+		req.MaxPages = serverMaxPages
 	}
+
+	// Auto-detect bz2 compression. Wrap the reader in a cappedReader so a
+	// decompression bomb (bz2 expands 10–50×) stops at a byte budget with a
+	// controlled error instead of silently truncating or exhausting resources.
+	maxDecompressed := envDefaultInt64("MDDB_WIKI_MAX_DECOMPRESSED_BYTES", wikiDefaultMaxDecompressedBytes)
+	rawReader := reader
+	if strings.HasSuffix(strings.ToLower(filename), ".bz2") {
+		rawReader = bzip2.NewReader(reader)
+	}
+	capped := &cappedReader{r: rawReader, limit: maxDecompressed}
+	var xmlReader io.Reader = capped
 
 	// Build namespace filter set
 	nsAllow := make(map[int]bool, len(req.Namespaces))
@@ -177,12 +218,16 @@ func (s *Server) handleWikiImport(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	decompressLimitHit := false
 	for {
 		tok, err := decoder.Token()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
+			if errors.Is(err, errWikiDecompressedLimit) {
+				decompressLimitHit = true
+			}
 			resp.Errors = append(resp.Errors, fmt.Sprintf("xml parse: %s", err.Error()))
 			break
 		}
@@ -283,6 +328,22 @@ func (s *Server) handleWikiImport(w http.ResponseWriter, r *http.Request) {
 		req.Collection, resp.Imported, resp.Skipped, resp.Failed, resp.DurationMs)
 
 	s.Metrics.IncOp("import-wiki")
+
+	// SEC-006: a decompression-bomb stop is a client/payload error, not a
+	// partial success — report it as 413 (with the partial counts) so callers
+	// can distinguish it from a clean import.
+	if decompressLimitHit {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusRequestEntityTooLarge)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error":    "decompressed size limit exceeded; raise MDDB_WIKI_MAX_DECOMPRESSED_BYTES to import larger dumps",
+			"imported": resp.Imported,
+			"skipped":  resp.Skipped,
+			"failed":   resp.Failed,
+		})
+		return
+	}
+
 	ok(w, resp)
 }
 

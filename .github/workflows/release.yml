@@ -1,5 +1,10 @@
 name: Release
 
+# OPS-009: least-privilege default — individual jobs elevate to
+# contents: write / packages: write / id-token: write where they publish.
+permissions:
+  contents: read
+
 on:
   push:
     tags:
@@ -11,7 +16,8 @@ on:
         required: true
 
 env:
-  GO_VERSION: '1.26.3'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  GO_VERSION: '1.26.4'
   DOCKER_HUB_USERNAME: tradik
   IMAGE_NAME: mddb
   GHCR_REGISTRY: ghcr.io

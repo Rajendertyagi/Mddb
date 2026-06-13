@@ -271,7 +271,7 @@ func (s *Server) processUploadedFile(fh *multipart.FileHeader, collection, lang,
 	}
 
 	// Store
-	saved, _, err := s.addDocument(collection, key, lang, docMeta, contentMD, ttl)
+	saved, _, err := s.addDocument(collection, key, lang, docMeta, contentMD, ttl, true)
 	if err != nil {
 		return nil, err
 	}

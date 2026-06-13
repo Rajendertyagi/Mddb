@@ -3,16 +3,32 @@ package main
 import (
 	"context"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
 
-// Public endpoints that don't require authentication
-var publicEndpoints = map[string]bool{
-	"/health":        true,
-	"/v1/health":     true,
-	"/v1/auth/login": true,
-	"/metrics":       true, // configurable later
+// buildPublicEndpoints returns the set of endpoints exempt from authentication.
+//
+// /health, /v1/health and /v1/auth/login are always public (liveness probes
+// and the login endpoint itself). /metrics is public ONLY when explicitly
+// opted in via MDDB_METRICS_PUBLIC=true (SEC-009): with auth enabled the
+// Prometheus counters — operation tallies, collection labels, traffic
+// volumes, build version — would otherwise be readable without credentials,
+// handing an attacker free reconnaissance while the rest of the API is gated.
+// When auth is disabled the HTTP middleware short-circuits before consulting
+// this set, so /metrics stays reachable exactly as before (opt-in only
+// matters once MDDB_AUTH_ENABLED=true).
+func buildPublicEndpoints() map[string]bool {
+	eps := map[string]bool{
+		"/health":        true,
+		"/v1/health":     true,
+		"/v1/auth/login": true,
+	}
+	if os.Getenv("MDDB_METRICS_PUBLIC") == "true" {
+		eps["/metrics"] = true
+	}
+	return eps
 }
 
 // HTTPMiddleware wraps HTTP handlers with authentication
@@ -23,7 +39,7 @@ func (am *AuthManager) HTTPMiddleware(next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Skip auth for public endpoints
-		if isPublicEndpoint(r.URL.Path) {
+		if am.isPublicEndpoint(r.URL.Path) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -125,7 +141,13 @@ func extractTokenFromRequest(r *http.Request) string {
 	return parts[1]
 }
 
-// isPublicEndpoint checks if endpoint is public (no auth required)
-func isPublicEndpoint(path string) bool {
-	return publicEndpoints[path]
+// isPublicEndpoint reports whether path is exempt from authentication for
+// this AuthManager. The exempt set is computed once at construction
+// (NewAuthManager) from the environment; a nil set (manager built via a raw
+// struct literal) is treated as "nothing public" so it fails closed.
+func (am *AuthManager) isPublicEndpoint(path string) bool {
+	if am.publicEndpoints == nil {
+		return false
+	}
+	return am.publicEndpoints[path]
 }

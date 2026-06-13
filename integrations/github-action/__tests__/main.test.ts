@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
 import * as core from '@actions/core';
 import { run, type RunDependencies } from '../src/main';
-import { MddbClient } from '../src/client';
+import { MddbClient, MddbHttpError } from '../src/client';
 
 jest.mock('@actions/core');
 
@@ -101,6 +101,26 @@ describe('run', () => {
     expect(result.failed).toBe(1);
     expect(mockCore.setFailed).not.toHaveBeenCalled();
     expect(mockCore.warning).toHaveBeenCalled();
+  });
+
+  it('INT-004: never logs the server response body, only the status', async () => {
+    const file = path.join(tmp, 'a.md');
+    await fs.writeFile(file, 'a', 'utf8');
+    stubInputs({ collection: 'docs', 'fail-on-error': 'false' });
+
+    const secretBody = 'SECRET-token=vk_should_never_be_logged';
+    const client: FakeClient = {
+      ping: jest.fn(),
+      addDocument: jest.fn().mockRejectedValue(new MddbHttpError('HTTP 500', 500, secretBody)),
+    };
+    const deps = buildDeps(client, [{ absolutePath: file, relativePath: 'a.md', size: 1 }]);
+
+    await run(deps);
+
+    expect(mockCore.warning).toHaveBeenCalled();
+    const logged = mockCore.warning.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(logged).not.toContain(secretBody);
+    expect(logged).toContain('status=500');
   });
 
   it('returns immediately when no files match', async () => {

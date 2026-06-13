@@ -68,7 +68,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: "2.9.17"
+  version: "2.10.0"
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -5816,6 +5816,25 @@ components:
         totalMetaIndices:
           type: integer
           example: 84
+        indexQueue:
+          type: object
+          description: >-
+            Async metadata-indexing queue health. `fallbacks` counts jobs that
+            were indexed synchronously because the queue was full (they are
+            never dropped). Omitted when the queue is not initialised.
+          properties:
+            processed:
+              type: integer
+              example: 12034
+            failed:
+              type: integer
+              example: 0
+            fallbacks:
+              type: integer
+              example: 3
+            queueLen:
+              type: integer
+              example: 0
         uptime:
           type: string
           example: 2h15m30s
@@ -7000,7 +7019,7 @@ components:
         goVersion:
           type: string
           description: Go runtime version
-          example: go1.26.3
+          example: go1.26.4
         version:
           type: string
           description: MDDB server version

@@ -121,6 +121,11 @@ func parallelScore(
 		go func(workerID int) {
 			defer wg.Done()
 			start := workerID * chunkSize
+			if start >= n {
+				// Fewer non-empty chunks than workers — this worker has no
+				// work (GO-018). Leave partials[workerID] nil.
+				return
+			}
 			end := min(start+chunkSize, n)
 			partials[workerID] = scoreRange(entries, start, end, query, topK, threshold, metric, filter)
 		}(w)
@@ -162,7 +167,18 @@ func scoreRange(
 	metric SimilarityFunc,
 	filter func(string) bool,
 ) []VectorResult {
-	results := make([]VectorResult, 0, min(end-start, topK*2))
+	// GO-018: an empty or inverted range (start >= end) must not reach
+	// make(): min(end-start, topK*2) would be negative and panic with
+	// "makeslice: cap out of range". This happens when the worker split
+	// hands a later worker a start index past n.
+	if start >= end {
+		return nil
+	}
+	capHint := end - start
+	if topK > 0 && topK*2 < capHint {
+		capHint = topK * 2
+	}
+	results := make([]VectorResult, 0, capHint)
 	for i := start; i < end; i++ {
 		e := &entries[i]
 		if filter != nil && !filter(e.docID) {

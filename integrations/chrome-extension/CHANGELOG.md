@@ -4,6 +4,18 @@ All notable changes to the `integrations/chrome-extension` package are documente
 file. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions
 follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+
+- **Validate the sender of `runtime.onMessage`** (`src/background.ts`) — the
+  `mddb:refresh` handler ignored the message sender. It now accepts a message only when
+  `sender.id === chrome.runtime.id` **and** `sender.tab` is unset, i.e. from the extension's
+  own trusted surfaces (popup / options / internal pages). A content script injected into a
+  web page can no longer coax a refresh (which would force traffic to the configured MDDB
+  server with its auth header). Tests cover the foreign-id and content-script (`sender.tab`)
+  rejections; `background.ts` stays at 100% coverage.
+
 ## [0.1.0] — 2026-05-22
 
 ### Added

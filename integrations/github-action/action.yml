@@ -38,7 +38,7 @@ inputs:
     required: false
     default: 'path'
   key-prefix:
-    description: 'String prepended to every derived key. Useful for namespacing multiple repos in one collection.'
+    description: 'String prepended to every derived key. Useful for namespacing multiple repos in one collection. Allowed characters: A-Z a-z 0-9 . _ / - (max 100).'
     required: false
     default: ''
   concurrency:

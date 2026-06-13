@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 from typing import Any, Dict, Iterable, List, Mapping, Optional
 
 import requests
@@ -12,6 +13,33 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 logger = logging.getLogger("airbyte")
+
+
+class _RedactingFilter(logging.Filter):
+    """INT-007: redact `Bearer <token>` from any log record so the API key can't
+    leak into Airbyte platform logs (debug request dumps, future refactors)."""
+
+    _BEARER = re.compile(r"Bearer\s+\S+", re.IGNORECASE)
+
+    def filter(self, record: logging.LogRecord) -> bool:  # noqa: A003
+        if isinstance(record.msg, str):
+            record.msg = self._BEARER.sub("Bearer ***", record.msg)
+        if record.args:
+            record.args = tuple(
+                self._BEARER.sub("Bearer ***", a) if isinstance(a, str) else a for a in record.args
+            )
+        return True
+
+
+# Attach once so token-bearing strings are scrubbed wherever this logger is used.
+if not any(isinstance(f, _RedactingFilter) for f in logger.filters):
+    logger.addFilter(_RedactingFilter())
+
+# INT-006: bound document keys and meta-key names derived from untrusted upstream
+# records so a multi-megabyte/binary key field or a hostile field name can't
+# create a pathological document key or pollute the MDDB meta schema.
+MAX_KEY_LEN = 512
+MAX_META_KEY_LEN = 128
 
 
 class MddbClient:
@@ -53,10 +81,12 @@ class MddbClient:
         url = f"{self.baseUrl}/v1/search"
         body = {"collection": "_airbyte_probe", "query": "*", "limit": 1}
         resp = self.session.post(url, data=json.dumps(body), timeout=self.timeout, verify=self.verifySsl)
+        # INT-007: never echo the server response body — it is untrusted and
+        # ends up in Airbyte platform logs / the connection UI. Status only.
         if resp.status_code in (401, 403):
-            raise PermissionError(f"MDDB rejected credentials: {resp.status_code} {resp.text[:200]}")
+            raise PermissionError(f"MDDB rejected credentials: HTTP {resp.status_code}")
         if resp.status_code >= 500:
-            raise RuntimeError(f"MDDB server error {resp.status_code}: {resp.text[:200]}")
+            raise RuntimeError(f"MDDB server error: HTTP {resp.status_code}")
         if resp.status_code in (404, 405):
             return
         resp.raise_for_status()
@@ -70,8 +100,9 @@ class MddbClient:
             verify=self.verifySsl,
         )
         if not resp.ok:
+            # INT-007: status + our own key context only, never the server body.
             raise RuntimeError(
-                f"MDDB /v1/add failed (HTTP {resp.status_code}) for key={document.get('key')!r}: {resp.text[:300]}"
+                f"MDDB /v1/add failed (HTTP {resp.status_code}) for key={document.get('key')!r}"
             )
 
     def addBatch(self, documents: Iterable[Mapping[str, Any]]) -> int:
@@ -114,7 +145,13 @@ def _extractKey(record: Mapping[str, Any], keyField: str) -> str:
     raw = record.get(keyField)
     if raw is None or (isinstance(raw, str) and not raw.strip()):
         return _hashFallback(record)
-    return str(raw)
+    key = str(raw)
+    # INT-006: a huge/binary or control-character key field would create a
+    # pathological document key — fall back to a stable content hash rather than
+    # silently mutating the caller's key.
+    if len(key) > MAX_KEY_LEN or not key.isprintable():
+        return _hashFallback(record)
+    return key
 
 
 def _hashFallback(record: Mapping[str, Any]) -> str:
@@ -128,8 +165,20 @@ def _flattenToStringLists(record: Mapping[str, Any]) -> Dict[str, List[str]]:
     for key, value in record.items():
         if value is None:
             continue
-        flat[str(key)] = _stringifyValue(value)
+        metaKey = _sanitizeMetaKey(str(key))
+        if not metaKey:
+            continue
+        flat[metaKey] = _stringifyValue(value)
     return flat
+
+
+def _sanitizeMetaKey(key: str) -> str:
+    """INT-006: untrusted upstream field names become MDDB meta keys. Strip
+    control characters and the '|' index-key separator, and bound the length, so
+    a hostile field name can't break index keys or pollute the meta schema.
+    """
+    cleaned = "".join(ch for ch in key if ch.isprintable() and ch != "|").strip()
+    return cleaned[:MAX_META_KEY_LEN]
 
 
 def _stringifyValue(value: Any) -> List[str]:

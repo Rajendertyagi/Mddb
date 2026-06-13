@@ -2668,7 +2668,7 @@ When the server was started with `MDDB_PRODUCTION=true` but a guardrail is not s
   "missing": [
     { "envVar": "MDDB_AUTH_ENABLED",     "want": "true",              "reason": "A.5.15 / CC6.1 — access control" },
     { "envVar": "MDDB_TLS_ENABLED",      "want": "true",              "reason": "A.8.24 / CC6.7 — encryption in transit" },
-    { "envVar": "MDDB_CORS_ORIGIN",      "want": "explicit origin",   "reason": "A.8.23 / CC6.6 — web-origin segmentation" },
+    { "envVar": "MDDB_CORS_ORIGINS",     "want": "explicit allowlist",   "reason": "A.8.23 / CC6.6 — web-origin segmentation" },
     { "envVar": "MDDB_AUDIT_ENABLED",    "want": "true",              "reason": "A.8.15 / CC7.2 — audit trail" },
     { "envVar": "MDDB_RATE_LIMIT_ENABLED","want": "true",             "reason": "A.5.30 / CC6.6 — resource-exhaustion protection" }
   ],
@@ -3011,8 +3011,8 @@ curl http://localhost:11023/v1/system/info
   "os": "linux",
   "arch": "amd64",
   "numCPU": 4,
-  "goVersion": "go1.26.3",
-  "version": "2.9.17",
+  "goVersion": "go1.26.4",
+  "version": "2.10.0",
   "uptimeSeconds": 3600,
   "memoryTotal": 134217728,
   "memoryUsed": 67108864,
@@ -3035,7 +3035,7 @@ curl http://localhost:11023/v1/config
 **Response**:
 ```json
 {
-  "version": "2.9.17",
+  "version": "2.10.0",
   "databasePath": "mddb.db",
   "mode": "wr",
   "protocols": {

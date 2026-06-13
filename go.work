@@ -12,19 +12,18 @@
 // Every module listed here must also maintain its own go.mod with
 // complete `require` entries so it builds standalone when GOWORK=off.
 //
-// NOT listed here:
-//   - ./test — pre-existing package-level conflicts
-//     (multiple files declaring `package main` with duplicate symbols).
-//     Can be added after the benchmark scripts are split into
-//     per-subdirectory packages. Its go.mod has `replace mddb => ../services/mddbd`
-//     which serves the same purpose standalone.
+// ./test holds the cross-database benchmark binaries. As of GO-011 each
+// benchmark lives in its own sub-package (one `package main` per directory),
+// so the module builds cleanly and is included here. Its go.mod keeps
+// `replace mddb => ../services/mddbd` so it also builds standalone.
 
 go 1.26
 
-toolchain go1.26.2
+toolchain go1.26.4
 
 use (
-	./services/mddbd
 	./services/mddb-cli
+	./services/mddbd
+	./test
 	./tools/bench
 )

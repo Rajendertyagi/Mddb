@@ -92,12 +92,12 @@ echo ""
 
 # Build test clients
 echo -e "${YELLOW}Building test clients...${NC}"
-go build -o grpc-performance-test grpc-performance-test.go 2>/dev/null || echo "Note: gRPC client build warnings (expected)"
-go build -o grpc-batch-test grpc-batch-test.go 2>/dev/null || echo "Note: gRPC Batch client build warnings (expected)"
-go build -o mysql-benchmark mysql-benchmark.go 2>/dev/null || echo "Note: MySQL client build warnings (expected)"
-go build -o postgres-benchmark postgres-benchmark.go 2>/dev/null || echo "Note: PostgreSQL client build warnings (expected)"
-go build -o mongodb-benchmark mongodb-benchmark.go 2>/dev/null || echo "Note: MongoDB client build warnings (expected)"
-go build -o couchdb-benchmark couchdb-benchmark.go 2>/dev/null || echo "Note: CouchDB client build warnings (expected)"
+go build -o grpc-performance-test ./grpc-perf 2>/dev/null || echo "Note: gRPC client build warnings (expected)"
+go build -o grpc-batch-test ./grpc-batch 2>/dev/null || echo "Note: gRPC Batch client build warnings (expected)"
+go build -o mysql-benchmark ./mysql 2>/dev/null || echo "Note: MySQL client build warnings (expected)"
+go build -o postgres-benchmark ./postgres 2>/dev/null || echo "Note: PostgreSQL client build warnings (expected)"
+go build -o mongodb-benchmark ./mongodb 2>/dev/null || echo "Note: MongoDB client build warnings (expected)"
+go build -o couchdb-benchmark ./couchdb 2>/dev/null || echo "Note: CouchDB client build warnings (expected)"
 
 echo ""
 

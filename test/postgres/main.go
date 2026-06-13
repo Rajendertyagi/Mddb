@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"sort"
 	"time"
@@ -108,7 +107,7 @@ func loadDocuments() map[string]string {
 
 	files := []string{"lorem-short.md", "lorem-medium.md", "lorem-long.md"}
 	for _, file := range files {
-		content, err := ioutil.ReadFile(file)
+		content, err := os.ReadFile(file)
 		if err != nil {
 			continue
 		}

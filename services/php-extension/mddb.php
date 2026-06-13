@@ -8,11 +8,26 @@
  */
 class mddb
 {
+  // INT-009: explicit cURL timeouts so a hung/black-hole server can't block the
+  // PHP process forever; explicit TLS verification so the client never relies on
+  // distro/php.ini defaults that may have it disabled.
+  private const CONNECT_TIMEOUT = 5;  // seconds to establish the connection
+  private const TIMEOUT = 30;          // seconds for the whole transfer
+
   private string $base;
   private string $mode;
   private string $collection = '';
   private array $env = [];
   private ?string $unixSocket = null;
+
+  /** Apply shared safety options (timeouts + TLS verification) to a cURL handle. */
+  private static function applyCurlDefaults($ch): void
+  {
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, self::CONNECT_TIMEOUT);
+    curl_setopt($ch, CURLOPT_TIMEOUT, self::TIMEOUT);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+  }
 
   public static function connect(string $addr, string $mode = 'read'): self
   {
@@ -205,6 +220,7 @@ class mddb
     curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([]));
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    self::applyCurlDefaults($ch);
     $res = curl_exec($ch);
     if ($res === false)
       throw new Exception(curl_error($ch));
@@ -227,6 +243,7 @@ class mddb
   {
     $ch = curl_init($this->base . $path);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    self::applyCurlDefaults($ch);
     if ($this->unixSocket !== null) {
       curl_setopt($ch, CURLOPT_UNIX_SOCKET_PATH, $this->unixSocket);
     }
@@ -247,6 +264,7 @@ class mddb
     curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    self::applyCurlDefaults($ch);
     if ($this->unixSocket !== null) {
       curl_setopt($ch, CURLOPT_UNIX_SOCKET_PATH, $this->unixSocket);
     }

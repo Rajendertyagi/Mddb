@@ -151,7 +151,7 @@ func (m *BulkIngestManager) Submit(collection string, docs []*proto.BatchDocumen
 // Get returns the current status record for a job.
 func (m *BulkIngestManager) Get(jobID string) (*BulkIngestJob, error) {
 	var job *BulkIngestJob
-	err := m.server.DB.View(func(tx *bolt.Tx) error {
+	err := m.server.DBView(func(tx *bolt.Tx) error {
 		raw := tx.Bucket(bucketBulkJobs).Get([]byte(jobID))
 		if raw == nil {
 			return fmt.Errorf("job %s not found", jobID)
@@ -169,7 +169,7 @@ func (m *BulkIngestManager) Get(jobID string) (*BulkIngestJob, error) {
 // are sorted newest-first by submittedAt.
 func (m *BulkIngestManager) List(collection string) ([]*BulkIngestJob, error) {
 	var jobs []*BulkIngestJob
-	err := m.server.DB.View(func(tx *bolt.Tx) error {
+	err := m.server.DBView(func(tx *bolt.Tx) error {
 		b := tx.Bucket(bucketBulkJobs)
 		return b.ForEach(func(_, v []byte) error {
 			j := &BulkIngestJob{}
@@ -287,7 +287,7 @@ func (m *BulkIngestManager) saveJob(job *BulkIngestJob) error {
 	if err != nil {
 		return err
 	}
-	return m.server.DB.Update(func(tx *bolt.Tx) error {
+	return m.server.DBUpdate(func(tx *bolt.Tx) error {
 		return tx.Bucket(bucketBulkJobs).Put([]byte(job.ID), buf)
 	})
 }
@@ -323,7 +323,7 @@ func (m *BulkIngestManager) markTerminal(jobID string, status BulkJobStatus, rea
 // owning worker died with the previous process.
 func (m *BulkIngestManager) recoverOrphans() {
 	var orphans []string
-	_ = m.server.DB.View(func(tx *bolt.Tx) error {
+	_ = m.server.DBView(func(tx *bolt.Tx) error {
 		b := tx.Bucket(bucketBulkJobs)
 		return b.ForEach(func(k, v []byte) error {
 			j := &BulkIngestJob{}
@@ -360,13 +360,13 @@ func (m *BulkIngestManager) fireCallback(job *BulkIngestJob) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-MDDB-Event", "bulk_ingest.completed")
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
+	// SEC-004: use the SSRF-guarded pooled client (callback URL is user-supplied).
+	resp, err := NewPooledClientWithTimeout(10 * time.Second).Do(req)
 	if err != nil {
 		log.Printf("bulk ingest callback: POST to %s failed: %v", job.CallbackURL, err)
 		return
 	}
-	_ = resp.Body.Close()
+	drainAndClose(resp.Body)
 }
 
 // newBulkJobID generates a collision-resistant, time-ordered job identifier.

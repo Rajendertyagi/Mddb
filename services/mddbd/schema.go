@@ -54,6 +54,21 @@ func NewSchemaManager(db *bolt.DB) *SchemaManager {
 	}
 }
 
+// reload re-points the manager at a freshly restored database, drops the cached
+// schemas and reloads them (GO-004). Keeping the same *SchemaManager (rather
+// than swapping Server.SchemaManager) avoids racing the field with readers; the
+// db handle and schema map are reset under the manager's own lock.
+func (sm *SchemaManager) reload(db *bolt.DB) error {
+	sm.mu.Lock()
+	sm.db = db
+	sm.schemas = make(map[string]*MetaSchema)
+	sm.mu.Unlock()
+	if err := sm.EnsureBucket(); err != nil {
+		return err
+	}
+	return sm.LoadAll()
+}
+
 // EnsureBucket creates the schemas bucket if it doesn't exist.
 func (sm *SchemaManager) EnsureBucket() error {
 	return sm.db.Update(func(tx *bolt.Tx) error {

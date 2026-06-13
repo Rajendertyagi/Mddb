@@ -21,7 +21,8 @@ on:
   workflow_dispatch:
 
 env:
-  GO_VERSION: "1.26.3"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  GO_VERSION: "1.26.4"
   # Scan each module in isolation — mirrors the Tests workflow so we catch
   # vulnerabilities reachable from each module's declared deps, not the
   # workspace-merged graph.

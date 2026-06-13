@@ -1527,7 +1527,7 @@ func TestMainAddDocument_WithMetadata(t *testing.T) {
 		"tags":     {"go", "database"},
 		"category": {"tech"},
 	}
-	doc, isNew, err := s.addDocument("blog", "meta-doc", "en", meta, "# Meta Doc", 0)
+	doc, isNew, err := s.addDocument("blog", "meta-doc", "en", meta, "# Meta Doc", 0, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1539,7 +1539,7 @@ func TestMainAddDocument_WithMetadata(t *testing.T) {
 	}
 
 	// Update the same doc
-	doc2, isNew2, err := s.addDocument("blog", "meta-doc", "en", map[string][]string{"author": {"bob"}}, "# Updated", 0)
+	doc2, isNew2, err := s.addDocument("blog", "meta-doc", "en", map[string][]string{"author": {"bob"}}, "# Updated", 0, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1555,7 +1555,7 @@ func TestMainAddDocument_WithTTL(t *testing.T) {
 	s, cleanup := newHandlerTestServer(t)
 	defer cleanup()
 
-	doc, _, err := s.addDocument("temp", "expiring", "en", nil, "content", 3600)
+	doc, _, err := s.addDocument("temp", "expiring", "en", nil, "content", 3600, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1563,7 +1563,7 @@ func TestMainAddDocument_WithTTL(t *testing.T) {
 		t.Error("expected non-zero expiresAt with TTL")
 	}
 	// TTL=0 means no expiry
-	doc2, _, err := s.addDocument("temp", "permanent", "en", nil, "content", 0)
+	doc2, _, err := s.addDocument("temp", "permanent", "en", nil, "content", 0, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1869,14 +1869,14 @@ func TestMainAddDocument_MetadataUpdateReindex(t *testing.T) {
 
 	// Add with initial meta
 	_, _, err := s.addDocument("blog", "meta-update", "en",
-		map[string][]string{"tag": {"go", "rust"}}, "content", 0)
+		map[string][]string{"tag": {"go", "rust"}}, "content", 0, true)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Update with different meta
 	_, _, err = s.addDocument("blog", "meta-update", "en",
-		map[string][]string{"tag": {"python"}}, "updated content", 0)
+		map[string][]string{"tag": {"python"}}, "updated content", 0, true)
 	if err != nil {
 		t.Fatal(err)
 	}

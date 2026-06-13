@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"sort"
 	"strconv"
@@ -93,6 +94,18 @@ func startGRPCServer(s *Server, addr string, opts ...grpc.ServerOption) error {
 		rs := NewReplicationServer(s)
 		s.replServer = rs
 		proto.RegisterMDDBReplicationServer(grpcServer, rs)
+
+		// SEC-001: snapshot/binlog streams expose the entire DB (incl. auth
+		// hashes). Warn loudly if the leader exposes them with no auth, secret,
+		// or mTLS — authorizeReplication will refuse such calls at runtime.
+		hasSecret := os.Getenv("MDDB_REPLICATION_SECRET") != ""
+		authOn := os.Getenv("MDDB_AUTH_ENABLED") == "true"
+		hasMTLS := s.Config.TLS.ClientCAFile != ""
+		if s.ReplicationRole == "leader" && !hasSecret && !authOn && !hasMTLS {
+			log.Printf("⚠️  SECURITY (SEC-001): replication leader has NO auth, MDDB_REPLICATION_SECRET, or mTLS. " +
+				"Snapshot/binlog requests will be refused. Set MDDB_REPLICATION_SECRET, enable MDDB_AUTH_ENABLED, " +
+				"or configure mTLS (TLS client CA) before followers can sync.")
+		}
 	}
 
 	// Register reflection service for grpcurl
@@ -101,7 +114,15 @@ func startGRPCServer(s *Server, addr string, opts ...grpc.ServerOption) error {
 	return grpcServer.Serve(lis)
 }
 
-// Add implements the Add RPC
+// Add implements the Add RPC.
+//
+// GO-001: this is a thin transport adapter over Server.addDocument — the SINGLE
+// document write path shared with HTTP, MCP and GraphQL. Previously gRPC Add
+// re-implemented the BoltDB insert and indexed metadata lazily via IndexQueue,
+// silently skipping FTS, geo, webhooks, SSE, temporal tracking and revision
+// trimming, so a doc added over gRPC was invisible to full-text/geo search and
+// fired no live events. Routing through addDocument makes every transport
+// behave identically.
 func (g *GRPCServer) Add(ctx context.Context, req *proto.AddRequest) (*proto.Document, error) {
 	if g.isReadOnly() {
 		return nil, status.Error(codes.PermissionDenied, "read-only mode")
@@ -129,112 +150,13 @@ func (g *GRPCServer) Add(ctx context.Context, req *proto.AddRequest) (*proto.Doc
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	now := time.Now().Unix()
-	docID := genID(req.Collection, req.Key, req.Lang)
-
-	// Use KeyBuilder for efficient key construction
-	var kb KeyBuilder
-
-	var saved Doc
-	var cachedBuf []byte
-	var bo BinlogOps
-	err := g.server.DB.Update(func(tx *bolt.Tx) error {
-		bDocs := tx.Bucket(g.server.BucketNames.Docs)
-		bRev := tx.Bucket(g.server.BucketNames.Rev)
-		bByK := tx.Bucket(g.server.BucketNames.ByKey)
-
-		// Load existing
-		existing := Doc{}
-		docKey := kb.BuildDocKey(req.Collection, docID)
-		if v := bDocs.Get(docKey); v != nil {
-			existingDoc, err := unmarshalDoc(v)
-			if err != nil {
-				return err
-			}
-			existing = *existingDoc
-		}
-		added := existing.AddedAt
-		if added == 0 {
-			added = now
-		}
-
-		doc := Doc{
-			ID: docID, Key: req.Key, Lang: req.Lang, Meta: meta,
-			ContentMD: req.ContentMd, AddedAt: added, UpdatedAt: now,
-		}
-		buf, err := marshalAndEncrypt(&doc, req.Collection)
-		if err != nil {
-			return err
-		}
-		cachedBuf = buf // Save for cache
-
-		// Use KeyBuilder for all keys
-		docKey = kb.BuildDocKey(req.Collection, docID)
-		if err := bDocs.Put(docKey, buf); err != nil {
-			return err
-		}
-		bo.Put("docs", docKey, buf)
-
-		byKeyKey := kb.BuildByKey(req.Collection, req.Key, req.Lang)
-		if err := bByK.Put(byKeyKey, []byte(docID)); err != nil {
-			return err
-		}
-		bo.Put("bykey", byKeyKey, []byte(docID))
-
-		// Lazy metadata indexing - queue for async processing
-		if metadataChanged(existing.Meta, doc.Meta) {
-			g.server.IndexQueue.Enqueue(&IndexJob{
-				Collection: req.Collection,
-				DocID:      docID,
-				OldMeta:    existing.Meta,
-				NewMeta:    doc.Meta,
-			})
-		}
-
-		// Revision (optional - only if requested)
-		if req.SaveRevision {
-			revKey := kb.BuildRevKey(req.Collection, doc.ID, now)
-			if err := bRev.Put(revKey, buf); err != nil {
-				return err
-			}
-			bo.Put("rev", revKey, buf)
-		}
-
-		saved = doc
-		return nil
-	})
-	if err == nil {
-		bo.FlushTo(g.server.Binlog)
-	}
-
+	// Single write path: full pipeline (meta index in-tx, revisions + trim,
+	// then FTS/geo/webhooks/SSE/temporal/embedding via runPostWriteHooks).
+	// addDocument also refreshes the read cache (GO-002), so the gRPC Get path
+	// stays coherent without re-marshaling here.
+	saved, _, err := g.server.addDocument(req.Collection, req.Key, req.Lang, meta, req.ContentMd, 0, req.SaveRevision)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
-	}
-
-	// Update cache (use lock-free cache if extreme mode)
-	cacheKey := BuildCacheKey(req.Collection, req.Key, req.Lang)
-	if g.server.UseExtreme {
-		g.server.LockFreeCache.Set(cacheKey, cachedBuf)
-	} else {
-		g.server.Cache.Set(cacheKey, cachedBuf)
-	}
-
-	// Trigger async embedding
-	if g.server.EmbeddingWorker != nil && saved.ContentMD != "" {
-		g.server.EmbeddingWorker.Enqueue(EmbeddingJob{
-			Collection: req.Collection,
-			DocID:      saved.ID,
-			ContentMD:  saved.ContentMD,
-		})
-	}
-
-	// Automation triggers
-	if g.server.AutomationManager != nil && env("MDDB_TRIGGERS", "false") == "true" {
-		triggerEvent := "update"
-		if saved.AddedAt == saved.UpdatedAt {
-			triggerEvent = "insert"
-		}
-		go g.server.AutomationManager.EvaluateTriggers(req.Collection, saved, triggerEvent)
 	}
 
 	return docToProto(&saved), nil
@@ -345,7 +267,7 @@ func (g *GRPCServer) Get(ctx context.Context, req *proto.GetRequest) (*proto.Doc
 
 	var doc Doc
 	var docData []byte
-	err := g.server.DB.View(func(tx *bolt.Tx) error {
+	err := g.server.DBView(func(tx *bolt.Tx) error {
 		bByK := tx.Bucket(g.server.BucketNames.ByKey)
 		bDocs := tx.Bucket(g.server.BucketNames.Docs)
 
@@ -417,7 +339,7 @@ func (g *GRPCServer) Search(ctx context.Context, req *proto.SearchRequest) (*pro
 	var docs []Doc
 	var docIDs []string
 
-	err := g.server.DB.View(func(tx *bolt.Tx) error {
+	err := g.server.DBView(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket(g.server.BucketNames.IdxMeta)
 		bDocs := tx.Bucket(g.server.BucketNames.Docs)
 
@@ -536,7 +458,7 @@ func (g *GRPCServer) Backup(ctx context.Context, req *proto.BackupRequest) (*pro
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	err = g.server.DB.View(func(tx *bolt.Tx) error {
+	err = g.server.DBView(func(tx *bolt.Tx) error {
 		return tx.CopyFile(safeName, 0600)
 	})
 
@@ -592,7 +514,7 @@ func (g *GRPCServer) Truncate(ctx context.Context, req *proto.TruncateRequest) (
 		return nil, status.Error(codes.InvalidArgument, "missing collection")
 	}
 
-	err := g.server.DB.Update(func(tx *bolt.Tx) error {
+	err := g.server.DBUpdate(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket(g.server.BucketNames.Rev)
 		bDocs := tx.Bucket(g.server.BucketNames.Docs)
 
@@ -658,7 +580,7 @@ func (g *GRPCServer) Stats(ctx context.Context, req *proto.StatsRequest) (*proto
 	// Collect statistics
 	collectionMap := make(map[string]*proto.CollectionStats)
 
-	err := g.server.DB.View(func(tx *bolt.Tx) error {
+	err := g.server.DBView(func(tx *bolt.Tx) error {
 		// Count documents
 		bDocs := tx.Bucket(g.server.BucketNames.Docs)
 		if bDocs != nil {
@@ -805,7 +727,7 @@ func (g *GRPCServer) VectorSearch(ctx context.Context, req *proto.VectorSearchRe
 
 	// Load documents
 	protoResults := make([]*proto.VectorSearchResult, 0, len(results))
-	_ = g.server.DB.View(func(tx *bolt.Tx) error {
+	_ = g.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(g.server.BucketNames.Docs)
 		for rank, vr := range results {
 			v := bDocs.Get(kDoc(req.Collection, vr.DocID))
@@ -868,7 +790,7 @@ func (g *GRPCServer) VectorReindex(ctx context.Context, req *proto.VectorReindex
 	}
 	var docs []docEntry
 
-	err := g.server.DB.View(func(tx *bolt.Tx) error {
+	err := g.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(g.server.BucketNames.Docs)
 		c := bDocs.Cursor()
 		prefix := []byte("doc|" + req.Collection + "|")
@@ -948,7 +870,7 @@ func (g *GRPCServer) VectorStats(ctx context.Context, req *proto.VectorStatsRequ
 	vectorCounts, _ := g.server.VectorStore.CountByCollection()
 
 	docCounts := make(map[string]int)
-	_ = g.server.DB.View(func(tx *bolt.Tx) error {
+	_ = g.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(g.server.BucketNames.Docs)
 		if bDocs == nil {
 			return nil
@@ -1089,7 +1011,7 @@ func (g *GRPCServer) ImportURL(ctx context.Context, req *proto.ImportURLRequest)
 		mergedMeta[k] = v.Values
 	}
 
-	saved, _, err := g.server.addDocument(req.Collection, key, req.Lang, mergedMeta, body, req.Ttl)
+	saved, _, err := g.server.addDocument(req.Collection, key, req.Lang, mergedMeta, body, req.Ttl, true)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1122,7 +1044,7 @@ func (g *GRPCServer) SetTTL(ctx context.Context, req *proto.SetTTLRequest) (*pro
 	}
 
 	var updated Doc
-	err := g.server.DB.Update(func(tx *bolt.Tx) error {
+	err := g.server.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		v := bDocs.Get(kDoc(req.Collection, docID))
 		if v == nil {
@@ -1266,7 +1188,7 @@ func (g *GRPCServer) FTS(ctx context.Context, req *proto.FTSRequest) (*proto.FTS
 	// accumulate FTSResultWithDoc locally so curation + facets see the full
 	// shape identical to the HTTP handler.
 	docResults := make([]FTSResultWithDoc, 0, len(results))
-	_ = g.server.DB.View(func(tx *bolt.Tx) error {
+	_ = g.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		for _, res := range results {
 			v := bDocs.Get(kDoc(req.Collection, res.DocID))
@@ -1324,6 +1246,12 @@ func (g *GRPCServer) FTS(ctx context.Context, req *proto.FTSRequest) (*proto.FTS
 
 // FTSReindex implements the FTSReindex RPC — re-indexes all documents using their lang field.
 func (g *GRPCServer) FTSReindex(ctx context.Context, req *proto.FTSReindexRequest) (*proto.FTSReindexResponse, error) {
+	// GO-009: FTSReindex rewrites the FTS index — a write — so it must honour
+	// read-only mode like every other mutating RPC, or a read-only replica
+	// could clobber its index and race the replication applier.
+	if g.isReadOnly() {
+		return nil, status.Error(codes.PermissionDenied, "read-only mode")
+	}
 	if g.server.AuthManager != nil {
 		if err := g.server.AuthManager.CheckPermission(ctx, req.Collection, PermWrite); err != nil {
 			return nil, status.Error(codes.PermissionDenied, err.Error())
@@ -1343,7 +1271,9 @@ func (g *GRPCServer) FTSReindex(ctx context.Context, req *proto.FTSReindexReques
 	}
 	var docs []reindexDoc
 	var skipped int
-	_ = g.server.DB.View(func(tx *bolt.Tx) error {
+	// GO-009: propagate the read error instead of silently reporting 0 reindexed
+	// with Status "ok" (e.g. when the DB is mid-restore).
+	if err := g.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs == nil {
 			return nil
@@ -1363,11 +1293,20 @@ func (g *GRPCServer) FTSReindex(ctx context.Context, req *proto.FTSReindexReques
 			docs = append(docs, reindexDoc{docPtr.ID, docPtr.ContentMD, docPtr.Lang, docPtr.Meta})
 		}
 		return nil
-	})
+	}); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
 
-	reindexed := 0
+	// GO-009: count indexing failures instead of swallowing every error and
+	// always returning Status "ok". A failed doc does not increment reindexed,
+	// and any failure downgrades the status to "partial".
+	reindexed, failed := 0, 0
 	for _, d := range docs {
-		_ = g.server.FTSIndex.IndexWithLang(req.Collection, d.ID, d.ContentMD, d.Lang)
+		if err := g.server.FTSIndex.IndexWithLang(req.Collection, d.ID, d.ContentMD, d.Lang); err != nil {
+			failed++
+			log.Printf("fts reindex %s/%s: %v", req.Collection, d.ID, err)
+			continue
+		}
 		_ = g.server.FTSIndex.IndexPositionsWithLang(req.Collection, d.ID, d.ContentMD, d.Lang)
 		fields := map[string]string{"content": d.ContentMD}
 		for mk, vals := range d.Meta {
@@ -1379,10 +1318,14 @@ func (g *GRPCServer) FTSReindex(ctx context.Context, req *proto.FTSReindexReques
 		reindexed++
 	}
 
+	st := "ok"
+	if failed > 0 {
+		st = "partial"
+	}
 	return &proto.FTSReindexResponse{
-		Status:    "ok",
+		Status:    st,
 		Reindexed: safeInt32(reindexed),
-		Skipped:   safeInt32(skipped),
+		Skipped:   safeInt32(skipped + failed),
 	}, nil
 }
 
@@ -1811,7 +1754,7 @@ func (g *GRPCServer) UpdateDocument(ctx context.Context, req *proto.UpdateDocume
 	var metaDidChange bool
 	var bo BinlogOps
 
-	err := g.server.DB.Update(func(tx *bolt.Tx) error {
+	err := g.server.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bIdx := tx.Bucket([]byte("idxmeta"))
 		bRev := tx.Bucket([]byte("rev"))
@@ -1938,7 +1881,7 @@ func (g *GRPCServer) GetDocumentMeta(ctx context.Context, req *proto.GetDocument
 	}
 
 	var doc Doc
-	err := g.server.DB.View(func(tx *bolt.Tx) error {
+	err := g.server.DBView(func(tx *bolt.Tx) error {
 		bByK := tx.Bucket([]byte("bykey"))
 		bDocs := tx.Bucket([]byte("docs"))
 		docID := bByK.Get(kByKey(req.Collection, req.Key, req.Lang))
@@ -2061,7 +2004,7 @@ func (g *GRPCServer) DeleteCollection(ctx context.Context, req *proto.DeleteColl
 	var deletedCount int
 	var bo BinlogOps
 
-	err := g.server.DB.Update(func(tx *bolt.Tx) error {
+	err := g.server.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bIdx := tx.Bucket([]byte("idxmeta"))
 		bRev := tx.Bucket([]byte("rev"))
@@ -2266,7 +2209,7 @@ func (g *GRPCServer) GetMetaKeys(ctx context.Context, req *proto.GetMetaKeysRequ
 
 	meta := make(map[string][]string)
 
-	_ = g.server.DB.View(func(tx *bolt.Tx) error {
+	_ = g.server.DBView(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket([]byte("idxmeta"))
 		if bIdx == nil {
 			return nil
@@ -2535,7 +2478,7 @@ func (g *GRPCServer) TestAutomation(ctx context.Context, req *proto.TestAutomati
 
 	// Load matched documents
 	var protoDocs []*proto.Document
-	_ = g.server.DB.View(func(tx *bolt.Tx) error {
+	_ = g.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs == nil {
 			return nil
@@ -2819,7 +2762,7 @@ func (g *GRPCServer) CrossSearch(ctx context.Context, req *proto.CrossSearchRequ
 
 	// Load full documents
 	protoResults := make([]*proto.CrossSearchResultItem, 0, len(allTagged))
-	_ = g.server.DB.View(func(tx *bolt.Tx) error {
+	_ = g.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs == nil {
 			return nil
@@ -2949,7 +2892,7 @@ func (g *GRPCServer) ListRevisions(ctx context.Context, req *proto.ListRevisions
 	docID := genID(req.Collection, req.Key, req.Lang)
 
 	var revisions []*proto.RevisionEntryProto
-	err := g.server.DB.View(func(tx *bolt.Tx) error {
+	err := g.server.DBView(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket([]byte("rev"))
 		if bRev == nil {
 			return nil
@@ -3020,7 +2963,7 @@ func (g *GRPCServer) RestoreRevision(ctx context.Context, req *proto.RestoreRevi
 	revKey := append(kRevPrefix(req.Collection, docID), []byte(tsKey)...)
 
 	var revDoc *Doc
-	err := g.server.DB.View(func(tx *bolt.Tx) error {
+	err := g.server.DBView(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket([]byte("rev"))
 		if bRev == nil {
 			return errors.New("revision not found")
@@ -3037,7 +2980,7 @@ func (g *GRPCServer) RestoreRevision(ctx context.Context, req *proto.RestoreRevi
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 
-	doc, _, err := g.server.addDocument(req.Collection, req.Key, req.Lang, revDoc.Meta, revDoc.ContentMD, 0)
+	doc, _, err := g.server.addDocument(req.Collection, req.Key, req.Lang, revDoc.Meta, revDoc.ContentMD, 0, true)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

@@ -6,39 +6,45 @@
 .gitignore
 .gitattributes
 
-# Documentation
+# Documentation (any depth)
 *.md
+**/*.md
 docs/
 LICENSE
 
-# Development files
+# Development files (any depth)
 .vscode/
 .idea/
-*.swp
-*.swo
-*~
-.DS_Store
+**/*.swp
+**/*.swo
+**/*~
+**/.DS_Store
 
-# Build artifacts
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-*.test
-*.out
-coverage.html
-coverage.out
+# Build artifacts (any depth)
+**/*.exe
+**/*.exe~
+**/*.dll
+**/*.so
+**/*.dylib
+**/*.test
+**/*.out
+**/coverage.html
+**/coverage-*.html
+**/coverage.out
+**/coverage/
 
-# Database files
-*.db
-backup-*.db
+# Rust / cargo build output (can be gigabytes) — any depth
+**/target/
 
-# Temporary files
-tmp/
-*.tmp
-*.temp
-*.log
+# Database files (any depth)
+**/*.db
+**/backup-*.db
+
+# Temporary files (any depth)
+**/tmp/
+**/*.tmp
+**/*.temp
+**/*.log
 
 # Air config (will be generated in container)
 .air.toml
@@ -52,11 +58,11 @@ docker-compose*.yml
 .github/
 .gitlab-ci.yml
 
-# Environment
-.env*
+# Environment (any depth)
+**/.env*
 
-# Node modules
-node_modules/
+# Node modules (any depth — host installs must never override image installs)
+**/node_modules/
 
 # Integration: GitHub Action (Node-based; not shipped in any Docker image)
 integrations/github-action/coverage/
@@ -68,13 +74,17 @@ integrations/chrome-extension/coverage/
 integrations/chrome-extension/build/
 integrations/chrome-extension/dist/
 
-# Python
-__pycache__/
-*.py[cod]
-*.egg-info/
-dist/
-build/
+# Python (any depth)
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
+**/dist/
+**/build/
 
 # Go
-vendor/
+**/vendor/
 go.work
+
+# Local audit findings — never shipped in any image
+audit/
+AUDIT_REPORT.md

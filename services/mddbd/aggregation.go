@@ -367,7 +367,7 @@ func (s *Server) aggregate(req *AggregateRequest) (*AggregateResponse, error) {
 
 	var allowedIDs map[string]bool
 
-	_ = s.DB.View(func(tx *bolt.Tx) error {
+	_ = s.DBView(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket([]byte("idxmeta"))
 		bDocs := tx.Bucket([]byte("docs"))
 		if bIdx == nil || bDocs == nil {

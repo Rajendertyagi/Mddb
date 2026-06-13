@@ -16,6 +16,7 @@ func clearProdEnv(t *testing.T) {
 		"MDDB_AUTH_JWT_SECRET",
 		"MDDB_TLS_ENABLED",
 		"MDDB_TLS_INSECURE_OK",
+		"MDDB_CORS_ORIGINS",
 		"MDDB_CORS_ORIGIN",
 		"MDDB_AUDIT_ENABLED",
 		"MDDB_RATE_LIMIT_ENABLED",
@@ -30,7 +31,7 @@ func setAllProdEnv(t *testing.T) {
 	t.Setenv("MDDB_AUTH_ENABLED", "true")
 	t.Setenv("MDDB_AUTH_JWT_SECRET", strings.Repeat("x", 32))
 	t.Setenv("MDDB_TLS_ENABLED", "true")
-	t.Setenv("MDDB_CORS_ORIGIN", "https://app.example.com")
+	t.Setenv("MDDB_CORS_ORIGINS", "https://app.example.com")
 	t.Setenv("MDDB_AUDIT_ENABLED", "true")
 	t.Setenv("MDDB_RATE_LIMIT_ENABLED", "true")
 }
@@ -95,9 +96,9 @@ func TestCheckProductionGuards_TLSInsecureOKOptOut(t *testing.T) {
 func TestCheckProductionGuards_CORSStar(t *testing.T) {
 	clearProdEnv(t)
 	setAllProdEnv(t)
-	t.Setenv("MDDB_CORS_ORIGIN", "*")
+	t.Setenv("MDDB_CORS_ORIGINS", "*")
 	missing := CheckProductionGuards()
-	if len(missing) != 1 || missing[0].EnvVar != "MDDB_CORS_ORIGIN" {
+	if len(missing) != 1 || missing[0].EnvVar != "MDDB_CORS_ORIGINS" {
 		t.Fatalf("CORS=* should flag: %+v", missing)
 	}
 }
@@ -105,9 +106,9 @@ func TestCheckProductionGuards_CORSStar(t *testing.T) {
 func TestCheckProductionGuards_CORSUnsetFlags(t *testing.T) {
 	clearProdEnv(t)
 	setAllProdEnv(t)
-	t.Setenv("MDDB_CORS_ORIGIN", "")
+	t.Setenv("MDDB_CORS_ORIGINS", "")
 	missing := CheckProductionGuards()
-	if len(missing) != 1 || missing[0].EnvVar != "MDDB_CORS_ORIGIN" {
+	if len(missing) != 1 || missing[0].EnvVar != "MDDB_CORS_ORIGINS" {
 		t.Fatalf("CORS unset (would default to *) must flag: %+v", missing)
 	}
 }

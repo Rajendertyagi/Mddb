@@ -425,9 +425,12 @@ func TestInvalidateDocCache_LockFreeCache(t *testing.T) {
 	s, cleanup := applierExtraTestServer(t)
 	defer cleanup()
 
-	// Pre-populate both caches
-	s.Cache.Set("blog|post1", []byte(`{"id":"post1"}`))
-	s.LockFreeCache.Set("blog|post1", []byte(`{"id":"post1"}`))
+	// The caches are keyed by BuildCacheKey(collection, key, lang); the
+	// replicated doc carries key + lang so the applier derives that exact key
+	// from the entry value (GO-002).
+	cacheKey := BuildCacheKey("blog", "post1", "en")
+	s.Cache.Set(cacheKey, []byte(`{"id":"post1","key":"post1","lang":"en"}`))
+	s.LockFreeCache.Set(cacheKey, []byte(`{"id":"post1","key":"post1","lang":"en"}`))
 
 	applier := NewReplicationApplier(s)
 
@@ -436,17 +439,17 @@ func TestInvalidateDocCache_LockFreeCache(t *testing.T) {
 		Type:       BinlogPut,
 		BucketName: "docs",
 		Key:        []byte("doc|blog|post1"),
-		Value:      []byte(`{"id":"post1","contentMd":"updated"}`),
+		Value:      []byte(`{"id":"post1","key":"post1","lang":"en","contentMd":"updated"}`),
 	}
 	if err := applier.Apply(entry); err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
 
 	// Both caches should be invalidated
-	if _, ok := s.Cache.Get("blog|post1"); ok {
+	if _, ok := s.Cache.Get(cacheKey); ok {
 		t.Error("expected Cache entry to be invalidated")
 	}
-	if _, ok := s.LockFreeCache.Get("blog|post1"); ok {
+	if _, ok := s.LockFreeCache.Get(cacheKey); ok {
 		t.Error("expected LockFreeCache entry to be invalidated")
 	}
 }

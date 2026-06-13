@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import unittest
 from unittest.mock import MagicMock, patch
 
 from destination_mddb.client import (
     MddbClient,
+    _RedactingFilter,
     _extractKey,
     _flattenToStringLists,
     _hashFallback,
@@ -42,6 +44,37 @@ class TestKeyExtraction(unittest.TestCase):
     def test_hashIsDeterministic(self):
         record = {"b": 2, "a": 1}
         self.assertEqual(_hashFallback(record), _hashFallback({"a": 1, "b": 2}))
+
+    def test_oversizeKeyFallsBackToHash(self):
+        # INT-006: a multi-KB key field must not become the document key.
+        record = {"id": "x" * 5000}
+        key = _extractKey(record, "id")
+        self.assertEqual(key, _hashFallback(record))
+        self.assertEqual(len(key), 40)
+
+    def test_controlCharKeyFallsBackToHash(self):
+        # INT-006: control characters (e.g. NUL/newline) -> hash fallback.
+        record = {"id": "line1\nline2\x00"}
+        key = _extractKey(record, "id")
+        self.assertEqual(key, _hashFallback(record))
+
+
+class TestMetaKeySanitization(unittest.TestCase):
+    def test_metaKeyStripsPipeAndControlChars(self):
+        # INT-006: the '|' index-key separator and control chars are removed.
+        flat = _flattenToStringLists({"a|b\tc": "v"})
+        self.assertIn("abc", flat)
+        self.assertNotIn("a|b\tc", flat)
+
+    def test_metaKeyLengthBounded(self):
+        flat = _flattenToStringLists({"k" * 500: "v"})
+        (only_key,) = flat.keys()
+        self.assertLessEqual(len(only_key), 128)
+
+    def test_emptyAfterSanitizationIsDropped(self):
+        flat = _flattenToStringLists({"|||": "v", "ok": "w"})
+        self.assertNotIn("", flat)
+        self.assertIn("ok", flat)
 
 
 class TestStringification(unittest.TestCase):
@@ -161,6 +194,25 @@ class TestMddbClient(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 self.client.ping()
 
+    def test_pingErrorOmitsResponseBody(self):
+        # INT-007: the untrusted server body must not appear in the exception.
+        secret = "SECRET-token=vk_should_never_be_logged"
+        with patch.object(self.client.session, "post") as post:
+            post.return_value = MagicMock(status_code=500, ok=False, text=secret)
+            with self.assertRaises(RuntimeError) as ctx:
+                self.client.ping()
+            self.assertNotIn(secret, str(ctx.exception))
+            self.assertIn("HTTP 500", str(ctx.exception))
+
+    def test_addDocumentErrorOmitsResponseBody(self):
+        secret = "SECRET-body-internal-data"
+        with patch.object(self.client.session, "post") as post:
+            post.return_value = MagicMock(status_code=422, ok=False, text=secret)
+            with self.assertRaises(RuntimeError) as ctx:
+                self.client.addDocument({"key": "k"})
+            self.assertNotIn(secret, str(ctx.exception))
+            self.assertIn("HTTP 422", str(ctx.exception))
+
     def test_addDocumentSendsJson(self):
         with patch.object(self.client.session, "post") as post:
             post.return_value = MagicMock(status_code=200, ok=True, text="{}")
@@ -183,3 +235,25 @@ class TestMddbClient(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRedactingFilter(unittest.TestCase):
+    """INT-007: the logging filter scrubs Bearer tokens from log records."""
+
+    def _scrub(self, msg, args=None):
+        rec = logging.LogRecord("airbyte", logging.INFO, "p", 1, msg, args, None)
+        _RedactingFilter().filter(rec)
+        return rec
+
+    def test_redactsBearerInMessage(self):
+        rec = self._scrub("Authorization: Bearer vk_super_secret done")
+        self.assertNotIn("vk_super_secret", rec.msg)
+        self.assertIn("Bearer ***", rec.msg)
+
+    def test_redactsBearerInArgs(self):
+        rec = self._scrub("header=%s", ("Bearer vk_arg_secret",))
+        self.assertNotIn("vk_arg_secret", rec.args[0])
+
+    def test_leavesPlainMessagesUntouched(self):
+        rec = self._scrub("no token here")
+        self.assertEqual(rec.msg, "no token here")

@@ -228,7 +228,7 @@ func (s *Server) handleSetTTL(w http.ResponseWriter, r *http.Request) {
 	// Update document in DB
 	var updated Doc
 	var bo BinlogOps
-	err := s.DB.Update(func(tx *bolt.Tx) error {
+	err := s.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		dk := kDoc(req.Collection, docID)
 		v := bDocs.Get(dk)

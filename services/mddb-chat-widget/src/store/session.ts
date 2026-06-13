@@ -3,6 +3,10 @@ import type { Message } from './state';
 const STORAGE_KEY = 'mddb-chat-session';
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
+// FE-004: cap how much conversation history is persisted so a potentially
+// sensitive transcript isn't kept in browser storage without bound.
+export const MAX_STORED_MESSAGES = 50;
+
 interface StoredSession {
   sessionId: string;
   userName: string;
@@ -16,23 +20,43 @@ export function setSessionTtl(hours: number): void {
   sessionTtlMs = hours * 60 * 60 * 1000;
 }
 
+// capMessages keeps only the most recent MAX_STORED_MESSAGES entries. Pure and
+// exported so it can be unit-tested without a storage backend.
+export function capMessages(messages: Message[]): Message[] {
+  if (!Array.isArray(messages)) return [];
+  return messages.slice(-MAX_STORED_MESSAGES);
+}
+
 export function saveSession(sessionId: string, userName: string, messages: Message[] = []): void {
   try {
     const data: StoredSession = {
       sessionId,
       userName,
       lastActive: Date.now(),
-      messages,
+      messages: capMessages(messages),
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    // FE-004: sessionStorage (per-tab, not persisted to disk) instead of
+    // localStorage — the transcript and session id don't survive tab close and
+    // aren't shared across the origin.
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch {
-    // localStorage might be unavailable
+    // storage might be unavailable
   }
 }
 
 export function loadSession(): StoredSession | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    // Migrate any session left in localStorage by an older build, then drop it
+    // from disk (FE-004).
+    let raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      const legacy = localStorage.getItem(STORAGE_KEY);
+      if (legacy) {
+        sessionStorage.setItem(STORAGE_KEY, legacy);
+        localStorage.removeItem(STORAGE_KEY);
+        raw = legacy;
+      }
+    }
     if (!raw) return null;
 
     const data: StoredSession = JSON.parse(raw);
@@ -56,7 +80,8 @@ export function loadSession(): StoredSession | null {
 
 export function clearSession(): void {
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEY); // also clear any legacy on-disk copy
   } catch {
     // ignore
   }

@@ -1,6 +1,6 @@
 # MDDB Sync — WordPress plugin
 
-[![PHP](https://img.shields.io/badge/PHP-%3E%3D8.1-777BB4?logo=php&logoColor=white)](https://www.php.net)
+[![PHP](https://img.shields.io/badge/PHP-%3E%3D8.2-777BB4?logo=php&logoColor=white)](https://www.php.net)
 [![WordPress](https://img.shields.io/badge/WordPress-%3E%3D6.2-21759B?logo=wordpress&logoColor=white)](https://wordpress.org)
 [![Coverage](https://img.shields.io/badge/coverage-%E2%89%A590%25-brightgreen)](#testing)
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-blue)](#license)
@@ -41,7 +41,7 @@ Settings live under **Settings → MDDB Sync** (or `wp-admin/options-general.php
 
 | Setting | Default | Notes |
 |---|---|---|
-| **MDDB URL** | _empty_ | Base URL, e.g. `https://mddb.example.com`. Trailing slash is stripped. Plugin idles until this is set. |
+| **MDDB URL** | _empty_ | Base URL, e.g. `https://mddb.example.com`. **Must be `https://`** so the API key is never sent in cleartext; `http://` is accepted only for local hosts (`localhost`, `127.0.0.1`, `::1`). Trailing slash is stripped. Plugin idles until this is set. |
 | **API key** | _empty_ | Sent as `Authorization: Bearer <key>`. Leave empty for unauthenticated dev instances. |
 | **Collection** | derived from site host (`example_com`) | One MDDB collection holds every synced post for this site. |
 | **Sync on save / publish** | ✓ | Fires on `wp_after_insert_post`. Autosaves and revisions are ignored. |
@@ -128,7 +128,7 @@ integrations/wordpress-plugin/
 
 48 tests, 92 %+ line coverage. The suite mocks every WordPress function via [Brain Monkey](https://github.com/Brain-WP/BrainMonkey) — no WordPress install needed.
 
-CI matrix runs against PHP 8.1, 8.2, 8.3, 8.4. Coverage is enforced ≥90 % on the 8.3 leg.
+CI matrix runs against PHP 8.2, 8.3, 8.4, 8.5. Coverage is enforced ≥90 % on the 8.3 leg.
 
 ---
 

@@ -122,6 +122,19 @@ impl Config {
             }
         }
 
+        // Override MDDB auth credentials from env if empty (SEC-007): keeps the
+        // real password out of a committed config.toml — the env value wins.
+        if config.mddb.auth_username.is_empty() {
+            if let Ok(user) = std::env::var("MDDB_CHAT_AUTH_USERNAME") {
+                config.mddb.auth_username = user;
+            }
+        }
+        if config.mddb.auth_password.is_empty() {
+            if let Ok(pass) = std::env::var("MDDB_CHAT_AUTH_PASSWORD") {
+                config.mddb.auth_password = pass;
+            }
+        }
+
         // Ensure default scenario exists
         if !config.scenarios.contains_key("assistant") {
             config.scenarios.insert(
@@ -163,3 +176,70 @@ fn default_max_response_length() -> usize { 4096 }
 fn default_name_max_chars() -> usize { 50 }
 fn default_rate_limit() -> u32 { 30 }
 fn default_max_message_length() -> usize { 2000 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    // Minimal valid config with empty MDDB auth — exercises the SEC-007 env override.
+    const MINIMAL: &str = r#"
+[server]
+[mddb]
+[llm]
+api_url = "http://localhost:11434/v1"
+model = "test"
+[session]
+[security]
+"#;
+
+    fn write_temp(name: &str, body: &str) -> std::path::PathBuf {
+        let mut p = std::env::temp_dir();
+        let fname = format!("mddb-chat-cfg-{}-{}.toml", std::process::id(), name);
+        p.push(fname);
+        let mut f = std::fs::File::create(&p).unwrap();
+        f.write_all(body.as_bytes()).unwrap();
+        p
+    }
+
+    // One sequential test: env vars are process-global, so we must not run the
+    // two cases concurrently. set_var/remove_var are unsafe in edition 2024.
+    #[test]
+    fn mddb_auth_env_override_precedence() {
+        // 1) Empty config auth -> env wins (SEC-007).
+        let empty = write_temp("empty", MINIMAL);
+        unsafe {
+            std::env::set_var("MDDB_CHAT_AUTH_USERNAME", "envuser");
+            std::env::set_var("MDDB_CHAT_AUTH_PASSWORD", "envpass");
+        }
+        let cfg = Config::load(&empty).unwrap();
+        assert_eq!(cfg.mddb.auth_username, "envuser");
+        assert_eq!(cfg.mddb.auth_password, "envpass");
+
+        // 2) Non-empty config auth -> config wins over env.
+        let with_auth = write_temp(
+            "withauth",
+            r#"
+[server]
+[mddb]
+auth_username = "fileuser"
+auth_password = "filepass"
+[llm]
+api_url = "http://localhost:11434/v1"
+model = "test"
+[session]
+[security]
+"#,
+        );
+        let cfg2 = Config::load(&with_auth).unwrap();
+        assert_eq!(cfg2.mddb.auth_username, "fileuser");
+        assert_eq!(cfg2.mddb.auth_password, "filepass");
+
+        unsafe {
+            std::env::remove_var("MDDB_CHAT_AUTH_USERNAME");
+            std::env::remove_var("MDDB_CHAT_AUTH_PASSWORD");
+        }
+        std::fs::remove_file(&empty).ok();
+        std::fs::remove_file(&with_auth).ok();
+    }
+}

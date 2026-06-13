@@ -73,7 +73,7 @@ curl -X POST http://localhost:9000/mcp \
 | Env Var | Default | Description |
 |---------|---------|-------------|
 | `MDDB_MCP_CONFIG` | — | Path to YAML file with custom tool definitions |
-| `MDDB_MCP_BUILTIN_TOOLS` | `true` | Set to `false` to hide all 67 built-in tools (only custom tools exposed) |
+| `MDDB_MCP_BUILTIN_TOOLS` | `true` | Set to `false` to hide all 77 built-in tools (only custom tools exposed) |
 
 ### API Key Authentication
 
@@ -82,6 +82,19 @@ curl -X POST http://localhost:9000/mcp \
 | `MDDB_MCP_API_KEY_ENABLED` | `false` | Require API key for MCP HTTP access |
 | `MDDB_MCP_API_KEYS` | — | Static keys: `key1:name1,key2:name2` (defined at startup) |
 | `MDDB_MCP_API_KEY_CACHE_TTL` | `60s` | Cache TTL for dynamic key lookups |
+
+> **⚠️ MCP exposure vs. main auth (SEC-002).** The MCP listener (default `:9000`)
+> is a separate port that grants full read/write access to the database. Its own
+> `MCPAPIKeyMiddleware` is inactive unless `MDDB_MCP_API_KEY_ENABLED=true`. To
+> prevent MCP from becoming an unauthenticated bypass of the main API, the server
+> reconciles MCP exposure with `MDDB_AUTH_ENABLED` at startup:
+
+| `MDDB_AUTH_ENABLED` | `MDDB_MCP_API_KEY_ENABLED` | MCP listener behaviour |
+|---|---|---|
+| `true`  | `false` | **Gated by the main AuthManager** — MCP requires the same `Authorization: Bearer` / `X-API-Key` credentials as the HTTP API. Anonymous `tools/call` → `401`. |
+| `true`  | `true`  | Gated by MCP API keys (as configured below). |
+| `false` | `true`  | Gated by MCP API keys. |
+| `false` | `false` | **No authentication.** If MCP is bound beyond loopback (e.g. the default `:9000`), the server logs a prominent startup warning. Use only on a trusted/loopback bind, or set one of the flags above. |
 
 Two sources of keys:
 - **Static** — `MDDB_MCP_API_KEYS` env var (defined at startup, no restart needed to validate)

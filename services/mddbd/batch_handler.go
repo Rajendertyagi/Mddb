@@ -108,18 +108,20 @@ func (s *Server) processBatchWithDocs(ctx context.Context, collection string, pr
 	if s.UseExtreme && s.finalBatchProcessor != nil {
 		// FinalBatchProcessor: single read tx → parallel marshal → single write tx
 		existingMap := s.finalBatchProcessor.batchReadAll(collection, protoDocs)
-		processed = s.finalBatchProcessor.parallelMarshal(ctx, collection, protoDocs, existingMap, now)
-		resp = s.finalBatchProcessor.commitBatch(collection, processed, now)
+		all := s.finalBatchProcessor.parallelMarshal(ctx, collection, protoDocs, existingMap, now)
+		resp, processed = s.finalBatchProcessor.commitBatch(collection, all, now)
 	} else {
 		bp := NewBatchProcessor(s, 8)
-		processed = bp.parallelProcess(ctx, collection, protoDocs, now)
-		resp = bp.commitBatch(collection, processed, now)
+		all := bp.parallelProcess(ctx, collection, protoDocs, now)
+		resp, processed = bp.commitBatch(collection, all, now)
 	}
 
 	if resp.Failed == safeInt32(len(protoDocs)) && len(resp.Errors) > 0 {
 		err = fmt.Errorf("all documents failed: %s", resp.Errors[0])
 	}
 
+	// `processed` is now the set of durably-committed docs, so the caller's
+	// firePostBatchHooks only fires for documents that actually landed.
 	return resp, processed, err
 }
 
@@ -143,6 +145,32 @@ func (s *Server) firePostBatchHooks(collection string, processed []*ProcessedDoc
 		// TTL
 		if s.TTLManager != nil && p.Doc.ExpiresAt > 0 {
 			_ = s.TTLManager.Set(collection, p.DocID, p.Doc.ExpiresAt)
+		}
+
+		// Geo indexing (R-tree + geohash + GeoStore) — parity with the
+		// single-doc path (GO-001); previously every batch path skipped geo.
+		if s.GeoIndex != nil && s.GeoStore != nil {
+			if lat, lng, okGeo := s.GeoIndex.AddFromMeta(collection, p.DocID, p.Doc.Meta); okGeo {
+				_ = s.GeoStore.Put(collection, p.DocID, lat, lng)
+				if s.GeoHashIndex != nil {
+					s.GeoHashIndex.Add(collection, p.DocID, lat, lng)
+				}
+			} else if p.IsUpdate {
+				s.GeoIndex.Remove(collection, p.DocID)
+				if s.GeoHashIndex != nil {
+					s.GeoHashIndex.Remove(collection, p.DocID)
+				}
+				_ = s.GeoStore.Delete(collection, p.DocID)
+			}
+		}
+
+		// Temporal tracking — parity with the single-doc path (GO-001).
+		if s.TemporalManager != nil {
+			et := EventUpdate
+			if !p.IsUpdate {
+				et = EventCreate
+			}
+			s.TemporalManager.RecordAsync(collection, p.DocID, et, "")
 		}
 
 		// FTS indexing (language-aware)

@@ -75,7 +75,7 @@ func (s *Server) handleRevisions(w http.ResponseWriter, r *http.Request) {
 	docID := genID(req.Collection, req.Key, req.Lang)
 
 	var revisions []RevisionEntry
-	err := s.DB.View(func(tx *bolt.Tx) error {
+	err := s.DBView(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket([]byte("rev"))
 		if bRev == nil {
 			return nil
@@ -165,7 +165,7 @@ func (s *Server) handleRevisionRestore(w http.ResponseWriter, r *http.Request) {
 	revKey := append(kRevPrefix(req.Collection, docID), []byte(tsKey)...)
 
 	var revDoc *Doc
-	err := s.DB.View(func(tx *bolt.Tx) error {
+	err := s.DBView(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket([]byte("rev"))
 		if bRev == nil {
 			return fmt.Errorf("revision not found")
@@ -184,7 +184,7 @@ func (s *Server) handleRevisionRestore(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Restore by saving through addDocument (handles binlog, FTS, embeddings, webhooks)
-	doc, _, err := s.addDocument(req.Collection, req.Key, req.Lang, revDoc.Meta, revDoc.ContentMD, 0)
+	doc, _, err := s.addDocument(req.Collection, req.Key, req.Lang, revDoc.Meta, revDoc.ContentMD, 0, true)
 	if err != nil {
 		bad(w, err)
 		return

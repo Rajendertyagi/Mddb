@@ -4,12 +4,19 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"sort"
 	"time"
 )
+
+// drainClose discards and closes a response body so the keep-alive connection
+// can be reused across the thousands of inserts this benchmark issues (GO-011).
+func drainClose(body io.ReadCloser) {
+	_, _ = io.Copy(io.Discard, body)
+	_ = body.Close()
+}
 
 const (
 	couchURL  = "http://mddb:benchmark123@localhost:5984"
@@ -34,6 +41,19 @@ type CouchDoc struct {
 	Content string `json:"content"`
 }
 
+// checkConnection verifies CouchDB is reachable, exiting on failure. The
+// response body is closed via defer so it can't leak (SonarCloud S2095).
+func checkConnection() {
+	fmt.Print("Connecting to CouchDB... ")
+	resp, err := http.Get(couchURL)
+	if err != nil {
+		fmt.Printf("✗ Failed: %v\n", err)
+		os.Exit(1)
+	}
+	defer drainClose(resp.Body)
+	fmt.Println("✓ Connected")
+}
+
 func main() {
 	fmt.Println("════════════════════════════════════════════════")
 	fmt.Println("  CouchDB Performance Test")
@@ -41,29 +61,32 @@ func main() {
 	fmt.Println()
 
 	// Check connection
-	fmt.Print("Connecting to CouchDB... ")
-	resp, err := http.Get(couchURL)
-	if err != nil {
-		fmt.Printf("✗ Failed: %v\n", err)
-		os.Exit(1)
-	}
-	resp.Body.Close()
-	fmt.Println("✓ Connected")
+	checkConnection()
 
 	// Create/recreate database
 	fmt.Print("Preparing database... ")
-	// Delete if exists
-	req, _ := http.NewRequest("DELETE", couchURL+"/"+dbName, nil)
-	http.DefaultClient.Do(req)
+	// Delete if exists (best-effort: a missing DB is fine)
+	req, err := http.NewRequest(http.MethodDelete, couchURL+"/"+dbName, nil)
+	if err != nil {
+		fmt.Printf("✗ Failed to build DELETE request: %v\n", err)
+		os.Exit(1)
+	}
+	if delResp, delErr := http.DefaultClient.Do(req); delErr == nil {
+		drainClose(delResp.Body)
+	}
 
 	// Create new
-	req, _ = http.NewRequest("PUT", couchURL+"/"+dbName, nil)
-	resp, err = http.DefaultClient.Do(req)
+	req, err = http.NewRequest(http.MethodPut, couchURL+"/"+dbName, nil)
+	if err != nil {
+		fmt.Printf("✗ Failed to build PUT request: %v\n", err)
+		os.Exit(1)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		fmt.Printf("✗ Failed: %v\n", err)
 		os.Exit(1)
 	}
-	resp.Body.Close()
+	drainClose(resp.Body)
 	fmt.Println("✓ Ready")
 	fmt.Println()
 
@@ -89,7 +112,7 @@ func loadDocuments() map[string]string {
 
 	files := []string{"lorem-short.md", "lorem-medium.md", "lorem-long.md"}
 	for _, file := range files {
-		content, err := ioutil.ReadFile(file)
+		content, err := os.ReadFile(file)
 		if err != nil {
 			continue
 		}
@@ -125,10 +148,18 @@ func runTest(docs map[string]string) Stats {
 			Content: content,
 		}
 
-		jsonData, _ := json.Marshal(doc)
+		jsonData, err := json.Marshal(doc)
+		if err != nil {
+			fmt.Printf("✗ Marshal failed: %v\n", err)
+			continue
+		}
 
 		start := time.Now()
-		req, _ := http.NewRequest("POST", couchURL+"/"+dbName, bytes.NewBuffer(jsonData))
+		req, err := http.NewRequest(http.MethodPost, couchURL+"/"+dbName, bytes.NewBuffer(jsonData))
+		if err != nil {
+			fmt.Printf("✗ Build request failed: %v\n", err)
+			continue
+		}
 		req.Header.Set("Content-Type", "application/json")
 		resp, err := client.Do(req)
 		elapsed := time.Since(start)
@@ -137,7 +168,7 @@ func runTest(docs map[string]string) Stats {
 			fmt.Printf("✗ Insert failed: %v\n", err)
 			continue
 		}
-		resp.Body.Close()
+		drainClose(resp.Body)
 
 		if resp.StatusCode != 201 {
 			fmt.Printf("✗ Insert failed with status: %d\n", resp.StatusCode)

@@ -2,10 +2,15 @@
 
 ## Supported Versions
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 2.x     | :white_check_mark: |
-| 1.x     | :x:                |
+| Component | Version | Supported |
+| --------- | ------- | --------- |
+| Core server / CLI / panel (`vX.Y.Z` tags) | 2.x | :white_check_mark: |
+| Core server / CLI / panel | 1.x | :x: |
+| Integrations (own release tags: `wp-v*`, `gha-v*`, `chrome-ext-v*`, Airbyte/Grafana `0.x`) | latest `0.x` | :white_check_mark: |
+
+The five `integrations/` packages (airbyte-destination, wordpress-plugin,
+github-action, grafana-datasource, chrome-extension) ship as `0.x` under their
+own release tags and are covered by this policy at their latest released version.
 
 ## Reporting a Vulnerability
 
@@ -34,10 +39,14 @@ We take the security of MDDB seriously. If you discover a security vulnerability
 
 The following components are in scope:
 
-- `mddbd` - Database server (HTTP + gRPC)
-- `mddb-mcp` - MCP server
+- `mddbd` - Database server (HTTP + gRPC, with the MCP server built in)
 - `mddb-cli` - Command-line client
 - `mddb-panel` - Web UI
+- `mddb-chat` / `mddb-chat-widget` - Chat backend and embeddable widget
+- `integrations/*` - Airbyte destination, WordPress plugin, GitHub Action,
+  Grafana datasource, Chrome extension
+- Client libraries / extensions under `clients/`, `services/php-extension`,
+  `services/python-extension`
 
 Out of scope:
 

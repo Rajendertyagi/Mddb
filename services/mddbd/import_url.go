@@ -62,7 +62,7 @@ func (s *Server) handleImportURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Store via shared addDocument
-	saved, _, err := s.addDocument(req.Collection, req.Key, req.Lang, mergedMeta, body, req.TTL)
+	saved, _, err := s.addDocument(req.Collection, req.Key, req.Lang, mergedMeta, body, req.TTL, true)
 	if err != nil {
 		bad(w, err)
 		return
@@ -71,9 +71,11 @@ func (s *Server) handleImportURL(w http.ResponseWriter, r *http.Request) {
 	ok(w, saved)
 }
 
-// fetchURL downloads content from a URL with safety limits.
+// fetchURL downloads content from a URL with safety limits. The pooled client
+// uses an SSRF-safe dialer (SEC-004) that rejects private/loopback/link-local
+// destinations and re-validates redirects.
 func fetchURL(rawURL string) (string, error) {
-	resp, err := NewPooledClientWithTimeout(10 * time.Second).Get(rawURL) // #nosec G107 -- URL from user input, validated above
+	resp, err := NewPooledClientWithTimeout(10 * time.Second).Get(rawURL) // #nosec G107 -- SSRF-guarded by safeDialContext
 	if err != nil {
 		return "", err
 	}

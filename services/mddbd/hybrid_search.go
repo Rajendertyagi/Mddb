@@ -564,7 +564,7 @@ func mergeRRF(ftsResults []FTSResult, vectorResults []VectorResult, rrfK int, to
 // loadHybridDocs loads full documents for hybrid search results.
 func (s *Server) loadHybridDocs(collection string, items []HybridSearchResultItem, includeContent bool) []HybridSearchResultItem {
 	results := make([]HybridSearchResultItem, 0, len(items))
-	_ = s.DB.View(func(tx *bolt.Tx) error {
+	_ = s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs == nil {
 			return nil

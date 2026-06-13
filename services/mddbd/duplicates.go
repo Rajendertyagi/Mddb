@@ -166,7 +166,7 @@ func (s *Server) findDuplicates(req FindDuplicatesRequest) (*FindDuplicatesRespo
 
 	// Count total documents in collection
 	totalDocs := 0
-	_ = s.DB.View(func(tx *bolt.Tx) error {
+	_ = s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs == nil {
 			return nil
@@ -408,7 +408,7 @@ func (s *Server) enrichDuplicateGroups(collection string, groups []DuplicateGrou
 
 	// Load docs in single transaction
 	docMap := make(map[string]*Doc)
-	_ = s.DB.View(func(tx *bolt.Tx) error {
+	_ = s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs == nil {
 			return nil

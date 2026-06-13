@@ -8,9 +8,38 @@ import (
 	"time"
 
 	bolt "go.etcd.io/bbolt"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 
 	proto "mddb/proto"
 )
+
+// --- replication stream mocks (SEC-001): supply an authenticated Context() so
+// the authorizeReplication gate passes and the handlers reach their precondition
+// checks. Send is never called on the early-error paths these tests exercise.
+
+type replSnapshotStream struct {
+	proto.MDDBReplication_RequestSnapshotServer
+	ctx context.Context
+}
+
+func (s *replSnapshotStream) Context() context.Context { return s.ctx }
+
+type replBinlogStream struct {
+	proto.MDDBReplication_StreamBinlogServer
+	ctx context.Context
+}
+
+func (s *replBinlogStream) Context() context.Context { return s.ctx }
+
+// authedReplCtx returns an incoming context carrying the replication secret.
+func authedReplCtx(t *testing.T, secret string) context.Context {
+	t.Helper()
+	t.Setenv("MDDB_REPLICATION_SECRET", secret)
+	md := metadata.New(map[string]string{"x-mddb-replication-secret": secret})
+	return metadata.NewIncomingContext(context.Background(), md)
+}
 
 // replTestServer creates a Server with a Binlog for replication server tests.
 func replTestServer(t *testing.T) (*Server, *Binlog, func()) {
@@ -252,7 +281,7 @@ func TestRequestSnapshot_NoBinlog(t *testing.T) {
 	_ = bl.Close()
 	s.Binlog = nil
 
-	err := rs.RequestSnapshot(&proto.SnapshotRequest{FollowerId: "f1"}, nil)
+	err := rs.RequestSnapshot(&proto.SnapshotRequest{FollowerId: "f1"}, &replSnapshotStream{ctx: authedReplCtx(t, "s")})
 	if err == nil {
 		t.Fatal("expected error when binlog not enabled")
 	}
@@ -264,7 +293,7 @@ func TestRequestSnapshot_MissingFollowerID(t *testing.T) {
 
 	rs := NewReplicationServer(s)
 
-	err := rs.RequestSnapshot(&proto.SnapshotRequest{FollowerId: ""}, nil)
+	err := rs.RequestSnapshot(&proto.SnapshotRequest{FollowerId: ""}, &replSnapshotStream{ctx: authedReplCtx(t, "s")})
 	if err == nil {
 		t.Fatal("expected error for empty follower_id")
 	}
@@ -282,7 +311,7 @@ func TestStreamBinlog_NoBinlog(t *testing.T) {
 	_ = bl.Close()
 	s.Binlog = nil
 
-	err := rs.StreamBinlog(&proto.StreamBinlogRequest{FollowerId: "f1"}, nil)
+	err := rs.StreamBinlog(&proto.StreamBinlogRequest{FollowerId: "f1"}, &replBinlogStream{ctx: authedReplCtx(t, "s")})
 	if err == nil {
 		t.Fatal("expected error when binlog not enabled")
 	}
@@ -294,9 +323,105 @@ func TestStreamBinlog_MissingFollowerID(t *testing.T) {
 
 	rs := NewReplicationServer(s)
 
-	err := rs.StreamBinlog(&proto.StreamBinlogRequest{FollowerId: ""}, nil)
+	err := rs.StreamBinlog(&proto.StreamBinlogRequest{FollowerId: ""}, &replBinlogStream{ctx: authedReplCtx(t, "s")})
 	if err == nil {
 		t.Fatal("expected error for empty follower_id")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test: authorizeReplication (SEC-001)
+// ---------------------------------------------------------------------------
+
+// TestAuthorizeReplication_NoConfigDenies ensures an unconfigured leader refuses
+// replication rather than streaming the whole BoltDB (auth_users, auth_apikeys)
+// to anyone who can reach the gRPC port.
+func TestAuthorizeReplication_NoConfigDenies(t *testing.T) {
+	s, _, cleanup := replTestServer(t)
+	defer cleanup()
+	rs := NewReplicationServer(s)
+
+	t.Setenv("MDDB_REPLICATION_SECRET", "")
+	err := rs.authorizeReplication(context.Background())
+	if err == nil {
+		t.Fatal("expected PermissionDenied when nothing is configured")
+	}
+	if status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("expected PermissionDenied, got %v", status.Code(err))
+	}
+}
+
+// TestAuthorizeReplication_SecretMismatchDenies rejects a follower whose secret
+// does not match the leader's.
+func TestAuthorizeReplication_SecretMismatchDenies(t *testing.T) {
+	s, _, cleanup := replTestServer(t)
+	defer cleanup()
+	rs := NewReplicationServer(s)
+
+	t.Setenv("MDDB_REPLICATION_SECRET", "leader-secret")
+	md := metadata.New(map[string]string{"x-mddb-replication-secret": "wrong"})
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+
+	err := rs.authorizeReplication(ctx)
+	if status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("expected PermissionDenied for wrong secret, got %v", status.Code(err))
+	}
+}
+
+// TestAuthorizeReplication_SecretMatchAllows accepts a follower presenting the
+// correct replication secret.
+func TestAuthorizeReplication_SecretMatchAllows(t *testing.T) {
+	s, _, cleanup := replTestServer(t)
+	defer cleanup()
+	rs := NewReplicationServer(s)
+
+	ctx := authedReplCtx(t, "matching-secret")
+	if err := rs.authorizeReplication(ctx); err != nil {
+		t.Fatalf("expected nil error for matching secret, got %v", err)
+	}
+}
+
+// TestAuthorizeReplication_MissingMetadataDenies rejects a follower that presents
+// no metadata at all while a secret is configured.
+func TestAuthorizeReplication_MissingMetadataDenies(t *testing.T) {
+	s, _, cleanup := replTestServer(t)
+	defer cleanup()
+	rs := NewReplicationServer(s)
+
+	t.Setenv("MDDB_REPLICATION_SECRET", "leader-secret")
+	err := rs.authorizeReplication(context.Background())
+	if status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("expected PermissionDenied for missing metadata, got %v", status.Code(err))
+	}
+}
+
+// TestRequestSnapshot_Unauthenticated verifies the handler refuses an anonymous
+// caller before touching the binlog.
+func TestRequestSnapshot_Unauthenticated(t *testing.T) {
+	s, _, cleanup := replTestServer(t)
+	defer cleanup()
+	rs := NewReplicationServer(s)
+
+	t.Setenv("MDDB_REPLICATION_SECRET", "leader-secret")
+	err := rs.RequestSnapshot(&proto.SnapshotRequest{FollowerId: "f1"},
+		&replSnapshotStream{ctx: context.Background()})
+	if status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("expected PermissionDenied for anonymous snapshot, got %v", status.Code(err))
+	}
+}
+
+// TestStreamBinlog_Unauthenticated verifies the handler refuses an anonymous
+// caller before touching the binlog.
+func TestStreamBinlog_Unauthenticated(t *testing.T) {
+	s, _, cleanup := replTestServer(t)
+	defer cleanup()
+	rs := NewReplicationServer(s)
+
+	t.Setenv("MDDB_REPLICATION_SECRET", "leader-secret")
+	err := rs.StreamBinlog(&proto.StreamBinlogRequest{FollowerId: "f1"},
+		&replBinlogStream{ctx: context.Background()})
+	if status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("expected PermissionDenied for anonymous binlog stream, got %v", status.Code(err))
 	}
 }
 

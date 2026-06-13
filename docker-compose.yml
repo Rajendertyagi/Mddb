@@ -1,3 +1,38 @@
+# Reusable anchors (OPS-002): log rotation (max 10 MB × 3) + resource
+# limits/reservations applied to every service.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-deploy-server: &deploy-server
+  resources:
+    limits:
+      cpus: "2.00"
+      memory: 2G
+    reservations:
+      cpus: "0.50"
+      memory: 512M
+
+x-deploy-medium: &deploy-medium
+  resources:
+    limits:
+      cpus: "1.00"
+      memory: 512M
+    reservations:
+      cpus: "0.25"
+      memory: 128M
+
+x-deploy-small: &deploy-small
+  resources:
+    limits:
+      cpus: "0.50"
+      memory: 256M
+    reservations:
+      cpus: "0.10"
+      memory: 64M
+
 services:
   mddb:
     image: tradik/mddb:latest
@@ -22,23 +57,17 @@ services:
       - TZ=UTC
     networks:
       - mddb-network
+    logging: *default-logging
+    deploy: *deploy-server
     healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--no-verbose",
-          "--tries=1",
-          "--spider",
-          "http://localhost:11023/health",
-        ]
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:11023/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
     labels:
       - "com.mddb.description=MDDB - High-Performance Markdown Database"
-      - "com.mddb.version=2.9.17"
+      - "com.mddb.version=${MDDB_VERSION:-2.10.0}"
       - "com.mddb.performance=optimized"
 
   mddb-panel:
@@ -53,12 +82,14 @@ services:
       - MDDB_SERVER=http://mddb:11023
     networks:
       - mddb-network
+    logging: *default-logging
+    deploy: *deploy-small
     depends_on:
       mddb:
         condition: service_healthy
     labels:
       - "com.mddb.description=MDDB Panel - Web Admin Interface"
-      - "com.mddb.version=2.9.17"
+      - "com.mddb.version=${MDDB_VERSION:-2.10.0}"
 
   # MCP is built into the mddb server — runs on port 9000 by default
   # For stdio mode, use: docker run -i --rm -e MDDB_MCP_STDIO=true tradik/mddb:latest
@@ -76,12 +107,14 @@ services:
       - MDDB_CHAT_LLM_API_KEY=${MDDB_CHAT_LLM_API_KEY}
     networks:
       - mddb-network
+    logging: *default-logging
+    deploy: *deploy-medium
     depends_on:
       mddb:
         condition: service_healthy
     labels:
       - "com.mddb.description=MDDB Chat - AI Chat Support"
-      - "com.mddb.version=2.9.17"
+      - "com.mddb.version=${MDDB_VERSION:-2.10.0}"
 
   mddb-chat-widget:
     build:
@@ -90,12 +123,14 @@ services:
     container_name: mddb-chat-widget
     restart: unless-stopped
     ports:
-      - "11032:80"
+      - "11032:8080" # nginx-unprivileged listens on 8080 (OPS-006)
     networks:
       - mddb-network
+    logging: *default-logging
+    deploy: *deploy-small
     labels:
       - "com.mddb.description=MDDB Chat Widget - Embeddable JS chatbox"
-      - "com.mddb.version=2.9.17"
+      - "com.mddb.version=${MDDB_VERSION:-2.10.0}"
 
 volumes:
   mddb-data:
