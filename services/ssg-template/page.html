@@ -39,29 +39,15 @@
 import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11.15.0/dist/mermaid.esm.min.mjs';
 mermaid.initialize({ startOnLoad: false, theme: 'neutral' });
 
-function restoreMermaidNewlines(text) {
-    // Diagram type header: ensure newline after declaration
-    text = text.replace(/(graph\s+(?:LR|RL|TD|TB|BT))\s+/g, '$1\n');
-    text = text.replace(/(sequenceDiagram)\s+/g, '$1\n');
-    // Subgraph / end — must be on own line
-    text = text.replace(/\s+(subgraph)\s+/g, '\n$1 ');
-    text = text.replace(/\s+(end)\s/g, '\n$1\n');
-    // Sequence diagram keywords
-    text = text.replace(/\s+(participant|actor|autonumber)\s+/g, '\n$1 ');
-    text = text.replace(/\s+(Note\s+over)\s+/g, '\n$1 ');
-    text = text.replace(/\s+(loop|alt|else|opt|par|critical|break|rect|activate|deactivate)\s+/g, '\n$1 ');
-    // Arrows: match identifier + optional space + arrow (handles both WP --> and U->>)
-    text = text.replace(/\s+(\w[\w-]*)\s*(-->>|->>|-->|->|--x|-x|===>|==>|-.->)/g, '\n$1$2');
-    // Style / classDef / linkStyle
-    text = text.replace(/\s+(style|classDef|linkStyle|click)\s+/g, '\n$1 ');
-    return text.trim();
-}
-
+// Move fenced ```mermaid code blocks into <div class="mermaid"> for rendering.
+// The docs site is built with HTML minification OFF (see deploy-docs.yml), so
+// the diagram source keeps its (whitespace-significant) newlines verbatim — no
+// fragile reconstruction is needed or wanted (it would corrupt valid diagrams).
 document.querySelectorAll('pre code.language-mermaid').forEach(function(el) {
     var div = document.createElement('div');
     div.className = 'mermaid';
-    div.textContent = restoreMermaidNewlines(el.textContent);
-    el.parentElement.replaceWith(div);
+    div.textContent = el.textContent;
+    (el.closest('pre') || el.parentElement).replaceWith(div);
 });
 mermaid.run();
 </script>
