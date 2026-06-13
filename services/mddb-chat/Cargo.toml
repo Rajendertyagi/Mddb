@@ -16,7 +16,7 @@ tower-http = { version = "0.6", features = ["cors", "trace"] }
 # gRPC client
 tonic = "0.12"
 prost = "0.13"
-prost-types = "0.13"
+prost-types = "0.14"
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
