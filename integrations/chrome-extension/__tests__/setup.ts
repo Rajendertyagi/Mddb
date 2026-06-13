@@ -71,6 +71,7 @@ const chromeMock = {
     },
   },
   runtime: {
+    id: 'mddb-test-extension-id',
     openOptionsPage: jest.fn(),
     sendMessage: jest.fn((msg: unknown, cb?: (resp: unknown) => void) => {
       if (cb) cb({ status: null });
