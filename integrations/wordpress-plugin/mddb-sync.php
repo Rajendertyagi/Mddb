@@ -5,7 +5,7 @@
  * Description:       Synchronise WordPress posts and pages to an MDDB instance (https://mddb.tradik.com). On save → POST /v1/add; on delete/trash → POST /v1/delete. Detects post language via Polylang/WPML/WP locale.
  * Version:           0.1.1
  * Requires at least: 6.2
- * Requires PHP:      8.1
+ * Requires PHP:      8.2
  * Author:            tradik
  * Author URI:        https://github.com/tradik
  * License:           BSD-3-Clause

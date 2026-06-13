@@ -4,6 +4,10 @@ All notable changes to this WordPress plugin are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **PHP support window moved to 8.2–8.5** (`.github/workflows/wordpress-plugin.yml`, `composer.json`, `phpcs.xml`, `mddb-sync.php`, `README.md`) — the CI matrix now tests PHP **8.2, 8.3, 8.4, 8.5** (added 8.5, dropped the near-EOL 8.1). The declared minimum (`composer.json` `php: >=8.2`, plugin header `Requires PHP: 8.2`) and the PHPCompatibility `testVersion 8.2-` are aligned so "tested == declared". Verified locally on PHP 8.5.7: phpcs (11/11), PHPUnit (77/77), PHPStan all green.
+
 ### Security
 
 - **INT-003 — data hygiene for logs and release notes** ([`includes/class-client.php`](includes/class-client.php), [`includes/class-updater.php`](includes/class-updater.php)) — (1) `Client::addDocument()/deleteDocument()` put the **entire** server response body into the `WP_Error` message that ends up in `error_log()`, allowing log spam, CR/LF log forging, and disclosure of large/sensitive payloads. A new `responseSnippet()` truncates the body to 200 chars on a single line. (2) `Updater::providePluginInformation()` returned the GitHub release body as `description`/`changelog` unsanitised, rendering arbitrary HTML in the wp-admin "View details" modal — now passed through `wp_kses_post()`. New PHPUnit tests cover both.
