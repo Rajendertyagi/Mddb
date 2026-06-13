@@ -39,7 +39,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
 # Crypto (webhook signatures)
-hmac = "0.12"
+hmac = "0.13"
 sha2 = "0.10"
 hex = "0.4"
 
