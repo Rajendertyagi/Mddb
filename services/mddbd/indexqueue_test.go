@@ -233,7 +233,7 @@ func TestIndexQueue_EnqueueAndProcess(t *testing.T) {
 		NewMeta:    map[string][]string{"tag": {"go", "db"}, "author": {"alice"}},
 	}
 
-	iq.Enqueue(job)
+	_ = iq.Enqueue(job)
 
 	// Wait for processing
 	time.Sleep(100 * time.Millisecond)
@@ -295,7 +295,7 @@ func TestIndexQueue_EnqueueUpdateMeta(t *testing.T) {
 		OldMeta:    nil,
 		NewMeta:    map[string][]string{"tag": {"go"}},
 	}
-	iq.Enqueue(job1)
+	_ = iq.Enqueue(job1)
 	time.Sleep(100 * time.Millisecond)
 
 	// Second: update metadata (remove "go", add "python")
@@ -305,7 +305,7 @@ func TestIndexQueue_EnqueueUpdateMeta(t *testing.T) {
 		OldMeta:    map[string][]string{"tag": {"go"}},
 		NewMeta:    map[string][]string{"tag": {"python"}},
 	}
-	iq.Enqueue(job2)
+	_ = iq.Enqueue(job2)
 	time.Sleep(100 * time.Millisecond)
 
 	processed, failed, _, _ := iq.Stats()
@@ -366,7 +366,7 @@ func TestIndexQueue_ProcessJob_DeleteOldMeta(t *testing.T) {
 		OldMeta:    map[string][]string{"cat": {"tech"}},
 		NewMeta:    map[string][]string{"cat": {"science"}},
 	}
-	iq.Enqueue(job)
+	_ = iq.Enqueue(job)
 	time.Sleep(100 * time.Millisecond)
 
 	err = srv.DB.View(func(tx *bolt.Tx) error {
@@ -416,7 +416,7 @@ func TestIndexQueue_ProcessJob_NilNewMeta(t *testing.T) {
 		OldMeta:    map[string][]string{"tag": {"go"}},
 		NewMeta:    nil,
 	}
-	iq.Enqueue(job)
+	_ = iq.Enqueue(job)
 	time.Sleep(100 * time.Millisecond)
 
 	err = srv.DB.View(func(tx *bolt.Tx) error {
@@ -447,7 +447,7 @@ func TestIndexQueue_ProcessJob_NilOldMeta(t *testing.T) {
 		OldMeta:    nil,
 		NewMeta:    map[string][]string{"type": {"article"}},
 	}
-	iq.Enqueue(job)
+	_ = iq.Enqueue(job)
 	time.Sleep(100 * time.Millisecond)
 
 	err := srv.DB.View(func(tx *bolt.Tx) error {
@@ -479,7 +479,7 @@ func TestIndexQueue_MultipleJobs(t *testing.T) {
 			OldMeta:    nil,
 			NewMeta:    map[string][]string{"idx": {"val"}},
 		}
-		iq.Enqueue(job)
+		_ = iq.Enqueue(job)
 	}
 
 	// Wait for all to process
@@ -503,7 +503,7 @@ func TestIndexQueue_Shutdown(t *testing.T) {
 	iq := NewIndexQueue(srv, 2)
 
 	// Enqueue a job before shutdown
-	iq.Enqueue(&IndexJob{
+	_ = iq.Enqueue(&IndexJob{
 		Collection: "c",
 		DocID:      "d",
 		NewMeta:    map[string][]string{"k": {"v"}},
@@ -637,7 +637,7 @@ func TestIndexQueue_StatsAfterProcessing(t *testing.T) {
 
 	// Enqueue 5 jobs
 	for i := 0; i < 5; i++ {
-		iq.Enqueue(&IndexJob{
+		_ = iq.Enqueue(&IndexJob{
 			Collection: "c",
 			DocID:      string(rune('a' + i)),
 			NewMeta:    map[string][]string{"k": {"v"}},

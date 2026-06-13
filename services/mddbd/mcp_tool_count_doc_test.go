@@ -24,7 +24,7 @@ func TestMCPToolCountDocsInSync(t *testing.T) {
 
 	// Paths are relative to this package directory (services/mddbd).
 	for _, path := range []string{"../../README.md", "../../docs/MCP.md"} {
-		data, err := os.ReadFile(path)
+		data, err := os.ReadFile(path) // #nosec G304 -- path is one of two hardcoded repo doc files, not user input
 		if err != nil {
 			t.Fatalf("read %s: %v", path, err)
 		}

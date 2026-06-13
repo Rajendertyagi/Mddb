@@ -161,7 +161,7 @@ func (s *Server) handleWikiImport(w http.ResponseWriter, r *http.Request) {
 	// decompression bomb (bz2 expands 10–50×) stops at a byte budget with a
 	// controlled error instead of silently truncating or exhausting resources.
 	maxDecompressed := envDefaultInt64("MDDB_WIKI_MAX_DECOMPRESSED_BYTES", wikiDefaultMaxDecompressedBytes)
-	var rawReader io.Reader = reader
+	rawReader := reader
 	if strings.HasSuffix(strings.ToLower(filename), ".bz2") {
 		rawReader = bzip2.NewReader(reader)
 	}

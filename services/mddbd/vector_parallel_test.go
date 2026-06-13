@@ -68,7 +68,7 @@ func TestParallelScoreSmallNManyWorkersNoPanic(t *testing.T) {
 	defer swapParallelConfig(7, 1)() // force 7 workers even for a tiny collection
 
 	dims := 8
-	rng := rand.New(rand.NewSource(1))
+	rng := rand.New(rand.NewSource(1)) // #nosec G404 -- deterministic seed for a reproducible test, not security-sensitive
 	n := 10
 	entries := make([]vectorEntry, n)
 	for i := 0; i < n; i++ {
