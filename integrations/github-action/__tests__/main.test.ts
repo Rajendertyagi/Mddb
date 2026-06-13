@@ -111,9 +111,7 @@ describe('run', () => {
     const secretBody = 'SECRET-token=vk_should_never_be_logged';
     const client: FakeClient = {
       ping: jest.fn(),
-      addDocument: jest
-        .fn()
-        .mockRejectedValue(new MddbHttpError('HTTP 500', 500, secretBody)),
+      addDocument: jest.fn().mockRejectedValue(new MddbHttpError('HTTP 500', 500, secretBody)),
     };
     const deps = buildDeps(client, [{ absolutePath: file, relativePath: 'a.md', size: 1 }]);
 
