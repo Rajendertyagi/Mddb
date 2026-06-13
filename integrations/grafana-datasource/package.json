@@ -23,7 +23,7 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"__tests__/**/*.{ts,tsx}\"",
     "test": "jest",
     "test:coverage": "jest --coverage",
-    "package": "node scripts/package.js",
+    "package": "npm run build && rm -f tradik-mddb-datasource-*.zip && cd dist && zip -qr ../tradik-mddb-datasource-${npm_package_version}.zip . && echo \"packaged tradik-mddb-datasource-${npm_package_version}.zip\"",
     "all": "npm run format:check && npm run lint && npm run test:coverage && npm run build"
   },
   "dependencies": {

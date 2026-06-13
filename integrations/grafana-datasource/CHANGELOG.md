@@ -2,6 +2,16 @@
 
 All notable changes to the `integrations/grafana-datasource` package are documented in this file. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Dedicated CI workflow** (`.github/workflows/grafana-datasource.yml`, INT-012) — brings the plugin in line with the other four `integrations/` packages, which all had their own pipeline. On every PR / push touching `integrations/grafana-datasource/**`: a `test` matrix (Node 22 & 24) runs `npm ci` → `format:check` → `lint` → `jest --coverage` (≥90% threshold) → webpack `build`, with coverage + plugin-zip artefacts uploaded on Node 24; a `security` job runs `npm audit --omit=dev --audit-level=high`; a `smoke` job unzips the packaged plugin and validates `plugin.json` (`type: datasource`, `id`, `info.version`). On a `grafana-ds-v*` tag, a `release` job verifies the tag matches **both** `package.json` and `src/plugin.json` `info.version`, moves floating `grafana-ds-v<major>` / `<major>.<minor>` tags, and publishes a GitHub Release with the zip. `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true`, top-level `permissions: contents: read`, same action pins as the rest of the repo. CI badge added to the README.
+
+### Fixed
+
+- **`npm run package` was broken** — it pointed at a non-existent `scripts/package.js`. Repointed to build + zip `dist/` into `tradik-mddb-datasource-<version>.zip` (mirroring `make package`), so the CI release job and local packaging both work.
+
 ## [0.1.0] — 2026-05-22
 
 ### Added
@@ -25,4 +35,5 @@ All notable changes to the `integrations/grafana-datasource` package are documen
 - Dockerfile bakes the bundled plugin into the official `grafana/grafana:13.0.1` image with `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS` preset.
 - `make package` produces a versioned plugin zip suitable for `grafana-cli plugins install --pluginUrl` distribution.
 
-[0.1.0]: https://github.com/tradik/mddb/releases/tag/grafana-v0.1.0
+[Unreleased]: https://github.com/tradik/mddb/compare/grafana-ds-v0.1.0...HEAD
+[0.1.0]: https://github.com/tradik/mddb/releases/tag/grafana-ds-v0.1.0
