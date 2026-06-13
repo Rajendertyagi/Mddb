@@ -17,7 +17,11 @@ watch: false
 
 # Build optimization
 webp: true
-minify_all: true
+# minify_all collapses whitespace inside Mermaid code blocks, which corrupts
+# diagrams (Mermaid source is whitespace-significant: xychart "y-axis 0 --> 55",
+# subgraph layouts, sequence diagrams). Keep HTML un-minified so diagram source
+# survives verbatim. Cloudflare Pages still serves it gzip/brotli-compressed.
+minify_all: false
 clean: true
 
 # Enable sitemap and robots.txt generation
