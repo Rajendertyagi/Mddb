@@ -60,7 +60,7 @@ func (fbp *FinalBatchProcessor) batchReadAll(collection string, batchDocs []*pro
 	existingMap := make(map[string][]byte, len(batchDocs))
 
 	// SINGLE READ TRANSACTION for ALL documents
-	_ = fbp.server.DB.View(func(tx *bolt.Tx) error {
+	_ = fbp.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(fbp.server.BucketNames.Docs)
 
 		// Pre-allocate buffer for key building
@@ -199,7 +199,7 @@ func (fbp *FinalBatchProcessor) commitBatch(collection string, processed []*Proc
 	// binlog, but the trim deletes are durable in-transaction regardless.
 	var bo BinlogOps
 
-	err := fbp.server.DB.Update(func(tx *bolt.Tx) error {
+	err := fbp.server.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(fbp.server.BucketNames.Docs)
 		bIdx := tx.Bucket(fbp.server.BucketNames.IdxMeta)
 		bRev := tx.Bucket(fbp.server.BucketNames.Rev)

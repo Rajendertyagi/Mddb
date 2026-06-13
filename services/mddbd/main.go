@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -39,6 +40,13 @@ const (
 
 // Server is the main MDDB server instance holding the database and all subsystems.
 type Server struct {
+	// restoreMu guards the swappable DB handle (and the in-place reload of the
+	// caches/managers) against a replication snapshot restore (GO-004). All
+	// production BoltDB access goes through DBView/DBUpdate, which hold a read
+	// lock; the follower's restore holds the write lock for the whole swap, so
+	// in-flight reads drain before the old *bolt.DB is closed and never observe
+	// a half-swapped handle.
+	restoreMu           sync.RWMutex
 	DB                  *bolt.DB
 	Path                string
 	Mode                AccessMode
@@ -1249,7 +1257,7 @@ func main() {
 // --- helpers / buckets
 
 func (s *Server) ensureBuckets() error {
-	return s.DB.Update(func(tx *bolt.Tx) error {
+	return s.DBUpdate(func(tx *bolt.Tx) error {
 		_, _ = tx.CreateBucketIfNotExists(s.BucketNames.Docs)          // doc|collection|id -> json
 		_, _ = tx.CreateBucketIfNotExists(s.BucketNames.IdxMeta)       // meta|collection|key|value|docID -> 1
 		_, _ = tx.CreateBucketIfNotExists(s.BucketNames.Rev)           // rev|collection|docID|ts -> json
@@ -1414,7 +1422,7 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 	var isNew bool
 	var bo BinlogOps
 	var cachedBuf []byte // marshaled doc, reused to refresh the read cache (GO-002)
-	err := s.DB.Update(func(tx *bolt.Tx) error {
+	err := s.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bIdx := tx.Bucket([]byte("idxmeta"))
 		bRev := tx.Bucket([]byte("rev"))
@@ -1627,7 +1635,7 @@ func (s *Server) deleteDocumentInternal(collection, key, lang string) error {
 
 	var bo BinlogOps
 	var deletedDoc Doc // captured for trigger evaluation
-	err := s.DB.Update(func(tx *bolt.Tx) error {
+	err := s.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bIdx := tx.Bucket([]byte("idxmeta"))
 		bRev := tx.Bucket([]byte("rev"))
@@ -1799,7 +1807,7 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var doc Doc
-	err := s.DB.View(func(tx *bolt.Tx) error {
+	err := s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bByK := tx.Bucket([]byte("bykey"))
 		docID := bByK.Get(kByKey(req.Collection, req.Key, req.Lang))
@@ -1867,7 +1875,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	type row struct{ Doc Doc }
 	var rows []row
 
-	err := s.DB.View(func(tx *bolt.Tx) error {
+	err := s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bIdx := tx.Bucket([]byte("idxmeta"))
 		seen := make(map[string]bool)
@@ -2128,7 +2136,7 @@ func (s *Server) handleTruncate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var bo BinlogOps
-	err := s.DB.Update(func(tx *bolt.Tx) error {
+	err := s.DBUpdate(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket([]byte("rev"))
 		bDocs := tx.Bucket([]byte("docs"))
 
@@ -2196,7 +2204,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if database is accessible
-	err := s.DB.View(func(tx *bolt.Tx) error {
+	err := s.DBView(func(tx *bolt.Tx) error {
 		return nil
 	})
 
@@ -2237,7 +2245,7 @@ func (s *Server) collectionChecksum(collection string) (string, int) {
 	var checksum uint32
 	var count int
 
-	_ = s.DB.View(func(tx *bolt.Tx) error {
+	_ = s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs == nil {
 			return nil
@@ -2366,7 +2374,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	var bo BinlogOps
 	var metaDidChange bool
 
-	err := s.DB.Update(func(tx *bolt.Tx) error {
+	err := s.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bIdx := tx.Bucket([]byte("idxmeta"))
 		bRev := tx.Bucket([]byte("rev"))
@@ -2566,7 +2574,7 @@ func (s *Server) handleDocMeta(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var doc Doc
-	err := s.DB.View(func(tx *bolt.Tx) error {
+	err := s.DBView(func(tx *bolt.Tx) error {
 		bByK := tx.Bucket([]byte("bykey"))
 		bDocs := tx.Bucket([]byte("docs"))
 		docID := bByK.Get(kByKey(collection, key, lang))
@@ -2638,7 +2646,7 @@ func (s *Server) handleMetaKeys(w http.ResponseWriter, r *http.Request) {
 
 	meta := make(map[string][]string)
 
-	_ = s.DB.View(func(tx *bolt.Tx) error {
+	_ = s.DBView(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket([]byte("idxmeta"))
 		if bIdx == nil {
 			return nil
@@ -2727,7 +2735,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	// Collect statistics per collection
 	collectionMap := make(map[string]*CollectionStats)
 
-	err := s.DB.View(func(tx *bolt.Tx) error {
+	err := s.DBView(func(tx *bolt.Tx) error {
 		// Count documents per collection
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs != nil {
@@ -3068,7 +3076,7 @@ func (s *Server) handleDeleteCollection(w http.ResponseWriter, r *http.Request) 
 	var deletedCount int
 	var bo BinlogOps
 
-	err := s.DB.Update(func(tx *bolt.Tx) error {
+	err := s.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bIdx := tx.Bucket([]byte("idxmeta"))
 		bRev := tx.Bucket([]byte("rev"))

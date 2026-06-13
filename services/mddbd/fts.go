@@ -964,7 +964,7 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 		MaxFragments: req.MaxHighlights,
 		FragmentSize: req.FragmentSize,
 	}
-	_ = s.DB.View(func(tx *bolt.Tx) error {
+	_ = s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		for _, res := range results {
 			v := bDocs.Get(kDoc(req.Collection, res.DocID))
@@ -1054,7 +1054,7 @@ func (s *Server) handleFTSReindex(w http.ResponseWriter, r *http.Request) {
 	}
 	var docs []reindexDoc
 	var skipped int
-	_ = s.DB.View(func(tx *bolt.Tx) error {
+	_ = s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs == nil {
 			return nil

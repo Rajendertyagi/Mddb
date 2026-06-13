@@ -186,7 +186,7 @@ func (s *Server) handleCrossSearch(w http.ResponseWriter, r *http.Request) {
 
 	// Load full documents
 	items := make([]CrossSearchResultItem, 0, len(allTagged))
-	_ = s.DB.View(func(tx *bolt.Tx) error {
+	_ = s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs == nil {
 			return nil

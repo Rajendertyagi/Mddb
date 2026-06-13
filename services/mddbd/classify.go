@@ -135,7 +135,7 @@ func (s *Server) classifyDocument(ctx context.Context, collection, key, lang, te
 // loadDocByRef loads a document by collection, key, lang from BoltDB.
 func (s *Server) loadDocByRef(collection, key, lang string) (*Doc, error) {
 	var doc Doc
-	err := s.DB.View(func(tx *bolt.Tx) error {
+	err := s.DBView(func(tx *bolt.Tx) error {
 		bByK := tx.Bucket([]byte("bykey"))
 		bDocs := tx.Bucket([]byte("docs"))
 		docID := bByK.Get(kByKey(collection, key, lang))

@@ -267,7 +267,7 @@ func (g *GRPCServer) Get(ctx context.Context, req *proto.GetRequest) (*proto.Doc
 
 	var doc Doc
 	var docData []byte
-	err := g.server.DB.View(func(tx *bolt.Tx) error {
+	err := g.server.DBView(func(tx *bolt.Tx) error {
 		bByK := tx.Bucket(g.server.BucketNames.ByKey)
 		bDocs := tx.Bucket(g.server.BucketNames.Docs)
 
@@ -339,7 +339,7 @@ func (g *GRPCServer) Search(ctx context.Context, req *proto.SearchRequest) (*pro
 	var docs []Doc
 	var docIDs []string
 
-	err := g.server.DB.View(func(tx *bolt.Tx) error {
+	err := g.server.DBView(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket(g.server.BucketNames.IdxMeta)
 		bDocs := tx.Bucket(g.server.BucketNames.Docs)
 
@@ -458,7 +458,7 @@ func (g *GRPCServer) Backup(ctx context.Context, req *proto.BackupRequest) (*pro
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	err = g.server.DB.View(func(tx *bolt.Tx) error {
+	err = g.server.DBView(func(tx *bolt.Tx) error {
 		return tx.CopyFile(safeName, 0600)
 	})
 
@@ -514,7 +514,7 @@ func (g *GRPCServer) Truncate(ctx context.Context, req *proto.TruncateRequest) (
 		return nil, status.Error(codes.InvalidArgument, "missing collection")
 	}
 
-	err := g.server.DB.Update(func(tx *bolt.Tx) error {
+	err := g.server.DBUpdate(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket(g.server.BucketNames.Rev)
 		bDocs := tx.Bucket(g.server.BucketNames.Docs)
 
@@ -580,7 +580,7 @@ func (g *GRPCServer) Stats(ctx context.Context, req *proto.StatsRequest) (*proto
 	// Collect statistics
 	collectionMap := make(map[string]*proto.CollectionStats)
 
-	err := g.server.DB.View(func(tx *bolt.Tx) error {
+	err := g.server.DBView(func(tx *bolt.Tx) error {
 		// Count documents
 		bDocs := tx.Bucket(g.server.BucketNames.Docs)
 		if bDocs != nil {
@@ -727,7 +727,7 @@ func (g *GRPCServer) VectorSearch(ctx context.Context, req *proto.VectorSearchRe
 
 	// Load documents
 	protoResults := make([]*proto.VectorSearchResult, 0, len(results))
-	_ = g.server.DB.View(func(tx *bolt.Tx) error {
+	_ = g.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(g.server.BucketNames.Docs)
 		for rank, vr := range results {
 			v := bDocs.Get(kDoc(req.Collection, vr.DocID))
@@ -790,7 +790,7 @@ func (g *GRPCServer) VectorReindex(ctx context.Context, req *proto.VectorReindex
 	}
 	var docs []docEntry
 
-	err := g.server.DB.View(func(tx *bolt.Tx) error {
+	err := g.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(g.server.BucketNames.Docs)
 		c := bDocs.Cursor()
 		prefix := []byte("doc|" + req.Collection + "|")
@@ -870,7 +870,7 @@ func (g *GRPCServer) VectorStats(ctx context.Context, req *proto.VectorStatsRequ
 	vectorCounts, _ := g.server.VectorStore.CountByCollection()
 
 	docCounts := make(map[string]int)
-	_ = g.server.DB.View(func(tx *bolt.Tx) error {
+	_ = g.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(g.server.BucketNames.Docs)
 		if bDocs == nil {
 			return nil
@@ -1044,7 +1044,7 @@ func (g *GRPCServer) SetTTL(ctx context.Context, req *proto.SetTTLRequest) (*pro
 	}
 
 	var updated Doc
-	err := g.server.DB.Update(func(tx *bolt.Tx) error {
+	err := g.server.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		v := bDocs.Get(kDoc(req.Collection, docID))
 		if v == nil {
@@ -1188,7 +1188,7 @@ func (g *GRPCServer) FTS(ctx context.Context, req *proto.FTSRequest) (*proto.FTS
 	// accumulate FTSResultWithDoc locally so curation + facets see the full
 	// shape identical to the HTTP handler.
 	docResults := make([]FTSResultWithDoc, 0, len(results))
-	_ = g.server.DB.View(func(tx *bolt.Tx) error {
+	_ = g.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		for _, res := range results {
 			v := bDocs.Get(kDoc(req.Collection, res.DocID))
@@ -1273,7 +1273,7 @@ func (g *GRPCServer) FTSReindex(ctx context.Context, req *proto.FTSReindexReques
 	var skipped int
 	// GO-009: propagate the read error instead of silently reporting 0 reindexed
 	// with Status "ok" (e.g. when the DB is mid-restore).
-	if err := g.server.DB.View(func(tx *bolt.Tx) error {
+	if err := g.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs == nil {
 			return nil
@@ -1754,7 +1754,7 @@ func (g *GRPCServer) UpdateDocument(ctx context.Context, req *proto.UpdateDocume
 	var metaDidChange bool
 	var bo BinlogOps
 
-	err := g.server.DB.Update(func(tx *bolt.Tx) error {
+	err := g.server.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bIdx := tx.Bucket([]byte("idxmeta"))
 		bRev := tx.Bucket([]byte("rev"))
@@ -1881,7 +1881,7 @@ func (g *GRPCServer) GetDocumentMeta(ctx context.Context, req *proto.GetDocument
 	}
 
 	var doc Doc
-	err := g.server.DB.View(func(tx *bolt.Tx) error {
+	err := g.server.DBView(func(tx *bolt.Tx) error {
 		bByK := tx.Bucket([]byte("bykey"))
 		bDocs := tx.Bucket([]byte("docs"))
 		docID := bByK.Get(kByKey(req.Collection, req.Key, req.Lang))
@@ -2004,7 +2004,7 @@ func (g *GRPCServer) DeleteCollection(ctx context.Context, req *proto.DeleteColl
 	var deletedCount int
 	var bo BinlogOps
 
-	err := g.server.DB.Update(func(tx *bolt.Tx) error {
+	err := g.server.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bIdx := tx.Bucket([]byte("idxmeta"))
 		bRev := tx.Bucket([]byte("rev"))
@@ -2209,7 +2209,7 @@ func (g *GRPCServer) GetMetaKeys(ctx context.Context, req *proto.GetMetaKeysRequ
 
 	meta := make(map[string][]string)
 
-	_ = g.server.DB.View(func(tx *bolt.Tx) error {
+	_ = g.server.DBView(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket([]byte("idxmeta"))
 		if bIdx == nil {
 			return nil
@@ -2478,7 +2478,7 @@ func (g *GRPCServer) TestAutomation(ctx context.Context, req *proto.TestAutomati
 
 	// Load matched documents
 	var protoDocs []*proto.Document
-	_ = g.server.DB.View(func(tx *bolt.Tx) error {
+	_ = g.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs == nil {
 			return nil
@@ -2762,7 +2762,7 @@ func (g *GRPCServer) CrossSearch(ctx context.Context, req *proto.CrossSearchRequ
 
 	// Load full documents
 	protoResults := make([]*proto.CrossSearchResultItem, 0, len(allTagged))
-	_ = g.server.DB.View(func(tx *bolt.Tx) error {
+	_ = g.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs == nil {
 			return nil
@@ -2892,7 +2892,7 @@ func (g *GRPCServer) ListRevisions(ctx context.Context, req *proto.ListRevisions
 	docID := genID(req.Collection, req.Key, req.Lang)
 
 	var revisions []*proto.RevisionEntryProto
-	err := g.server.DB.View(func(tx *bolt.Tx) error {
+	err := g.server.DBView(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket([]byte("rev"))
 		if bRev == nil {
 			return nil
@@ -2963,7 +2963,7 @@ func (g *GRPCServer) RestoreRevision(ctx context.Context, req *proto.RestoreRevi
 	revKey := append(kRevPrefix(req.Collection, docID), []byte(tsKey)...)
 
 	var revDoc *Doc
-	err := g.server.DB.View(func(tx *bolt.Tx) error {
+	err := g.server.DBView(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket([]byte("rev"))
 		if bRev == nil {
 			return errors.New("revision not found")

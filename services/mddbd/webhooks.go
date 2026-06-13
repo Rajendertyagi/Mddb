@@ -56,6 +56,20 @@ func NewWebhookManager(db *bolt.DB) *WebhookManager {
 	return &WebhookManager{db: db}
 }
 
+// reload re-points the manager at a freshly restored database and reloads its
+// in-memory hooks (GO-004). Keeping the same *WebhookManager (rather than
+// swapping Server.WebhookManager) avoids racing the field with readers; the db
+// handle is updated under the manager's own lock.
+func (wm *WebhookManager) reload(db *bolt.DB) error {
+	wm.mu.Lock()
+	wm.db = db
+	wm.mu.Unlock()
+	if err := wm.EnsureBucket(); err != nil {
+		return err
+	}
+	return wm.LoadAll()
+}
+
 // EnsureBucket creates the webhooks bucket.
 func (wm *WebhookManager) EnsureBucket() error {
 	return wm.db.Update(func(tx *bolt.Tx) error {

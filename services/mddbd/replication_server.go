@@ -108,7 +108,7 @@ func (rs *ReplicationServer) RequestSnapshot(req *proto.SnapshotRequest, stream 
 	snapshotLSN := rs.server.Binlog.CurrentLSN()
 
 	// Use BoltDB's read-only transaction to stream the database
-	err := rs.server.DB.View(func(tx *bolt.Tx) error {
+	err := rs.server.DBView(func(tx *bolt.Tx) error {
 		pr, pw := io.Pipe()
 
 		// Write snapshot to pipe in background

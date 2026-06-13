@@ -163,7 +163,7 @@ func (c *DirectClient) loadGeoResults(collection string, hits []GeoResult, inclu
 		return []MCPGeoSearchResult{}
 	}
 	items := make([]MCPGeoSearchResult, 0, len(hits))
-	_ = c.server.DB.View(func(tx *bolt.Tx) error {
+	_ = c.server.DBView(func(tx *bolt.Tx) error {
 		b := tx.Bucket(c.server.BucketNames.Docs)
 		if b == nil {
 			return nil

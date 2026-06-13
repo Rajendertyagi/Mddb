@@ -235,7 +235,7 @@ func (s *Server) handleMemoryMessageAdd(w http.ResponseWriter, r *http.Request) 
 
 	// Verify session exists
 	var sessionExists bool
-	_ = s.DB.View(func(tx *bolt.Tx) error {
+	_ = s.DBView(func(tx *bolt.Tx) error {
 		bByK := tx.Bucket([]byte("bykey"))
 		if bByK == nil {
 			return nil
@@ -288,7 +288,7 @@ func (s *Server) handleMemoryMessageAdd(w http.ResponseWriter, r *http.Request) 
 
 // touchSession updates the session's updatedAt timestamp.
 func (s *Server) touchSession(sessionID string) {
-	_ = s.DB.Update(func(tx *bolt.Tx) error {
+	_ = s.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bByK := tx.Bucket([]byte("bykey"))
 		if bDocs == nil || bByK == nil {
@@ -381,7 +381,7 @@ func (s *Server) handleMemoryRecall(w http.ResponseWriter, r *http.Request) {
 // getSessionIDsForUser returns all session IDs belonging to a user.
 func (s *Server) getSessionIDsForUser(userID string) []string {
 	var sessionIDs []string
-	_ = s.DB.View(func(tx *bolt.Tx) error {
+	_ = s.DBView(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket([]byte("idxmeta"))
 		if bIdx == nil {
 			return nil
@@ -555,7 +555,7 @@ func (s *Server) memoryRecallHybrid(ctx context.Context, query string, topK int,
 // loadRecallResults loads full documents from vector results.
 func (s *Server) loadRecallResults(vResults []VectorResult, includeContent bool, strategy string) []MemoryRecallResultItem {
 	var results []MemoryRecallResultItem
-	_ = s.DB.View(func(tx *bolt.Tx) error {
+	_ = s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs == nil {
 			return nil
@@ -590,7 +590,7 @@ func (s *Server) loadRecallResults(vResults []VectorResult, includeContent bool,
 // loadDocByID loads a single document by collection and docID.
 func (s *Server) loadDocByID(collection, docID string, includeContent bool) *Doc {
 	var doc *Doc
-	_ = s.DB.View(func(tx *bolt.Tx) error {
+	_ = s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs == nil {
 			return nil
@@ -708,7 +708,7 @@ func (s *Server) handleMemorySessionsList(w http.ResponseWriter, r *http.Request
 	}
 
 	var sessions []MemorySessionDetail
-	err := s.DB.View(func(tx *bolt.Tx) error {
+	err := s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bIdx := tx.Bucket([]byte("idxmeta"))
 		if bDocs == nil || bIdx == nil {
@@ -842,7 +842,7 @@ func (s *Server) handleMemoryHistory(w http.ResponseWriter, r *http.Request) {
 // loadSessionMessages loads all messages for a session, ordered chronologically.
 func (s *Server) loadSessionMessages(sessionID string, limit, offset int) []Doc {
 	var messages []Doc
-	_ = s.DB.View(func(tx *bolt.Tx) error {
+	_ = s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs == nil {
 			return nil
@@ -884,7 +884,7 @@ func (s *Server) loadSessionMessages(sessionID string, limit, offset int) []Doc 
 // countSessionMessages counts messages belonging to a session.
 func (s *Server) countSessionMessages(sessionID string) int {
 	count := 0
-	_ = s.DB.View(func(tx *bolt.Tx) error {
+	_ = s.DBView(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket([]byte("idxmeta"))
 		if bIdx == nil {
 			return nil

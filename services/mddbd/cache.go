@@ -14,12 +14,14 @@ type CacheEntry struct {
 
 // DocumentCache is a simple LRU cache for hot documents
 type DocumentCache struct {
-	cache   map[string]*CacheEntry
-	mu      sync.RWMutex
-	maxSize int
-	ttl     int64 // seconds
-	hits    uint64
-	misses  uint64
+	cache     map[string]*CacheEntry
+	mu        sync.RWMutex
+	maxSize   int
+	ttl       int64 // seconds
+	hits      uint64
+	misses    uint64
+	stopCh    chan struct{} // closed by Close() to stop the cleanup goroutine
+	closeOnce sync.Once
 }
 
 // NewDocumentCache creates a new document cache
@@ -35,12 +37,24 @@ func NewDocumentCache(maxSize int, ttlSeconds int64) *DocumentCache {
 		cache:   make(map[string]*CacheEntry, maxSize),
 		maxSize: maxSize,
 		ttl:     ttlSeconds,
+		stopCh:  make(chan struct{}),
 	}
 
 	// Start cleanup goroutine
 	go cache.cleanup()
 
 	return cache
+}
+
+// Close stops the background cleanup goroutine. Safe to call multiple times.
+// Used so a replication restore can recycle the cache without leaking a
+// goroutine per restore (GO-004 / GO-006).
+func (dc *DocumentCache) Close() {
+	dc.closeOnce.Do(func() {
+		if dc.stopCh != nil {
+			close(dc.stopCh)
+		}
+	})
 }
 
 // Get retrieves a document from cache
@@ -105,20 +119,25 @@ func (dc *DocumentCache) Stats() (hits, misses uint64, size int) {
 	return dc.hits, dc.misses, len(dc.cache)
 }
 
-// cleanup periodically removes expired entries
+// cleanup periodically removes expired entries until Close() stops it.
 func (dc *DocumentCache) cleanup() {
 	ticker := time.NewTicker(60 * time.Second)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		dc.mu.Lock()
-		now := time.Now().Unix()
-		for key, entry := range dc.cache {
-			if now > entry.ExpiresAt {
-				delete(dc.cache, key)
+	for {
+		select {
+		case <-dc.stopCh:
+			return
+		case <-ticker.C:
+			dc.mu.Lock()
+			now := time.Now().Unix()
+			for key, entry := range dc.cache {
+				if now > entry.ExpiresAt {
+					delete(dc.cache, key)
+				}
 			}
+			dc.mu.Unlock()
 		}
-		dc.mu.Unlock()
 	}
 }
 

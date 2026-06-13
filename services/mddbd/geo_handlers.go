@@ -472,7 +472,7 @@ func (s *Server) hydrateGeoResults(collection string, hits []GeoResult, includeC
 		return []GeoSearchResultItem{}
 	}
 	items := make([]GeoSearchResultItem, 0, len(hits))
-	_ = s.DB.View(func(tx *bolt.Tx) error {
+	_ = s.DBView(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("docs"))
 		if b == nil {
 			return nil

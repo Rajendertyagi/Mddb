@@ -21,7 +21,7 @@ func NewReplicationApplier(s *Server) *ReplicationApplier {
 
 // Apply applies a single binlog entry to the local database.
 func (ra *ReplicationApplier) Apply(entry *BinlogEntry) error {
-	err := ra.server.DB.Update(func(tx *bolt.Tx) error {
+	err := ra.server.DBUpdate(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte(entry.BucketName))
 		if err != nil {
 			return err
@@ -58,7 +58,7 @@ func (ra *ReplicationApplier) ApplyBatch(entries []*BinlogEntry) error {
 		return nil
 	}
 
-	err := ra.server.DB.Update(func(tx *bolt.Tx) error {
+	err := ra.server.DBUpdate(func(tx *bolt.Tx) error {
 		for _, entry := range entries {
 			if entry.Type == BinlogDeleteBucket {
 				if err := tx.DeleteBucket([]byte(entry.BucketName)); err != nil {

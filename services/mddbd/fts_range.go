@@ -31,7 +31,7 @@ func (s *Server) SearchRange(collection string, ranges []RangeFilter, limit int)
 	}
 	scores := make(map[string]*docScore)
 
-	err := s.DB.View(func(tx *bolt.Tx) error {
+	err := s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(s.BucketNames.Docs)
 		if bDocs == nil {
 			return nil
@@ -99,7 +99,7 @@ func (s *Server) FilterByRange(collection string, results []FTSResult, ranges []
 	}
 
 	filtered := results[:0]
-	err := s.DB.View(func(tx *bolt.Tx) error {
+	err := s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(s.BucketNames.Docs)
 		if bDocs == nil {
 			return nil
