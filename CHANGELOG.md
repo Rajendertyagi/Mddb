@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Landing-page release date** ([services/ssg-template/index.html](services/ssg-template/index.html), [services/ssg-template/index-section-download.html](services/ssg-template/index-section-download.html)) — the SSG landing page showed a stale, hardcoded "Released: April 7, 2026" (with two more inconsistent dates in the static fallback and JSON-LD `datePublished`). None of these auto-update on release. Corrected all three to the v2.10.0 date (2026-06-13). (Follow-up candidate: derive the release date from the latest GitHub release so it can't drift, like the version stamp.)
+
 ## [2.10.0] - 2026-06-13
 
 ### Security
