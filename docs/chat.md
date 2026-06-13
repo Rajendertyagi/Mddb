@@ -104,6 +104,13 @@ MDDB_CHAT_LLM_BASE_URL=              # Custom base URL (optional)
 MDDB_GRPC_ADDRESS=localhost:11024
 MDDB_COLLECTION=docs                 # Default collection to search
 
+# Auth to mddbd (SEC-007): keep these OUT of config.toml (it is gitignored).
+# When the config's auth_username/auth_password are blank, these env vars are
+# used instead. In docker-compose.dev.yml they default to the mddbd admin
+# credentials from your .env (copy .env.example to .env first).
+MDDB_CHAT_AUTH_USERNAME=admin
+MDDB_CHAT_AUTH_PASSWORD=             # set in .env — never commit a real password
+
 # Server
 MDDB_CHAT_PORT=11030
 MDDB_CHAT_MAX_SESSIONS=100

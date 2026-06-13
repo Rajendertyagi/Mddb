@@ -8,6 +8,11 @@ grpc_addr = "http://localhost:11024"
 default_collection = "docs"
 search_top_k = 5
 search_type = "hybrid"  # "hybrid", "vector", "fts"
+# Credentials used to authenticate to mddbd. Leave EMPTY here and supply them
+# via env (SEC-007): MDDB_CHAT_AUTH_USERNAME / MDDB_CHAT_AUTH_PASSWORD override
+# these when blank. Never commit real passwords — config.toml is gitignored.
+auth_username = ""
+auth_password = ""
 
 # LLM provider configuration
 # Supported providers:

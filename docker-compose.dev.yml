@@ -53,10 +53,12 @@ services:
       - MDDB_ADDR=:11023
       - MDDB_GRPC_ADDR=:11024
       - MDDB_AUTH_ENABLED=true
-      - MDDB_AUTH_JWT_SECRET=dev-secret-change-in-production-12345678901234567890
+      # SEC-007: secrets come from .env (gitignored), never hardcoded here.
+      # Copy .env.example to .env and set these. Compose errors if unset.
+      - MDDB_AUTH_JWT_SECRET=${MDDB_AUTH_JWT_SECRET:?set MDDB_AUTH_JWT_SECRET in .env, see .env.example}
       - MDDB_AUTH_JWT_EXPIRY=24h
-      - MDDB_AUTH_ADMIN_USERNAME=admin
-      - MDDB_AUTH_ADMIN_PASSWORD=admin123
+      - MDDB_AUTH_ADMIN_USERNAME=${MDDB_AUTH_ADMIN_USERNAME:-admin}
+      - MDDB_AUTH_ADMIN_PASSWORD=${MDDB_AUTH_ADMIN_PASSWORD:?set MDDB_AUTH_ADMIN_PASSWORD in .env, see .env.example}
       - MDDB_METRICS=true
       - MDDB_MCP_ENABLED=true
       - MDDB_GRPC_ENABLED=true
@@ -119,6 +121,10 @@ services:
     environment:
       - MDDB_CHAT_CONFIG=/app/config.toml
       - MDDB_CHAT_LLM_API_KEY=${MDDB_CHAT_LLM_API_KEY}
+      # SEC-007: chat authenticates to mddbd with the admin creds from .env
+      # (env overrides config.toml), so no password is committed to config.toml.
+      - MDDB_CHAT_AUTH_USERNAME=${MDDB_AUTH_ADMIN_USERNAME:-admin}
+      - MDDB_CHAT_AUTH_PASSWORD=${MDDB_AUTH_ADMIN_PASSWORD:?set MDDB_AUTH_ADMIN_PASSWORD in .env, see .env.example}
       - RUST_LOG=mddb_chat=debug,tower_http=debug
     networks:
       - mddb-network

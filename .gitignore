@@ -120,6 +120,9 @@ tools/bench/mddb-bench
 # Rust build artifacts
 services/mddb-chat/target/
 
+# Local chat config holds real secrets (SEC-007) — track config.example.toml only
+services/mddb-chat/config.toml
+
 # Chat widget build artifacts
 services/mddb-chat-widget/dist/
 

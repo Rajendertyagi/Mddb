@@ -1,0 +1,22 @@
+# gitleaks configuration (SEC-007). Extends the default ruleset and allowlists
+# paths that legitimately contain EXAMPLE credentials — documentation snippets,
+# test fixtures, manpages, vendored third-party code, and *.example.* templates.
+# Real secrets must never live in tracked files: services/mddb-chat/config.toml
+# is gitignored and docker-compose.dev.yml pulls secrets from .env.
+title = "MDDB gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Docs, tests, manpages, vendored deps, and example templates"
+paths = [
+  '''(^|/)docs/''',                 # documentation: example curl/JWT snippets
+  '''(^|/)vendor/''',               # vendored third-party code (e.g. phpstan.phar)
+  '''\.example\.''',                # *.example.* config templates (placeholders)
+  '''_test\.go$''',                 # Go test fixtures
+  '''\.test\.(js|ts|mjs|tsx)$''',   # JS/TS test fixtures
+  '''\.1$''',                       # manpages with example commands
+  '''(^|/)services/mddb-panel/src/lib/markdown-templates\.js$''',     # UI example snippets
+  '''(^|/)services/mddb-panel/src/components/MCPConfigPanel\.jsx$''', # UI example config
+]
