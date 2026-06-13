@@ -8,7 +8,7 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
-- **INT-008 — Validate the sender of `runtime.onMessage`** (`src/background.ts`) — the
+- **Validate the sender of `runtime.onMessage`** (`src/background.ts`) — the
   `mddb:refresh` handler ignored the message sender. It now accepts a message only when
   `sender.id === chrome.runtime.id` **and** `sender.tab` is unset, i.e. from the extension's
   own trusted surfaces (popup / options / internal pages). A content script injected into a
