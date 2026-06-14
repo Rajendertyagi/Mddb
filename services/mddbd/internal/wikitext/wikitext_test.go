@@ -1,11 +1,11 @@
-package main
+package wikitext
 
 import (
 	"strings"
 	"testing"
 )
 
-// --- wikitextToMarkdown ---
+// --- ToMarkdown ---
 
 func TestWikitextHeadings(t *testing.T) {
 	tests := []struct {
@@ -22,7 +22,7 @@ func TestWikitextHeadings(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := wikitextToMarkdown(tt.input)
+			got := ToMarkdown(tt.input)
 			if strings.TrimSpace(got) != tt.want {
 				t.Errorf("got %q, want %q", strings.TrimSpace(got), tt.want)
 			}
@@ -42,7 +42,7 @@ func TestWikitextBoldItalic(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := wikitextToMarkdown(tt.input)
+			got := ToMarkdown(tt.input)
 			if strings.TrimSpace(got) != tt.want {
 				t.Errorf("got %q, want %q", strings.TrimSpace(got), tt.want)
 			}
@@ -62,7 +62,7 @@ func TestWikitextLinks(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := wikitextToMarkdown(tt.input)
+			got := ToMarkdown(tt.input)
 			if strings.TrimSpace(got) != tt.want {
 				t.Errorf("got %q, want %q", strings.TrimSpace(got), tt.want)
 			}
@@ -72,7 +72,7 @@ func TestWikitextLinks(t *testing.T) {
 
 func TestWikitextCategories(t *testing.T) {
 	input := "Some text\n[[Category:Science]]\n[[Category:Physics]]"
-	got := wikitextToMarkdown(input)
+	got := ToMarkdown(input)
 	if strings.Contains(got, "Category") {
 		t.Errorf("categories should be removed, got %q", got)
 	}
@@ -83,7 +83,7 @@ func TestWikitextCategories(t *testing.T) {
 
 func TestWikitextFileLinks(t *testing.T) {
 	input := "Text before [[File:Example.png|thumb|Caption]] text after"
-	got := wikitextToMarkdown(input)
+	got := ToMarkdown(input)
 	if strings.Contains(got, "File:") {
 		t.Errorf("file links should be removed, got %q", got)
 	}
@@ -94,7 +94,7 @@ func TestWikitextFileLinks(t *testing.T) {
 
 func TestWikitextImageLinks(t *testing.T) {
 	input := "[[Image:Photo.jpg|200px|right]]"
-	got := wikitextToMarkdown(input)
+	got := ToMarkdown(input)
 	if strings.Contains(got, "Image:") {
 		t.Errorf("image links should be removed, got %q", got)
 	}
@@ -112,7 +112,7 @@ func TestWikitextTemplates(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := wikitextToMarkdown(tt.input)
+			got := ToMarkdown(tt.input)
 			got = strings.TrimSpace(got)
 			// Normalize spaces
 			for strings.Contains(got, "  ") {
@@ -131,7 +131,7 @@ func TestWikitextTemplates(t *testing.T) {
 
 func TestWikitextReferences(t *testing.T) {
 	input := "Fact<ref>Source book, p. 42</ref> and another<ref name=\"x\" />."
-	got := wikitextToMarkdown(input)
+	got := ToMarkdown(input)
 	if strings.Contains(got, "<ref") || strings.Contains(got, "</ref>") {
 		t.Errorf("references should be stripped, got %q", got)
 	}
@@ -142,7 +142,7 @@ func TestWikitextReferences(t *testing.T) {
 
 func TestWikitextHTMLComments(t *testing.T) {
 	input := "Visible <!-- hidden comment --> text"
-	got := wikitextToMarkdown(input)
+	got := ToMarkdown(input)
 	if strings.Contains(got, "hidden") {
 		t.Errorf("HTML comments should be removed, got %q", got)
 	}
@@ -150,7 +150,7 @@ func TestWikitextHTMLComments(t *testing.T) {
 
 func TestWikitextUnorderedLists(t *testing.T) {
 	input := "* Item one\n* Item two\n** Sub-item"
-	got := wikitextToMarkdown(input)
+	got := ToMarkdown(input)
 	if !strings.Contains(got, "- Item one") {
 		t.Errorf("should convert * to -, got %q", got)
 	}
@@ -161,7 +161,7 @@ func TestWikitextUnorderedLists(t *testing.T) {
 
 func TestWikitextOrderedLists(t *testing.T) {
 	input := "# First\n# Second\n## Nested"
-	got := wikitextToMarkdown(input)
+	got := ToMarkdown(input)
 	if !strings.Contains(got, "1. First") {
 		t.Errorf("should convert # to 1., got %q", got)
 	}
@@ -172,7 +172,7 @@ func TestWikitextOrderedLists(t *testing.T) {
 
 func TestWikitextDefinitionList(t *testing.T) {
 	input := "; Term : Definition"
-	got := wikitextToMarkdown(input)
+	got := ToMarkdown(input)
 	if !strings.Contains(got, "**Term**") {
 		t.Errorf("should bold the term, got %q", got)
 	}
@@ -183,7 +183,7 @@ func TestWikitextDefinitionList(t *testing.T) {
 
 func TestWikitextIndent(t *testing.T) {
 	input := ": Indented text"
-	got := wikitextToMarkdown(input)
+	got := ToMarkdown(input)
 	if !strings.Contains(got, "> Indented text") {
 		t.Errorf("should convert : to blockquote, got %q", got)
 	}
@@ -191,7 +191,7 @@ func TestWikitextIndent(t *testing.T) {
 
 func TestWikitextHorizontalRule(t *testing.T) {
 	input := "Before\n----\nAfter"
-	got := wikitextToMarkdown(input)
+	got := ToMarkdown(input)
 	if !strings.Contains(got, "---") {
 		t.Errorf("should convert ---- to ---, got %q", got)
 	}
@@ -199,7 +199,7 @@ func TestWikitextHorizontalRule(t *testing.T) {
 
 func TestWikitextMagicWords(t *testing.T) {
 	input := "__TOC__\nSome content\n__NOTOC__"
-	got := wikitextToMarkdown(input)
+	got := ToMarkdown(input)
 	if strings.Contains(got, "__TOC__") || strings.Contains(got, "__NOTOC__") {
 		t.Errorf("magic words should be removed, got %q", got)
 	}
@@ -210,7 +210,7 @@ func TestWikitextMagicWords(t *testing.T) {
 
 func TestWikitextHTMLTags(t *testing.T) {
 	input := "<div class=\"mw-parser-output\">Content</div>"
-	got := wikitextToMarkdown(input)
+	got := ToMarkdown(input)
 	if strings.Contains(got, "<div") || strings.Contains(got, "</div>") {
 		t.Errorf("HTML tags should be stripped, got %q", got)
 	}
@@ -228,7 +228,7 @@ func TestWikitextTable(t *testing.T) {
 |-
 | Cell 3 || Cell 4
 |}`
-	got := wikitextToMarkdown(input)
+	got := ToMarkdown(input)
 	if !strings.Contains(got, "**Caption**") {
 		t.Errorf("table caption should be bold, got %q", got)
 	}
@@ -260,7 +260,7 @@ The medieval period saw many changes.<ref>History Book, 2020</ref>
 |capital = Warsaw
 }}`
 
-	got := wikitextToMarkdown(input)
+	got := ToMarkdown(input)
 
 	// Should have markdown headings
 	if !strings.Contains(got, "## History") {
@@ -297,7 +297,7 @@ The medieval period saw many changes.<ref>History Book, 2020</ref>
 }
 
 func TestWikitextEmptyInput(t *testing.T) {
-	got := wikitextToMarkdown("")
+	got := ToMarkdown("")
 	if got != "" {
 		t.Errorf("empty input should return empty output, got %q", got)
 	}
@@ -305,7 +305,7 @@ func TestWikitextEmptyInput(t *testing.T) {
 
 func TestWikitextMultipleBlankLines(t *testing.T) {
 	input := "Line 1\n\n\n\n\nLine 2"
-	got := wikitextToMarkdown(input)
+	got := ToMarkdown(input)
 	if strings.Contains(got, "\n\n\n") {
 		t.Errorf("should collapse multiple blank lines, got %q", got)
 	}

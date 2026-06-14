@@ -14,6 +14,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"mddb/internal/wikitext"
 	proto "mddb/proto"
 
 	json "github.com/goccy/go-json"
@@ -270,7 +271,7 @@ func (s *Server) handleWikiImport(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Convert wikitext to markdown
-		markdown := wikitextToMarkdown(text)
+		markdown := wikitext.ToMarkdown(text)
 
 		// Build key from title
 		key := wikiTitleToKey(page.Title)

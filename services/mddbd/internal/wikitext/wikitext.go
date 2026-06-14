@@ -1,14 +1,14 @@
-package main
+package wikitext
 
 import (
 	"regexp"
 	"strings"
 )
 
-// wikitextToMarkdown converts MediaWiki wikitext markup to Markdown.
+// ToMarkdown converts MediaWiki wikitext markup to Markdown.
 // Handles the most common constructs: headings, bold/italic, links,
 // lists, templates, references, categories, and tables.
-func wikitextToMarkdown(wikitext string) string {
+func ToMarkdown(wikitext string) string {
 	s := wikitext
 
 	// Remove categories: [[Category:...]]
