@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"mddb/internal/sentiment"
 	"net/http"
 	"time"
 
@@ -85,7 +86,7 @@ func (am *AutomationManager) evaluateSingleTrigger(trigger *AutomationRule, doc 
 
 	// Evaluate sentiment condition
 	if hasSentiment {
-		sentimentScore = AnalyzeSentiment(doc.ContentMD)
+		sentimentScore = sentiment.AnalyzeSentiment(doc.ContentMD)
 		sentimentMatched = sentimentScore >= trigger.SentimentMin && sentimentScore <= trigger.SentimentMax
 	}
 

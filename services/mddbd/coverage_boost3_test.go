@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mddb/internal/delta"
 	"strings"
 	"testing"
 	"time"
@@ -904,7 +905,7 @@ func TestGetCompressionStats(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestDeltaEncoderRoundTrip(t *testing.T) {
-	de := NewDeltaEncoder()
+	de := delta.NewDeltaEncoder()
 	original := []byte("hello world this is test data for delta encoding")
 	modified := []byte("hello world this is modified data for delta encoding")
 
@@ -927,7 +928,7 @@ func TestDeltaEncoderRoundTrip(t *testing.T) {
 }
 
 func TestDeltaEncoderIdentical(t *testing.T) {
-	de := NewDeltaEncoder()
+	de := delta.NewDeltaEncoder()
 	data := []byte("identical content")
 	delta := de.Encode(data, data)
 	decoded, err := de.Decode(data, delta)
@@ -940,7 +941,7 @@ func TestDeltaEncoderIdentical(t *testing.T) {
 }
 
 func TestDeltaEncoderEmpty(t *testing.T) {
-	de := NewDeltaEncoder()
+	de := delta.NewDeltaEncoder()
 	delta := de.Encode(nil, []byte("new"))
 	decoded, err := de.Decode(nil, delta)
 	if err != nil {

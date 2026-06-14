@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"mddb/internal/cache"
+	"mddb/internal/delta"
 	"net/http"
 	"os"
 	"os/signal"
@@ -60,7 +61,7 @@ type Server struct {
 	WAL                 *WAL                  // Write-Ahead Log
 	MVCC                *MVCC                 // Multi-Version Concurrency Control
 	BloomFilters        *BloomFilterManager   // Bloom filters for negative lookups
-	DeltaEncoder        *DeltaEncoder         // Delta encoding for revisions
+	DeltaEncoder        *delta.DeltaEncoder   // Delta encoding for revisions
 	AdaptiveIndex       *AdaptiveIndexManager // Adaptive indexing
 	AsyncIO             *AsyncIO              // Async I/O
 	ZeroCopy            *ZeroCopyManager      // Zero-copy I/O
@@ -246,7 +247,7 @@ func main() {
 		LockFreeCache: NewLockFreeCache(10000, 300),      // 10k docs, 5min TTL (lock-free)
 		IndexQueue:    NewIndexQueue(nil, 4),             // 4 workers (will set server below)
 		BloomFilters:  NewBloomFilterManager(),           // Bloom filters
-		DeltaEncoder:  NewDeltaEncoder(),                 // Delta encoding
+		DeltaEncoder:  delta.NewDeltaEncoder(),           // Delta encoding
 		AdaptiveIndex: NewAdaptiveIndexManager(),         // Adaptive indexing
 		AsyncIO:       NewAsyncIO(),                      // Async I/O
 		ZeroCopy:      NewZeroCopyManager(),              // Zero-copy I/O
