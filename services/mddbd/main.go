@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"mddb/internal/cache"
+	"mddb/internal/compression"
 	"mddb/internal/delta"
 	"net/http"
 	"os"
@@ -455,7 +456,7 @@ func main() {
 	log.Println("TTL manager started (cleanup every 30s)")
 
 	// Configure compression
-	ConfigureCompression(srvCfg.Compression.Enabled, srvCfg.Compression.SmallThreshold, srvCfg.Compression.MediumThreshold)
+	compression.ConfigureCompression(srvCfg.Compression.Enabled, srvCfg.Compression.SmallThreshold, srvCfg.Compression.MediumThreshold)
 	if !srvCfg.Compression.Enabled {
 		log.Println("Document compression disabled")
 	}

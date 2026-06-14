@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mddb/internal/compression"
 	"reflect"
 	"strings"
 	"testing"
@@ -203,21 +204,21 @@ func TestUnmarshalDoc_EmptyData(t *testing.T) {
 
 func TestUnmarshalDoc_InvalidData(t *testing.T) {
 	// Invalid compressed data with a valid flag byte
-	_, err := unmarshalDoc([]byte{flagUncompressed, 0xFF, 0xFF, 0xFF})
+	_, err := unmarshalDoc([]byte{compression.FlagUncompressed, 0xFF, 0xFF, 0xFF})
 	if err == nil {
 		t.Error("expected error for invalid protobuf data, got nil")
 	}
 }
 
 func TestUnmarshalDoc_InvalidSnappyData(t *testing.T) {
-	_, err := unmarshalDoc([]byte{flagSnappy, 0xFF, 0xFF, 0xFF, 0xFF})
+	_, err := unmarshalDoc([]byte{compression.FlagSnappy, 0xFF, 0xFF, 0xFF, 0xFF})
 	if err == nil {
 		t.Error("expected error for invalid snappy data, got nil")
 	}
 }
 
 func TestUnmarshalDoc_InvalidZstdData(t *testing.T) {
-	_, err := unmarshalDoc([]byte{flagZstd, 0xFF, 0xFF, 0xFF, 0xFF})
+	_, err := unmarshalDoc([]byte{compression.FlagZstd, 0xFF, 0xFF, 0xFF, 0xFF})
 	if err == nil {
 		t.Error("expected error for invalid zstd data, got nil")
 	}
@@ -349,8 +350,8 @@ func TestMarshalDoc_SmallDocNotCompressed(t *testing.T) {
 	if len(data) == 0 {
 		t.Fatal("empty marshaled data")
 	}
-	if data[0] != flagUncompressed {
-		t.Errorf("expected uncompressed flag (0x%02x), got 0x%02x", flagUncompressed, data[0])
+	if data[0] != compression.FlagUncompressed {
+		t.Errorf("expected uncompressed flag (0x%02x), got 0x%02x", compression.FlagUncompressed, data[0])
 	}
 }
 

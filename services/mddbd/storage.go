@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 
+	"mddb/internal/compression"
 	pb "mddb/proto"
 
 	json "github.com/goccy/go-json"
@@ -18,7 +19,7 @@ func marshalDoc(doc *Doc) ([]byte, error) {
 	}
 
 	// Compress if beneficial
-	return compressDoc(data), nil
+	return compression.CompressDoc(data), nil
 }
 
 // Unmarshal document from protobuf bytes with decompression support.
@@ -33,7 +34,7 @@ func unmarshalDoc(data []byte) (*Doc, error) {
 		data = pt
 	}
 	// Decompress if needed
-	decompressed, err := decompressDoc(data)
+	decompressed, err := compression.DecompressDoc(data)
 	if err != nil {
 		return nil, err
 	}

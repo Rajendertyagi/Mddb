@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mddb/internal/compression"
 	"mddb/internal/delta"
 	"strings"
 	"testing"
@@ -256,13 +257,13 @@ func TestBinlogOpsLen(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// compression.go: ConfigureCompression
+// compression.go: compression.ConfigureCompression
 // ---------------------------------------------------------------------------
 
 func TestConfigureCompression(t *testing.T) {
 	// Just ensure no panics and it sets values
-	ConfigureCompression(true, 256, 4096)
-	ConfigureCompression(false, 0, 0)
+	compression.ConfigureCompression(true, 256, 4096)
+	compression.ConfigureCompression(false, 0, 0)
 }
 
 // ---------------------------------------------------------------------------
@@ -879,11 +880,11 @@ func TestFTSIndexPositionsMultipleDocs(t *testing.T) {
 
 func TestCompressDecompress(t *testing.T) {
 	data := []byte("hello world this is a test of compression with some repeated content hello world hello world")
-	compressed := compressDoc(data)
+	compressed := compression.CompressDoc(data)
 	if len(compressed) == 0 {
 		t.Fatal("compressed should not be empty")
 	}
-	decompressed, err := decompressDoc(compressed)
+	decompressed, err := compression.DecompressDoc(compressed)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -894,7 +895,7 @@ func TestCompressDecompress(t *testing.T) {
 
 func TestGetCompressionStats(t *testing.T) {
 	data := []byte("hello world test data for compression stats analysis")
-	stats := GetCompressionStats(data)
+	stats := compression.GetCompressionStats(data)
 	if stats.OriginalSize != len(data) {
 		t.Errorf("expected OriginalSize=%d, got %d", len(data), stats.OriginalSize)
 	}
@@ -1433,13 +1434,13 @@ func TestFTSSearchBM25Fuzzy(t *testing.T) {
 }
 
 func TestCompressDocRoundTrip(t *testing.T) {
-	ConfigureCompression(true, 10, 100)
-	defer ConfigureCompression(false, 0, 0)
+	compression.ConfigureCompression(true, 10, 100)
+	defer compression.ConfigureCompression(false, 0, 0)
 
 	// Small data (below threshold)
 	small := []byte("tiny")
-	compressed := compressDoc(small)
-	decompressed, err := decompressDoc(compressed)
+	compressed := compression.CompressDoc(small)
+	decompressed, err := compression.DecompressDoc(compressed)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1449,8 +1450,8 @@ func TestCompressDocRoundTrip(t *testing.T) {
 
 	// Larger data (above threshold)
 	large := []byte(strings.Repeat("hello world this is a compression test ", 50))
-	compressed2 := compressDoc(large)
-	decompressed2, err := decompressDoc(compressed2)
+	compressed2 := compression.CompressDoc(large)
+	decompressed2, err := compression.DecompressDoc(compressed2)
 	if err != nil {
 		t.Fatal(err)
 	}

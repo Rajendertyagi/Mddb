@@ -1,4 +1,4 @@
-package main
+package compression
 
 import (
 	"bytes"
@@ -9,10 +9,10 @@ import (
 func TestCompressDocSmall(t *testing.T) {
 	// Data below 1KB threshold should be uncompressed
 	data := []byte("small document")
-	compressed := compressDoc(data)
+	compressed := CompressDoc(data)
 
-	if compressed[0] != flagUncompressed {
-		t.Errorf("expected flagUncompressed (0) for small data, got %d", compressed[0])
+	if compressed[0] != FlagUncompressed {
+		t.Errorf("expected FlagUncompressed (0) for small data, got %d", compressed[0])
 	}
 	if !bytes.Equal(compressed[1:], data) {
 		t.Error("expected uncompressed payload to match original data")
@@ -21,10 +21,10 @@ func TestCompressDocSmall(t *testing.T) {
 
 func TestCompressDocEmpty(t *testing.T) {
 	data := []byte{}
-	compressed := compressDoc(data)
+	compressed := CompressDoc(data)
 
-	if compressed[0] != flagUncompressed {
-		t.Errorf("expected flagUncompressed for empty data, got %d", compressed[0])
+	if compressed[0] != FlagUncompressed {
+		t.Errorf("expected FlagUncompressed for empty data, got %d", compressed[0])
 	}
 	if len(compressed) != 1 {
 		t.Errorf("expected compressed length 1 for empty data, got %d", len(compressed))
@@ -38,10 +38,10 @@ func TestCompressDocMediumSnappy(t *testing.T) {
 		t.Skipf("test data size %d not in medium range", len(data))
 	}
 
-	compressed := compressDoc(data)
+	compressed := CompressDoc(data)
 
-	if compressed[0] != flagSnappy {
-		t.Errorf("expected flagSnappy (1) for medium compressible data, got %d", compressed[0])
+	if compressed[0] != FlagSnappy {
+		t.Errorf("expected FlagSnappy (1) for medium compressible data, got %d", compressed[0])
 	}
 	if len(compressed) >= len(data) {
 		t.Error("expected compression to reduce size for repetitive data")
@@ -55,10 +55,10 @@ func TestCompressDocLargeZstd(t *testing.T) {
 		t.Skipf("test data size %d not above medium threshold", len(data))
 	}
 
-	compressed := compressDoc(data)
+	compressed := CompressDoc(data)
 
-	if compressed[0] != flagZstd {
-		t.Errorf("expected flagZstd (2) for large compressible data, got %d", compressed[0])
+	if compressed[0] != FlagZstd {
+		t.Errorf("expected FlagZstd (2) for large compressible data, got %d", compressed[0])
 	}
 	if len(compressed) >= len(data) {
 		t.Error("expected compression to reduce size for repetitive data")
@@ -72,13 +72,13 @@ func TestCompressDocMediumIncompressible(t *testing.T) {
 		data[i] = byte((i*7 + 13) % 251) // pseudo-random, hard to compress
 	}
 
-	compressed := compressDoc(data)
+	compressed := CompressDoc(data)
 
 	// Should fall back to uncompressed if snappy didn't help
-	if compressed[0] == flagSnappy {
+	if compressed[0] == FlagSnappy {
 		// Snappy compressed it anyway; that's fine, check it round-trips
-	} else if compressed[0] != flagUncompressed {
-		t.Errorf("expected flagUncompressed or flagSnappy, got %d", compressed[0])
+	} else if compressed[0] != FlagUncompressed {
+		t.Errorf("expected FlagUncompressed or FlagSnappy, got %d", compressed[0])
 	}
 }
 
@@ -89,23 +89,23 @@ func TestCompressDocLargeIncompressible(t *testing.T) {
 		data[i] = byte((i*31 + 97) % 256)
 	}
 
-	compressed := compressDoc(data)
+	compressed := CompressDoc(data)
 
 	// Should be either zstd (if beneficial) or uncompressed
-	if compressed[0] != flagZstd && compressed[0] != flagUncompressed {
-		t.Errorf("expected flagZstd or flagUncompressed, got %d", compressed[0])
+	if compressed[0] != FlagZstd && compressed[0] != FlagUncompressed {
+		t.Errorf("expected FlagZstd or FlagUncompressed, got %d", compressed[0])
 	}
 }
 
 func TestDecompressDocEmpty(t *testing.T) {
-	_, err := decompressDoc([]byte{})
+	_, err := DecompressDoc([]byte{})
 	if err == nil {
 		t.Error("expected error for empty data")
 	}
 }
 
 func TestDecompressDocNil(t *testing.T) {
-	_, err := decompressDoc(nil)
+	_, err := DecompressDoc(nil)
 	if err == nil {
 		t.Error("expected error for nil data")
 	}
@@ -113,9 +113,9 @@ func TestDecompressDocNil(t *testing.T) {
 
 func TestDecompressDocUncompressed(t *testing.T) {
 	original := []byte("test data")
-	input := append([]byte{flagUncompressed}, original...)
+	input := append([]byte{FlagUncompressed}, original...)
 
-	result, err := decompressDoc(input)
+	result, err := DecompressDoc(input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -127,7 +127,7 @@ func TestDecompressDocUncompressed(t *testing.T) {
 func TestDecompressDocUnknownFlag(t *testing.T) {
 	// Unknown flag should return the entire data (old format fallback)
 	data := []byte{0xFF, 0x01, 0x02, 0x03}
-	result, err := decompressDoc(data)
+	result, err := DecompressDoc(data)
 	if err != nil {
 		t.Fatalf("unexpected error for unknown flag: %v", err)
 	}
@@ -138,8 +138,8 @@ func TestDecompressDocUnknownFlag(t *testing.T) {
 
 func TestDecompressDocInvalidSnappy(t *testing.T) {
 	// Snappy flag with invalid payload
-	data := []byte{flagSnappy, 0xFF, 0xFF, 0xFF}
-	_, err := decompressDoc(data)
+	data := []byte{FlagSnappy, 0xFF, 0xFF, 0xFF}
+	_, err := DecompressDoc(data)
 	if err == nil {
 		t.Error("expected error for invalid snappy data")
 	}
@@ -147,8 +147,8 @@ func TestDecompressDocInvalidSnappy(t *testing.T) {
 
 func TestDecompressDocInvalidZstd(t *testing.T) {
 	// Zstd flag with invalid payload
-	data := []byte{flagZstd, 0xFF, 0xFF, 0xFF}
-	_, err := decompressDoc(data)
+	data := []byte{FlagZstd, 0xFF, 0xFF, 0xFF}
+	_, err := DecompressDoc(data)
 	if err == nil {
 		t.Error("expected error for invalid zstd data")
 	}
@@ -156,8 +156,8 @@ func TestDecompressDocInvalidZstd(t *testing.T) {
 
 func TestCompressDecompressRoundTripSmall(t *testing.T) {
 	original := []byte("small test data")
-	compressed := compressDoc(original)
-	decompressed, err := decompressDoc(compressed)
+	compressed := CompressDoc(original)
+	decompressed, err := DecompressDoc(compressed)
 	if err != nil {
 		t.Fatalf("decompression error: %v", err)
 	}
@@ -168,8 +168,8 @@ func TestCompressDecompressRoundTripSmall(t *testing.T) {
 
 func TestCompressDecompressRoundTripMedium(t *testing.T) {
 	original := []byte(strings.Repeat("Medium document content for testing compression. ", 30))
-	compressed := compressDoc(original)
-	decompressed, err := decompressDoc(compressed)
+	compressed := CompressDoc(original)
+	decompressed, err := DecompressDoc(compressed)
 	if err != nil {
 		t.Fatalf("decompression error: %v", err)
 	}
@@ -180,8 +180,8 @@ func TestCompressDecompressRoundTripMedium(t *testing.T) {
 
 func TestCompressDecompressRoundTripLarge(t *testing.T) {
 	original := []byte(strings.Repeat("Large document content for testing zstd compression algorithm. ", 300))
-	compressed := compressDoc(original)
-	decompressed, err := decompressDoc(compressed)
+	compressed := CompressDoc(original)
+	decompressed, err := DecompressDoc(compressed)
 	if err != nil {
 		t.Fatalf("decompression error: %v", err)
 	}
@@ -197,8 +197,8 @@ func TestCompressDecompressRoundTripBinary(t *testing.T) {
 		original[i] = byte(i % 256)
 	}
 
-	compressed := compressDoc(original)
-	decompressed, err := decompressDoc(compressed)
+	compressed := CompressDoc(original)
+	decompressed, err := DecompressDoc(compressed)
 	if err != nil {
 		t.Fatalf("decompression error: %v", err)
 	}
@@ -274,21 +274,21 @@ func TestCompressionThresholdConstants(t *testing.T) {
 }
 
 func TestCompressionFlags(t *testing.T) {
-	if flagUncompressed != 0 {
-		t.Errorf("expected flagUncompressed 0, got %d", flagUncompressed)
+	if FlagUncompressed != 0 {
+		t.Errorf("expected FlagUncompressed 0, got %d", FlagUncompressed)
 	}
-	if flagSnappy != 1 {
-		t.Errorf("expected flagSnappy 1, got %d", flagSnappy)
+	if FlagSnappy != 1 {
+		t.Errorf("expected FlagSnappy 1, got %d", FlagSnappy)
 	}
-	if flagZstd != 2 {
-		t.Errorf("expected flagZstd 2, got %d", flagZstd)
+	if FlagZstd != 2 {
+		t.Errorf("expected FlagZstd 2, got %d", FlagZstd)
 	}
 }
 
 func TestDecompressDocFlagOnly(t *testing.T) {
 	// A single byte with the uncompressed flag should return empty payload
-	data := []byte{flagUncompressed}
-	result, err := decompressDoc(data)
+	data := []byte{FlagUncompressed}
+	result, err := DecompressDoc(data)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -314,8 +314,8 @@ func TestCompressDecompressRoundTripExactThresholds(t *testing.T) {
 			data[i] = byte('A' + (i % 26)) // compressible pattern
 		}
 
-		compressed := compressDoc(data)
-		decompressed, err := decompressDoc(compressed)
+		compressed := CompressDoc(data)
+		decompressed, err := DecompressDoc(compressed)
 		if err != nil {
 			t.Fatalf("round-trip failed at size %d: %v", size, err)
 		}
@@ -329,7 +329,7 @@ func BenchmarkCompressSmall(b *testing.B) {
 	data := []byte("small document")
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		compressDoc(data)
+		CompressDoc(data)
 	}
 }
 
@@ -337,7 +337,7 @@ func BenchmarkCompressMedium(b *testing.B) {
 	data := []byte(strings.Repeat("Medium content. ", 100))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		compressDoc(data)
+		CompressDoc(data)
 	}
 }
 
@@ -345,15 +345,15 @@ func BenchmarkCompressLarge(b *testing.B) {
 	data := []byte(strings.Repeat("Large content. ", 1000))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		compressDoc(data)
+		CompressDoc(data)
 	}
 }
 
 func BenchmarkDecompress(b *testing.B) {
 	original := []byte(strings.Repeat("Benchmark decompression. ", 300))
-	compressed := compressDoc(original)
+	compressed := CompressDoc(original)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = decompressDoc(compressed)
+		_, _ = DecompressDoc(compressed)
 	}
 }
