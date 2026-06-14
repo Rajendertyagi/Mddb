@@ -9,9 +9,10 @@ import (
 	"strconv"
 	"time"
 
+	proto "mddb/proto"
+
 	json "github.com/goccy/go-json"
 	bolt "go.etcd.io/bbolt"
-	proto "mddb/proto"
 )
 
 // ---- HTTP types for /v1/ingest ----

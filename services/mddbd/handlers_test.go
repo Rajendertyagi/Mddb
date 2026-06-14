@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"mddb/internal/cache"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -45,7 +46,7 @@ func newHandlerTestServer(t *testing.T) (*Server, func()) {
 			Rev:     []byte("rev"),
 			ByKey:   []byte("bykey"),
 		},
-		Cache: NewDocumentCache(100, 60),
+		Cache: cache.NewDocumentCache(100, 60),
 	}
 
 	if err := s.ensureBuckets(); err != nil {

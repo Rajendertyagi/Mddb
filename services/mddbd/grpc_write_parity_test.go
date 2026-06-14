@@ -4,8 +4,9 @@ import (
 	"context"
 	"testing"
 
-	bolt "go.etcd.io/bbolt"
 	pb "mddb/proto"
+
+	bolt "go.etcd.io/bbolt"
 )
 
 // GO-001 parity tests: a document written over gRPC must be indistinguishable

@@ -3,9 +3,10 @@ package main
 import (
 	"errors"
 
+	pb "mddb/proto"
+
 	json "github.com/goccy/go-json"
 	"google.golang.org/protobuf/proto"
-	pb "mddb/proto"
 )
 
 // Marshal document to protobuf bytes for storage with optional compression

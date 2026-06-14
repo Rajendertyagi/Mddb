@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"mddb/internal/cache"
 	"strings"
 	"sync/atomic"
 
@@ -174,7 +175,7 @@ func (ra *ReplicationApplier) applyVector(entry *BinlogEntry) {
 
 // invalidateDocCache removes the replicated document from the read caches.
 //
-// GO-002: the cache is keyed by BuildCacheKey(collection, key, lang). The doc
+// GO-002: the cache is keyed by cache.BuildCacheKey(collection, key, lang). The doc
 // key is `doc|<collection>|<docID>` where docID itself is `collection|key|lang`,
 // so a naive split (splitKey) over-splits and the previous `collection|docID`
 // key never matched anything. We SplitN to recover collection + the full docID,
@@ -188,13 +189,13 @@ func (ra *ReplicationApplier) invalidateDocCache(entry *BinlogEntry) {
 	docID := parts[2] // collection|key|lang (already lowercased)
 
 	// Default to the docID form (correct when key/lang are lowercase, the
-	// common case); for Put entries derive the exact BuildCacheKey from the
+	// common case); for Put entries derive the exact cache.BuildCacheKey from the
 	// doc itself so original-case keys match too.
 	cacheKey := docID
 	if len(entry.Value) > 0 {
 		// loadDoc auto-detects JSON / protobuf+compression / encryption.
 		if doc, err := loadDoc(entry.Value); err == nil {
-			cacheKey = BuildCacheKey(collection, doc.Key, doc.Lang)
+			cacheKey = cache.BuildCacheKey(collection, doc.Key, doc.Lang)
 		}
 	}
 

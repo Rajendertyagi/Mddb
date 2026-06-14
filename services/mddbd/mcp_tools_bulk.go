@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 
-	json "github.com/goccy/go-json"
 	proto "mddb/proto"
+
+	json "github.com/goccy/go-json"
 )
 
 // resolveBulkManager extracts the *BulkIngestManager from the underlying

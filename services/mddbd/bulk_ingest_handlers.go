@@ -6,8 +6,9 @@ import (
 	"net/http"
 	"strings"
 
-	json "github.com/goccy/go-json"
 	proto "mddb/proto"
+
+	json "github.com/goccy/go-json"
 )
 
 // BulkIngestSubmitRequest is the HTTP body for POST /v1/bulk-ingest-job.

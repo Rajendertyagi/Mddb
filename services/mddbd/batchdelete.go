@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"mddb/internal/cache"
 	proto "mddb/proto"
 
 	bolt "go.etcd.io/bbolt"
@@ -185,7 +186,7 @@ func (bd *BatchDeleter) commitDelete(collection string, deleted []*DeletedDoc) *
 			}
 
 			// Invalidate cache
-			cacheKey := BuildCacheKey(collection, d.Key, d.Lang)
+			cacheKey := cache.BuildCacheKey(collection, d.Key, d.Lang)
 			bd.server.Cache.Delete(cacheKey)
 
 			resp.Deleted++

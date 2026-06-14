@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"mddb/internal/cache"
 	pb "mddb/proto"
 )
 
@@ -38,7 +39,7 @@ func newTestGRPCServer(t *testing.T) (*GRPCServer, *Server, func()) {
 			Rev:     []byte("rev"),
 			ByKey:   []byte("bykey"),
 		},
-		Cache:         NewDocumentCache(100, 60),
+		Cache:         cache.NewDocumentCache(100, 60),
 		LockFreeCache: NewLockFreeCache(100, 60),
 	}
 

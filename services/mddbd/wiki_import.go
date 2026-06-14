@@ -14,8 +14,9 @@ import (
 	"time"
 	"unicode/utf8"
 
-	json "github.com/goccy/go-json"
 	proto "mddb/proto"
+
+	json "github.com/goccy/go-json"
 )
 
 // wikiImportBatchSize is the number of pages buffered before flushing to storage.

@@ -8,6 +8,7 @@ import (
 	"hash/crc32"
 	"io"
 	"log"
+	"mddb/internal/cache"
 	"net/http"
 	"os"
 	"os/signal"
@@ -53,7 +54,7 @@ type Server struct {
 	Config              ServerConfig // protocol toggles & addresses
 	Hooks               Hooks        // optional extensions
 	BucketNames         BucketNames
-	Cache               *DocumentCache        // Read-through cache (legacy)
+	Cache               *cache.DocumentCache  // Read-through cache (legacy)
 	LockFreeCache       *LockFreeCache        // Lock-free cache (extreme performance)
 	IndexQueue          *IndexQueue           // Async metadata indexing
 	WAL                 *WAL                  // Write-Ahead Log
@@ -241,16 +242,16 @@ func main() {
 			Rev:     []byte("rev"),
 			ByKey:   []byte("bykey"),
 		},
-		Cache:         NewDocumentCache(1000, 300),  // 1000 docs, 5min TTL
-		LockFreeCache: NewLockFreeCache(10000, 300), // 10k docs, 5min TTL (lock-free)
-		IndexQueue:    NewIndexQueue(nil, 4),        // 4 workers (will set server below)
-		BloomFilters:  NewBloomFilterManager(),      // Bloom filters
-		DeltaEncoder:  NewDeltaEncoder(),            // Delta encoding
-		AdaptiveIndex: NewAdaptiveIndexManager(),    // Adaptive indexing
-		AsyncIO:       NewAsyncIO(),                 // Async I/O
-		ZeroCopy:      NewZeroCopyManager(),         // Zero-copy I/O
-		SIMD:          NewSIMDProcessor(),           // Vectorized operations
-		ShardCluster:  NewShardCluster(4, 2),        // 4 shards, 2x replication
+		Cache:         cache.NewDocumentCache(1000, 300), // 1000 docs, 5min TTL
+		LockFreeCache: NewLockFreeCache(10000, 300),      // 10k docs, 5min TTL (lock-free)
+		IndexQueue:    NewIndexQueue(nil, 4),             // 4 workers (will set server below)
+		BloomFilters:  NewBloomFilterManager(),           // Bloom filters
+		DeltaEncoder:  NewDeltaEncoder(),                 // Delta encoding
+		AdaptiveIndex: NewAdaptiveIndexManager(),         // Adaptive indexing
+		AsyncIO:       NewAsyncIO(),                      // Async I/O
+		ZeroCopy:      NewZeroCopyManager(),              // Zero-copy I/O
+		SIMD:          NewSIMDProcessor(),                // Vectorized operations
+		ShardCluster:  NewShardCluster(4, 2),             // 4 shards, 2x replication
 		UseExtreme:    useExtreme,
 	}
 	s.IndexQueue.server = s // Set server reference
@@ -1260,7 +1261,7 @@ func main() {
 	if s.LockFreeCache != nil {
 		s.LockFreeCache.Close()
 	}
-	// Stop the DocumentCache cleanup goroutine (GO-006).
+	// Stop the cache.DocumentCache cleanup goroutine (GO-006).
 	if s.Cache != nil {
 		s.Cache.Close()
 	}
@@ -1538,9 +1539,9 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 	// Refresh the read cache so a subsequent gRPC Get (the only path that
 	// consults it) sees the new value instead of a stale entry for up to the
 	// 5-minute TTL (GO-002). Keyed identically to gRPC Add/Get via
-	// BuildCacheKey, so every transport stays coherent.
+	// cache.BuildCacheKey, so every transport stays coherent.
 	if cachedBuf != nil {
-		cacheKey := BuildCacheKey(collection, key, lang)
+		cacheKey := cache.BuildCacheKey(collection, key, lang)
 		if s.UseExtreme && s.LockFreeCache != nil {
 			s.LockFreeCache.Set(cacheKey, cachedBuf)
 		} else if s.Cache != nil {
@@ -1738,8 +1739,8 @@ func (s *Server) deleteDocumentInternal(collection, key, lang string) error {
 	}
 
 	// Invalidate the read cache so a gRPC Get can't serve the just-deleted doc
-	// for up to the 5-minute TTL (GO-002). Same BuildCacheKey as the write path.
-	cacheKey := BuildCacheKey(collection, key, lang)
+	// for up to the 5-minute TTL (GO-002). Same cache.BuildCacheKey as the write path.
+	cacheKey := cache.BuildCacheKey(collection, key, lang)
 	if s.Cache != nil {
 		s.Cache.Delete(cacheKey)
 	}

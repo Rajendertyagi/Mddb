@@ -11,9 +11,10 @@ import (
 	"sync"
 	"time"
 
+	proto "mddb/proto"
+
 	json "github.com/goccy/go-json"
 	bolt "go.etcd.io/bbolt"
-	proto "mddb/proto"
 )
 
 var bucketBulkJobs = []byte("bulk_jobs")

@@ -6,8 +6,10 @@ import (
 	"sync"
 	"time"
 
-	bolt "go.etcd.io/bbolt"
+	"mddb/internal/cache"
 	proto "mddb/proto"
+
+	bolt "go.etcd.io/bbolt"
 )
 
 // FinalBatchProcessor - FINAL optimized batch processor
@@ -305,7 +307,7 @@ func (fbp *FinalBatchProcessor) commitBatch(collection string, processed []*Proc
 			}
 
 			// Update cache
-			cacheKey := BuildCacheKey(collection, p.Doc.Key, p.Doc.Lang)
+			cacheKey := cache.BuildCacheKey(collection, p.Doc.Key, p.Doc.Lang)
 			if fbp.server.UseExtreme && fbp.server.LockFreeCache != nil {
 				fbp.server.LockFreeCache.Set(cacheKey, p.Buf)
 			} else {

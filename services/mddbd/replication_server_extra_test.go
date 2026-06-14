@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"mddb/internal/cache"
 	proto "mddb/proto"
 )
 
@@ -62,7 +63,7 @@ func replTestServer(t *testing.T) (*Server, *Binlog, func()) {
 			Rev:     []byte("rev"),
 			ByKey:   []byte("bykey"),
 		},
-		Cache:           NewDocumentCache(100, 60),
+		Cache:           cache.NewDocumentCache(100, 60),
 		ReplicationRole: "leader",
 	}
 

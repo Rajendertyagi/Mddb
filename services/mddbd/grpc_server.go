@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
+	"mddb/internal/cache"
 	proto "mddb/proto"
 )
 
@@ -243,7 +244,7 @@ func (g *GRPCServer) Get(ctx context.Context, req *proto.GetRequest) (*proto.Doc
 	}
 
 	// Check cache first (use lock-free cache if extreme mode)
-	cacheKey := BuildCacheKey(req.Collection, req.Key, req.Lang)
+	cacheKey := cache.BuildCacheKey(req.Collection, req.Key, req.Lang)
 
 	var cachedData []byte
 	var found bool

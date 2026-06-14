@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"mddb/internal/cache"
 	proto "mddb/proto"
 
 	bolt "go.etcd.io/bbolt"
@@ -224,7 +225,7 @@ func (bu *BatchUpdater) commitUpdate(collection string, updated []*UpdatedDoc, n
 			}
 
 			// Update cache
-			cacheKey := BuildCacheKey(collection, u.Key, u.Lang)
+			cacheKey := cache.BuildCacheKey(collection, u.Key, u.Lang)
 			bu.server.Cache.Set(cacheKey, u.Buf)
 
 			resp.Updated++

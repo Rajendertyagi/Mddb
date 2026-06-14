@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mddb/internal/cache"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -128,9 +129,9 @@ func TestDocumentCacheClose_StopsCleanupGoroutine(t *testing.T) {
 	runtime.GC()
 	before := runtime.NumGoroutine()
 
-	caches := make([]*DocumentCache, 0, 50)
+	caches := make([]*cache.DocumentCache, 0, 50)
 	for i := 0; i < 50; i++ {
-		caches = append(caches, NewDocumentCache(10, 60))
+		caches = append(caches, cache.NewDocumentCache(10, 60))
 	}
 	for _, c := range caches {
 		c.Close()
@@ -150,7 +151,7 @@ func TestDocumentCacheClose_StopsCleanupGoroutine(t *testing.T) {
 // TestDocumentCacheClear_ResetsContents covers the in-place reset the restore
 // uses instead of allocating a new cache.
 func TestDocumentCacheClear_ResetsContents(t *testing.T) {
-	c := NewDocumentCache(10, 60)
+	c := cache.NewDocumentCache(10, 60)
 	defer c.Close()
 	c.Set("a", []byte("1"))
 	c.Set("b", []byte("2"))
@@ -174,7 +175,7 @@ func TestRebuildInMemoryState_InPlace(t *testing.T) {
 	db := openDocsDB(t, filepath.Join(dir, "base.db"))
 	t.Cleanup(func() { _ = db.Close() })
 
-	cache := NewDocumentCache(10, 60)
+	cache := cache.NewDocumentCache(10, 60)
 	t.Cleanup(cache.Close)
 	sm := NewSchemaManager(db)
 	if err := sm.EnsureBucket(); err != nil {

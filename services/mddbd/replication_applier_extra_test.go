@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mddb/internal/cache"
 	"os"
 	"testing"
 
@@ -32,7 +33,7 @@ func applierExtraTestServer(t *testing.T) (*Server, func()) {
 			Rev:     []byte("rev"),
 			ByKey:   []byte("bykey"),
 		},
-		Cache:         NewDocumentCache(100, 60),
+		Cache:         cache.NewDocumentCache(100, 60),
 		LockFreeCache: NewLockFreeCache(100, 60),
 	}
 
@@ -425,10 +426,10 @@ func TestInvalidateDocCache_LockFreeCache(t *testing.T) {
 	s, cleanup := applierExtraTestServer(t)
 	defer cleanup()
 
-	// The caches are keyed by BuildCacheKey(collection, key, lang); the
+	// The caches are keyed by cache.BuildCacheKey(collection, key, lang); the
 	// replicated doc carries key + lang so the applier derives that exact key
 	// from the entry value (GO-002).
-	cacheKey := BuildCacheKey("blog", "post1", "en")
+	cacheKey := cache.BuildCacheKey("blog", "post1", "en")
 	s.Cache.Set(cacheKey, []byte(`{"id":"post1","key":"post1","lang":"en"}`))
 	s.LockFreeCache.Set(cacheKey, []byte(`{"id":"post1","key":"post1","lang":"en"}`))
 

@@ -364,7 +364,7 @@ func (rc *ReplicationClient) rebuildInMemoryState() {
 		}
 	}
 
-	// Reset the document cache in place — same DocumentCache (and its single
+	// Reset the document cache in place — same cache.DocumentCache (and its single
 	// cleanup goroutine), contents cleared. Avoids both the Server.Cache pointer
 	// race and the per-restore goroutine leak of allocating a fresh cache.
 	if rc.server.Cache != nil {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mddb/internal/cache"
 	"os"
 	"testing"
 
@@ -30,7 +31,7 @@ func newTestServer(t *testing.T) (*Server, func()) {
 			Rev:     []byte("rev"),
 			ByKey:   []byte("bykey"),
 		},
-		Cache: NewDocumentCache(100, 60),
+		Cache: cache.NewDocumentCache(100, 60),
 	}
 
 	if err := s.ensureBuckets(); err != nil {
@@ -194,10 +195,10 @@ func TestReplicationApplierCacheInvalidation(t *testing.T) {
 	s, cleanup := newTestServer(t)
 	defer cleanup()
 
-	// The cache is keyed by BuildCacheKey(collection, key, lang) — the same key
+	// The cache is keyed by cache.BuildCacheKey(collection, key, lang) — the same key
 	// the write path uses. The replicated doc carries key + lang, so the applier
 	// derives that exact key from the entry value (GO-002).
-	cacheKey := BuildCacheKey("blog", "hello", "en")
+	cacheKey := cache.BuildCacheKey("blog", "hello", "en")
 	s.Cache.Set(cacheKey, []byte(`{"id":"post1","key":"hello","lang":"en"}`))
 	if _, ok := s.Cache.Get(cacheKey); !ok {
 		t.Fatal("cache should have entry")

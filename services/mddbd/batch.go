@@ -6,8 +6,9 @@ import (
 	"sync"
 	"time"
 
-	bolt "go.etcd.io/bbolt"
 	proto "mddb/proto"
+
+	bolt "go.etcd.io/bbolt"
 )
 
 // BatchProcessor handles batch document processing

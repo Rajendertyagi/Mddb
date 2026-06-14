@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mddb/internal/cache"
 	"os"
 	"testing"
 	"time"
@@ -33,7 +34,7 @@ func newTestServerForReplClient(t *testing.T) (*Server, func()) {
 			Rev:     []byte("rev"),
 			ByKey:   []byte("bykey"),
 		},
-		Cache: NewDocumentCache(100, 60),
+		Cache: cache.NewDocumentCache(100, 60),
 	}
 
 	if err := s.ensureBuckets(); err != nil {
@@ -332,7 +333,7 @@ func TestReplicationClientRebuildInMemoryState(t *testing.T) {
 	_ = s.WebhookManager.EnsureBucket()
 	s.SchemaManager = NewSchemaManager(s.DB)
 	_ = s.SchemaManager.EnsureBucket()
-	s.Cache = NewDocumentCache(100, 60)
+	s.Cache = cache.NewDocumentCache(100, 60)
 
 	rc := NewReplicationClient(s, ReplicationClientConfig{
 		LeaderAddr: "localhost:9090",

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"mddb/internal/cache"
 	proto "mddb/proto"
 
 	bolt "go.etcd.io/bbolt"
@@ -59,7 +60,7 @@ func newTestServerForBatch(t *testing.T) (*Server, func()) {
 			Rev:     []byte("rev"),
 			ByKey:   []byte("bykey"),
 		},
-		Cache: NewDocumentCache(100, 60),
+		Cache: cache.NewDocumentCache(100, 60),
 	}
 
 	// Set up IndexQueue so batch update can enqueue reindex jobs
@@ -589,7 +590,7 @@ func TestFinalBatchProcessor_CacheUpdate(t *testing.T) {
 	}
 
 	// Verify document was cached
-	cacheKey := BuildCacheKey("blog", "cached", "en")
+	cacheKey := cache.BuildCacheKey("blog", "cached", "en")
 	data, found := srv.Cache.Get(cacheKey)
 	if !found {
 		t.Error("document not found in cache after batch add")
@@ -840,7 +841,7 @@ func TestBatchUpdater_CacheUpdate(t *testing.T) {
 	}
 
 	// Verify cache was updated
-	cacheKey := BuildCacheKey("test", "cacheTest", "en")
+	cacheKey := cache.BuildCacheKey("test", "cacheTest", "en")
 	data, found := srv.Cache.Get(cacheKey)
 	if !found {
 		t.Error("updated document not in cache")
@@ -1038,7 +1039,7 @@ func TestBatchDeleter_CacheInvalidation(t *testing.T) {
 	}
 
 	// Verify it is in cache
-	cacheKey := BuildCacheKey("test", "cached", "en")
+	cacheKey := cache.BuildCacheKey("test", "cached", "en")
 	_, found := srv.Cache.Get(cacheKey)
 	if !found {
 		t.Fatal("document should be in cache after add")
