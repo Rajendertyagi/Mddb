@@ -1,4 +1,4 @@
-package main
+package embedding
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 )
 
 func TestCohereEmbeddingProvider_New(t *testing.T) {
-	p := NewCohereEmbeddingProvider("test-key", "", "embed-english-v3.0", 1024)
+	p := NewCohereProvider("test-key", "", "embed-english-v3.0", 1024)
 	if p.apiURL != "https://api.cohere.ai/v1" {
 		t.Errorf("apiURL = %q, want default", p.apiURL)
 	}
@@ -24,7 +24,7 @@ func TestCohereEmbeddingProvider_New(t *testing.T) {
 }
 
 func TestCohereEmbeddingProvider_NewCustomURL(t *testing.T) {
-	p := NewCohereEmbeddingProvider("test-key", "https://custom.api.com", "model", 512)
+	p := NewCohereProvider("test-key", "https://custom.api.com", "model", 512)
 	if p.apiURL != "https://custom.api.com" {
 		t.Errorf("apiURL = %q, want custom", p.apiURL)
 	}
@@ -65,7 +65,7 @@ func TestCohereEmbeddingProvider_Embed(t *testing.T) {
 	}))
 	defer server.Close()
 
-	p := NewCohereEmbeddingProvider("test-key", server.URL, "embed-english-v3.0", 3)
+	p := NewCohereProvider("test-key", server.URL, "embed-english-v3.0", 3)
 
 	vec, err := p.Embed(context.Background(), "hello world")
 	if err != nil {
@@ -99,7 +99,7 @@ func TestCohereEmbeddingProvider_EmbedBatch(t *testing.T) {
 	}))
 	defer server.Close()
 
-	p := NewCohereEmbeddingProvider("test-key", server.URL, "model", 2)
+	p := NewCohereProvider("test-key", server.URL, "model", 2)
 
 	vecs, err := p.EmbedBatch(context.Background(), []string{"a", "b", "c"})
 	if err != nil {
@@ -116,7 +116,7 @@ func TestCohereEmbeddingProvider_EmbedAPIError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	p := NewCohereEmbeddingProvider("test-key", server.URL, "model", 2)
+	p := NewCohereProvider("test-key", server.URL, "model", 2)
 
 	_, err := p.Embed(context.Background(), "hello")
 	if err == nil {
@@ -135,7 +135,7 @@ func TestCohereEmbeddingProvider_EmbedMismatchedCount(t *testing.T) {
 	}))
 	defer server.Close()
 
-	p := NewCohereEmbeddingProvider("test-key", server.URL, "model", 2)
+	p := NewCohereProvider("test-key", server.URL, "model", 2)
 
 	_, err := p.EmbedBatch(context.Background(), []string{"a", "b"})
 	if err == nil {
@@ -153,7 +153,7 @@ func TestCohereEmbeddingProvider_EmbedEmptyResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	p := NewCohereEmbeddingProvider("test-key", server.URL, "model", 2)
+	p := NewCohereProvider("test-key", server.URL, "model", 2)
 
 	_, err := p.Embed(context.Background(), "hello")
 	if err == nil {
@@ -168,7 +168,7 @@ func TestCohereEmbeddingProvider_EmbedInvalidJSON(t *testing.T) {
 	}))
 	defer server.Close()
 
-	p := NewCohereEmbeddingProvider("test-key", server.URL, "model", 2)
+	p := NewCohereProvider("test-key", server.URL, "model", 2)
 
 	_, err := p.Embed(context.Background(), "hello")
 	if err == nil {
@@ -182,7 +182,7 @@ func TestCohereEmbeddingProvider_EmbedContextCancelled(t *testing.T) {
 	}))
 	defer server.Close()
 
-	p := NewCohereEmbeddingProvider("test-key", server.URL, "model", 2)
+	p := NewCohereProvider("test-key", server.URL, "model", 2)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
@@ -198,7 +198,7 @@ func TestCohereEmbeddingProvider_EmbedConnectionError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	server.Close()
 
-	p := NewCohereEmbeddingProvider("test-key", server.URL, "model", 2)
+	p := NewCohereProvider("test-key", server.URL, "model", 2)
 
 	_, err := p.Embed(context.Background(), "hello")
 	if err == nil {

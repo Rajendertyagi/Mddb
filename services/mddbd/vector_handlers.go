@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"mddb/internal/envconf"
 	"net/http"
 	"strings"
 	"time"
@@ -292,8 +293,8 @@ func (s *Server) handleVectorReindex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	chunkSize := envDefaultInt("MDDB_EMBEDDING_CHUNK_SIZE", 1500)
-	chunkEnabled := envDefault("MDDB_EMBEDDING_CHUNK_ENABLED", "true") == "true"
+	chunkSize := envconf.Int("MDDB_EMBEDDING_CHUNK_SIZE", 1500)
+	chunkEnabled := envconf.String("MDDB_EMBEDDING_CHUNK_ENABLED", "true") == "true"
 
 	// Resolve quantization for this collection
 	var qt QuantizationType
@@ -506,8 +507,8 @@ func (s *Server) handleVectorStats(w http.ResponseWriter, r *http.Request) {
 
 	// Chunk configuration
 	resp["chunking"] = map[string]interface{}{
-		"enabled":   envDefault("MDDB_EMBEDDING_CHUNK_ENABLED", "true") == "true",
-		"chunkSize": envDefaultInt("MDDB_EMBEDDING_CHUNK_SIZE", 1500),
+		"enabled":   envconf.String("MDDB_EMBEDDING_CHUNK_ENABLED", "true") == "true",
+		"chunkSize": envconf.Int("MDDB_EMBEDDING_CHUNK_SIZE", 1500),
 	}
 
 	ok(w, resp)

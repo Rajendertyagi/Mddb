@@ -1,4 +1,4 @@
-package main
+package embedding
 
 import (
 	"bytes"
@@ -11,8 +11,8 @@ import (
 	json "github.com/goccy/go-json"
 )
 
-// OpenAIEmbeddingProvider generates embeddings using OpenAI API.
-type OpenAIEmbeddingProvider struct {
+// OpenAIProvider generates embeddings using OpenAI API.
+type OpenAIProvider struct {
 	apiKey     string
 	apiURL     string
 	model      string
@@ -20,9 +20,9 @@ type OpenAIEmbeddingProvider struct {
 	client     *http.Client
 }
 
-// NewOpenAIEmbeddingProvider creates a new OpenAI embedding provider.
-func NewOpenAIEmbeddingProvider(apiKey, apiURL, model string, dimensions int) *OpenAIEmbeddingProvider {
-	return &OpenAIEmbeddingProvider{
+// NewOpenAIProvider creates a new OpenAI embedding provider.
+func NewOpenAIProvider(apiKey, apiURL, model string, dimensions int) *OpenAIProvider {
+	return &OpenAIProvider{
 		apiKey:     apiKey,
 		apiURL:     apiURL,
 		model:      model,
@@ -34,13 +34,13 @@ func NewOpenAIEmbeddingProvider(apiKey, apiURL, model string, dimensions int) *O
 }
 
 // Model returns the model name used by this provider.
-func (p *OpenAIEmbeddingProvider) Model() string { return p.model }
+func (p *OpenAIProvider) Model() string { return p.model }
 
 // Dimensions returns the embedding dimensionality.
-func (p *OpenAIEmbeddingProvider) Dimensions() int { return p.dimensions }
+func (p *OpenAIProvider) Dimensions() int { return p.dimensions }
 
 // Embed generates an embedding for a single text.
-func (p *OpenAIEmbeddingProvider) Embed(ctx context.Context, text string) ([]float32, error) {
+func (p *OpenAIProvider) Embed(ctx context.Context, text string) ([]float32, error) {
 	vectors, err := p.EmbedBatch(ctx, []string{text})
 	if err != nil {
 		return nil, err
@@ -52,7 +52,7 @@ func (p *OpenAIEmbeddingProvider) Embed(ctx context.Context, text string) ([]flo
 }
 
 // EmbedBatch generates embeddings for multiple texts in one API call.
-func (p *OpenAIEmbeddingProvider) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
+func (p *OpenAIProvider) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
 	reqBody := openAIEmbeddingRequest{
 		Input:      texts,
 		Model:      p.model,

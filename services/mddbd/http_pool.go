@@ -2,6 +2,7 @@ package main
 
 import (
 	"io"
+	"mddb/internal/envconf"
 	"net/http"
 	"time"
 )
@@ -38,9 +39,9 @@ func drainAndClose(body io.ReadCloser) {
 var SharedHTTPClient *http.Client
 
 func init() {
-	maxIdle := envDefaultInt("MDDB_HTTP_POOL_MAX_IDLE", 100)
-	maxPerHost := envDefaultInt("MDDB_HTTP_POOL_MAX_PER_HOST", 10)
-	idleTimeout := envDefaultInt("MDDB_HTTP_POOL_IDLE_TIMEOUT", 90)
+	maxIdle := envconf.Int("MDDB_HTTP_POOL_MAX_IDLE", 100)
+	maxPerHost := envconf.Int("MDDB_HTTP_POOL_MAX_PER_HOST", 10)
+	idleTimeout := envconf.Int("MDDB_HTTP_POOL_IDLE_TIMEOUT", 90)
 
 	transport := &http.Transport{
 		// SEC-004: safeDialContext blocks SSRF targets (private/loopback/

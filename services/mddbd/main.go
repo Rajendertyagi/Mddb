@@ -11,6 +11,8 @@ import (
 	"mddb/internal/cache"
 	"mddb/internal/compression"
 	"mddb/internal/delta"
+	"mddb/internal/embedding"
+	"mddb/internal/envconf"
 	"net/http"
 	"os"
 	"os/signal"
@@ -76,7 +78,7 @@ type Server struct {
 	VectorSearchers   map[string]VectorSearcher // algorithm name -> searcher (flat, hnsw, ivf, pq, sq, bq)
 	QuantizedVecIndex *QuantizedVectorIndex     // In-memory quantized vector index (int8/int4)
 	EmbeddingWorker   *EmbeddingWorker          // Background embedding processor
-	Embedding         EmbeddingProvider         // Embedding generation provider
+	Embedding         embedding.Provider        // Embedding generation provider
 	// Geo search
 	GeoStore     *GeoStore     // Persistent geo points in BoltDB ("geo" bucket)
 	GeoIndex     *GeoIndex     // In-memory R-tree geo index (default)
@@ -361,7 +363,7 @@ func main() {
 			defaultConfig.Provider, defaultConfig.Model, defaultConfig.Dimensions)
 	} else {
 		// Fall back to environment variables
-		s.Embedding = NewEmbeddingProvider()
+		s.Embedding = embedding.NewProvider()
 		if s.Embedding != nil {
 			s.EmbeddingWorker = NewEmbeddingWorker(s.Embedding, s.VectorStore, s.VectorIndex, 1000)
 			s.EmbeddingWorker.Start(2)
@@ -637,8 +639,8 @@ func main() {
 
 	// Initialize SSE hub (enabled by default, set MDDB_SSE_ENABLED=false to disable)
 	sseEnabled := env("MDDB_SSE_ENABLED", "true") != "false"
-	sseMaxClients := envDefaultInt("MDDB_SSE_MAX_CLIENTS", 1000)
-	sseMaxPerIP := envDefaultInt("MDDB_SSE_MAX_PER_IP", 5)
+	sseMaxClients := envconf.Int("MDDB_SSE_MAX_CLIENTS", 1000)
+	sseMaxPerIP := envconf.Int("MDDB_SSE_MAX_PER_IP", 5)
 	s.SSEHub = NewSSEHub(sseEnabled, sseMaxClients, sseMaxPerIP)
 	if sseEnabled {
 		log.Printf("SSE event stream enabled (max clients: %d, max per IP: %d)", sseMaxClients, sseMaxPerIP)
@@ -972,7 +974,7 @@ func main() {
 	// can't OOM the process. Upload/import endpoints legitimately stream large
 	// files and manage their own limits, so they are exempt.
 	handler = withMaxBody(
-		int64(envDefaultInt("MDDB_MAX_BODY_BYTES", 32<<20)), // 32MB default
+		int64(envconf.Int("MDDB_MAX_BODY_BYTES", 32<<20)), // 32MB default
 		map[string]bool{"/v1/upload": true, "/v1/import-wiki": true},
 		handler,
 	)

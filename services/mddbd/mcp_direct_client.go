@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"mddb/internal/envconf"
 	proto "mddb/proto"
 
 	json "github.com/goccy/go-json"
@@ -742,8 +743,8 @@ func (c *DirectClient) VectorReindex(ctx context.Context, req *MCPVectorReindexR
 		}
 
 		// Split into chunks
-		chunkSize := envDefaultInt("MDDB_EMBEDDING_CHUNK_SIZE", 1500)
-		chunkEnabled := envDefault("MDDB_EMBEDDING_CHUNK_ENABLED", "true") == "true"
+		chunkSize := envconf.Int("MDDB_EMBEDDING_CHUNK_SIZE", 1500)
+		chunkEnabled := envconf.String("MDDB_EMBEDDING_CHUNK_ENABLED", "true") == "true"
 		var chunks []string
 		if chunkEnabled {
 			chunks = ChunkText(d.ContentMD, chunkSize)

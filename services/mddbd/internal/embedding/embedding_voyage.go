@@ -1,4 +1,4 @@
-package main
+package embedding
 
 import (
 	"bytes"
@@ -11,8 +11,8 @@ import (
 	json "github.com/goccy/go-json"
 )
 
-// VoyageEmbeddingProvider generates embeddings using Voyage AI API (Anthropic).
-type VoyageEmbeddingProvider struct {
+// VoyageProvider generates embeddings using Voyage AI API (Anthropic).
+type VoyageProvider struct {
 	apiKey     string
 	apiURL     string
 	model      string
@@ -20,9 +20,9 @@ type VoyageEmbeddingProvider struct {
 	client     *http.Client
 }
 
-// NewVoyageEmbeddingProvider creates a new Voyage AI embedding provider.
-func NewVoyageEmbeddingProvider(apiKey, apiURL, model string, dimensions int) *VoyageEmbeddingProvider {
-	return &VoyageEmbeddingProvider{
+// NewVoyageProvider creates a new Voyage AI embedding provider.
+func NewVoyageProvider(apiKey, apiURL, model string, dimensions int) *VoyageProvider {
+	return &VoyageProvider{
 		apiKey:     apiKey,
 		apiURL:     apiURL,
 		model:      model,
@@ -34,13 +34,13 @@ func NewVoyageEmbeddingProvider(apiKey, apiURL, model string, dimensions int) *V
 }
 
 // Model returns the model name used by this provider.
-func (p *VoyageEmbeddingProvider) Model() string { return p.model }
+func (p *VoyageProvider) Model() string { return p.model }
 
 // Dimensions returns the embedding dimensionality.
-func (p *VoyageEmbeddingProvider) Dimensions() int { return p.dimensions }
+func (p *VoyageProvider) Dimensions() int { return p.dimensions }
 
 // Embed generates an embedding for a single text.
-func (p *VoyageEmbeddingProvider) Embed(ctx context.Context, text string) ([]float32, error) {
+func (p *VoyageProvider) Embed(ctx context.Context, text string) ([]float32, error) {
 	vectors, err := p.EmbedBatch(ctx, []string{text})
 	if err != nil {
 		return nil, err
@@ -52,7 +52,7 @@ func (p *VoyageEmbeddingProvider) Embed(ctx context.Context, text string) ([]flo
 }
 
 // EmbedBatch generates embeddings for multiple texts in one API call.
-func (p *VoyageEmbeddingProvider) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
+func (p *VoyageProvider) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
 	reqBody := voyageEmbeddingRequest{
 		Input: texts,
 		Model: p.model,

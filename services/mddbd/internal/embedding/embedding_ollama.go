@@ -1,4 +1,4 @@
-package main
+package embedding
 
 import (
 	"bytes"
@@ -11,17 +11,17 @@ import (
 	json "github.com/goccy/go-json"
 )
 
-// OllamaEmbeddingProvider generates embeddings using local Ollama server.
-type OllamaEmbeddingProvider struct {
+// OllamaProvider generates embeddings using local Ollama server.
+type OllamaProvider struct {
 	apiURL     string
 	model      string
 	dimensions int
 	client     *http.Client
 }
 
-// NewOllamaEmbeddingProvider creates a new Ollama embedding provider.
-func NewOllamaEmbeddingProvider(apiURL, model string, dimensions int) *OllamaEmbeddingProvider {
-	return &OllamaEmbeddingProvider{
+// NewOllamaProvider creates a new Ollama embedding provider.
+func NewOllamaProvider(apiURL, model string, dimensions int) *OllamaProvider {
+	return &OllamaProvider{
 		apiURL:     apiURL,
 		model:      model,
 		dimensions: dimensions,
@@ -32,13 +32,13 @@ func NewOllamaEmbeddingProvider(apiURL, model string, dimensions int) *OllamaEmb
 }
 
 // Model returns the model name used by this provider.
-func (p *OllamaEmbeddingProvider) Model() string { return p.model }
+func (p *OllamaProvider) Model() string { return p.model }
 
 // Dimensions returns the embedding dimensionality.
-func (p *OllamaEmbeddingProvider) Dimensions() int { return p.dimensions }
+func (p *OllamaProvider) Dimensions() int { return p.dimensions }
 
 // Embed generates an embedding for a single text.
-func (p *OllamaEmbeddingProvider) Embed(ctx context.Context, text string) ([]float32, error) {
+func (p *OllamaProvider) Embed(ctx context.Context, text string) ([]float32, error) {
 	reqBody := ollamaEmbedRequest{
 		Model: p.model,
 		Input: text,
@@ -84,7 +84,7 @@ func (p *OllamaEmbeddingProvider) Embed(ctx context.Context, text string) ([]flo
 }
 
 // EmbedBatch generates embeddings for multiple texts.
-func (p *OllamaEmbeddingProvider) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
+func (p *OllamaProvider) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
 	vectors := make([][]float32, len(texts))
 	for i, text := range texts {
 		v, err := p.Embed(ctx, text)

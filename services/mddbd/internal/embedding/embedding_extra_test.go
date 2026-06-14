@@ -1,15 +1,16 @@
-package main
+package embedding
 
 import (
+	"mddb/internal/envconf"
 	"os"
 	"testing"
 )
 
-// Tests for embedding.go: NewEmbeddingProvider, envDefault, envDefaultInt
+// Tests for embedding.go: NewProvider, envconf.String, envconf.Int
 
 func TestNewEmbeddingProvider_Empty(t *testing.T) {
 	_ = os.Unsetenv("MDDB_EMBEDDING_PROVIDER")
-	p := NewEmbeddingProvider()
+	p := NewProvider()
 	if p != nil {
 		t.Error("expected nil for empty provider env")
 	}
@@ -17,7 +18,7 @@ func TestNewEmbeddingProvider_Empty(t *testing.T) {
 
 func TestNewEmbeddingProvider_None(t *testing.T) {
 	t.Setenv("MDDB_EMBEDDING_PROVIDER", "none")
-	p := NewEmbeddingProvider()
+	p := NewProvider()
 	if p != nil {
 		t.Error("expected nil for provider=none")
 	}
@@ -25,7 +26,7 @@ func TestNewEmbeddingProvider_None(t *testing.T) {
 
 func TestNewEmbeddingProvider_Unknown(t *testing.T) {
 	t.Setenv("MDDB_EMBEDDING_PROVIDER", "unknown-provider")
-	p := NewEmbeddingProvider()
+	p := NewProvider()
 	if p != nil {
 		t.Error("expected nil for unknown provider")
 	}
@@ -34,7 +35,7 @@ func TestNewEmbeddingProvider_Unknown(t *testing.T) {
 func TestNewEmbeddingProvider_OpenAI_NoKey(t *testing.T) {
 	t.Setenv("MDDB_EMBEDDING_PROVIDER", "openai")
 	_ = os.Unsetenv("MDDB_EMBEDDING_API_KEY")
-	p := NewEmbeddingProvider()
+	p := NewProvider()
 	if p != nil {
 		t.Error("expected nil when openai key not set")
 	}
@@ -46,7 +47,7 @@ func TestNewEmbeddingProvider_OpenAI_WithKey(t *testing.T) {
 	_ = os.Unsetenv("MDDB_EMBEDDING_API_URL")
 	_ = os.Unsetenv("MDDB_EMBEDDING_MODEL")
 	_ = os.Unsetenv("MDDB_EMBEDDING_DIMENSIONS")
-	p := NewEmbeddingProvider()
+	p := NewProvider()
 	if p == nil {
 		t.Fatal("expected non-nil provider for openai with key")
 	}
@@ -64,7 +65,7 @@ func TestNewEmbeddingProvider_OpenAI_CustomSettings(t *testing.T) {
 	t.Setenv("MDDB_EMBEDDING_API_URL", "https://custom.api.com/v1")
 	t.Setenv("MDDB_EMBEDDING_MODEL", "custom-model")
 	t.Setenv("MDDB_EMBEDDING_DIMENSIONS", "3072")
-	p := NewEmbeddingProvider()
+	p := NewProvider()
 	if p == nil {
 		t.Fatal("expected non-nil provider")
 	}
@@ -81,7 +82,7 @@ func TestNewEmbeddingProvider_Ollama(t *testing.T) {
 	_ = os.Unsetenv("MDDB_EMBEDDING_API_URL")
 	_ = os.Unsetenv("MDDB_EMBEDDING_MODEL")
 	_ = os.Unsetenv("MDDB_EMBEDDING_DIMENSIONS")
-	p := NewEmbeddingProvider()
+	p := NewProvider()
 	if p == nil {
 		t.Fatal("expected non-nil provider for ollama")
 	}
@@ -96,7 +97,7 @@ func TestNewEmbeddingProvider_Ollama(t *testing.T) {
 func TestNewEmbeddingProvider_Voyage_NoKey(t *testing.T) {
 	t.Setenv("MDDB_EMBEDDING_PROVIDER", "voyage")
 	_ = os.Unsetenv("MDDB_EMBEDDING_API_KEY")
-	p := NewEmbeddingProvider()
+	p := NewProvider()
 	if p != nil {
 		t.Error("expected nil when voyage key not set")
 	}
@@ -108,7 +109,7 @@ func TestNewEmbeddingProvider_Voyage_WithKey(t *testing.T) {
 	_ = os.Unsetenv("MDDB_EMBEDDING_API_URL")
 	_ = os.Unsetenv("MDDB_EMBEDDING_MODEL")
 	_ = os.Unsetenv("MDDB_EMBEDDING_DIMENSIONS")
-	p := NewEmbeddingProvider()
+	p := NewProvider()
 	if p == nil {
 		t.Fatal("expected non-nil provider for voyage with key")
 	}
@@ -123,7 +124,7 @@ func TestNewEmbeddingProvider_Voyage_WithKey(t *testing.T) {
 func TestNewEmbeddingProvider_Cohere_NoKey(t *testing.T) {
 	t.Setenv("MDDB_EMBEDDING_PROVIDER", "cohere")
 	_ = os.Unsetenv("MDDB_EMBEDDING_API_KEY")
-	p := NewEmbeddingProvider()
+	p := NewProvider()
 	if p != nil {
 		t.Error("expected nil when cohere key not set")
 	}
@@ -135,7 +136,7 @@ func TestNewEmbeddingProvider_Cohere_WithKey(t *testing.T) {
 	_ = os.Unsetenv("MDDB_EMBEDDING_API_URL")
 	_ = os.Unsetenv("MDDB_EMBEDDING_MODEL")
 	_ = os.Unsetenv("MDDB_EMBEDDING_DIMENSIONS")
-	p := NewEmbeddingProvider()
+	p := NewProvider()
 	if p == nil {
 		t.Fatal("expected non-nil provider for cohere with key")
 	}
@@ -147,11 +148,11 @@ func TestNewEmbeddingProvider_Cohere_WithKey(t *testing.T) {
 	}
 }
 
-// ---- envDefault and envDefaultInt ----
+// ---- envconf.String and envconf.Int ----
 
 func TestEnvDefault_Set(t *testing.T) {
 	t.Setenv("MDDB_TEST_KEY", "custom-value")
-	v := envDefault("MDDB_TEST_KEY", "default-value")
+	v := envconf.String("MDDB_TEST_KEY", "default-value")
 	if v != "custom-value" {
 		t.Errorf("got %q, want custom-value", v)
 	}
@@ -159,7 +160,7 @@ func TestEnvDefault_Set(t *testing.T) {
 
 func TestEnvDefault_Unset(t *testing.T) {
 	_ = os.Unsetenv("MDDB_TEST_KEY_UNSET")
-	v := envDefault("MDDB_TEST_KEY_UNSET", "default-value")
+	v := envconf.String("MDDB_TEST_KEY_UNSET", "default-value")
 	if v != "default-value" {
 		t.Errorf("got %q, want default-value", v)
 	}
@@ -167,7 +168,7 @@ func TestEnvDefault_Unset(t *testing.T) {
 
 func TestEnvDefaultInt_Set(t *testing.T) {
 	t.Setenv("MDDB_TEST_INT", "42")
-	v := envDefaultInt("MDDB_TEST_INT", 100)
+	v := envconf.Int("MDDB_TEST_INT", 100)
 	if v != 42 {
 		t.Errorf("got %d, want 42", v)
 	}
@@ -175,7 +176,7 @@ func TestEnvDefaultInt_Set(t *testing.T) {
 
 func TestEnvDefaultInt_Unset(t *testing.T) {
 	_ = os.Unsetenv("MDDB_TEST_INT_UNSET")
-	v := envDefaultInt("MDDB_TEST_INT_UNSET", 100)
+	v := envconf.Int("MDDB_TEST_INT_UNSET", 100)
 	if v != 100 {
 		t.Errorf("got %d, want 100", v)
 	}
@@ -183,7 +184,7 @@ func TestEnvDefaultInt_Unset(t *testing.T) {
 
 func TestEnvDefaultInt_Invalid(t *testing.T) {
 	t.Setenv("MDDB_TEST_INT_BAD", "not-a-number")
-	v := envDefaultInt("MDDB_TEST_INT_BAD", 200)
+	v := envconf.Int("MDDB_TEST_INT_BAD", 200)
 	if v != 200 {
 		t.Errorf("got %d, want 200 (fallback for invalid)", v)
 	}

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"mddb/internal/embedding"
+	"mddb/internal/envconf"
 	"sync"
 	"time"
 )
@@ -17,7 +19,7 @@ type EmbeddingJob struct {
 
 // EmbeddingWorker processes embedding jobs asynchronously.
 type EmbeddingWorker struct {
-	provider     EmbeddingProvider
+	provider     embedding.Provider
 	vectorStore  *VectorStore
 	vectorIndex  *VectorIndex
 	jobs         chan EmbeddingJob
@@ -29,15 +31,15 @@ type EmbeddingWorker struct {
 }
 
 // NewEmbeddingWorker creates a new background embedding worker.
-func NewEmbeddingWorker(provider EmbeddingProvider, store *VectorStore, index *VectorIndex, bufferSize int) *EmbeddingWorker {
+func NewEmbeddingWorker(provider embedding.Provider, store *VectorStore, index *VectorIndex, bufferSize int) *EmbeddingWorker {
 	return &EmbeddingWorker{
 		provider:     provider,
 		vectorStore:  store,
 		vectorIndex:  index,
 		jobs:         make(chan EmbeddingJob, bufferSize),
 		stopCh:       make(chan struct{}),
-		chunkSize:    envDefaultInt("MDDB_EMBEDDING_CHUNK_SIZE", 1500),
-		chunkEnabled: envDefault("MDDB_EMBEDDING_CHUNK_ENABLED", "true") == "true",
+		chunkSize:    envconf.Int("MDDB_EMBEDDING_CHUNK_SIZE", 1500),
+		chunkEnabled: envconf.String("MDDB_EMBEDDING_CHUNK_ENABLED", "true") == "true",
 	}
 }
 

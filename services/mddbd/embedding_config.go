@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"mddb/internal/embedding"
 	"net/http"
 	"strings"
 	"time"
@@ -404,16 +405,16 @@ func (s *Server) InitializeEmbeddingFromConfig(config *EmbeddingConfig) {
 		return
 	}
 
-	var emb EmbeddingProvider
+	var emb embedding.Provider
 	switch config.Provider {
 	case "openai":
-		emb = NewOpenAIEmbeddingProvider(config.APIKey, "https://api.openai.com/v1", config.Model, config.Dimensions)
+		emb = embedding.NewOpenAIProvider(config.APIKey, "https://api.openai.com/v1", config.Model, config.Dimensions)
 	case "ollama":
-		emb = NewOllamaEmbeddingProvider(config.APIURL, config.Model, config.Dimensions)
+		emb = embedding.NewOllamaProvider(config.APIURL, config.Model, config.Dimensions)
 	case "cohere":
-		emb = NewCohereEmbeddingProvider(config.APIKey, config.APIURL, config.Model, config.Dimensions)
+		emb = embedding.NewCohereProvider(config.APIKey, config.APIURL, config.Model, config.Dimensions)
 	case "voyage":
-		emb = NewVoyageEmbeddingProvider(config.APIKey, config.APIURL, config.Model, config.Dimensions)
+		emb = embedding.NewVoyageProvider(config.APIKey, config.APIURL, config.Model, config.Dimensions)
 	default:
 		return
 	}

@@ -1,4 +1,4 @@
-package main
+package embedding
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 )
 
 func TestOllamaEmbeddingProvider_New(t *testing.T) {
-	p := NewOllamaEmbeddingProvider("http://localhost:11434", "nomic-embed-text", 768)
+	p := NewOllamaProvider("http://localhost:11434", "nomic-embed-text", 768)
 	if p.Model() != "nomic-embed-text" {
 		t.Errorf("Model = %q", p.Model())
 	}
@@ -52,7 +52,7 @@ func TestOllamaEmbeddingProvider_Embed(t *testing.T) {
 	}))
 	defer server.Close()
 
-	p := NewOllamaEmbeddingProvider(server.URL, "nomic-embed-text", 4)
+	p := NewOllamaProvider(server.URL, "nomic-embed-text", 4)
 
 	vec, err := p.Embed(context.Background(), "hello world")
 	if err != nil {
@@ -83,7 +83,7 @@ func TestOllamaEmbeddingProvider_EmbedBatch(t *testing.T) {
 	}))
 	defer server.Close()
 
-	p := NewOllamaEmbeddingProvider(server.URL, "nomic", 2)
+	p := NewOllamaProvider(server.URL, "nomic", 2)
 
 	vecs, err := p.EmbedBatch(context.Background(), []string{"a", "b", "c"})
 	if err != nil {
@@ -115,7 +115,7 @@ func TestOllamaEmbeddingProvider_EmbedBatchError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	p := NewOllamaEmbeddingProvider(server.URL, "nomic", 2)
+	p := NewOllamaProvider(server.URL, "nomic", 2)
 
 	_, err := p.EmbedBatch(context.Background(), []string{"a", "b", "c"})
 	if err == nil {
@@ -129,7 +129,7 @@ func TestOllamaEmbeddingProvider_EmbedAPIError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	p := NewOllamaEmbeddingProvider(server.URL, "nonexistent-model", 768)
+	p := NewOllamaProvider(server.URL, "nonexistent-model", 768)
 
 	_, err := p.Embed(context.Background(), "hello")
 	if err == nil {
@@ -148,7 +148,7 @@ func TestOllamaEmbeddingProvider_EmbedEmptyEmbeddings(t *testing.T) {
 	}))
 	defer server.Close()
 
-	p := NewOllamaEmbeddingProvider(server.URL, "nomic", 768)
+	p := NewOllamaProvider(server.URL, "nomic", 768)
 
 	_, err := p.Embed(context.Background(), "hello")
 	if err == nil {
@@ -163,7 +163,7 @@ func TestOllamaEmbeddingProvider_EmbedInvalidJSON(t *testing.T) {
 	}))
 	defer server.Close()
 
-	p := NewOllamaEmbeddingProvider(server.URL, "nomic", 768)
+	p := NewOllamaProvider(server.URL, "nomic", 768)
 
 	_, err := p.Embed(context.Background(), "hello")
 	if err == nil {
@@ -177,7 +177,7 @@ func TestOllamaEmbeddingProvider_EmbedContextCancelled(t *testing.T) {
 	}))
 	defer server.Close()
 
-	p := NewOllamaEmbeddingProvider(server.URL, "nomic", 768)
+	p := NewOllamaProvider(server.URL, "nomic", 768)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
@@ -192,7 +192,7 @@ func TestOllamaEmbeddingProvider_EmbedConnectionError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	server.Close()
 
-	p := NewOllamaEmbeddingProvider(server.URL, "nomic", 768)
+	p := NewOllamaProvider(server.URL, "nomic", 768)
 
 	_, err := p.Embed(context.Background(), "hello")
 	if err == nil {

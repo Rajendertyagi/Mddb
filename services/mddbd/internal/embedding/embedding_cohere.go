@@ -1,4 +1,4 @@
-package main
+package embedding
 
 import (
 	"bytes"
@@ -11,8 +11,8 @@ import (
 	json "github.com/goccy/go-json"
 )
 
-// CohereEmbeddingProvider generates embeddings using Cohere API
-type CohereEmbeddingProvider struct {
+// CohereProvider generates embeddings using Cohere API
+type CohereProvider struct {
 	apiKey     string
 	apiURL     string
 	model      string
@@ -20,12 +20,12 @@ type CohereEmbeddingProvider struct {
 	client     *http.Client
 }
 
-// NewCohereEmbeddingProvider creates a new Cohere embedding provider
-func NewCohereEmbeddingProvider(apiKey, apiURL, model string, dimensions int) *CohereEmbeddingProvider {
+// NewCohereProvider creates a new Cohere embedding provider
+func NewCohereProvider(apiKey, apiURL, model string, dimensions int) *CohereProvider {
 	if apiURL == "" {
 		apiURL = "https://api.cohere.ai/v1"
 	}
-	return &CohereEmbeddingProvider{
+	return &CohereProvider{
 		apiKey:     apiKey,
 		apiURL:     apiURL,
 		model:      model,
@@ -37,13 +37,13 @@ func NewCohereEmbeddingProvider(apiKey, apiURL, model string, dimensions int) *C
 }
 
 // Model returns the model name used by this provider.
-func (p *CohereEmbeddingProvider) Model() string { return p.model }
+func (p *CohereProvider) Model() string { return p.model }
 
 // Dimensions returns the embedding dimensionality.
-func (p *CohereEmbeddingProvider) Dimensions() int { return p.dimensions }
+func (p *CohereProvider) Dimensions() int { return p.dimensions }
 
 // Embed generates an embedding for a single text
-func (p *CohereEmbeddingProvider) Embed(ctx context.Context, text string) ([]float32, error) {
+func (p *CohereProvider) Embed(ctx context.Context, text string) ([]float32, error) {
 	vectors, err := p.EmbedBatch(ctx, []string{text})
 	if err != nil {
 		return nil, err
@@ -55,7 +55,7 @@ func (p *CohereEmbeddingProvider) Embed(ctx context.Context, text string) ([]flo
 }
 
 // EmbedBatch generates embeddings for multiple texts in one API call
-func (p *CohereEmbeddingProvider) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
+func (p *CohereProvider) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
 	reqBody := cohereEmbedRequest{
 		Texts:     texts,
 		Model:     p.model,

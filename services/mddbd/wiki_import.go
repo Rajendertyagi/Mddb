@@ -14,6 +14,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"mddb/internal/envconf"
 	"mddb/internal/wikitext"
 	proto "mddb/proto"
 
@@ -154,7 +155,7 @@ func (s *Server) handleWikiImport(w http.ResponseWriter, r *http.Request) {
 
 	// SEC-006: clamp page count to a server default so a client can't request
 	// (or default into) an unbounded import.
-	serverMaxPages := envDefaultInt("MDDB_WIKI_MAX_PAGES", wikiDefaultMaxPages)
+	serverMaxPages := envconf.Int("MDDB_WIKI_MAX_PAGES", wikiDefaultMaxPages)
 	if req.MaxPages <= 0 || req.MaxPages > serverMaxPages {
 		req.MaxPages = serverMaxPages
 	}
@@ -162,7 +163,7 @@ func (s *Server) handleWikiImport(w http.ResponseWriter, r *http.Request) {
 	// Auto-detect bz2 compression. Wrap the reader in a cappedReader so a
 	// decompression bomb (bz2 expands 10–50×) stops at a byte budget with a
 	// controlled error instead of silently truncating or exhausting resources.
-	maxDecompressed := envDefaultInt64("MDDB_WIKI_MAX_DECOMPRESSED_BYTES", wikiDefaultMaxDecompressedBytes)
+	maxDecompressed := envconf.Int64("MDDB_WIKI_MAX_DECOMPRESSED_BYTES", wikiDefaultMaxDecompressedBytes)
 	rawReader := reader
 	if strings.HasSuffix(strings.ToLower(filename), ".bz2") {
 		rawReader = bzip2.NewReader(reader)
