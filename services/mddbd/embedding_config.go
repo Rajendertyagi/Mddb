@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"mddb/internal/binlog"
 	"mddb/internal/embedding"
 	"net/http"
 	"strings"
@@ -26,7 +27,7 @@ type EmbeddingConfig struct {
 
 // SaveEmbeddingConfig saves an embedding configuration to the database
 func (s *Server) SaveEmbeddingConfig(config *EmbeddingConfig) error {
-	var bo BinlogOps
+	var bo binlog.BinlogOps
 	err := s.DBUpdate(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte("embedding_configs"))
 		if bucket == nil {
@@ -135,7 +136,7 @@ func (s *Server) DeleteEmbeddingConfig(id string) error {
 		return bucket.Delete(key)
 	})
 	if err == nil && s.Binlog != nil {
-		_ = s.Binlog.Append(&BinlogEntry{Type: BinlogDelete, BucketName: "embedding_configs", Key: copyBytes(key)})
+		_ = s.Binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogDelete, BucketName: "embedding_configs", Key: CopyBytes(key)})
 	}
 	return err
 }

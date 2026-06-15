@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"io"
+	"mddb/internal/binlog"
 	"mddb/internal/cache"
 	"net/http"
 	"net/http/httptest"
@@ -949,7 +950,7 @@ func TestAutomationSetBinlog(t *testing.T) {
 
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "test.db")
-	bl, err := NewBinlog(dbPath, BinlogConfig{})
+	bl, err := binlog.NewBinlog(dbPath, binlog.BinlogConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -972,7 +973,7 @@ func TestAutomationCreateWithBinlog(t *testing.T) {
 	}
 	defer func() { _ = db.Close() }()
 
-	bl, err := NewBinlog(dbPath, BinlogConfig{})
+	bl, err := binlog.NewBinlog(dbPath, binlog.BinlogConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -999,7 +1000,7 @@ func TestAutomationDeleteWithBinlog(t *testing.T) {
 	}
 	defer func() { _ = db.Close() }()
 
-	bl, err := NewBinlog(dbPath, BinlogConfig{})
+	bl, err := binlog.NewBinlog(dbPath, binlog.BinlogConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}

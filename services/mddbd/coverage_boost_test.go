@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mddb/internal/binlog"
 	"strings"
 	"testing"
 	"time"
@@ -984,7 +985,7 @@ func TestCollectionManagerSetBinlog(t *testing.T) {
 	if cm.binlog != nil {
 		t.Fatal("binlog should be nil initially")
 	}
-	bl := &Binlog{}
+	bl := &binlog.Binlog{}
 	cm.SetBinlog(bl)
 	if cm.binlog != bl {
 		t.Error("SetBinlog did not set the binlog")
@@ -1016,7 +1017,7 @@ func TestAsyncIOWaitAllNoPending(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // 10. Additional coverage: FTS setters, CollectionManager.LoadAll,
-//     BloomFilter, BinlogEntryType.String, etc.
+//     BloomFilter, binlog.BinlogEntryType.String, etc.
 // ---------------------------------------------------------------------------
 
 func TestFTSSetSynonymManager(t *testing.T) {
@@ -1072,19 +1073,19 @@ func TestCollectionManagerLoadAll(t *testing.T) {
 
 func TestBinlogEntryTypeString(t *testing.T) {
 	tests := []struct {
-		t    BinlogEntryType
+		t    binlog.BinlogEntryType
 		want string
 	}{
-		{BinlogPut, "Put"},
-		{BinlogDelete, "Delete"},
-		{BinlogDeleteBucket, "DeleteBucket"},
-		{BinlogCheckpoint, "Checkpoint"},
-		{BinlogEntryType(99), "Unknown(99)"},
+		{binlog.BinlogPut, "Put"},
+		{binlog.BinlogDelete, "Delete"},
+		{binlog.BinlogDeleteBucket, "DeleteBucket"},
+		{binlog.BinlogCheckpoint, "Checkpoint"},
+		{binlog.BinlogEntryType(99), "Unknown(99)"},
 	}
 	for _, tc := range tests {
 		got := tc.t.String()
 		if got != tc.want {
-			t.Errorf("BinlogEntryType(%d).String() = %q, want %q", tc.t, got, tc.want)
+			t.Errorf("binlog.BinlogEntryType(%d).String() = %q, want %q", tc.t, got, tc.want)
 		}
 	}
 }

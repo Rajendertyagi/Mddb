@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/binary"
+	"mddb/internal/binlog"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -97,7 +98,7 @@ type SpellManager struct {
 	mu     sync.RWMutex
 	models map[string]*spellModel // key: lang or "col:collection:lang"
 	ready  atomic.Bool
-	binlog *Binlog
+	binlog *binlog.Binlog
 }
 
 // NewSpellManager creates a SpellManager backed by BoltDB.
@@ -109,7 +110,7 @@ func NewSpellManager(db *bolt.DB) *SpellManager {
 }
 
 // SetBinlog attaches a binlog for replication.
-func (sm *SpellManager) SetBinlog(bl *Binlog) {
+func (sm *SpellManager) SetBinlog(bl *binlog.Binlog) {
 	sm.binlog = bl
 }
 

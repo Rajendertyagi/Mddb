@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"mddb/internal/binlog"
 	"net/http"
 	"sync"
 	"time"
@@ -42,12 +43,12 @@ type WebhookManager struct {
 	db      *bolt.DB
 	mu      sync.RWMutex
 	hooks   []Webhook
-	binlog  *Binlog
+	binlog  *binlog.Binlog
 	metrics *Metrics
 }
 
 // SetBinlog sets the binlog for replication logging.
-func (wm *WebhookManager) SetBinlog(bl *Binlog) {
+func (wm *WebhookManager) SetBinlog(bl *binlog.Binlog) {
 	wm.binlog = bl
 }
 
@@ -150,7 +151,7 @@ func (wm *WebhookManager) Register(url string, events []string, collection strin
 	}
 
 	if wm.binlog != nil {
-		_ = wm.binlog.Append(&BinlogEntry{Type: BinlogPut, BucketName: "webhooks", Key: copyBytes(whKey), Value: copyBytes(data)})
+		_ = wm.binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogPut, BucketName: "webhooks", Key: CopyBytes(whKey), Value: CopyBytes(data)})
 	}
 
 	wm.mu.Lock()
@@ -180,7 +181,7 @@ func (wm *WebhookManager) Delete(id string) error {
 	}
 
 	if wm.binlog != nil {
-		_ = wm.binlog.Append(&BinlogEntry{Type: BinlogDelete, BucketName: "webhooks", Key: copyBytes(whKey)})
+		_ = wm.binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogDelete, BucketName: "webhooks", Key: CopyBytes(whKey)})
 	}
 
 	wm.mu.Lock()

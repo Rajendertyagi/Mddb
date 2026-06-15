@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mddb/internal/binlog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -168,7 +169,7 @@ func TestHandleReplicationStatus_LeaderWithFollowers(t *testing.T) {
 
 	// Create a binlog in a temp dir
 	binlogPath := t.TempDir() + "/test.binlog"
-	bl, err := NewBinlog(binlogPath, BinlogConfig{Path: binlogPath})
+	bl, err := binlog.NewBinlog(binlogPath, binlog.BinlogConfig{Path: binlogPath})
 	if err != nil {
 		t.Fatalf("create binlog: %v", err)
 	}
@@ -227,7 +228,7 @@ func TestHandleReplicationStatus_FollowerLagHealthy(t *testing.T) {
 	s.NodeID = "leader-3"
 
 	binlogPath := t.TempDir() + "/test.binlog"
-	bl, err := NewBinlog(binlogPath, BinlogConfig{Path: binlogPath})
+	bl, err := binlog.NewBinlog(binlogPath, binlog.BinlogConfig{Path: binlogPath})
 	if err != nil {
 		t.Fatalf("create binlog: %v", err)
 	}
@@ -280,7 +281,7 @@ func TestHandleReplicationStatus_LeaderNoReplServer(t *testing.T) {
 	s.NodeID = "leader-4"
 
 	binlogPath := t.TempDir() + "/test.binlog"
-	bl, err := NewBinlog(binlogPath, BinlogConfig{Path: binlogPath})
+	bl, err := binlog.NewBinlog(binlogPath, binlog.BinlogConfig{Path: binlogPath})
 	if err != nil {
 		t.Fatalf("create binlog: %v", err)
 	}
@@ -317,7 +318,7 @@ func TestHandleReplicationStatus_BinlogStats(t *testing.T) {
 	s.NodeID = "leader-5"
 
 	binlogPath := t.TempDir() + "/test.binlog"
-	bl, err := NewBinlog(binlogPath, BinlogConfig{Path: binlogPath})
+	bl, err := binlog.NewBinlog(binlogPath, binlog.BinlogConfig{Path: binlogPath})
 	if err != nil {
 		t.Fatalf("create binlog: %v", err)
 	}
@@ -333,7 +334,7 @@ func TestHandleReplicationStatus_BinlogStats(t *testing.T) {
 		t.Fatalf("decode: %v", err)
 	}
 
-	// BinlogStats should be populated (at least CurrentLSN >= 0)
+	// binlog.BinlogStats should be populated (at least CurrentLSN >= 0)
 	// BinlogSize >= 0 (file may have header)
 	if resp.BinlogSize < 0 {
 		t.Errorf("expected BinlogSize >= 0, got %d", resp.BinlogSize)
@@ -350,7 +351,7 @@ func TestHandleReplicationStatus_MultipleFollowers(t *testing.T) {
 	s.NodeID = "leader-6"
 
 	binlogPath := t.TempDir() + "/test.binlog"
-	bl, err := NewBinlog(binlogPath, BinlogConfig{Path: binlogPath})
+	bl, err := binlog.NewBinlog(binlogPath, binlog.BinlogConfig{Path: binlogPath})
 	if err != nil {
 		t.Fatalf("create binlog: %v", err)
 	}

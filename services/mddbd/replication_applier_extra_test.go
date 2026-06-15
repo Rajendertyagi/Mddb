@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mddb/internal/binlog"
 	"mddb/internal/cache"
 	"os"
 	"testing"
@@ -85,7 +86,7 @@ func TestApplyBatch_Empty(t *testing.T) {
 	if err := applier.ApplyBatch(nil); err != nil {
 		t.Fatalf("ApplyBatch nil: %v", err)
 	}
-	if err := applier.ApplyBatch([]*BinlogEntry{}); err != nil {
+	if err := applier.ApplyBatch([]*binlog.BinlogEntry{}); err != nil {
 		t.Fatalf("ApplyBatch empty: %v", err)
 	}
 }
@@ -100,9 +101,9 @@ func TestApplyBatch_WithDeletes(t *testing.T) {
 
 	applier := NewReplicationApplier(s)
 
-	entries := []*BinlogEntry{
-		{LSN: 1, Type: BinlogPut, BucketName: "docs", Key: []byte("doc|blog|x"), Value: []byte(`{"id":"x"}`)},
-		{LSN: 2, Type: BinlogDelete, BucketName: "docs", Key: []byte("doc|blog|x")},
+	entries := []*binlog.BinlogEntry{
+		{LSN: 1, Type: binlog.BinlogPut, BucketName: "docs", Key: []byte("doc|blog|x"), Value: []byte(`{"id":"x"}`)},
+		{LSN: 2, Type: binlog.BinlogDelete, BucketName: "docs", Key: []byte("doc|blog|x")},
 	}
 
 	if err := applier.ApplyBatch(entries); err != nil {
@@ -135,9 +136,9 @@ func TestApplyBatch_WithCheckpoints(t *testing.T) {
 
 	applier := NewReplicationApplier(s)
 
-	entries := []*BinlogEntry{
-		{LSN: 1, Type: BinlogCheckpoint, BucketName: "docs"},
-		{LSN: 2, Type: BinlogPut, BucketName: "docs", Key: []byte("doc|blog|y"), Value: []byte(`{"id":"y"}`)},
+	entries := []*binlog.BinlogEntry{
+		{LSN: 1, Type: binlog.BinlogCheckpoint, BucketName: "docs"},
+		{LSN: 2, Type: binlog.BinlogPut, BucketName: "docs", Key: []byte("doc|blog|y"), Value: []byte(`{"id":"y"}`)},
 	}
 
 	if err := applier.ApplyBatch(entries); err != nil {
@@ -176,8 +177,8 @@ func TestApplyBatch_WithDeleteBucket(t *testing.T) {
 
 	applier := NewReplicationApplier(s)
 
-	entries := []*BinlogEntry{
-		{LSN: 1, Type: BinlogDeleteBucket, BucketName: "tempbucket"},
+	entries := []*binlog.BinlogEntry{
+		{LSN: 1, Type: binlog.BinlogDeleteBucket, BucketName: "tempbucket"},
 	}
 
 	if err := applier.ApplyBatch(entries); err != nil {
@@ -203,9 +204,9 @@ func TestApply_Checkpoint(t *testing.T) {
 
 	applier := NewReplicationApplier(s)
 
-	entry := &BinlogEntry{
+	entry := &binlog.BinlogEntry{
 		LSN:        1,
-		Type:       BinlogCheckpoint,
+		Type:       binlog.BinlogCheckpoint,
 		BucketName: "docs",
 	}
 	if err := applier.Apply(entry); err != nil {
@@ -232,9 +233,9 @@ func TestApply_DeleteBucket(t *testing.T) {
 
 	applier := NewReplicationApplier(s)
 
-	entry := &BinlogEntry{
+	entry := &binlog.BinlogEntry{
 		LSN:        1,
-		Type:       BinlogDeleteBucket,
+		Type:       binlog.BinlogDeleteBucket,
 		BucketName: "tobedeleted",
 	}
 	if err := applier.Apply(entry); err != nil {
@@ -266,9 +267,9 @@ func TestUpdateInMemoryState_Webhooks(t *testing.T) {
 	}
 
 	// Simulate a webhook entry being applied
-	entry := &BinlogEntry{
+	entry := &binlog.BinlogEntry{
 		LSN:        1,
-		Type:       BinlogPut,
+		Type:       binlog.BinlogPut,
 		BucketName: "webhooks",
 		Key:        []byte("wh|test"),
 		Value:      []byte(`{"id":"test","url":"http://reloaded.com","events":["doc.added"]}`),
@@ -295,9 +296,9 @@ func TestUpdateInMemoryState_Schemas(t *testing.T) {
 	applier := NewReplicationApplier(s)
 
 	// Apply a schema entry
-	entry := &BinlogEntry{
+	entry := &binlog.BinlogEntry{
 		LSN:        1,
-		Type:       BinlogPut,
+		Type:       binlog.BinlogPut,
 		BucketName: "schemas",
 		Key:        []byte("schema|blog"),
 		Value:      []byte(`{"required":["title"]}`),
@@ -334,9 +335,9 @@ func TestUpdateInMemoryState_VectorsPut(t *testing.T) {
 	}
 	data := marshalEmbeddingRecord(rec)
 
-	entry := &BinlogEntry{
+	entry := &binlog.BinlogEntry{
 		LSN:        1,
-		Type:       BinlogPut,
+		Type:       binlog.BinlogPut,
 		BucketName: "vectors",
 		Key:        []byte("vec|blog|testdoc"),
 		Value:      data,
@@ -361,9 +362,9 @@ func TestUpdateInMemoryState_VectorsDelete(t *testing.T) {
 
 	applier := NewReplicationApplier(s)
 
-	entry := &BinlogEntry{
+	entry := &binlog.BinlogEntry{
 		LSN:        1,
-		Type:       BinlogDelete,
+		Type:       binlog.BinlogDelete,
 		BucketName: "vectors",
 		Key:        []byte("vec|blog|testdoc"),
 	}
@@ -385,9 +386,9 @@ func TestUpdateInMemoryState_VectorsBadKey(t *testing.T) {
 	applier := NewReplicationApplier(s)
 
 	// Key with < 3 parts should be ignored without error
-	entry := &BinlogEntry{
+	entry := &binlog.BinlogEntry{
 		LSN:        1,
-		Type:       BinlogPut,
+		Type:       binlog.BinlogPut,
 		BucketName: "vectors",
 		Key:        []byte("badkey"),
 		Value:      []byte("invalid"),
@@ -405,9 +406,9 @@ func TestUpdateInMemoryState_VectorsNilIndex(t *testing.T) {
 
 	applier := NewReplicationApplier(s)
 
-	entry := &BinlogEntry{
+	entry := &binlog.BinlogEntry{
 		LSN:        1,
-		Type:       BinlogPut,
+		Type:       binlog.BinlogPut,
 		BucketName: "vectors",
 		Key:        []byte("vec|blog|testdoc"),
 		Value:      []byte("data"),
@@ -435,9 +436,9 @@ func TestInvalidateDocCache_LockFreeCache(t *testing.T) {
 
 	applier := NewReplicationApplier(s)
 
-	entry := &BinlogEntry{
+	entry := &binlog.BinlogEntry{
 		LSN:        1,
-		Type:       BinlogPut,
+		Type:       binlog.BinlogPut,
 		BucketName: "docs",
 		Key:        []byte("doc|blog|post1"),
 		Value:      []byte(`{"id":"post1","key":"post1","lang":"en","contentMd":"updated"}`),
@@ -466,9 +467,9 @@ func TestInvalidateDocCache_BadKey(t *testing.T) {
 	applier := NewReplicationApplier(s)
 
 	// Key with < 3 parts should be ignored without error
-	entry := &BinlogEntry{
+	entry := &binlog.BinlogEntry{
 		LSN:        1,
-		Type:       BinlogPut,
+		Type:       binlog.BinlogPut,
 		BucketName: "docs",
 		Key:        []byte("badkey"),
 		Value:      []byte("data"),
@@ -490,9 +491,9 @@ func TestUpdateInMemoryState_NilWebhookManager(t *testing.T) {
 	s.WebhookManager = nil
 	applier := NewReplicationApplier(s)
 
-	entry := &BinlogEntry{
+	entry := &binlog.BinlogEntry{
 		LSN:        1,
-		Type:       BinlogPut,
+		Type:       binlog.BinlogPut,
 		BucketName: "webhooks",
 		Key:        []byte("wh|test"),
 		Value:      []byte(`{}`),
@@ -510,9 +511,9 @@ func TestUpdateInMemoryState_NilSchemaManager(t *testing.T) {
 	s.SchemaManager = nil
 	applier := NewReplicationApplier(s)
 
-	entry := &BinlogEntry{
+	entry := &binlog.BinlogEntry{
 		LSN:        1,
-		Type:       BinlogPut,
+		Type:       binlog.BinlogPut,
 		BucketName: "schemas",
 		Key:        []byte("schema|test"),
 		Value:      []byte(`{}`),

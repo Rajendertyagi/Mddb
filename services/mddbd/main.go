@@ -8,6 +8,7 @@ import (
 	"hash/crc32"
 	"io"
 	"log"
+	"mddb/internal/binlog"
 	"mddb/internal/cache"
 	"mddb/internal/compression"
 	"mddb/internal/delta"
@@ -113,7 +114,7 @@ type Server struct {
 	mcpKeyStore        *mcpAPIKeyStore        // BoltDB-backed MCP API key store
 	mcpAuth            *MCPAPIKeyMiddleware   // MCP API key middleware (for cache invalidation)
 	// Replication
-	Binlog          *Binlog            // Binary replication log
+	Binlog          *binlog.Binlog     // Binary replication log
 	ReplicationRole string             // "leader", "follower", or "" (standalone)
 	NodeID          string             // Unique node identifier
 	replServer      *ReplicationServer // Leader-side gRPC replication service
@@ -684,7 +685,7 @@ func main() {
 	// Initialize binlog (auto-enabled for leader, opt-in for standalone)
 	binlogEnabled := env("MDDB_BINLOG_ENABLED", "false") == "true" || s.ReplicationRole == "leader"
 	if binlogEnabled {
-		bl, err := NewBinlog(dbPath, BinlogConfig{
+		bl, err := binlog.NewBinlog(dbPath, binlog.BinlogConfig{
 			Path:    env("MDDB_BINLOG_PATH", ""),
 			MaxSize: 256 * 1024 * 1024, // 256MB
 			MaxAge:  24 * time.Hour,
@@ -1444,7 +1445,7 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 
 	var saved Doc
 	var isNew bool
-	var bo BinlogOps
+	var bo binlog.BinlogOps
 	var cachedBuf []byte // marshaled doc, reused to refresh the read cache (GO-002)
 	err := s.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
@@ -1657,7 +1658,7 @@ func (s *Server) runPostWriteHooks(collection string, saved Doc, isNew bool) {
 func (s *Server) deleteDocumentInternal(collection, key, lang string) error {
 	docID := genID(collection, key, lang)
 
-	var bo BinlogOps
+	var bo binlog.BinlogOps
 	var deletedDoc Doc // captured for trigger evaluation
 	err := s.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
@@ -2159,7 +2160,7 @@ func (s *Server) handleTruncate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var bo BinlogOps
+	var bo binlog.BinlogOps
 	err := s.DBUpdate(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket([]byte("rev"))
 		bDocs := tx.Bucket([]byte("docs"))
@@ -2395,7 +2396,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	// Load existing doc, apply partial changes, save
 	now := time.Now().Unix()
 	var saved Doc
-	var bo BinlogOps
+	var bo binlog.BinlogOps
 	var metaDidChange bool
 
 	err := s.DBUpdate(func(tx *bolt.Tx) error {
@@ -3098,7 +3099,7 @@ func (s *Server) handleDeleteCollection(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var deletedCount int
-	var bo BinlogOps
+	var bo binlog.BinlogOps
 
 	err := s.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))

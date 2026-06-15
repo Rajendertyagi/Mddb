@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mddb/internal/binlog"
 	"mddb/internal/cache"
 	"os"
 	"testing"
@@ -54,9 +55,9 @@ func TestReplicationApplierPut(t *testing.T) {
 	applier := NewReplicationApplier(s)
 
 	// Apply a Put entry
-	entry := &BinlogEntry{
+	entry := &binlog.BinlogEntry{
 		LSN:        1,
-		Type:       BinlogPut,
+		Type:       binlog.BinlogPut,
 		BucketName: "docs",
 		Key:        []byte("doc|blog|post1"),
 		Value:      []byte(`{"id":"post1","key":"hello","lang":"en"}`),
@@ -88,9 +89,9 @@ func TestReplicationApplierDelete(t *testing.T) {
 	applier := NewReplicationApplier(s)
 
 	// First put
-	putEntry := &BinlogEntry{
+	putEntry := &binlog.BinlogEntry{
 		LSN:        1,
-		Type:       BinlogPut,
+		Type:       binlog.BinlogPut,
 		BucketName: "docs",
 		Key:        []byte("doc|blog|post1"),
 		Value:      []byte(`{"id":"post1"}`),
@@ -100,9 +101,9 @@ func TestReplicationApplierDelete(t *testing.T) {
 	}
 
 	// Then delete
-	delEntry := &BinlogEntry{
+	delEntry := &binlog.BinlogEntry{
 		LSN:        2,
-		Type:       BinlogDelete,
+		Type:       binlog.BinlogDelete,
 		BucketName: "docs",
 		Key:        []byte("doc|blog|post1"),
 	}
@@ -132,10 +133,10 @@ func TestReplicationApplierBatch(t *testing.T) {
 
 	applier := NewReplicationApplier(s)
 
-	entries := []*BinlogEntry{
-		{LSN: 1, Type: BinlogPut, BucketName: "docs", Key: []byte("doc|blog|a"), Value: []byte(`{"id":"a"}`)},
-		{LSN: 2, Type: BinlogPut, BucketName: "docs", Key: []byte("doc|blog|b"), Value: []byte(`{"id":"b"}`)},
-		{LSN: 3, Type: BinlogPut, BucketName: "docs", Key: []byte("doc|blog|c"), Value: []byte(`{"id":"c"}`)},
+	entries := []*binlog.BinlogEntry{
+		{LSN: 1, Type: binlog.BinlogPut, BucketName: "docs", Key: []byte("doc|blog|a"), Value: []byte(`{"id":"a"}`)},
+		{LSN: 2, Type: binlog.BinlogPut, BucketName: "docs", Key: []byte("doc|blog|b"), Value: []byte(`{"id":"b"}`)},
+		{LSN: 3, Type: binlog.BinlogPut, BucketName: "docs", Key: []byte("doc|blog|c"), Value: []byte(`{"id":"c"}`)},
 	}
 
 	if err := applier.ApplyBatch(entries); err != nil {
@@ -165,9 +166,9 @@ func TestReplicationApplierCreatesBucket(t *testing.T) {
 	applier := NewReplicationApplier(s)
 
 	// Apply to a bucket that doesn't exist yet
-	entry := &BinlogEntry{
+	entry := &binlog.BinlogEntry{
 		LSN:        1,
-		Type:       BinlogPut,
+		Type:       binlog.BinlogPut,
 		BucketName: "custom_bucket",
 		Key:        []byte("mykey"),
 		Value:      []byte("myval"),
@@ -207,9 +208,9 @@ func TestReplicationApplierCacheInvalidation(t *testing.T) {
 	applier := NewReplicationApplier(s)
 
 	// Apply update to same doc -> should invalidate cache
-	entry := &BinlogEntry{
+	entry := &binlog.BinlogEntry{
 		LSN:        1,
-		Type:       BinlogPut,
+		Type:       binlog.BinlogPut,
 		BucketName: "docs",
 		Key:        []byte("doc|blog|post1"),
 		Value:      []byte(`{"id":"post1","key":"hello","lang":"en","contentMd":"updated"}`),
@@ -225,9 +226,9 @@ func TestReplicationApplierCacheInvalidation(t *testing.T) {
 }
 
 func TestEntryProtoConversion(t *testing.T) {
-	entry := &BinlogEntry{
+	entry := &binlog.BinlogEntry{
 		LSN:        42,
-		Type:       BinlogPut,
+		Type:       binlog.BinlogPut,
 		Timestamp:  1234567890,
 		BucketName: "docs",
 		Key:        []byte("doc|blog|test"),

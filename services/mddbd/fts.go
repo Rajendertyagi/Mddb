@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"mddb/internal/binlog"
 	"net/http"
 	"sort"
 	"strings"
@@ -28,7 +29,7 @@ var (
 type FTSIndex struct {
 	db              *bolt.DB
 	stopWords       map[string]bool
-	binlog          *Binlog
+	binlog          *binlog.Binlog
 	stemmer         Stemmer
 	langRegistry    *LangRegistry
 	synonymManager  *SynonymManager
@@ -49,7 +50,7 @@ func (f *FTSIndex) SetSynonymManager(sm *SynonymManager) { f.synonymManager = sm
 func (f *FTSIndex) SetStopWordManager(swm *StopWordManager) { f.stopWordManager = swm }
 
 // SetBinlog sets the binlog for replication logging.
-func (f *FTSIndex) SetBinlog(bl *Binlog) {
+func (f *FTSIndex) SetBinlog(bl *binlog.Binlog) {
 	f.binlog = bl
 }
 
@@ -286,7 +287,7 @@ func (f *FTSIndex) IndexWithLang(collection, docID, content, lang string) error 
 		return nil
 	}
 
-	var bo BinlogOps
+	var bo binlog.BinlogOps
 	err := f.db.Update(func(tx *bolt.Tx) error {
 		bFTS := tx.Bucket(bucketFTS)
 		bRev := tx.Bucket(bucketFTSRev)
@@ -410,7 +411,7 @@ func (f *FTSIndex) Index(collection, docID, content string) error {
 		return nil
 	}
 
-	var bo BinlogOps
+	var bo binlog.BinlogOps
 	err := f.db.Update(func(tx *bolt.Tx) error {
 		bFTS := tx.Bucket(bucketFTS)
 		bRev := tx.Bucket(bucketFTSRev)
@@ -464,7 +465,7 @@ func (f *FTSIndex) Index(collection, docID, content string) error {
 
 // Remove deletes all FTS entries for a document.
 func (f *FTSIndex) Remove(collection, docID string) error {
-	var bo BinlogOps
+	var bo binlog.BinlogOps
 	err := f.db.Update(func(tx *bolt.Tx) error {
 		bFTS := tx.Bucket(bucketFTS)
 		bRev := tx.Bucket(bucketFTSRev)

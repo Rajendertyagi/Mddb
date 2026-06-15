@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
+	"mddb/internal/binlog"
 	"mddb/internal/cache"
 	proto "mddb/proto"
 )
@@ -1753,7 +1754,7 @@ func (g *GRPCServer) UpdateDocument(ctx context.Context, req *proto.UpdateDocume
 	now := time.Now().Unix()
 	var saved Doc
 	var metaDidChange bool
-	var bo BinlogOps
+	var bo binlog.BinlogOps
 
 	err := g.server.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
@@ -2003,7 +2004,7 @@ func (g *GRPCServer) DeleteCollection(ctx context.Context, req *proto.DeleteColl
 	}
 
 	var deletedCount int
-	var bo BinlogOps
+	var bo binlog.BinlogOps
 
 	err := g.server.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))

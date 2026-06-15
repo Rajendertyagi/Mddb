@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mddb/internal/binlog"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -22,11 +23,11 @@ type SchemaManager struct {
 	db      *bolt.DB
 	schemas map[string]*MetaSchema // collection → parsed schema
 	mu      sync.RWMutex
-	binlog  *Binlog
+	binlog  *binlog.Binlog
 }
 
 // SetBinlog sets the binlog for replication logging.
-func (sm *SchemaManager) SetBinlog(bl *Binlog) {
+func (sm *SchemaManager) SetBinlog(bl *binlog.Binlog) {
 	sm.binlog = bl
 }
 
@@ -116,7 +117,7 @@ func (sm *SchemaManager) Set(collection, schemaJSON string) error {
 	}
 
 	if sm.binlog != nil {
-		_ = sm.binlog.Append(&BinlogEntry{Type: BinlogPut, BucketName: "schemas", Key: copyBytes(key), Value: copyBytes(val)})
+		_ = sm.binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogPut, BucketName: "schemas", Key: CopyBytes(key), Value: CopyBytes(val)})
 	}
 
 	sm.mu.Lock()
@@ -147,7 +148,7 @@ func (sm *SchemaManager) Delete(collection string) error {
 	}
 
 	if sm.binlog != nil {
-		_ = sm.binlog.Append(&BinlogEntry{Type: BinlogDelete, BucketName: "schemas", Key: copyBytes(key)})
+		_ = sm.binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogDelete, BucketName: "schemas", Key: CopyBytes(key)})
 	}
 
 	sm.mu.Lock()

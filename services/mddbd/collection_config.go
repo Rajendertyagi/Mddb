@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"io"
+	"mddb/internal/binlog"
 	"net/http"
 	"sync"
 
@@ -56,7 +57,7 @@ type CollectionManager struct {
 	db        *bolt.DB
 	mu        sync.RWMutex
 	cache     map[string]*CollectionConfig
-	binlog    *Binlog
+	binlog    *binlog.Binlog
 	encryptor *Encryptor // optional; when set, cache changes are mirrored into it
 }
 
@@ -69,7 +70,7 @@ func NewCollectionManager(db *bolt.DB) *CollectionManager {
 }
 
 // SetBinlog sets the binlog for replication logging.
-func (cm *CollectionManager) SetBinlog(bl *Binlog) {
+func (cm *CollectionManager) SetBinlog(bl *binlog.Binlog) {
 	cm.binlog = bl
 }
 
@@ -142,7 +143,7 @@ func (cm *CollectionManager) Set(collection string, cfg *CollectionConfig) error
 	}
 
 	if cm.binlog != nil {
-		_ = cm.binlog.Append(&BinlogEntry{Type: BinlogPut, BucketName: "colmeta", Key: copyBytes(key), Value: copyBytes(val)})
+		_ = cm.binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogPut, BucketName: "colmeta", Key: CopyBytes(key), Value: CopyBytes(val)})
 	}
 
 	cm.mu.Lock()
@@ -165,7 +166,7 @@ func (cm *CollectionManager) Delete(collection string) error {
 	}
 
 	if cm.binlog != nil {
-		_ = cm.binlog.Append(&BinlogEntry{Type: BinlogDelete, BucketName: "colmeta", Key: copyBytes(key)})
+		_ = cm.binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogDelete, BucketName: "colmeta", Key: CopyBytes(key)})
 	}
 
 	cm.mu.Lock()

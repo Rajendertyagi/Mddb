@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"mddb/internal/binlog"
 	"strconv"
 	"strings"
 	"time"
@@ -32,7 +33,7 @@ type EmbeddingRecord struct {
 type VectorStore struct {
 	db         *bolt.DB
 	bucketName []byte
-	binlog     *Binlog
+	binlog     *binlog.Binlog
 }
 
 // NewVectorStore creates a new vector store backed by BoltDB.
@@ -44,7 +45,7 @@ func NewVectorStore(db *bolt.DB) *VectorStore {
 }
 
 // SetBinlog sets the binlog for replication logging.
-func (vs *VectorStore) SetBinlog(bl *Binlog) {
+func (vs *VectorStore) SetBinlog(bl *binlog.Binlog) {
 	vs.binlog = bl
 }
 
@@ -80,7 +81,7 @@ func (vs *VectorStore) PutQuantized(collection, docID string, vector []float32, 
 		return b.Put(key, data)
 	})
 	if err == nil && vs.binlog != nil {
-		_ = vs.binlog.Append(&BinlogEntry{Type: BinlogPut, BucketName: "vectors", Key: copyBytes(key), Value: copyBytes(data)})
+		_ = vs.binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogPut, BucketName: "vectors", Key: CopyBytes(key), Value: CopyBytes(data)})
 	}
 	return err
 }
@@ -115,7 +116,7 @@ func (vs *VectorStore) PutChunksQuantized(collection, docID string, chunks []Chu
 			}
 
 			if vs.binlog != nil {
-				_ = vs.binlog.Append(&BinlogEntry{Type: BinlogPut, BucketName: "vectors", Key: copyBytes(chunkKey), Value: copyBytes(data)})
+				_ = vs.binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogPut, BucketName: "vectors", Key: CopyBytes(chunkKey), Value: CopyBytes(data)})
 			}
 		}
 		return nil
@@ -142,7 +143,7 @@ func (vs *VectorStore) Put(collection, docID string, vector []float32, model str
 		return b.Put(key, data)
 	})
 	if err == nil && vs.binlog != nil {
-		_ = vs.binlog.Append(&BinlogEntry{Type: BinlogPut, BucketName: "vectors", Key: copyBytes(key), Value: copyBytes(data)})
+		_ = vs.binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogPut, BucketName: "vectors", Key: CopyBytes(key), Value: CopyBytes(data)})
 	}
 	return err
 }
@@ -174,7 +175,7 @@ func (vs *VectorStore) PutChunks(collection, docID string, chunks []ChunkEmbeddi
 			}
 
 			if vs.binlog != nil {
-				_ = vs.binlog.Append(&BinlogEntry{Type: BinlogPut, BucketName: "vectors", Key: copyBytes(chunkKey), Value: copyBytes(data)})
+				_ = vs.binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogPut, BucketName: "vectors", Key: CopyBytes(chunkKey), Value: CopyBytes(data)})
 			}
 		}
 
@@ -186,7 +187,7 @@ func (vs *VectorStore) PutChunks(collection, docID string, chunks []ChunkEmbeddi
 func (vs *VectorStore) CleanStaleChunks(collection, docID string, currentChunkCount int, index *VectorIndex) {
 	prefix := []byte("vec|" + collection + "|" + docID + "#")
 
-	var bo BinlogOps
+	var bo binlog.BinlogOps
 	_ = vs.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(vs.bucketName)
 		if b == nil {
@@ -215,7 +216,7 @@ func (vs *VectorStore) CleanStaleChunks(collection, docID string, currentChunkCo
 	// Also clean the old non-chunked key if chunks > 1
 	if currentChunkCount > 1 {
 		oldKey := buildVecKey(collection, docID)
-		var bo2 BinlogOps
+		var bo2 binlog.BinlogOps
 		_ = vs.db.Update(func(tx *bolt.Tx) error {
 			b := tx.Bucket(vs.bucketName)
 			if b == nil {
@@ -269,7 +270,7 @@ func (vs *VectorStore) Delete(collection, docID string) error {
 	legacyKey := buildVecKey(collection, docID)
 	prefix := []byte("vec|" + collection + "|" + docID + "#")
 
-	var bo BinlogOps
+	var bo binlog.BinlogOps
 	err := vs.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(vs.bucketName)
 		if b == nil {

@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"mddb/internal/binlog"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -52,7 +53,7 @@ type TemporalManager struct {
 	done   chan struct{}
 	once   sync.Once
 	seq    atomic.Uint64
-	binlog *Binlog
+	binlog *binlog.Binlog
 }
 
 // NewTemporalManager creates a TemporalManager backed by the given BoltDB.
@@ -65,7 +66,7 @@ func NewTemporalManager(db *bolt.DB) *TemporalManager {
 }
 
 // SetBinlog attaches a binlog for replication.
-func (tm *TemporalManager) SetBinlog(bl *Binlog) {
+func (tm *TemporalManager) SetBinlog(bl *binlog.Binlog) {
 	tm.binlog = bl
 }
 

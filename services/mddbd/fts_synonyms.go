@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"mddb/internal/binlog"
 	"net/http"
 	"strings"
 	"sync"
@@ -17,7 +18,7 @@ type SynonymManager struct {
 	db     *bolt.DB
 	mu     sync.RWMutex
 	cache  map[string]map[string][]string // collection -> term -> synonyms
-	binlog *Binlog
+	binlog *binlog.Binlog
 }
 
 // SynonymRequest is the HTTP request for synonym CRUD.
@@ -49,7 +50,7 @@ func NewSynonymManager(db *bolt.DB) *SynonymManager {
 }
 
 // SetBinlog sets the binlog for replication logging.
-func (sm *SynonymManager) SetBinlog(bl *Binlog) {
+func (sm *SynonymManager) SetBinlog(bl *binlog.Binlog) {
 	sm.binlog = bl
 }
 
@@ -118,7 +119,7 @@ func (sm *SynonymManager) Set(collection, term string, synonyms []string) error 
 	}
 
 	key := synKey(collection, term)
-	var bo BinlogOps
+	var bo binlog.BinlogOps
 	err = sm.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(bucketSynonyms)
 		bo.Put("synonyms", key, data)
@@ -154,7 +155,7 @@ func (sm *SynonymManager) Get(collection, term string) []string {
 func (sm *SynonymManager) Delete(collection, term string) error {
 	term = strings.ToLower(strings.TrimSpace(term))
 	key := synKey(collection, term)
-	var bo BinlogOps
+	var bo binlog.BinlogOps
 	err := sm.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(bucketSynonyms)
 		bo.Delete("synonyms", key)

@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"mddb/internal/binlog"
 	"mddb/internal/cache"
 	proto "mddb/proto"
 
@@ -199,7 +200,7 @@ func (fbp *FinalBatchProcessor) commitBatch(collection string, processed []*Proc
 
 	// bo records ops for trimRevisions; the extreme path does not flush a
 	// binlog, but the trim deletes are durable in-transaction regardless.
-	var bo BinlogOps
+	var bo binlog.BinlogOps
 
 	err := fbp.server.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(fbp.server.BucketNames.Docs)

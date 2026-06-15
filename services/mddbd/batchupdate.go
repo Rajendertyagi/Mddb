@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"mddb/internal/binlog"
 	"mddb/internal/cache"
 	proto "mddb/proto"
 
@@ -173,7 +174,7 @@ func (bu *BatchUpdater) processDocument(collection string, updateDoc *proto.Upda
 func (bu *BatchUpdater) commitUpdate(collection string, updated []*UpdatedDoc, now int64) *proto.UpdateBatchResponse {
 	resp := &proto.UpdateBatchResponse{}
 
-	var bo BinlogOps
+	var bo binlog.BinlogOps
 	// Metadata reindex jobs collected during the tx and enqueued AFTER commit:
 	// Enqueue's full-queue fallback opens its own write transaction, so it must
 	// never run inside this one (GO-010 — would deadlock BoltDB's single writer).

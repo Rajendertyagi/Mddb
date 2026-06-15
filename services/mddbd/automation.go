@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"mddb/internal/binlog"
 	"strings"
 	"sync"
 	"time"
@@ -53,7 +54,7 @@ type AutomationManager struct {
 	db       *bolt.DB
 	mu       sync.RWMutex
 	rules    []AutomationRule
-	binlog   *Binlog
+	binlog   *binlog.Binlog
 	server   *Server
 	logStore *AutomationLogStore
 }
@@ -66,7 +67,7 @@ func NewAutomationManager(db *bolt.DB) *AutomationManager {
 }
 
 // SetBinlog sets the binlog for replication logging.
-func (am *AutomationManager) SetBinlog(bl *Binlog) {
+func (am *AutomationManager) SetBinlog(bl *binlog.Binlog) {
 	am.binlog = bl
 }
 
@@ -143,7 +144,7 @@ func (am *AutomationManager) Create(rule AutomationRule) (*AutomationRule, error
 	}
 
 	if am.binlog != nil {
-		_ = am.binlog.Append(&BinlogEntry{Type: BinlogPut, BucketName: "automation", Key: copyBytes(key), Value: copyBytes(data)})
+		_ = am.binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogPut, BucketName: "automation", Key: CopyBytes(key), Value: CopyBytes(data)})
 	}
 
 	am.mu.Lock()
@@ -207,7 +208,7 @@ func (am *AutomationManager) Update(id string, update AutomationRule) (*Automati
 	}
 
 	if am.binlog != nil {
-		_ = am.binlog.Append(&BinlogEntry{Type: BinlogPut, BucketName: "automation", Key: copyBytes(key), Value: copyBytes(data)})
+		_ = am.binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogPut, BucketName: "automation", Key: CopyBytes(key), Value: CopyBytes(data)})
 	}
 
 	am.mu.Lock()
@@ -233,7 +234,7 @@ func (am *AutomationManager) Delete(id string) error {
 	}
 
 	if am.binlog != nil {
-		_ = am.binlog.Append(&BinlogEntry{Type: BinlogDelete, BucketName: "automation", Key: copyBytes(key)})
+		_ = am.binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogDelete, BucketName: "automation", Key: CopyBytes(key)})
 	}
 
 	am.mu.Lock()

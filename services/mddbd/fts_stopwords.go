@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"mddb/internal/binlog"
 	"net/http"
 	"sort"
 	"strings"
@@ -18,7 +19,7 @@ type StopWordManager struct {
 	db           *bolt.DB
 	mu           sync.RWMutex
 	cache        map[string]map[string]bool // collection -> word -> true (custom only)
-	binlog       *Binlog
+	binlog       *binlog.Binlog
 	langRegistry *LangRegistry
 }
 
@@ -53,7 +54,7 @@ func NewStopWordManager(db *bolt.DB) *StopWordManager {
 }
 
 // SetBinlog sets the binlog for replication logging.
-func (swm *StopWordManager) SetBinlog(bl *Binlog) {
+func (swm *StopWordManager) SetBinlog(bl *binlog.Binlog) {
 	swm.binlog = bl
 }
 
@@ -117,7 +118,7 @@ func (swm *StopWordManager) Add(collection string, words []string) error {
 		return fmt.Errorf("words list cannot be empty")
 	}
 
-	var bo BinlogOps
+	var bo binlog.BinlogOps
 	err := swm.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(bucketStopWords)
 		for _, w := range normalized {
@@ -159,7 +160,7 @@ func (swm *StopWordManager) Delete(collection, word string) error {
 	}
 
 	key := swKey(collection, word)
-	var bo BinlogOps
+	var bo binlog.BinlogOps
 	err := swm.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(bucketStopWords)
 		bo.Delete("stopwords", key)

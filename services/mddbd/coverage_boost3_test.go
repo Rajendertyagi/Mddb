@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mddb/internal/binlog"
 	"mddb/internal/compression"
 	"mddb/internal/delta"
 	"strings"
@@ -238,11 +239,11 @@ func TestKeyBuilderReset(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// binlog_entry.go: BinlogOps.Len
+// binlog_entry.go: binlog.BinlogOps.Len
 // ---------------------------------------------------------------------------
 
 func TestBinlogOpsLen(t *testing.T) {
-	bo := &BinlogOps{}
+	bo := &binlog.BinlogOps{}
 	if bo.Len() != 0 {
 		t.Error("empty should be 0")
 	}

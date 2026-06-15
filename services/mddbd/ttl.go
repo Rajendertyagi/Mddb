@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
+	"mddb/internal/binlog"
 	"net/http"
 	"strings"
 	"time"
@@ -22,11 +23,11 @@ type TTLManager struct {
 	db     *bolt.DB
 	server *Server
 	stopCh chan struct{}
-	binlog *Binlog
+	binlog *binlog.Binlog
 }
 
 // SetBinlog sets the binlog for replication logging.
-func (t *TTLManager) SetBinlog(bl *Binlog) {
+func (t *TTLManager) SetBinlog(bl *binlog.Binlog) {
 	t.binlog = bl
 }
 
@@ -48,7 +49,7 @@ func (t *TTLManager) EnsureBuckets() error {
 
 // Set stores a TTL entry for a document. Removes any previous TTL first.
 func (t *TTLManager) Set(collection, docID string, expiresAt int64) error {
-	var bo BinlogOps
+	var bo binlog.BinlogOps
 	err := t.db.Update(func(tx *bolt.Tx) error {
 		bTTL := tx.Bucket(bucketTTL)
 		bRev := tx.Bucket(bucketTTLRev)
@@ -89,7 +90,7 @@ func (t *TTLManager) Set(collection, docID string, expiresAt int64) error {
 
 // Remove deletes TTL entries for a document.
 func (t *TTLManager) Remove(collection, docID string) error {
-	var bo BinlogOps
+	var bo binlog.BinlogOps
 	err := t.db.Update(func(tx *bolt.Tx) error {
 		bTTL := tx.Bucket(bucketTTL)
 		bRev := tx.Bucket(bucketTTLRev)
@@ -227,7 +228,7 @@ func (s *Server) handleSetTTL(w http.ResponseWriter, r *http.Request) {
 
 	// Update document in DB
 	var updated Doc
-	var bo BinlogOps
+	var bo binlog.BinlogOps
 	err := s.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		dk := kDoc(req.Collection, docID)

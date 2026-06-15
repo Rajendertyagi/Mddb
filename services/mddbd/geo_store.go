@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"mddb/internal/binlog"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -19,7 +20,7 @@ var geoBucketName = []byte("geo")
 // in-memory R-tree from BoltDB at startup. Mirrors VectorStore.
 type GeoStore struct {
 	db     *bolt.DB
-	binlog *Binlog
+	binlog *binlog.Binlog
 }
 
 // NewGeoStore creates a new geo store backed by BoltDB.
@@ -29,7 +30,7 @@ func NewGeoStore(db *bolt.DB) *GeoStore {
 
 // SetBinlog wires the geo store into the replication log so follower nodes
 // receive geo upserts/deletes for free, identical to VectorStore.SetBinlog.
-func (gs *GeoStore) SetBinlog(bl *Binlog) { gs.binlog = bl }
+func (gs *GeoStore) SetBinlog(bl *binlog.Binlog) { gs.binlog = bl }
 
 // EnsureBucket creates the "geo" bucket if it does not exist.
 func (gs *GeoStore) EnsureBucket() error {
@@ -51,11 +52,11 @@ func (gs *GeoStore) Put(collection, docID string, lat, lng float64) error {
 		return b.Put(key, value)
 	})
 	if err == nil && gs.binlog != nil {
-		_ = gs.binlog.Append(&BinlogEntry{
-			Type:       BinlogPut,
+		_ = gs.binlog.Append(&binlog.BinlogEntry{
+			Type:       binlog.BinlogPut,
 			BucketName: "geo",
-			Key:        copyBytes(key),
-			Value:      copyBytes(value),
+			Key:        CopyBytes(key),
+			Value:      CopyBytes(value),
 		})
 	}
 	return err
@@ -72,10 +73,10 @@ func (gs *GeoStore) Delete(collection, docID string) error {
 		return b.Delete(key)
 	})
 	if err == nil && gs.binlog != nil {
-		_ = gs.binlog.Append(&BinlogEntry{
-			Type:       BinlogDelete,
+		_ = gs.binlog.Append(&binlog.BinlogEntry{
+			Type:       binlog.BinlogDelete,
 			BucketName: "geo",
-			Key:        copyBytes(key),
+			Key:        CopyBytes(key),
 		})
 	}
 	return err
@@ -93,17 +94,17 @@ func (gs *GeoStore) DeleteCollection(collection string) error {
 		c := b.Cursor()
 		var toDelete [][]byte
 		for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
-			toDelete = append(toDelete, copyBytes(k))
+			toDelete = append(toDelete, CopyBytes(k))
 		}
 		for _, k := range toDelete {
 			if err := b.Delete(k); err != nil {
 				return err
 			}
 			if gs.binlog != nil {
-				_ = gs.binlog.Append(&BinlogEntry{
-					Type:       BinlogDelete,
+				_ = gs.binlog.Append(&binlog.BinlogEntry{
+					Type:       binlog.BinlogDelete,
 					BucketName: "geo",
-					Key:        copyBytes(k),
+					Key:        CopyBytes(k),
 				})
 			}
 		}

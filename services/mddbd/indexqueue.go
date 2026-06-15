@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"mddb/internal/binlog"
 	"sync"
 
 	bolt "go.etcd.io/bbolt"
@@ -122,7 +123,7 @@ func (iq *IndexQueue) worker(id int) {
 
 // processJob processes a single indexing job
 func (iq *IndexQueue) processJob(job *IndexJob) error {
-	var bo BinlogOps
+	var bo binlog.BinlogOps
 	err := iq.server.DBUpdate(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket(iq.server.BucketNames.IdxMeta)
 

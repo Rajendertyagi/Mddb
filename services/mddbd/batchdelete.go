@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"mddb/internal/binlog"
 	"mddb/internal/cache"
 	proto "mddb/proto"
 
@@ -129,7 +130,7 @@ func (bd *BatchDeleter) lookupDocument(collection string, deleteDoc *proto.Delet
 func (bd *BatchDeleter) commitDelete(collection string, deleted []*DeletedDoc) *proto.DeleteBatchResponse {
 	resp := &proto.DeleteBatchResponse{}
 
-	var bo BinlogOps
+	var bo binlog.BinlogOps
 	// Single transaction for all deletions
 	err := bd.server.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(bd.server.BucketNames.Docs)

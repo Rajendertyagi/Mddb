@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
+	"mddb/internal/binlog"
 	proto "mddb/proto"
 )
 
@@ -198,7 +199,7 @@ func (rs *ReplicationServer) StreamBinlog(req *proto.StreamBinlogRequest, stream
 	// 1. Send historical entries from binlog file
 	entries, err := rs.server.Binlog.ReadFrom(fromLSN)
 	if err != nil {
-		if err == ErrBinlogLSNTooOld {
+		if err == binlog.ErrBinlogLSNTooOld {
 			return status.Error(codes.FailedPrecondition, "LSN too old, snapshot required")
 		}
 		return status.Error(codes.Internal, err.Error())
@@ -286,8 +287,8 @@ func (rs *ReplicationServer) AcknowledgeLSN(_ context.Context, req *proto.Acknow
 	}, nil
 }
 
-// entryToProto converts a BinlogEntry to the protobuf representation
-func entryToProto(e *BinlogEntry) *proto.BinlogEntryProto {
+// entryToProto converts a binlog.BinlogEntry to the protobuf representation
+func entryToProto(e *binlog.BinlogEntry) *proto.BinlogEntryProto {
 	return &proto.BinlogEntryProto{
 		Lsn:        e.LSN,
 		Type:       uint32(e.Type),
@@ -299,11 +300,11 @@ func entryToProto(e *BinlogEntry) *proto.BinlogEntryProto {
 	}
 }
 
-// protoToEntry converts a protobuf BinlogEntryProto to internal BinlogEntry
-func protoToEntry(p *proto.BinlogEntryProto) *BinlogEntry {
-	return &BinlogEntry{
+// protoToEntry converts a protobuf BinlogEntryProto to internal binlog.BinlogEntry
+func protoToEntry(p *proto.BinlogEntryProto) *binlog.BinlogEntry {
+	return &binlog.BinlogEntry{
 		LSN:        p.Lsn,
-		Type:       BinlogEntryType(p.Type), // #nosec G115 -- entry type always within byte range
+		Type:       binlog.BinlogEntryType(p.Type), // #nosec G115 -- entry type always within byte range
 		Timestamp:  p.Timestamp,
 		BucketName: p.BucketName,
 		Key:        p.Key,
