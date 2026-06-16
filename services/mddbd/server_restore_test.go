@@ -3,6 +3,7 @@ package main
 import (
 	"mddb/internal/cache"
 	"mddb/internal/schema"
+	"mddb/internal/webhooks"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -182,7 +183,7 @@ func TestRebuildInMemoryState_InPlace(t *testing.T) {
 	if err := sm.EnsureBucket(); err != nil {
 		t.Fatal(err)
 	}
-	wm := NewWebhookManager(db)
+	wm := webhooks.NewWebhookManager(db)
 	if err := wm.EnsureBucket(); err != nil {
 		t.Fatal(err)
 	}

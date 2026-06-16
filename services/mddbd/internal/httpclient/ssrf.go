@@ -1,4 +1,4 @@
-// Package main — SSRF protection for outbound HTTP (SEC-004).
+// Package httpclient — SSRF protection for outbound HTTP (SEC-004).
 //
 // Webhooks, import-url, bulk callbacks and automation triggers all dial URLs
 // supplied by users. Without address checks those become Server-Side Request

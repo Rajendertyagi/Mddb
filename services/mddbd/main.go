@@ -24,6 +24,7 @@ import (
 	"mddb/internal/storage"
 	"mddb/internal/temporal"
 	"mddb/internal/vector"
+	"mddb/internal/webhooks"
 	"net/http"
 	"os"
 	"os/signal"
@@ -97,7 +98,7 @@ type Server struct {
 	// New features
 	TTLManager         *TTLManager               // Document TTL / auto-expiry
 	FTSIndex           *fts.FTSIndex             // Full-text search index
-	WebhookManager     *WebhookManager           // Webhook subscriptions and delivery
+	WebhookManager     *webhooks.WebhookManager  // Webhook subscriptions and delivery
 	SchemaManager      *schema.SchemaManager     // Per-collection metadata schema validation
 	Metrics            *metrics.Metrics          // Prometheus-compatible telemetry
 	AuthManager        *AuthManager              // Authentication and authorization
@@ -509,7 +510,7 @@ func main() {
 	log.Println("Full-text search index initialized")
 
 	// Initialize webhook manager
-	s.WebhookManager = NewWebhookManager(db)
+	s.WebhookManager = webhooks.NewWebhookManager(db)
 	if err := s.WebhookManager.EnsureBucket(); err != nil {
 		log.Fatal(err)
 	}

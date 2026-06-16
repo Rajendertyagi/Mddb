@@ -17,6 +17,7 @@ import (
 	"mddb/internal/schema"
 	"mddb/internal/storage"
 	"mddb/internal/vector"
+	"mddb/internal/webhooks"
 	pb "mddb/proto"
 )
 
@@ -100,7 +101,7 @@ func newTestGRPCServer(t *testing.T) (*GRPCServer, *Server, func()) {
 	s.FTSIndex.SetLangRegistry(langReg)
 
 	// Webhooks
-	s.WebhookManager = NewWebhookManager(db)
+	s.WebhookManager = webhooks.NewWebhookManager(db)
 	if err := s.WebhookManager.EnsureBucket(); err != nil {
 		_ = db.Close()
 		t.Fatal(err)

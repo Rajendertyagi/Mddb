@@ -4,6 +4,7 @@ import (
 	"mddb/internal/cache"
 	"mddb/internal/schema"
 	"mddb/internal/vector"
+	"mddb/internal/webhooks"
 	"os"
 	"testing"
 	"time"
@@ -331,7 +332,7 @@ func TestReplicationClientRebuildInMemoryState(t *testing.T) {
 	s.VectorSearchers = map[string]vector.VectorSearcher{
 		"flat": s.VectorIndex,
 	}
-	s.WebhookManager = NewWebhookManager(s.DB)
+	s.WebhookManager = webhooks.NewWebhookManager(s.DB)
 	_ = s.WebhookManager.EnsureBucket()
 	s.SchemaManager = schema.NewSchemaManager(s.DB)
 	_ = s.SchemaManager.EnsureBucket()

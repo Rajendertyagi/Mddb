@@ -5,6 +5,7 @@ import (
 	"mddb/internal/cache"
 	"mddb/internal/schema"
 	"mddb/internal/vector"
+	"mddb/internal/webhooks"
 	"os"
 	"testing"
 
@@ -62,7 +63,7 @@ func applierExtraTestServer(t *testing.T) (*Server, func()) {
 	}
 
 	// WebhookManager
-	s.WebhookManager = NewWebhookManager(db)
+	s.WebhookManager = webhooks.NewWebhookManager(db)
 	_ = s.WebhookManager.EnsureBucket()
 
 	// schema.SchemaManager

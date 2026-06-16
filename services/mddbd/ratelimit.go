@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"mddb/internal/webhooks"
 	"net/http"
 	"os"
 	"strconv"
@@ -50,12 +51,12 @@ type RateLimiter struct {
 
 // SetWebhookManager wires the incident-event publisher used to fire
 // security.rate_limit_exceeded on burst. Safe on nil.
-func (rl *RateLimiter) SetWebhookManager(wm *WebhookManager) {
+func (rl *RateLimiter) SetWebhookManager(wm *webhooks.WebhookManager) {
 	if rl == nil || wm == nil {
 		return
 	}
 	rl.onReject = func(clientID, transport string) {
-		wm.FireEvent(EventRateLimitExceeded, map[string]interface{}{
+		wm.FireEvent(webhooks.EventRateLimitExceeded, map[string]interface{}{
 			"clientId":  clientID,
 			"transport": transport,
 		})

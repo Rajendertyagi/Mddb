@@ -4,6 +4,7 @@ import (
 	"mddb/internal/metrics"
 	"mddb/internal/schema"
 	"mddb/internal/vector"
+	"mddb/internal/webhooks"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -48,7 +49,7 @@ func newTestServerForMetrics(t *testing.T) (*Server, func()) {
 	s.VectorSearchers = map[string]vector.VectorSearcher{
 		"flat": s.VectorIndex,
 	}
-	s.WebhookManager = NewWebhookManager(db)
+	s.WebhookManager = webhooks.NewWebhookManager(db)
 	_ = s.WebhookManager.EnsureBucket()
 	_ = s.WebhookManager.LoadAll()
 	s.SchemaManager = schema.NewSchemaManager(db)
@@ -266,7 +267,7 @@ func BenchmarkMetricsHandler(b *testing.B) {
 	s.VectorSearchers = map[string]vector.VectorSearcher{
 		"flat": s.VectorIndex,
 	}
-	s.WebhookManager = NewWebhookManager(db)
+	s.WebhookManager = webhooks.NewWebhookManager(db)
 	_ = s.WebhookManager.EnsureBucket()
 	_ = s.WebhookManager.LoadAll()
 	s.SchemaManager = schema.NewSchemaManager(db)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"io"
+	"mddb/internal/webhooks"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -14,7 +15,7 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-func newIncidentWebhookManager(t *testing.T) *WebhookManager {
+func newIncidentWebhookManager(t *testing.T) *webhooks.WebhookManager {
 	t.Helper()
 	dir := t.TempDir()
 	db, err := bolt.Open(filepath.Join(dir, "wh.db"), 0o600, nil)
@@ -22,7 +23,7 @@ func newIncidentWebhookManager(t *testing.T) *WebhookManager {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	wm := NewWebhookManager(db)
+	wm := webhooks.NewWebhookManager(db)
 	if err := wm.EnsureBucket(); err != nil {
 		t.Fatal(err)
 	}
@@ -31,11 +32,11 @@ func newIncidentWebhookManager(t *testing.T) *WebhookManager {
 
 // captureEvents wires a single webhook that records every payload
 // it receives into a channel. Returns the channel and a cleanup func.
-func captureEvents(t *testing.T, wm *WebhookManager, events ...string) <-chan WebhookPayload {
+func captureEvents(t *testing.T, wm *webhooks.WebhookManager, events ...string) <-chan webhooks.WebhookPayload {
 	t.Helper()
-	ch := make(chan WebhookPayload, 16)
+	ch := make(chan webhooks.WebhookPayload, 16)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var p WebhookPayload
+		var p webhooks.WebhookPayload
 		if err := decodeJSONBody(r, &p); err != nil {
 			t.Logf("decode: %v", err)
 			w.WriteHeader(500)
@@ -64,7 +65,7 @@ func decodeJSONBody(r *http.Request, v interface{}) error {
 
 func TestAuthFailureTrackerBelowThresholdSilent(t *testing.T) {
 	wm := newIncidentWebhookManager(t)
-	ch := captureEvents(t, wm, EventAuthFailureBurst)
+	ch := captureEvents(t, wm, webhooks.EventAuthFailureBurst)
 	t.Setenv("MDDB_INCIDENT_AUTH_THRESHOLD", "5")
 	t.Setenv("MDDB_INCIDENT_AUTH_WINDOW_SEC", "60")
 	t.Setenv("MDDB_INCIDENT_AUTH_COOLDOWN_SEC", "300")
@@ -83,7 +84,7 @@ func TestAuthFailureTrackerBelowThresholdSilent(t *testing.T) {
 
 func TestAuthFailureTrackerFiresAtThreshold(t *testing.T) {
 	wm := newIncidentWebhookManager(t)
-	ch := captureEvents(t, wm, EventAuthFailureBurst)
+	ch := captureEvents(t, wm, webhooks.EventAuthFailureBurst)
 	t.Setenv("MDDB_INCIDENT_AUTH_THRESHOLD", "3")
 	t.Setenv("MDDB_INCIDENT_AUTH_COOLDOWN_SEC", "1")
 	tr := NewAuthFailureTracker(wm)
@@ -98,7 +99,7 @@ func TestAuthFailureTrackerFiresAtThreshold(t *testing.T) {
 	}
 	select {
 	case p := <-ch:
-		if p.Event != EventAuthFailureBurst {
+		if p.Event != webhooks.EventAuthFailureBurst {
 			t.Fatalf("wrong event %q", p.Event)
 		}
 		if p.Detail["ip"] != "2.2.2.2" || p.Detail["actor"] != "bob" {
@@ -141,7 +142,7 @@ func TestAuthFailureTrackerNilSafe(t *testing.T) {
 
 func TestPanicRecoveryMiddleware(t *testing.T) {
 	wm := newIncidentWebhookManager(t)
-	ch := captureEvents(t, wm, EventPanicRecovered)
+	ch := captureEvents(t, wm, webhooks.EventPanicRecovered)
 	h := PanicRecoveryMiddleware(wm, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		panic("boom")
 	}))
@@ -178,7 +179,7 @@ func TestPanicRecoveryMiddlewareHappyPath(t *testing.T) {
 
 func TestPanicRecoveryMiddlewareErrorPanic(t *testing.T) {
 	wm := newIncidentWebhookManager(t)
-	ch := captureEvents(t, wm, EventPanicRecovered)
+	ch := captureEvents(t, wm, webhooks.EventPanicRecovered)
 	h := PanicRecoveryMiddleware(wm, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		panic(&errPanic{"db exploded"})
 	}))
@@ -228,14 +229,14 @@ func TestDiskMonitorZeroWhenNoWM(t *testing.T) {
 	if NewDiskUsageMonitor(nil, "/tmp") != nil {
 		t.Fatal("nil wm should produce nil monitor")
 	}
-	if NewDiskUsageMonitor(&WebhookManager{}, "") != nil {
+	if NewDiskUsageMonitor(&webhooks.WebhookManager{}, "") != nil {
 		t.Fatal("empty path should produce nil monitor")
 	}
 }
 
 func TestDiskMonitorFiresAtThreshold(t *testing.T) {
 	wm := newIncidentWebhookManager(t)
-	ch := captureEvents(t, wm, EventDiskUsageHigh)
+	ch := captureEvents(t, wm, webhooks.EventDiskUsageHigh)
 	// 0%% threshold ⇒ always over.
 	t.Setenv("MDDB_INCIDENT_DISK_THRESHOLD_PCT", "1")
 	t.Setenv("MDDB_INCIDENT_DISK_INTERVAL_SEC", "1")
@@ -248,7 +249,7 @@ func TestDiskMonitorFiresAtThreshold(t *testing.T) {
 	m.check()
 	select {
 	case p := <-ch:
-		if p.Event != EventDiskUsageHigh {
+		if p.Event != webhooks.EventDiskUsageHigh {
 			t.Fatalf("bad event %q", p.Event)
 		}
 	case <-time.After(2 * time.Second):
@@ -270,7 +271,7 @@ func (s *stubLag) LagMs() int64 { return s.v.Load() }
 
 func TestLagMonitorFiresAboveThreshold(t *testing.T) {
 	wm := newIncidentWebhookManager(t)
-	ch := captureEvents(t, wm, EventReplicationLagHigh)
+	ch := captureEvents(t, wm, webhooks.EventReplicationLagHigh)
 	t.Setenv("MDDB_INCIDENT_LAG_THRESHOLD_MS", "1000")
 	t.Setenv("MDDB_INCIDENT_LAG_INTERVAL_SEC", "1")
 	t.Setenv("MDDB_INCIDENT_LAG_COOLDOWN_SEC", "1")
@@ -290,7 +291,7 @@ func TestLagMonitorFiresAboveThreshold(t *testing.T) {
 
 func TestLagMonitorBelowThresholdSilent(t *testing.T) {
 	wm := newIncidentWebhookManager(t)
-	ch := captureEvents(t, wm, EventReplicationLagHigh)
+	ch := captureEvents(t, wm, webhooks.EventReplicationLagHigh)
 	t.Setenv("MDDB_INCIDENT_LAG_THRESHOLD_MS", "5000")
 	src := &stubLag{}
 	src.v.Store(200)
@@ -305,7 +306,7 @@ func TestLagMonitorBelowThresholdSilent(t *testing.T) {
 
 func TestLagMonitorCooldown(t *testing.T) {
 	wm := newIncidentWebhookManager(t)
-	ch := captureEvents(t, wm, EventReplicationLagHigh)
+	ch := captureEvents(t, wm, webhooks.EventReplicationLagHigh)
 	t.Setenv("MDDB_INCIDENT_LAG_THRESHOLD_MS", "100")
 	t.Setenv("MDDB_INCIDENT_LAG_COOLDOWN_SEC", "3600")
 	src := &stubLag{}

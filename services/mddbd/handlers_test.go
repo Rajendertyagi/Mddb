@@ -10,6 +10,7 @@ import (
 	"mddb/internal/schema"
 	"mddb/internal/storage"
 	"mddb/internal/vector"
+	"mddb/internal/webhooks"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -89,7 +90,7 @@ func newHandlerTestServer(t *testing.T) (*Server, func()) {
 	}
 
 	// Webhooks
-	s.WebhookManager = NewWebhookManager(db)
+	s.WebhookManager = webhooks.NewWebhookManager(db)
 	if err := s.WebhookManager.EnsureBucket(); err != nil {
 		_ = db.Close()
 		_ = os.Remove(f.Name())
