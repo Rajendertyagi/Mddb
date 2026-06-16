@@ -17,6 +17,7 @@ import (
 	"mddb/internal/fts"
 	"mddb/internal/geo"
 	"mddb/internal/sliceutil"
+	"mddb/internal/spell"
 	"mddb/internal/temporal"
 	"mddb/internal/vector"
 	"net/http"
@@ -111,7 +112,7 @@ type Server struct {
 	CollectionManager  *CollectionManager        // Per-collection attributes (type, description, icon, etc.)
 	CurationManager    *CurationManager          // FTS/Hybrid curation rules: pinned + hidden results per query
 	TemporalManager    *temporal.TemporalManager // Document lifecycle event tracking (create/update/access)
-	SpellManager       *SpellManager             // Spell correction for FTS queries and document content
+	SpellManager       *spell.SpellManager       // Spell correction for FTS queries and document content
 	SSEHub             *SSEHub                   // Server-Sent Events for real-time document change notifications
 	BulkIngest         *BulkIngestManager        // Async bulk ingest job manager
 	MCPInfo            MCPServerInfo             // Customizable MCP server profile
@@ -635,7 +636,7 @@ func main() {
 
 	// Initialize spell checker (disabled by default; set MDDB_SPELL=true to enable)
 	if env("MDDB_SPELL", "false") == "true" {
-		s.SpellManager = NewSpellManager(db)
+		s.SpellManager = spell.NewSpellManager(db)
 		if err := s.SpellManager.EnsureBucket(); err != nil {
 			log.Fatal(err)
 		}

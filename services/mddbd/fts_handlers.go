@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"mddb/internal/fts"
+	"mddb/internal/spell"
 	"net/http"
 	"strings"
 	"time"
@@ -41,18 +42,18 @@ type FTSSearchRequest struct {
 
 // FTSSearchResponse is the HTTP response for full-text search.
 type FTSSearchResponse struct {
-	Results        []FTSResultWithDoc   `json:"results"`
-	Total          int                  `json:"total"`
-	Algorithm      string               `json:"algorithm"`
-	Mode           string               `json:"mode"`
-	Fuzzy          int                  `json:"fuzzy"`
-	Lang           string               `json:"lang,omitempty"`
-	StemmingActive bool                 `json:"stemmingActive"`
-	SynonymsActive bool                 `json:"synonymsActive"`
-	FieldWeights   map[string]float64   `json:"fieldWeights,omitempty"`
-	Stats          *SearchStats         `json:"searchStats,omitempty"`
-	SpellCorrected *SpellCorrectionInfo `json:"spellCorrected,omitempty"`
-	Facets         FacetResult          `json:"facets,omitempty"` // populated when request.facetBy is set (v2.9.14+)
+	Results        []FTSResultWithDoc         `json:"results"`
+	Total          int                        `json:"total"`
+	Algorithm      string                     `json:"algorithm"`
+	Mode           string                     `json:"mode"`
+	Fuzzy          int                        `json:"fuzzy"`
+	Lang           string                     `json:"lang,omitempty"`
+	StemmingActive bool                       `json:"stemmingActive"`
+	SynonymsActive bool                       `json:"synonymsActive"`
+	FieldWeights   map[string]float64         `json:"fieldWeights,omitempty"`
+	Stats          *SearchStats               `json:"searchStats,omitempty"`
+	SpellCorrected *spell.SpellCorrectionInfo `json:"spellCorrected,omitempty"`
+	Facets         FacetResult                `json:"facets,omitempty"` // populated when request.facetBy is set (v2.9.14+)
 }
 
 // FTSResultWithDoc includes the full document in the result.
@@ -87,7 +88,7 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Spell-correct the query when enabled for this collection
-	var spellCorrected *SpellCorrectionInfo
+	var spellCorrected *spell.SpellCorrectionInfo
 	if s.SpellManager != nil && s.SpellManager.Ready() && s.CollectionManager != nil {
 		if cfg, ok := s.CollectionManager.Get(req.Collection); ok && cfg.SpellCorrect {
 			lang := req.Lang
@@ -96,7 +97,7 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 			}
 			corrected := s.SpellManager.Cleanup(req.Collection, lang, req.Query)
 			if corrected != req.Query {
-				spellCorrected = &SpellCorrectionInfo{Original: req.Query, Corrected: corrected}
+				spellCorrected = &spell.SpellCorrectionInfo{Original: req.Query, Corrected: corrected}
 				req.Query = corrected
 			}
 		}

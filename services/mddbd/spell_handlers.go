@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"mddb/internal/spell"
 	"net/http"
 
 	json "github.com/goccy/go-json"
@@ -17,9 +18,9 @@ type SpellSuggestRequest struct {
 
 // SpellSuggestResponse is the HTTP response for spell suggestions.
 type SpellSuggestResponse struct {
-	OriginalText     string            `json:"originalText"`
-	SuggestedText    string            `json:"suggestedText"`
-	TokenSuggestions []SpellSuggestion `json:"tokenSuggestions"`
+	OriginalText     string                  `json:"originalText"`
+	SuggestedText    string                  `json:"suggestedText"`
+	TokenSuggestions []spell.SpellSuggestion `json:"tokenSuggestions"`
 }
 
 // SpellCleanupRequest is the HTTP request body for document content cleanup.
