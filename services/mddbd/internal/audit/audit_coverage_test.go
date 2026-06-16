@@ -2,6 +2,7 @@ package audit
 
 import (
 	"io"
+	"mddb/internal/httpclient"
 	"os"
 	"strings"
 	"testing"
@@ -158,6 +159,6 @@ func TestExporterCoreAndDrain(t *testing.T) {
 	c.pushOrDrop(AuditEvent{Action: "x"})
 
 	// Both drainAndClose branches.
-	drainAndClose(nil)
-	drainAndClose(io.NopCloser(strings.NewReader("body")))
+	httpclient.DrainAndClose(nil)
+	httpclient.DrainAndClose(io.NopCloser(strings.NewReader("body")))
 }

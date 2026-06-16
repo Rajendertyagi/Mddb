@@ -3,7 +3,7 @@
 // Webhooks, import-url, bulk callbacks and automation triggers all dial URLs
 // supplied by users. Without address checks those become Server-Side Request
 // Forgery vectors: reading cloud-metadata (169.254.169.254), hitting internal
-// admin panels, or port-scanning the cluster. safeDialContext resolves the
+// admin panels, or port-scanning the cluster. SafeDialContext resolves the
 // host and refuses private/loopback/link-local targets, then dials the
 // already-resolved IP to defeat DNS rebinding. validateOutboundURL re-applies
 // the same policy on each redirect hop.
@@ -13,7 +13,7 @@
 // private-network calls keep working. Operators on trusted intranets can opt
 // out with MDDB_OUTBOUND_ALLOW_PRIVATE=true or allowlist specific hosts via
 // MDDB_OUTBOUND_ALLOWLIST=host1,host2.
-package main
+package httpclient
 
 import (
 	"context"
@@ -61,8 +61,8 @@ func isDisallowedIP(ip net.IP) bool {
 		ip.IsLinkLocalMulticast() || ip.IsUnspecified()
 }
 
-// safeDialContext is a net.Dialer DialContext that blocks SSRF targets.
-func safeDialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+// SafeDialContext is a net.Dialer DialContext that blocks SSRF targets.
+func SafeDialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
 		return nil, err

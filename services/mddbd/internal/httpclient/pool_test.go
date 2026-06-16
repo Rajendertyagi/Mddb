@@ -1,4 +1,4 @@
-package main
+package httpclient
 
 import (
 	"bytes"
@@ -13,7 +13,7 @@ import (
 )
 
 // trackingBody records how many bytes were read and whether Close was called,
-// so the drainAndClose tests can assert the body is both drained and closed.
+// so the DrainAndClose tests can assert the body is both drained and closed.
 type trackingBody struct {
 	io.Reader
 	read   int
@@ -33,14 +33,14 @@ func (b *trackingBody) Close() error {
 
 // TestDrainAndClose_NilBody documents that a nil body is a safe no-op (GO-014).
 func TestDrainAndClose_NilBody(t *testing.T) {
-	drainAndClose(nil) // must not panic
+	DrainAndClose(nil) // must not panic
 }
 
 // TestDrainAndClose_ReadsAndCloses verifies the helper both drains and closes
 // the body so the pooled connection can be reused.
 func TestDrainAndClose_ReadsAndCloses(t *testing.T) {
 	rc := &trackingBody{Reader: strings.NewReader("hello world payload")}
-	drainAndClose(rc)
+	DrainAndClose(rc)
 	if !rc.closed {
 		t.Error("expected body to be closed")
 	}
@@ -50,11 +50,11 @@ func TestDrainAndClose_ReadsAndCloses(t *testing.T) {
 }
 
 // TestDrainAndClose_CapsAtLimit ensures a pathological oversize body is not read
-// in full — drainAndClose stops at drainBodyLimit and still closes.
+// in full — DrainAndClose stops at drainBodyLimit and still closes.
 func TestDrainAndClose_CapsAtLimit(t *testing.T) {
 	big := bytes.Repeat([]byte("x"), drainBodyLimit*2)
 	rc := &trackingBody{Reader: bytes.NewReader(big)}
-	drainAndClose(rc)
+	DrainAndClose(rc)
 	if rc.read > drainBodyLimit {
 		t.Errorf("expected at most %d bytes read, got %d", drainBodyLimit, rc.read)
 	}
@@ -87,7 +87,7 @@ func TestDrainAndClose_EnablesConnReuse(t *testing.T) {
 		if err != nil {
 			t.Fatalf("request %d: %v", i, err)
 		}
-		drainAndClose(resp.Body)
+		DrainAndClose(resp.Body)
 	}
 	if got := atomic.LoadInt32(&newConns); got != 1 {
 		t.Errorf("expected a single reused connection, got %d new connections", got)

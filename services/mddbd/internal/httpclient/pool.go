@@ -1,4 +1,4 @@
-package main
+package httpclient
 
 import (
 	"io"
@@ -7,19 +7,19 @@ import (
 	"time"
 )
 
-// drainBodyLimit caps how many bytes drainAndClose reads before closing, so a
+// drainBodyLimit caps how many bytes DrainAndClose reads before closing, so a
 // misbehaving peer can't make us read an unbounded body just to reuse the
 // socket. 64 KiB comfortably covers the small JSON/empty responses these
 // outbound calls (webhooks, automation, bulk callbacks) expect.
 const drainBodyLimit = 64 << 10
 
-// drainAndClose discards the remaining response body (up to drainBodyLimit) and
+// DrainAndClose discards the remaining response body (up to drainBodyLimit) and
 // then closes it. Closing a body without reading it to completion prevents the
 // pooled transport from returning the underlying TCP/TLS connection to the
 // keep-alive pool — so every webhook/automation delivery (with up to 4 retries)
 // would otherwise pay a fresh connection + TLS handshake (GO-014). Safe to pass
 // a nil body.
-func drainAndClose(body io.ReadCloser) {
+func DrainAndClose(body io.ReadCloser) {
 	if body == nil {
 		return
 	}
@@ -44,12 +44,12 @@ func init() {
 	idleTimeout := envconf.Int("MDDB_HTTP_POOL_IDLE_TIMEOUT", 90)
 
 	transport := &http.Transport{
-		// SEC-004: safeDialContext blocks SSRF targets (private/loopback/
+		// SEC-004: SafeDialContext blocks SSRF targets (private/loopback/
 		// link-local / cloud-metadata) and dials a pre-resolved IP to defeat
 		// DNS rebinding. This shared transport backs all user-URL outbound
 		// paths (webhooks, import-url, automation, bulk callbacks); internal
 		// embedding providers use their own clients and are unaffected.
-		DialContext:         safeDialContext,
+		DialContext:         SafeDialContext,
 		MaxIdleConns:        maxIdle,
 		MaxIdleConnsPerHost: maxPerHost,
 		IdleConnTimeout:     time.Duration(idleTimeout) * time.Second,

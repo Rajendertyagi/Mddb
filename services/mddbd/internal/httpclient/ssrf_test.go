@@ -1,4 +1,4 @@
-package main
+package httpclient
 
 import (
 	"context"
@@ -60,13 +60,13 @@ func TestValidateOutboundURL(t *testing.T) {
 func TestSafeDialContext_BlocksPrivateLiteralIP(t *testing.T) {
 	t.Setenv("MDDB_OUTBOUND_ALLOW_PRIVATE", "") // assert blocking (TestMain enables it)
 	// A literal private IP is rejected before any connection is attempted.
-	_, err := safeDialContext(context.Background(), "tcp", "169.254.169.254:80")
+	_, err := SafeDialContext(context.Background(), "tcp", "169.254.169.254:80")
 	if !errors.Is(err, errSSRFBlocked) {
-		t.Errorf("safeDialContext(metadata IP) = %v, want errSSRFBlocked", err)
+		t.Errorf("SafeDialContext(metadata IP) = %v, want errSSRFBlocked", err)
 	}
-	_, err = safeDialContext(context.Background(), "tcp", "127.0.0.1:80")
+	_, err = SafeDialContext(context.Background(), "tcp", "127.0.0.1:80")
 	if !errors.Is(err, errSSRFBlocked) {
-		t.Errorf("safeDialContext(loopback) = %v, want errSSRFBlocked", err)
+		t.Errorf("SafeDialContext(loopback) = %v, want errSSRFBlocked", err)
 	}
 }
 
@@ -74,7 +74,7 @@ func TestSafeDialContext_AllowPrivateOptIn(t *testing.T) {
 	t.Setenv("MDDB_OUTBOUND_ALLOW_PRIVATE", "true")
 	// With the opt-in, the SSRF check is skipped — the dial proceeds and fails
 	// with a normal connection error, NOT errSSRFBlocked.
-	_, err := safeDialContext(context.Background(), "tcp", "127.0.0.1:1")
+	_, err := SafeDialContext(context.Background(), "tcp", "127.0.0.1:1")
 	if errors.Is(err, errSSRFBlocked) {
 		t.Error("with MDDB_OUTBOUND_ALLOW_PRIVATE=true, dial must not be SSRF-blocked")
 	}

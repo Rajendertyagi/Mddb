@@ -665,7 +665,7 @@ func main() {
 		s.EmbeddingWorker.metrics = s.Metrics
 	}
 	if s.WebhookManager != nil {
-		s.WebhookManager.metrics = s.Metrics
+		s.WebhookManager.SetMetrics(s.Metrics)
 	}
 
 	// Initialize replication

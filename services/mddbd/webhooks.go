@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"mddb/internal/binlog"
+	"mddb/internal/httpclient"
 	"mddb/internal/metrics"
 	"mddb/internal/storage"
 	"net/http"
@@ -59,11 +60,14 @@ func NewWebhookManager(db *bolt.DB) *WebhookManager {
 	return &WebhookManager{db: db}
 }
 
-// reload re-points the manager at a freshly restored database and reloads its
+// SetMetrics wires the metrics collector used to count fired webhooks.
+func (wm *WebhookManager) SetMetrics(m *metrics.Metrics) { wm.metrics = m }
+
+// Reload re-points the manager at a freshly restored database and reloads its
 // in-memory hooks (GO-004). Keeping the same *WebhookManager (rather than
 // swapping Server.WebhookManager) avoids racing the field with readers; the db
 // handle is updated under the manager's own lock.
-func (wm *WebhookManager) reload(db *bolt.DB) error {
+func (wm *WebhookManager) Reload(db *bolt.DB) error {
 	wm.mu.Lock()
 	wm.db = db
 	wm.mu.Unlock()
@@ -271,12 +275,12 @@ func fireWebhook(hook Webhook, payload WebhookPayload) {
 		req.Header.Set("X-MDDB-Event", payload.Event)
 		req.Header.Set("X-MDDB-Webhook-ID", hook.ID)
 
-		resp, err := NewPooledClientWithTimeout(10 * time.Second).Do(req)
+		resp, err := httpclient.NewPooledClientWithTimeout(10 * time.Second).Do(req)
 		if err != nil {
 			log.Printf("webhook %s: attempt %d failed: %v", hook.ID, attempt+1, err)
 			continue
 		}
-		drainAndClose(resp.Body)
+		httpclient.DrainAndClose(resp.Body)
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			return // success

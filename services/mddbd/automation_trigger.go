@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"mddb/internal/httpclient"
 	"mddb/internal/sentiment"
 	"mddb/internal/storage"
 	"net/http"
@@ -493,7 +494,7 @@ func fireCronWebhook(webhook *AutomationRule, cronID, cronName string, logStore 
 			req.Header.Set(k, v)
 		}
 
-		resp, err := NewPooledClientWithTimeout(10 * time.Second).Do(req)
+		resp, err := httpclient.NewPooledClientWithTimeout(10 * time.Second).Do(req)
 		if err != nil {
 			log.Printf("cron %s → webhook %s: attempt %d failed: %v", cronID, webhook.ID, attempt+1, err)
 			lastError = err.Error()
@@ -501,7 +502,7 @@ func fireCronWebhook(webhook *AutomationRule, cronID, cronName string, logStore 
 			continue
 		}
 		lastHTTPStatus = resp.StatusCode
-		drainAndClose(resp.Body)
+		httpclient.DrainAndClose(resp.Body)
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			finalStatus = "success"
@@ -597,7 +598,7 @@ func fireAutomationWebhook(webhook *AutomationRule, trigger *AutomationRule, doc
 			req.Header.Set(k, v)
 		}
 
-		resp, err := NewPooledClientWithTimeout(10 * time.Second).Do(req) // #nosec G704 -- URL from internal webhook config
+		resp, err := httpclient.NewPooledClientWithTimeout(10 * time.Second).Do(req) // #nosec G704 -- URL from internal webhook config
 		if err != nil {
 			log.Printf("trigger %s → webhook %s: attempt %d failed: %v", trigger.ID, webhook.ID, attempt+1, err) // #nosec G706 -- internal log
 			lastError = err.Error()
@@ -605,7 +606,7 @@ func fireAutomationWebhook(webhook *AutomationRule, trigger *AutomationRule, doc
 			continue
 		}
 		lastHTTPStatus = resp.StatusCode
-		drainAndClose(resp.Body)
+		httpclient.DrainAndClose(resp.Body)
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			finalStatus = "success"

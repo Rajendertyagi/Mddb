@@ -353,7 +353,7 @@ func (rc *ReplicationClient) rebuildInMemoryState() {
 
 	// Reload webhooks in place.
 	if rc.server.WebhookManager != nil {
-		if err := rc.server.WebhookManager.reload(rc.server.DB); err != nil {
+		if err := rc.server.WebhookManager.Reload(rc.server.DB); err != nil {
 			log.Printf("Replication: webhook reload after snapshot failed: %v", err)
 		}
 	}

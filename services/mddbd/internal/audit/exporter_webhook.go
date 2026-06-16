@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"io"
+	"mddb/internal/httpclient"
 	"net/http"
 	"strings"
 	"time"
@@ -87,7 +87,7 @@ func (w *WebhookExporter) deliver(ev AuditEvent) error {
 			lastErr = fmt.Errorf("attempt %d: %w", attempt+1, err)
 			continue
 		}
-		drainAndClose(resp.Body)
+		httpclient.DrainAndClose(resp.Body)
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			return nil
 		}
@@ -112,14 +112,4 @@ func parseHeaderCSV(csv string) []string {
 		}
 	}
 	return out
-}
-
-const drainBodyLimit = 64 << 10
-
-func drainAndClose(body io.ReadCloser) {
-	if body == nil {
-		return
-	}
-	_, _ = io.Copy(io.Discard, io.LimitReader(body, drainBodyLimit))
-	_ = body.Close()
 }
