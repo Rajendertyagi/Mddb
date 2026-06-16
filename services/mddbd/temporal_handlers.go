@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"mddb/internal/temporal"
 	"net/http"
 	"time"
 
@@ -21,10 +22,10 @@ type TemporalQueryRequest struct {
 
 // TemporalQueryResponse is the HTTP response for querying document events.
 type TemporalQueryResponse struct {
-	Collection string          `json:"collection"`
-	DocID      string          `json:"docId"`
-	Events     []TemporalEvent `json:"events"`
-	Total      int             `json:"total"`
+	Collection string                   `json:"collection"`
+	DocID      string                   `json:"docId"`
+	Events     []temporal.TemporalEvent `json:"events"`
+	Total      int                      `json:"total"`
 }
 
 // TemporalHotRequest is the HTTP request body for the hot-docs leaderboard.
@@ -59,10 +60,10 @@ type TemporalHistogramRequest struct {
 
 // TemporalHistogramResponse is the HTTP response for activity histograms.
 type TemporalHistogramResponse struct {
-	Collection string                    `json:"collection"`
-	EventType  string                    `json:"eventType"`
-	Interval   string                    `json:"interval"`
-	Buckets    []TemporalHistogramBucket `json:"buckets"`
+	Collection string                             `json:"collection"`
+	EventType  string                             `json:"eventType"`
+	Interval   string                             `json:"interval"`
+	Buckets    []temporal.TemporalHistogramBucket `json:"buckets"`
 }
 
 // handleTemporalQuery returns event history for a specific document.

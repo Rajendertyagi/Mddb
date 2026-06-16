@@ -1,7 +1,11 @@
 package main
 
 import (
+	"os"
 	"testing"
+	"time"
+
+	bolt "go.etcd.io/bbolt"
 )
 
 func TestSpellModel_SuggestKnownWord(t *testing.T) {
@@ -121,6 +125,29 @@ func TestIsSpellableToken(t *testing.T) {
 	for _, tt := range tests {
 		if got := isSpellableToken(tt.token); got != tt.want {
 			t.Errorf("isSpellableToken(%q) = %v, want %v", tt.token, got, tt.want)
+		}
+	}
+}
+
+func newTestDB(t *testing.T) (*bolt.DB, func()) {
+	t.Helper()
+	f, err := os.CreateTemp("", "mddb-test-*.db")
+	if err != nil {
+		t.Fatalf("temp file: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("close temp file: %v", err)
+	}
+	db, err := bolt.Open(f.Name(), 0600, &bolt.Options{Timeout: 1 * time.Second})
+	if err != nil {
+		t.Fatalf("bolt.Open: %v", err)
+	}
+	return db, func() {
+		if err := db.Close(); err != nil {
+			t.Logf("db.Close: %v", err)
+		}
+		if err := os.Remove(f.Name()); err != nil {
+			t.Logf("os.Remove: %v", err)
 		}
 	}
 }

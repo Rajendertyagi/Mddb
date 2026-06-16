@@ -17,6 +17,7 @@ import (
 	"mddb/internal/fts"
 	"mddb/internal/geo"
 	"mddb/internal/sliceutil"
+	"mddb/internal/temporal"
 	"mddb/internal/vector"
 	"net/http"
 	"os"
@@ -89,34 +90,34 @@ type Server struct {
 	GeoIndex     *geo.GeoIndex     // In-memory R-tree geo index (default)
 	GeoHashIndex *geo.GeoHashIndex // Alternative geohash-prefix index
 	// New features
-	TTLManager         *TTLManager            // Document TTL / auto-expiry
-	FTSIndex           *fts.FTSIndex          // Full-text search index
-	WebhookManager     *WebhookManager        // Webhook subscriptions and delivery
-	SchemaManager      *SchemaManager         // Per-collection metadata schema validation
-	Metrics            *Metrics               // Prometheus-compatible telemetry
-	AuthManager        *AuthManager           // Authentication and authorization
-	AuditManager       *AuditManager          // Audit log (ISO 27001 A.8.15, SOC 2 CC7.2)
-	RateLimiter        *RateLimiter           // Cross-transport rate limiter (ISO 27001 A.5.30, SOC 2 CC6.6)
-	Encryptor          *Encryptor             // At-rest AES-256-GCM encryption (ISO 27001 A.8.24, SOC 2 CC6.7)
-	RotationManager    *RotationManager       // Background re-encryption after key rotation
-	AuthFailureTracker *AuthFailureTracker    // Sliding-window auth failure counter → security.auth_failure_burst
-	LagMonitor         *ReplicationLagMonitor // Periodic replication-lag → ops.replication_lag_high
-	DiskMonitor        *DiskUsageMonitor      // Periodic disk-usage → ops.disk_usage_high
-	SynonymManager     *fts.SynonymManager    // Synonym dictionaries for FTS
-	StopWordManager    *fts.StopWordManager   // Per-collection custom stop words for FTS
-	AutomationManager  *AutomationManager     // Automation: triggers, crons, webhook targets
-	AutomationLogStore *AutomationLogStore    // Automation execution logs
-	CronScheduler      *CronScheduler         // Cron scheduler for automation
-	CollectionManager  *CollectionManager     // Per-collection attributes (type, description, icon, etc.)
-	CurationManager    *CurationManager       // FTS/Hybrid curation rules: pinned + hidden results per query
-	TemporalManager    *TemporalManager       // Document lifecycle event tracking (create/update/access)
-	SpellManager       *SpellManager          // Spell correction for FTS queries and document content
-	SSEHub             *SSEHub                // Server-Sent Events for real-time document change notifications
-	BulkIngest         *BulkIngestManager     // Async bulk ingest job manager
-	MCPInfo            MCPServerInfo          // Customizable MCP server profile
-	MCPInstructions    string                 // System prompt for LLM — how to use this server
-	mcpKeyStore        *mcpAPIKeyStore        // BoltDB-backed MCP API key store
-	mcpAuth            *MCPAPIKeyMiddleware   // MCP API key middleware (for cache invalidation)
+	TTLManager         *TTLManager               // Document TTL / auto-expiry
+	FTSIndex           *fts.FTSIndex             // Full-text search index
+	WebhookManager     *WebhookManager           // Webhook subscriptions and delivery
+	SchemaManager      *SchemaManager            // Per-collection metadata schema validation
+	Metrics            *Metrics                  // Prometheus-compatible telemetry
+	AuthManager        *AuthManager              // Authentication and authorization
+	AuditManager       *AuditManager             // Audit log (ISO 27001 A.8.15, SOC 2 CC7.2)
+	RateLimiter        *RateLimiter              // Cross-transport rate limiter (ISO 27001 A.5.30, SOC 2 CC6.6)
+	Encryptor          *Encryptor                // At-rest AES-256-GCM encryption (ISO 27001 A.8.24, SOC 2 CC6.7)
+	RotationManager    *RotationManager          // Background re-encryption after key rotation
+	AuthFailureTracker *AuthFailureTracker       // Sliding-window auth failure counter → security.auth_failure_burst
+	LagMonitor         *ReplicationLagMonitor    // Periodic replication-lag → ops.replication_lag_high
+	DiskMonitor        *DiskUsageMonitor         // Periodic disk-usage → ops.disk_usage_high
+	SynonymManager     *fts.SynonymManager       // Synonym dictionaries for FTS
+	StopWordManager    *fts.StopWordManager      // Per-collection custom stop words for FTS
+	AutomationManager  *AutomationManager        // Automation: triggers, crons, webhook targets
+	AutomationLogStore *AutomationLogStore       // Automation execution logs
+	CronScheduler      *CronScheduler            // Cron scheduler for automation
+	CollectionManager  *CollectionManager        // Per-collection attributes (type, description, icon, etc.)
+	CurationManager    *CurationManager          // FTS/Hybrid curation rules: pinned + hidden results per query
+	TemporalManager    *temporal.TemporalManager // Document lifecycle event tracking (create/update/access)
+	SpellManager       *SpellManager             // Spell correction for FTS queries and document content
+	SSEHub             *SSEHub                   // Server-Sent Events for real-time document change notifications
+	BulkIngest         *BulkIngestManager        // Async bulk ingest job manager
+	MCPInfo            MCPServerInfo             // Customizable MCP server profile
+	MCPInstructions    string                    // System prompt for LLM — how to use this server
+	mcpKeyStore        *mcpAPIKeyStore           // BoltDB-backed MCP API key store
+	mcpAuth            *MCPAPIKeyMiddleware      // MCP API key middleware (for cache invalidation)
 	// Replication
 	Binlog          *binlog.Binlog     // Binary replication log
 	ReplicationRole string             // "leader", "follower", or "" (standalone)
@@ -624,7 +625,7 @@ func main() {
 
 	// Initialize temporal event tracking (disabled by default; set MDDB_TEMPORAL=true to enable)
 	if env("MDDB_TEMPORAL", "false") == "true" {
-		s.TemporalManager = NewTemporalManager(db)
+		s.TemporalManager = temporal.NewTemporalManager(db)
 		if err := s.TemporalManager.EnsureBuckets(); err != nil {
 			log.Fatal(err)
 		}
@@ -1629,9 +1630,9 @@ func (s *Server) runPostWriteHooks(collection string, saved Doc, isNew bool) {
 
 	// Temporal tracking
 	if s.TemporalManager != nil {
-		et := EventUpdate
+		et := temporal.EventUpdate
 		if isNew {
-			et = EventCreate
+			et = temporal.EventCreate
 		}
 		s.TemporalManager.RecordAsync(collection, saved.ID, et, "")
 	}
@@ -1872,7 +1873,7 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 			if claims, ok := GetClaimsFromContext(r.Context()); ok {
 				actor = claims.Username
 			}
-			s.TemporalManager.RecordAsync(req.Collection, doc.ID, EventAccess, actor)
+			s.TemporalManager.RecordAsync(req.Collection, doc.ID, temporal.EventAccess, actor)
 		}
 	}
 

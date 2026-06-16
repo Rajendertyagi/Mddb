@@ -1,4 +1,4 @@
-package main
+package temporal
 
 import (
 	"encoding/binary"
@@ -290,7 +290,7 @@ func (tm *TemporalManager) GetHotDocs(collection string, topN int, since int64) 
 	return entries, nil
 }
 
-// HistogramBucket is a time-bucket with an event count.
+// TemporalHistogramBucket is a time-bucket with an event count.
 type TemporalHistogramBucket struct {
 	Label string `json:"label"` // e.g. "2026-04-01" or "2026-W14"
 	From  int64  `json:"from"`
