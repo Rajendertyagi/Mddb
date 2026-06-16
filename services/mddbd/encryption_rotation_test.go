@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"mddb/internal/audit"
 	"strings"
 	"testing"
 	"time"
@@ -439,11 +440,11 @@ func waitJob(t *testing.T, rm *RotationManager, id, want string, timeout time.Du
 }
 
 // TestRotation_AuditEvents verifies rotation_started and
-// rotation_completed are recorded when an AuditManager is wired.
+// rotation_completed are recorded when an audit.AuditManager is wired.
 func TestRotation_AuditEvents(t *testing.T) {
 	s, cleanup := newHandlerTestServer(t)
 	defer cleanup()
-	s.AuditManager = NewAuditManager(s.DB, true, 1)
+	s.AuditManager = audit.NewAuditManager(s.DB, true, 1)
 	if err := s.AuditManager.EnsureBuckets(); err != nil {
 		t.Fatal(err)
 	}
@@ -466,7 +467,7 @@ func TestRotation_AuditEvents(t *testing.T) {
 	}
 	// Wait one writer flush cycle.
 	time.Sleep(700 * time.Millisecond)
-	events, err := s.AuditManager.Query(QueryFilter{Limit: 50})
+	events, err := s.AuditManager.Query(audit.QueryFilter{Limit: 50})
 	if err != nil {
 		t.Fatal(err)
 	}

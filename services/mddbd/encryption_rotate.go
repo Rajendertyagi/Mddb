@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"mddb/internal/audit"
 	"sync"
 	"time"
 
@@ -436,7 +437,7 @@ func (rm *RotationManager) audit(action string, job *RotationJob) {
 		"errors":      job.Errors,
 	})
 	rm.mu.Unlock()
-	rm.server.AuditManager.Record(AuditEvent{
+	rm.server.AuditManager.Record(audit.AuditEvent{
 		Action:   action,
 		Resource: "encryption",
 		Result:   "ok",

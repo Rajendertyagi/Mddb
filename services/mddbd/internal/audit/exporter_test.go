@@ -1,4 +1,4 @@
-package main
+package audit
 
 import (
 	"errors"
@@ -129,7 +129,7 @@ func TestExporterCore_CloseConcurrent(t *testing.T) {
 // TestAuditManagerFanOut wires a stub exporter and confirms every
 // flushed event is mirrored.
 func TestAuditManagerFanOut(t *testing.T) {
-	tmp := t.TempDir() + "/audit.db"
+	tmp := t.TempDir() + "/db"
 	db := openTestBolt(t, tmp)
 	defer func() { _ = db.Close() }()
 
@@ -159,7 +159,7 @@ func TestAuditManagerFanOut(t *testing.T) {
 
 // TestAuditManagerExporters_ListAndStop checks the slot.
 func TestAuditManagerExporters_ListAndStop(t *testing.T) {
-	tmp := t.TempDir() + "/audit.db"
+	tmp := t.TempDir() + "/db"
 	db := openTestBolt(t, tmp)
 	defer func() { _ = db.Close() }()
 	am := NewAuditManager(db, true, 1)

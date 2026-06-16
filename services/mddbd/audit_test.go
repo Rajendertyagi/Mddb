@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"mddb/internal/audit"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -11,14 +12,14 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-func newAuditTestManager(t *testing.T, retention int) (*AuditManager, func()) {
+func newAuditTestManager(t *testing.T, retention int) (*audit.AuditManager, func()) {
 	t.Helper()
 	dir := t.TempDir()
 	db, err := bolt.Open(filepath.Join(dir, "audit.db"), 0o600, nil)
 	if err != nil {
 		t.Fatalf("open bolt: %v", err)
 	}
-	am := NewAuditManager(db, true, retention)
+	am := audit.NewAuditManager(db, true, retention)
 	if err := am.EnsureBuckets(); err != nil {
 		t.Fatalf("buckets: %v", err)
 	}
@@ -30,7 +31,7 @@ func newAuditTestManager(t *testing.T, retention int) (*AuditManager, func()) {
 	return am, cleanup
 }
 
-func waitFlush(_ *AuditManager) {
+func waitFlush(_ *audit.AuditManager) {
 	time.Sleep(700 * time.Millisecond)
 }
 
@@ -38,12 +39,12 @@ func TestAuditRecordAndQuery(t *testing.T) {
 	am, cleanup := newAuditTestManager(t, 90)
 	defer cleanup()
 
-	am.Record(AuditEvent{Actor: "alice", Action: "auth.login", Result: "ok"})
-	am.Record(AuditEvent{Actor: "bob", Action: "auth.login", Result: "fail"})
-	am.Record(AuditEvent{Actor: "alice", Action: "write./v1/add", Result: "ok"})
+	am.Record(audit.AuditEvent{Actor: "alice", Action: "auth.login", Result: "ok"})
+	am.Record(audit.AuditEvent{Actor: "bob", Action: "auth.login", Result: "fail"})
+	am.Record(audit.AuditEvent{Actor: "alice", Action: "write./v1/add", Result: "ok"})
 	waitFlush(am)
 
-	events, err := am.Query(QueryFilter{})
+	events, err := am.Query(audit.QueryFilter{})
 	if err != nil {
 		t.Fatalf("query: %v", err)
 	}
@@ -57,25 +58,25 @@ func TestAuditRecordAndQuery(t *testing.T) {
 	}
 
 	// Filter by actor
-	ev, _ := am.Query(QueryFilter{Actor: "alice"})
+	ev, _ := am.Query(audit.QueryFilter{Actor: "alice"})
 	if len(ev) != 2 {
 		t.Fatalf("alice events: want 2, got %d", len(ev))
 	}
 
 	// Filter by result=fail
-	ev, _ = am.Query(QueryFilter{Result: "fail"})
+	ev, _ = am.Query(audit.QueryFilter{Result: "fail"})
 	if len(ev) != 1 || ev[0].Actor != "bob" {
 		t.Fatalf("fail events: unexpected %+v", ev)
 	}
 
 	// Filter by action
-	ev, _ = am.Query(QueryFilter{Action: "auth.login"})
+	ev, _ = am.Query(audit.QueryFilter{Action: "auth.login"})
 	if len(ev) != 2 {
 		t.Fatalf("auth.login events: want 2, got %d", len(ev))
 	}
 
 	// Limit
-	ev, _ = am.Query(QueryFilter{Limit: 1})
+	ev, _ = am.Query(audit.QueryFilter{Limit: 1})
 	if len(ev) != 1 {
 		t.Fatalf("limit 1: got %d", len(ev))
 	}
@@ -88,8 +89,8 @@ func TestAuditPurgeOlderThan(t *testing.T) {
 	past := time.Now().Add(-10 * time.Hour).UnixNano()
 	now := time.Now().UnixNano()
 
-	am.Record(AuditEvent{Timestamp: past, Actor: "old", Action: "auth.login", Result: "ok"})
-	am.Record(AuditEvent{Timestamp: now, Actor: "new", Action: "auth.login", Result: "ok"})
+	am.Record(audit.AuditEvent{Timestamp: past, Actor: "old", Action: "auth.login", Result: "ok"})
+	am.Record(audit.AuditEvent{Timestamp: now, Actor: "new", Action: "auth.login", Result: "ok"})
 	waitFlush(am)
 
 	cutoff := time.Now().Add(-5 * time.Hour).UnixNano()
@@ -97,7 +98,7 @@ func TestAuditPurgeOlderThan(t *testing.T) {
 		t.Fatalf("purge: %v", err)
 	}
 
-	events, _ := am.Query(QueryFilter{})
+	events, _ := am.Query(audit.QueryFilter{})
 	if len(events) != 1 || events[0].Actor != "new" {
 		t.Fatalf("after purge want only 'new', got %+v", events)
 	}
@@ -110,13 +111,13 @@ func TestAuditDisabledNoOp(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = db.Close() }()
-	am := NewAuditManager(db, false, 90)
+	am := audit.NewAuditManager(db, false, 90)
 	_ = am.EnsureBuckets()
 	am.Start()
 	defer am.Stop()
 
-	am.Record(AuditEvent{Actor: "alice", Action: "x", Result: "ok"})
-	events, _ := am.Query(QueryFilter{})
+	am.Record(audit.AuditEvent{Actor: "alice", Action: "x", Result: "ok"})
+	events, _ := am.Query(audit.QueryFilter{})
 	if len(events) != 0 {
 		t.Fatalf("disabled manager stored %d events", len(events))
 	}
@@ -130,12 +131,12 @@ func TestAuditDroppedWhenBufferFull(t *testing.T) {
 	}
 	defer func() { _ = db.Close() }()
 	// Do NOT Start(): writer goroutine is absent, channel cannot drain.
-	am := NewAuditManager(db, true, 90)
+	am := audit.NewAuditManager(db, true, 90)
 	_ = am.EnsureBuckets()
 
 	// Buffer cap is 1024; overshoot to force drops.
 	for i := 0; i < 1100; i++ {
-		am.Record(AuditEvent{Actor: "spam", Action: "x", Result: "ok"})
+		am.Record(audit.AuditEvent{Actor: "spam", Action: "x", Result: "ok"})
 	}
 	if am.Dropped() == 0 {
 		t.Fatalf("expected drops, got 0")
@@ -145,7 +146,7 @@ func TestAuditDroppedWhenBufferFull(t *testing.T) {
 func TestAuditHandlerRequiresAdmin(t *testing.T) {
 	am, cleanup := newAuditTestManager(t, 90)
 	defer cleanup()
-	am.Record(AuditEvent{Actor: "alice", Action: "auth.login", Result: "ok"})
+	am.Record(audit.AuditEvent{Actor: "alice", Action: "auth.login", Result: "ok"})
 	waitFlush(am)
 
 	s := &Server{AuditManager: am, AuthManager: &AuthManager{enabled: true}}
@@ -178,7 +179,7 @@ func TestAuditHandlerRequiresAdmin(t *testing.T) {
 }
 
 func TestAuditHandlerDisabled(t *testing.T) {
-	s := &Server{AuditManager: NewAuditManager(nil, false, 0)}
+	s := &Server{AuditManager: audit.NewAuditManager(nil, false, 0)}
 	req := httptest.NewRequest("GET", "/v1/audit", nil)
 	rec := httptest.NewRecorder()
 	s.handleAudit(rec, req)
@@ -190,7 +191,7 @@ func TestAuditHandlerDisabled(t *testing.T) {
 func TestAuditHandlerTimeRangeParsing(t *testing.T) {
 	am, cleanup := newAuditTestManager(t, 90)
 	defer cleanup()
-	am.Record(AuditEvent{Actor: "alice", Action: "auth.login", Result: "ok"})
+	am.Record(audit.AuditEvent{Actor: "alice", Action: "auth.login", Result: "ok"})
 	waitFlush(am)
 
 	s := &Server{AuditManager: am}
@@ -238,7 +239,7 @@ func TestAuditPurgeEmptyBucket(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = db.Close() }()
-	am := NewAuditManager(db, true, 90)
+	am := audit.NewAuditManager(db, true, 90)
 	// No EnsureBuckets — PurgeOlderThan must no-op rather than panic.
 	if err := am.PurgeOlderThan(time.Now().UnixNano()); err != nil {
 		t.Fatalf("purge empty: %v", err)
@@ -249,11 +250,11 @@ func TestAuditQueryTimeWindow(t *testing.T) {
 	am, cleanup := newAuditTestManager(t, 90)
 	defer cleanup()
 	base := time.Now().UnixNano()
-	am.Record(AuditEvent{Timestamp: base - int64(time.Hour), Actor: "a", Action: "x", Result: "ok"})
-	am.Record(AuditEvent{Timestamp: base, Actor: "b", Action: "x", Result: "ok"})
-	am.Record(AuditEvent{Timestamp: base + int64(time.Hour), Actor: "c", Action: "x", Result: "ok"})
+	am.Record(audit.AuditEvent{Timestamp: base - int64(time.Hour), Actor: "a", Action: "x", Result: "ok"})
+	am.Record(audit.AuditEvent{Timestamp: base, Actor: "b", Action: "x", Result: "ok"})
+	am.Record(audit.AuditEvent{Timestamp: base + int64(time.Hour), Actor: "c", Action: "x", Result: "ok"})
 	waitFlush(am)
-	ev, _ := am.Query(QueryFilter{FromNanos: base - int64(30*time.Minute), ToNanos: base + int64(30*time.Minute)})
+	ev, _ := am.Query(audit.QueryFilter{FromNanos: base - int64(30*time.Minute), ToNanos: base + int64(30*time.Minute)})
 	if len(ev) != 1 || ev[0].Actor != "b" {
 		t.Fatalf("window filter: %+v", ev)
 	}
@@ -263,31 +264,31 @@ func TestAuditBatchFlushLarge(t *testing.T) {
 	am, cleanup := newAuditTestManager(t, 90)
 	defer cleanup()
 	for i := 0; i < 200; i++ {
-		am.Record(AuditEvent{Actor: "u", Action: "x", Result: "ok"})
+		am.Record(audit.AuditEvent{Actor: "u", Action: "x", Result: "ok"})
 	}
 	waitFlush(am)
-	ev, _ := am.Query(QueryFilter{Limit: 300})
+	ev, _ := am.Query(audit.QueryFilter{Limit: 300})
 	if len(ev) != 200 {
 		t.Fatalf("want 200, got %d", len(ev))
 	}
 }
 
 func TestAuditDisabledStopNoOp(t *testing.T) {
-	am := NewAuditManager(nil, false, 0)
+	am := audit.NewAuditManager(nil, false, 0)
 	am.Start()
 	am.Stop()
 }
 
 func TestAuditNilManagerSafe(t *testing.T) {
-	var am *AuditManager
-	am.Record(AuditEvent{Action: "x"})
+	var am *audit.AuditManager
+	am.Record(audit.AuditEvent{Action: "x"})
 	if am.Dropped() != 0 {
 		t.Fatal("nil Dropped != 0")
 	}
 	if err := am.EnsureBuckets(); err != nil {
 		t.Fatal(err)
 	}
-	_, err := am.Query(QueryFilter{})
+	_, err := am.Query(audit.QueryFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -296,7 +297,7 @@ func TestAuditNilManagerSafe(t *testing.T) {
 func TestAuditHandlerRawNanosAndInvalidParams(t *testing.T) {
 	am, cleanup := newAuditTestManager(t, 90)
 	defer cleanup()
-	am.Record(AuditEvent{Actor: "x", Action: "y", Result: "ok"})
+	am.Record(audit.AuditEvent{Actor: "x", Action: "y", Result: "ok"})
 	waitFlush(am)
 	s := &Server{AuditManager: am}
 
@@ -305,18 +306,5 @@ func TestAuditHandlerRawNanosAndInvalidParams(t *testing.T) {
 	s.handleAudit(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("want 200, got %d", rec.Code)
-	}
-}
-
-func TestAuditKeyOrdering(t *testing.T) {
-	// Keys for later timestamps must sort after earlier ones.
-	k1 := auditKey(1000, 1)
-	k2 := auditKey(2000, 1)
-	k3 := auditKey(1000, 2)
-	if string(k1) >= string(k2) {
-		t.Errorf("k1 should sort before k2")
-	}
-	if string(k1) >= string(k3) {
-		t.Errorf("same ts — k1 should sort before k3 by seq")
 	}
 }

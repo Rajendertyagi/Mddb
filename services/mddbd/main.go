@@ -8,6 +8,7 @@ import (
 	"hash/crc32"
 	"io"
 	"log"
+	"mddb/internal/audit"
 	"mddb/internal/binlog"
 	"mddb/internal/cache"
 	"mddb/internal/compression"
@@ -98,7 +99,7 @@ type Server struct {
 	SchemaManager      *schema.SchemaManager     // Per-collection metadata schema validation
 	Metrics            *Metrics                  // Prometheus-compatible telemetry
 	AuthManager        *AuthManager              // Authentication and authorization
-	AuditManager       *AuditManager             // Audit log (ISO 27001 A.8.15, SOC 2 CC7.2)
+	AuditManager       *audit.AuditManager       // Audit log (ISO 27001 A.8.15, SOC 2 CC7.2)
 	RateLimiter        *RateLimiter              // Cross-transport rate limiter (ISO 27001 A.5.30, SOC 2 CC6.6)
 	Encryptor          *Encryptor                // At-rest AES-256-GCM encryption (ISO 27001 A.8.24, SOC 2 CC6.7)
 	RotationManager    *RotationManager          // Background re-encryption after key rotation
@@ -417,7 +418,7 @@ func main() {
 			auditRetention = n
 		}
 	}
-	s.AuditManager = NewAuditManager(db, auditEnabled, auditRetention)
+	s.AuditManager = audit.NewAuditManager(db, auditEnabled, auditRetention)
 	if err := s.AuditManager.EnsureBuckets(); err != nil {
 		log.Fatal(err)
 	}
@@ -437,7 +438,7 @@ func main() {
 		}
 		if u := env("MDDB_AUDIT_EXPORT_WEBHOOK_URL", ""); u != "" {
 			insecure := env("MDDB_AUDIT_EXPORT_WEBHOOK_INSECURE_TLS", "") == "true"
-			we, err := NewWebhookExporter(u, env("MDDB_AUDIT_EXPORT_WEBHOOK_HEADER", ""), exportBuf, insecure)
+			we, err := audit.NewWebhookExporter(u, env("MDDB_AUDIT_EXPORT_WEBHOOK_HEADER", ""), exportBuf, insecure)
 			if err != nil {
 				log.Printf("audit webhook exporter: %v", err)
 			} else {
@@ -447,7 +448,7 @@ func main() {
 		}
 		if a := env("MDDB_AUDIT_EXPORT_SYSLOG_ADDR", ""); a != "" {
 			fac := env("MDDB_AUDIT_EXPORT_SYSLOG_FACILITY", "local0")
-			se, err := NewSyslogExporter(a, fac, exportBuf)
+			se, err := audit.NewSyslogExporter(a, fac, exportBuf)
 			if err != nil {
 				log.Printf("audit syslog exporter: %v", err)
 			} else {
@@ -1362,7 +1363,7 @@ func (s *Server) guardWrite(next http.HandlerFunc) http.HandlerFunc {
 			http.Error(w, `{"error":"read-only mode"}`, http.StatusForbidden)
 			return
 		}
-		if s.AuditManager == nil || !s.AuditManager.enabled {
+		if s.AuditManager == nil || !s.AuditManager.Enabled() {
 			next(w, r)
 			return
 		}
@@ -1376,7 +1377,7 @@ func (s *Server) guardWrite(next http.HandlerFunc) http.HandlerFunc {
 		if claims, ok := r.Context().Value(authContextKey).(*JWTClaims); ok && claims != nil {
 			actor = claims.Username
 		}
-		s.AuditManager.Record(AuditEvent{
+		s.AuditManager.Record(audit.AuditEvent{
 			Actor:     actor,
 			Action:    "write." + r.URL.Path,
 			Resource:  r.URL.Path,
