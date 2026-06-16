@@ -1,4 +1,4 @@
-package main
+package ttl
 
 import (
 	"encoding/binary"
@@ -6,11 +6,9 @@ import (
 	"log"
 	"mddb/internal/binlog"
 	"mddb/internal/storage"
-	"net/http"
 	"strings"
 	"time"
 
-	json "github.com/goccy/go-json"
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -19,10 +17,23 @@ var (
 	bucketTTLRev = []byte("ttlrev")
 )
 
+// Reaper is the document surface the cleanup loop needs (dependency inversion,
+// GO-015): the manager owns the interface and the daemon implements it over its
+// *Server, so TTL no longer holds a back-reference to the Server god-object.
+type Reaper interface {
+	// LoadDoc deserializes a stored document value (encryption/compression
+	// aware) so the reaper can read its Key and Lang.
+	LoadDoc(v []byte) (*storage.Doc, error)
+	// DeleteDocument removes an expired document across all indexes.
+	DeleteDocument(collection, key, lang string) error
+	// GenID derives the deterministic document ID from its identity parts.
+	GenID(collection, key, lang string) string
+}
+
 // TTLManager handles document time-to-live expiry.
 type TTLManager struct {
 	db     *bolt.DB
-	server *Server
+	reaper Reaper
 	stopCh chan struct{}
 	binlog *binlog.Binlog
 }
@@ -33,8 +44,8 @@ func (t *TTLManager) SetBinlog(bl *binlog.Binlog) {
 }
 
 // NewTTLManager creates a new TTL manager.
-func NewTTLManager(db *bolt.DB, server *Server) *TTLManager {
-	return &TTLManager{db: db, server: server, stopCh: make(chan struct{})}
+func NewTTLManager(db *bolt.DB, reaper Reaper) *TTLManager {
+	return &TTLManager{db: db, reaper: reaper, stopCh: make(chan struct{})}
 }
 
 // EnsureBuckets creates the TTL buckets if they don't exist.
@@ -166,7 +177,7 @@ func (t *TTLManager) cleanup() {
 			// Look up key and lang from the document
 			bDocs := tx.Bucket([]byte("docs"))
 			if v := bDocs.Get(storage.DocKey(coll, docID)); v != nil {
-				if doc, err := loadDoc(v); err == nil {
+				if doc, err := t.reaper.LoadDoc(v); err == nil {
 					expired = append(expired, expiredDoc{coll, doc.Key, doc.Lang})
 				}
 			}
@@ -176,12 +187,12 @@ func (t *TTLManager) cleanup() {
 
 	// Delete expired documents
 	for _, ed := range expired {
-		if err := t.server.deleteDocumentInternal(ed.collection, ed.key, ed.lang); err != nil {
+		if err := t.reaper.DeleteDocument(ed.collection, ed.key, ed.lang); err != nil {
 			log.Printf("TTL cleanup: failed to delete %s/%s/%s: %v", ed.collection, ed.key, ed.lang, err)
 			continue
 		}
 		// Also remove TTL entries
-		docID := genID(ed.collection, ed.key, ed.lang)
+		docID := t.reaper.GenID(ed.collection, ed.key, ed.lang)
 		_ = t.Remove(ed.collection, docID)
 		log.Printf("TTL cleanup: expired %s/%s/%s", ed.collection, ed.key, ed.lang)
 	}
@@ -195,77 +206,4 @@ func ttlKey(expiresAt int64, collection, docID string) []byte {
 // ttlRevKey builds the reverse TTL lookup key.
 func ttlRevKey(collection, docID string) []byte {
 	return []byte(collection + "|" + docID)
-}
-
-// --- HTTP handlers ---
-
-// SetTTLRequest represents a request to set/remove TTL on a document.
-type SetTTLRequest struct {
-	Collection string `json:"collection"`
-	Key        string `json:"key"`
-	Lang       string `json:"lang"`
-	TTL        int64  `json:"ttl"` // seconds; 0 = remove TTL
-}
-
-func (s *Server) handleSetTTL(w http.ResponseWriter, r *http.Request) {
-	var req SetTTLRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		bad(w, err)
-		return
-	}
-	if req.Collection == "" || req.Key == "" || req.Lang == "" {
-		bad(w, fmt.Errorf("missing required fields"))
-		return
-	}
-
-	docID := genID(req.Collection, req.Key, req.Lang)
-
-	// Update ExpiresAt on the document itself
-	now := time.Now().Unix()
-	var expiresAt int64
-	if req.TTL > 0 {
-		expiresAt = now + req.TTL
-	}
-
-	// Update document in DB
-	var updated storage.Doc
-	var bo binlog.BinlogOps
-	err := s.DBUpdate(func(tx *bolt.Tx) error {
-		bDocs := tx.Bucket([]byte("docs"))
-		dk := storage.DocKey(req.Collection, docID)
-		v := bDocs.Get(dk)
-		if v == nil {
-			return fmt.Errorf("document not found")
-		}
-		docPtr, err := loadDoc(v)
-		if err != nil {
-			return err
-		}
-		updated = *docPtr
-		updated.ExpiresAt = expiresAt
-		buf, err := marshalDoc(&updated)
-		if err != nil {
-			return err
-		}
-		bo.Put("docs", dk, buf)
-		return bDocs.Put(dk, buf)
-	})
-	if err == nil {
-		bo.FlushTo(s.Binlog)
-	}
-	if err != nil {
-		bad(w, err)
-		return
-	}
-
-	// Update TTL bucket
-	if s.TTLManager != nil {
-		if expiresAt > 0 {
-			_ = s.TTLManager.Set(req.Collection, docID, expiresAt)
-		} else {
-			_ = s.TTLManager.Remove(req.Collection, docID)
-		}
-	}
-
-	ok(w, updated)
 }

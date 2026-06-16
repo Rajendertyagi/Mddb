@@ -9,6 +9,7 @@ import (
 	"mddb/internal/metrics"
 	"mddb/internal/schema"
 	"mddb/internal/storage"
+	"mddb/internal/ttl"
 	"mddb/internal/vector"
 	"mddb/internal/webhooks"
 	"net/http"
@@ -74,7 +75,7 @@ func newHandlerTestServer(t *testing.T) (*Server, func()) {
 	}
 
 	// TTL
-	s.TTLManager = NewTTLManager(db, s)
+	s.TTLManager = ttl.NewTTLManager(db, serverTTLReaper{s: s})
 	if err := s.TTLManager.EnsureBuckets(); err != nil {
 		_ = db.Close()
 		_ = os.Remove(f.Name())

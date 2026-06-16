@@ -1,12 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"mddb/internal/cache"
 	"mddb/internal/indexqueue"
 	"mddb/internal/metrics"
 	"mddb/internal/schema"
 	"mddb/internal/storage"
+	"mddb/internal/ttl"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -51,7 +51,7 @@ func ttlExtraTestServer(t *testing.T) (*Server, func()) {
 		t.Fatal(err)
 	}
 
-	s.TTLManager = NewTTLManager(db, s)
+	s.TTLManager = ttl.NewTTLManager(db, serverTTLReaper{s: s})
 	if err := s.TTLManager.EnsureBuckets(); err != nil {
 		_ = db.Close()
 		_ = os.Remove(f.Name())
@@ -209,116 +209,6 @@ func TestHandleSetTTL_InvalidBody(t *testing.T) {
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d", w.Code)
 	}
-}
-
-// ---------------------------------------------------------------------------
-// Test: TTLManager cleanup functionality
-// ---------------------------------------------------------------------------
-
-func TestTTLCleanup_ExpiredDocs(t *testing.T) {
-	s, cleanup := ttlExtraTestServer(t)
-	defer cleanup()
-
-	// Insert a doc with JSON serialization (cleanup uses json.Unmarshal)
-	docID := genID("blog", "expired", "en")
-	doc := storage.Doc{
-		ID:        docID,
-		Key:       "expired",
-		Lang:      "en",
-		ContentMD: "expired content",
-		AddedAt:   time.Now().Unix(),
-		UpdatedAt: time.Now().Unix(),
-	}
-	data, _ := marshalDoc(&doc)
-	_ = s.DB.Update(func(tx *bolt.Tx) error {
-		bDocs := tx.Bucket([]byte("docs"))
-		_ = bDocs.Put(storage.DocKey("blog", docID), data)
-		bByK := tx.Bucket(s.BucketNames.ByKey)
-		return bByK.Put(storage.ByKeyKey("blog", "expired", "en"), []byte(docID))
-	})
-
-	// Set TTL to past time
-	pastExpiry := time.Now().Unix() - 100
-	_ = s.TTLManager.Set("blog", docID, pastExpiry)
-
-	// Run cleanup
-	s.TTLManager.cleanup()
-
-	// The doc should now be cleaned up (deleted)
-	var val []byte
-	_ = s.DB.View(func(tx *bolt.Tx) error {
-		bDocs := tx.Bucket([]byte("docs"))
-		val = bDocs.Get(storage.DocKey("blog", docID))
-		return nil
-	})
-	if val != nil {
-		t.Error("expected expired document to be deleted by cleanup")
-	}
-}
-
-func TestTTLCleanup_NotExpired(t *testing.T) {
-	s, cleanup := ttlExtraTestServer(t)
-	defer cleanup()
-
-	// Insert a doc
-	docID := genID("blog", "alive", "en")
-	doc := storage.Doc{
-		ID:        docID,
-		Key:       "alive",
-		Lang:      "en",
-		ContentMD: "still alive",
-		AddedAt:   time.Now().Unix(),
-		UpdatedAt: time.Now().Unix(),
-	}
-	data, _ := marshalDoc(&doc)
-	_ = s.DB.Update(func(tx *bolt.Tx) error {
-		bDocs := tx.Bucket([]byte("docs"))
-		_ = bDocs.Put(storage.DocKey("blog", docID), data)
-		bByK := tx.Bucket(s.BucketNames.ByKey)
-		return bByK.Put(storage.ByKeyKey("blog", "alive", "en"), []byte(docID))
-	})
-
-	// Set TTL to future time
-	futureExpiry := time.Now().Unix() + 3600
-	_ = s.TTLManager.Set("blog", docID, futureExpiry)
-
-	// Run cleanup
-	s.TTLManager.cleanup()
-
-	// The doc should still exist
-	var val []byte
-	_ = s.DB.View(func(tx *bolt.Tx) error {
-		bDocs := tx.Bucket([]byte("docs"))
-		val = bDocs.Get(storage.DocKey("blog", docID))
-		return nil
-	})
-	if val == nil {
-		t.Error("expected non-expired document to still exist after cleanup")
-	}
-}
-
-func TestTTLCleanup_EmptyBucket(t *testing.T) {
-	s, cleanup := ttlExtraTestServer(t)
-	defer cleanup()
-
-	// Cleanup on empty buckets should not panic
-	s.TTLManager.cleanup()
-}
-
-func TestTTLCleanup_MalformedKey(t *testing.T) {
-	s, cleanup := ttlExtraTestServer(t)
-	defer cleanup()
-
-	// Insert a malformed TTL key (only 2 parts instead of 3)
-	pastExpiry := time.Now().Unix() - 100
-	malformedKey := []byte(fmt.Sprintf("%020d|blogonly", pastExpiry))
-	_ = s.DB.Update(func(tx *bolt.Tx) error {
-		bTTL := tx.Bucket(bucketTTL)
-		return bTTL.Put(malformedKey, []byte{})
-	})
-
-	// Cleanup should not panic on malformed keys
-	s.TTLManager.cleanup()
 }
 
 // ---------------------------------------------------------------------------

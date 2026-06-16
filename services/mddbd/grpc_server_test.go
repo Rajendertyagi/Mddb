@@ -17,6 +17,7 @@ import (
 	"mddb/internal/metrics"
 	"mddb/internal/schema"
 	"mddb/internal/storage"
+	"mddb/internal/ttl"
 	"mddb/internal/vector"
 	"mddb/internal/webhooks"
 	pb "mddb/proto"
@@ -85,7 +86,7 @@ func newTestGRPCServer(t *testing.T) (*GRPCServer, *Server, func()) {
 	}
 
 	// TTL
-	s.TTLManager = NewTTLManager(db, s)
+	s.TTLManager = ttl.NewTTLManager(db, serverTTLReaper{s: s})
 	if err := s.TTLManager.EnsureBuckets(); err != nil {
 		_ = db.Close()
 		t.Fatal(err)

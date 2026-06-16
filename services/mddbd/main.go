@@ -24,6 +24,7 @@ import (
 	"mddb/internal/spell"
 	"mddb/internal/storage"
 	"mddb/internal/temporal"
+	"mddb/internal/ttl"
 	"mddb/internal/vector"
 	"mddb/internal/webhooks"
 	"net/http"
@@ -97,7 +98,7 @@ type Server struct {
 	GeoIndex     *geo.GeoIndex     // In-memory R-tree geo index (default)
 	GeoHashIndex *geo.GeoHashIndex // Alternative geohash-prefix index
 	// New features
-	TTLManager         *TTLManager               // Document TTL / auto-expiry
+	TTLManager         *ttl.TTLManager           // Document TTL / auto-expiry
 	FTSIndex           *fts.FTSIndex             // Full-text search index
 	WebhookManager     *webhooks.WebhookManager  // Webhook subscriptions and delivery
 	SchemaManager      *schema.SchemaManager     // Per-collection metadata schema validation
@@ -452,7 +453,7 @@ func main() {
 	}
 
 	// Initialize TTL manager
-	s.TTLManager = NewTTLManager(db, s)
+	s.TTLManager = ttl.NewTTLManager(db, serverTTLReaper{s: s})
 	if err := s.TTLManager.EnsureBuckets(); err != nil {
 		log.Fatal(err)
 	}
@@ -721,7 +722,7 @@ func main() {
 	// Follower: disable background writers (data comes from binlog)
 	if s.ReplicationRole == "follower" {
 		s.TTLManager.Stop() // don't run TTL cleanup, leader handles it
-		s.TTLManager = NewTTLManager(db, s)
+		s.TTLManager = ttl.NewTTLManager(db, serverTTLReaper{s: s})
 		_ = s.TTLManager.EnsureBuckets()
 		// Don't start cleanup — deletes come from binlog
 

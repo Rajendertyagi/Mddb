@@ -1,4 +1,4 @@
-package main
+package ttl
 
 import (
 	"encoding/binary"
@@ -33,7 +33,7 @@ func newTestTTLManager(t *testing.T) (*TTLManager, *bolt.DB, func()) {
 		t.Fatal(err)
 	}
 
-	server := &Server{DB: db}
+	var server Reaper = stubReaper{}
 	mgr := NewTTLManager(db, server)
 	if err := mgr.EnsureBuckets(); err != nil {
 		_ = db.Close()
@@ -55,7 +55,7 @@ func TestNewTTLManager(t *testing.T) {
 	if mgr.db == nil {
 		t.Error("expected non-nil db")
 	}
-	if mgr.server == nil {
+	if mgr.reaper == nil {
 		t.Error("expected non-nil server")
 	}
 	if mgr.stopCh == nil {
@@ -77,7 +77,7 @@ func TestTTLEnsureBuckets(t *testing.T) {
 	}
 	defer func() { _ = db.Close() }()
 
-	mgr := NewTTLManager(db, &Server{DB: db})
+	mgr := NewTTLManager(db, stubReaper{})
 
 	if err := mgr.EnsureBuckets(); err != nil {
 		t.Fatalf("EnsureBuckets failed: %v", err)
