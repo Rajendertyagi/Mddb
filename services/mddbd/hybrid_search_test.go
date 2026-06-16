@@ -3,6 +3,7 @@ package main
 import (
 	"math"
 	"mddb/internal/fts"
+	"mddb/internal/vector"
 	"testing"
 )
 
@@ -14,7 +15,7 @@ func TestMergeAlpha_EmptyInputs(t *testing.T) {
 		t.Errorf("expected 0 results, got %d", len(results))
 	}
 
-	results = mergeAlpha([]fts.FTSResult{}, []VectorResult{}, 0.5, 10)
+	results = mergeAlpha([]fts.FTSResult{}, []vector.VectorResult{}, 0.5, 10)
 	if len(results) != 0 {
 		t.Errorf("expected 0 results for empty slices, got %d", len(results))
 	}
@@ -51,7 +52,7 @@ func TestMergeAlpha_OnlyFTS(t *testing.T) {
 }
 
 func TestMergeAlpha_OnlyVector(t *testing.T) {
-	vec := []VectorResult{
+	vec := []vector.VectorResult{
 		{DocID: "vecA", Score: 0.95},
 		{DocID: "vecB", Score: 0.80},
 	}
@@ -84,7 +85,7 @@ func TestMergeAlpha_Combined(t *testing.T) {
 		{DocID: "doc1", Score: 10.0, MatchedTerms: []string{"go"}},
 		{DocID: "doc2", Score: 5.0, MatchedTerms: []string{"test"}},
 	}
-	vec := []VectorResult{
+	vec := []vector.VectorResult{
 		{DocID: "doc2", Score: 0.9},
 		{DocID: "doc3", Score: 0.8},
 	}
@@ -151,7 +152,7 @@ func TestMergeAlpha_Deduplication(t *testing.T) {
 	fts := []fts.FTSResult{
 		{DocID: "shared", Score: 10.0, MatchedTerms: []string{"golang", "programming"}},
 	}
-	vec := []VectorResult{
+	vec := []vector.VectorResult{
 		{DocID: "shared", Score: 0.85},
 	}
 
@@ -187,7 +188,7 @@ func TestMergeRRF_EmptyInputs(t *testing.T) {
 		t.Errorf("expected 0 results, got %d", len(results))
 	}
 
-	results = mergeRRF([]fts.FTSResult{}, []VectorResult{}, 60, 10)
+	results = mergeRRF([]fts.FTSResult{}, []vector.VectorResult{}, 60, 10)
 	if len(results) != 0 {
 		t.Errorf("expected 0 results for empty slices, got %d", len(results))
 	}
@@ -198,7 +199,7 @@ func TestMergeRRF_Combined(t *testing.T) {
 		{DocID: "doc1", Score: 10.0, MatchedTerms: []string{"go"}},
 		{DocID: "doc2", Score: 5.0, MatchedTerms: []string{"test"}},
 	}
-	vec := []VectorResult{
+	vec := []vector.VectorResult{
 		{DocID: "doc2", Score: 0.9},
 		{DocID: "doc3", Score: 0.8},
 	}
@@ -254,7 +255,7 @@ func TestMergeRRF_TopKLimit(t *testing.T) {
 		{DocID: "c", Score: 6.0},
 		{DocID: "d", Score: 4.0},
 	}
-	vec := []VectorResult{
+	vec := []vector.VectorResult{
 		{DocID: "e", Score: 0.9},
 		{DocID: "f", Score: 0.8},
 	}

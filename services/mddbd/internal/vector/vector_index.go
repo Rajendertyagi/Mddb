@@ -1,4 +1,4 @@
-package main
+package vector
 
 import (
 	"sort"
@@ -81,7 +81,7 @@ func (vi *VectorIndex) Search(collection string, query []float32, topK int, thre
 		topK = 5
 	}
 	if metric == nil {
-		metric = cosineSimilarity
+		metric = CosineSimilarity
 	}
 
 	// Parallel path for large collections: snapshot under lock, score without it.
@@ -129,11 +129,11 @@ func (vi *VectorIndex) SearchWithFilter(collection string, query []float32, topK
 		topK = 5
 	}
 	if metric == nil {
-		metric = cosineSimilarity
+		metric = CosineSimilarity
 	}
 
 	filter := func(docID string) bool {
-		return allowedDocIDs[baseDocID(docID)]
+		return allowedDocIDs[BaseDocID(docID)]
 	}
 
 	// Parallel path for large collections: snapshot under lock, score without it.
@@ -199,7 +199,7 @@ func (vi *VectorIndex) Name() string {
 type SimilarityFunc func(a, b []float32) float32
 
 // ResolveSimilarity returns the SimilarityFunc for a given metric name.
-// Defaults to cosineSimilarity if the name is unknown or empty.
+// Defaults to CosineSimilarity if the name is unknown or empty.
 func ResolveSimilarity(name string) SimilarityFunc {
 	switch name {
 	case "dot_product":
@@ -207,13 +207,13 @@ func ResolveSimilarity(name string) SimilarityFunc {
 	case "euclidean":
 		return euclideanSimilarity
 	default:
-		return cosineSimilarity
+		return CosineSimilarity
 	}
 }
 
-// baseDocID extracts the base document ID from a possibly chunked key.
+// BaseDocID extracts the base document ID from a possibly chunked key.
 // "docID#0" -> "docID", "docID" -> "docID"
-func baseDocID(key string) string {
+func BaseDocID(key string) string {
 	if idx := strings.IndexByte(key, '#'); idx >= 0 {
 		return key[:idx]
 	}
@@ -230,7 +230,7 @@ func DeduplicateChunkResults(results []VectorResult) []VectorResult {
 
 	best := make(map[string]float32)
 	for _, r := range results {
-		base := baseDocID(r.DocID)
+		base := BaseDocID(r.DocID)
 		if score, exists := best[base]; !exists || r.Score > score {
 			best[base] = r.Score
 		}

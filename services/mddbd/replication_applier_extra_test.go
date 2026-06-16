@@ -3,6 +3,7 @@ package main
 import (
 	"mddb/internal/binlog"
 	"mddb/internal/cache"
+	"mddb/internal/vector"
 	"os"
 	"testing"
 
@@ -53,9 +54,9 @@ func applierExtraTestServer(t *testing.T) (*Server, func()) {
 	})
 
 	// VectorIndex
-	s.VectorIndex = NewVectorIndex()
+	s.VectorIndex = vector.NewVectorIndex()
 	s.VectorIndex.SetReady()
-	s.VectorSearchers = map[string]VectorSearcher{
+	s.VectorSearchers = map[string]vector.VectorSearcher{
 		"flat": s.VectorIndex,
 	}
 
@@ -325,7 +326,7 @@ func TestUpdateInMemoryState_VectorsPut(t *testing.T) {
 	applier := NewReplicationApplier(s)
 
 	// Create a valid embedding record
-	rec := &EmbeddingRecord{
+	rec := &vector.EmbeddingRecord{
 		DocID:       "testdoc",
 		Vector:      []float32{1.0, 2.0, 3.0},
 		Model:       "test",
@@ -333,7 +334,7 @@ func TestUpdateInMemoryState_VectorsPut(t *testing.T) {
 		CreatedAt:   1000,
 		ContentHash: "hash123",
 	}
-	data := marshalEmbeddingRecord(rec)
+	data := vector.MarshalEmbeddingRecord(rec)
 
 	entry := &binlog.BinlogEntry{
 		LSN:        1,

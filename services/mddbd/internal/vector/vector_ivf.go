@@ -1,4 +1,4 @@
-package main
+package vector
 
 import (
 	"math"
@@ -162,7 +162,7 @@ func (idx *IVFIndex) Search(collection string, query []float32, topK int, thresh
 		topK = 5
 	}
 	if metric == nil {
-		metric = cosineSimilarity
+		metric = CosineSimilarity
 	}
 
 	probeIndices := nearestNCentroids(query, c.centroids, idx.nProbe)
@@ -184,13 +184,13 @@ func (idx *IVFIndex) SearchWithFilter(collection string, query []float32, topK i
 		topK = 5
 	}
 	if metric == nil {
-		metric = cosineSimilarity
+		metric = CosineSimilarity
 	}
 
 	probeIndices := nearestNCentroids(query, c.centroids, idx.nProbe)
 
 	filter := func(docID string) bool {
-		return allowed[baseDocID(docID)]
+		return allowed[BaseDocID(docID)]
 	}
 	return idx.searchClusters(c, query, topK, threshold, metric, probeIndices, filter)
 }

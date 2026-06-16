@@ -1,4 +1,4 @@
-package main
+package vector
 
 import (
 	"fmt"
@@ -48,14 +48,14 @@ func TestScoreRangeInvertedAndEmptyRange(t *testing.T) {
 	}
 	q := []float32{1, 0}
 
-	if got := scoreRange(entries, 5, 2, q, 10, -999, cosineSimilarity, nil); got != nil {
+	if got := scoreRange(entries, 5, 2, q, 10, -999, CosineSimilarity, nil); got != nil {
 		t.Errorf("inverted range (start>end): want nil, got %v", got)
 	}
-	if got := scoreRange(entries, 1, 1, q, 10, -999, cosineSimilarity, nil); len(got) != 0 {
+	if got := scoreRange(entries, 1, 1, q, 10, -999, CosineSimilarity, nil); len(got) != 0 {
 		t.Errorf("empty range (start==end): want 0 results, got %d", len(got))
 	}
 	// topK<=0 previously made min(end-start, topK*2) negative.
-	if got := scoreRange(entries, 0, 2, q, 0, -999, cosineSimilarity, nil); len(got) != 2 {
+	if got := scoreRange(entries, 0, 2, q, 0, -999, CosineSimilarity, nil); len(got) != 2 {
 		t.Errorf("topK=0: want 2 results, got %d", len(got))
 	}
 }
@@ -76,10 +76,10 @@ func TestParallelScoreSmallNManyWorkersNoPanic(t *testing.T) {
 	}
 	query := randVecP(dims, rng)
 
-	parallel := parallelScore(entries, query, 10, -999.0, cosineSimilarity, nil)
+	parallel := parallelScore(entries, query, 10, -999.0, CosineSimilarity, nil)
 
 	defer swapParallelWorkers(1)()
-	sequential := parallelScore(entries, query, 10, -999.0, cosineSimilarity, nil)
+	sequential := parallelScore(entries, query, 10, -999.0, CosineSimilarity, nil)
 
 	if len(parallel) != len(sequential) {
 		t.Fatalf("parallel returned %d results, single-worker %d", len(parallel), len(sequential))
@@ -108,12 +108,12 @@ func TestParallelScoreCorrectness(t *testing.T) {
 
 	// Sequential: force minSize above count so parallelScore uses single worker
 	restore := swapParallelConfig(1, count+1)
-	sequential := parallelScore(entries, query, 10, 0.0, cosineSimilarity, nil)
+	sequential := parallelScore(entries, query, 10, 0.0, CosineSimilarity, nil)
 	restore()
 
 	// Parallel: force low minSize and multiple workers
 	restore = swapParallelConfig(4, 1)
-	parallel := parallelScore(entries, query, 10, 0.0, cosineSimilarity, nil)
+	parallel := parallelScore(entries, query, 10, 0.0, CosineSimilarity, nil)
 	restore()
 
 	if len(sequential) != len(parallel) {
@@ -150,7 +150,7 @@ func TestParallelScoreWithFilter(t *testing.T) {
 	filter := func(docID string) bool { return allowed[docID] }
 
 	defer swapParallelMinSize(1)()
-	results := parallelScore(entries, query, 5, 0.0, cosineSimilarity, filter)
+	results := parallelScore(entries, query, 5, 0.0, CosineSimilarity, filter)
 
 	for _, r := range results {
 		if !allowed[r.DocID] {
@@ -170,14 +170,14 @@ func TestParallelScoreChunkKeys(t *testing.T) {
 	allowed := map[string]bool{"post1": true}
 
 	filter := func(docID string) bool {
-		return allowed[baseDocID(docID)]
+		return allowed[BaseDocID(docID)]
 	}
 
 	defer swapParallelMinSize(1)()
-	results := parallelScore(entries, query, 10, 0.0, cosineSimilarity, filter)
+	results := parallelScore(entries, query, 10, 0.0, CosineSimilarity, filter)
 
 	for _, r := range results {
-		base := baseDocID(r.DocID)
+		base := BaseDocID(r.DocID)
 		if base != "post1" {
 			t.Errorf("unexpected doc in results: %s (base: %s)", r.DocID, base)
 		}
@@ -197,14 +197,14 @@ func TestParallelScoreThresholdFiltering(t *testing.T) {
 	query := []float32{1, 0, 0}
 
 	defer swapParallelMinSize(1)()
-	results := parallelScore(entries, query, 10, 0.99, cosineSimilarity, nil)
+	results := parallelScore(entries, query, 10, 0.99, CosineSimilarity, nil)
 
 	if len(results) != 1 || results[0].DocID != "a" {
 		t.Errorf("expected only 'a' above 0.99 threshold, got %v", results)
 	}
 
 	// All filtered
-	results = parallelScore(entries, query, 10, 2.0, cosineSimilarity, nil)
+	results = parallelScore(entries, query, 10, 2.0, CosineSimilarity, nil)
 	if len(results) != 0 {
 		t.Errorf("expected 0 results with threshold=2.0, got %d", len(results))
 	}
@@ -212,12 +212,12 @@ func TestParallelScoreThresholdFiltering(t *testing.T) {
 
 // TestParallelScoreEmpty verifies empty input handling.
 func TestParallelScoreEmpty(t *testing.T) {
-	results := parallelScore(nil, []float32{1, 0}, 5, 0.0, cosineSimilarity, nil)
+	results := parallelScore(nil, []float32{1, 0}, 5, 0.0, CosineSimilarity, nil)
 	if results != nil {
 		t.Errorf("expected nil for empty entries, got %v", results)
 	}
 
-	results = parallelScore([]vectorEntry{}, []float32{1, 0}, 5, 0.0, cosineSimilarity, nil)
+	results = parallelScore([]vectorEntry{}, []float32{1, 0}, 5, 0.0, CosineSimilarity, nil)
 	if results != nil {
 		t.Errorf("expected nil for empty slice, got %v", results)
 	}
@@ -238,7 +238,7 @@ func TestParallelScoreTopKLimit(t *testing.T) {
 	query := randVecP(dims, rng)
 
 	defer swapParallelMinSize(1)()
-	results := parallelScore(entries, query, 3, 0.0, cosineSimilarity, nil)
+	results := parallelScore(entries, query, 3, 0.0, CosineSimilarity, nil)
 
 	if len(results) != 3 {
 		t.Errorf("expected 3 results, got %d", len(results))
@@ -256,7 +256,7 @@ func TestParallelScoreDeterministicOrder(t *testing.T) {
 	query := []float32{1, 0, 0}
 
 	defer swapParallelMinSize(1)()
-	results := parallelScore(entries, query, 10, 0.0, cosineSimilarity, nil)
+	results := parallelScore(entries, query, 10, 0.0, CosineSimilarity, nil)
 
 	// Should be sorted by docID ascending (tiebreaker)
 	expected := []string{"alice", "bob", "charlie"}
@@ -423,7 +423,7 @@ func TestParallelSearchAllMetrics(t *testing.T) {
 		name string
 		fn   SimilarityFunc
 	}{
-		{"cosine", cosineSimilarity},
+		{"cosine", CosineSimilarity},
 		{"dot_product", dotProductSimilarity},
 		{"euclidean", euclideanSimilarity},
 	}

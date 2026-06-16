@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"mddb/internal/vector"
 	"net/http"
 	"sort"
 	"time"
@@ -100,7 +101,7 @@ func (s *Server) classifyDocument(ctx context.Context, collection, key, lang, te
 	// Compute cosine similarity for each label
 	scored := make([]ClassifyLabelScore, len(labels))
 	for i, labelVec := range labelVectors {
-		sim := cosineSimilarity(docVector, labelVec)
+		sim := vector.CosineSimilarity(docVector, labelVec)
 		scored[i] = ClassifyLabelScore{
 			Label: labels[i],
 			Score: float64(sim),

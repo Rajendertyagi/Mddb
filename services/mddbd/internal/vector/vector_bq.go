@@ -1,4 +1,4 @@
-package main
+package vector
 
 import (
 	"math/bits"
@@ -193,7 +193,7 @@ func (b *BQIndex) hammingSearch(c *bqCollection, query []float32, topK int, thre
 	}
 	candidates := make([]candidate, 0, len(c.codes))
 	for docID, code := range c.codes {
-		if allowed != nil && !allowed[baseDocID(docID)] {
+		if allowed != nil && !allowed[BaseDocID(docID)] {
 			continue
 		}
 		dist := hammingDistance(queryCode, code)
@@ -207,7 +207,7 @@ func (b *BQIndex) hammingSearch(c *bqCollection, query []float32, topK int, thre
 
 	// Re-rank top candidates with exact similarity
 	if metric == nil {
-		metric = cosineSimilarity
+		metric = CosineSimilarity
 	}
 	rerank := topK * b.rerankFactor
 	if rerank > len(candidates) {

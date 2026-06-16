@@ -1,4 +1,4 @@
-package main
+package vector
 
 import (
 	"math"
@@ -34,8 +34,8 @@ func TestMarshalUnmarshalEmbeddingRecord(t *testing.T) {
 		ContentHash: "abc123def456",
 	}
 
-	data := marshalEmbeddingRecord(rec)
-	got, err := unmarshalEmbeddingRecord(data)
+	data := MarshalEmbeddingRecord(rec)
+	got, err := UnmarshalEmbeddingRecord(data)
 	if err != nil {
 		t.Fatalf("unmarshal failed: %v", err)
 	}
@@ -80,8 +80,8 @@ func TestMarshalUnmarshalLargeVector(t *testing.T) {
 		ContentHash: "deadbeef12345678",
 	}
 
-	data := marshalEmbeddingRecord(rec)
-	got, err := unmarshalEmbeddingRecord(data)
+	data := MarshalEmbeddingRecord(rec)
+	got, err := UnmarshalEmbeddingRecord(data)
 	if err != nil {
 		t.Fatalf("unmarshal failed: %v", err)
 	}
@@ -110,14 +110,14 @@ func TestSplitKey(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := splitKey([]byte(tt.key))
+		got := SplitKey([]byte(tt.key))
 		if len(got) != len(tt.expected) {
-			t.Errorf("splitKey(%q): got %d parts, want %d", tt.key, len(got), len(tt.expected))
+			t.Errorf("SplitKey(%q): got %d parts, want %d", tt.key, len(got), len(tt.expected))
 			continue
 		}
 		for i := range tt.expected {
 			if got[i] != tt.expected[i] {
-				t.Errorf("splitKey(%q)[%d]: got %q, want %q", tt.key, i, got[i], tt.expected[i])
+				t.Errorf("SplitKey(%q)[%d]: got %q, want %q", tt.key, i, got[i], tt.expected[i])
 			}
 		}
 	}

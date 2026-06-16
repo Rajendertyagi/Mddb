@@ -6,6 +6,7 @@ import (
 	"log"
 	"mddb/internal/embedding"
 	"mddb/internal/envconf"
+	vec "mddb/internal/vector"
 	"sync"
 	"time"
 )
@@ -20,8 +21,8 @@ type EmbeddingJob struct {
 // EmbeddingWorker processes embedding jobs asynchronously.
 type EmbeddingWorker struct {
 	provider     embedding.Provider
-	vectorStore  *VectorStore
-	vectorIndex  *VectorIndex
+	vectorStore  *vec.VectorStore
+	vectorIndex  *vec.VectorIndex
 	jobs         chan EmbeddingJob
 	wg           sync.WaitGroup
 	stopCh       chan struct{}
@@ -31,7 +32,7 @@ type EmbeddingWorker struct {
 }
 
 // NewEmbeddingWorker creates a new background embedding worker.
-func NewEmbeddingWorker(provider embedding.Provider, store *VectorStore, index *VectorIndex, bufferSize int) *EmbeddingWorker {
+func NewEmbeddingWorker(provider embedding.Provider, store *vec.VectorStore, index *vec.VectorIndex, bufferSize int) *EmbeddingWorker {
 	return &EmbeddingWorker{
 		provider:     provider,
 		vectorStore:  store,
@@ -93,7 +94,7 @@ func (w *EmbeddingWorker) worker(id int) {
 }
 
 func (w *EmbeddingWorker) processJob(job EmbeddingJob) {
-	contentHash := ContentHash(job.ContentMD)
+	contentHash := vec.ContentHash(job.ContentMD)
 
 	// Check if content already has a matching embedding
 	existing, err := w.vectorStore.Get(job.Collection, job.DocID)
@@ -114,7 +115,7 @@ func (w *EmbeddingWorker) processJob(job EmbeddingJob) {
 	}
 
 	// Generate embedding for each chunk
-	var chunkEmbeddings []ChunkEmbedding
+	var chunkEmbeddings []vec.ChunkEmbedding
 	for i, chunk := range chunks {
 		var vector []float32
 		var embedErr error
@@ -137,7 +138,7 @@ func (w *EmbeddingWorker) processJob(job EmbeddingJob) {
 			return
 		}
 
-		chunkEmbeddings = append(chunkEmbeddings, ChunkEmbedding{
+		chunkEmbeddings = append(chunkEmbeddings, vec.ChunkEmbedding{
 			ChunkIndex: i,
 			Vector:     vector,
 		})

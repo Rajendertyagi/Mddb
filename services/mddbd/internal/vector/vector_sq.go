@@ -1,4 +1,4 @@
-package main
+package vector
 
 import (
 	"math"
@@ -242,7 +242,7 @@ func (s *SQIndex) adcSearch(c *sqCollection, query []float32, topK int, threshol
 	}
 	candidates := make([]candidate, 0, len(c.codes))
 	for docID, code := range c.codes {
-		if allowed != nil && !allowed[baseDocID(docID)] {
+		if allowed != nil && !allowed[BaseDocID(docID)] {
 			continue
 		}
 		var dist float32
@@ -261,7 +261,7 @@ func (s *SQIndex) adcSearch(c *sqCollection, query []float32, topK int, threshol
 
 	// Re-rank top candidates with exact similarity
 	if metric == nil {
-		metric = cosineSimilarity
+		metric = CosineSimilarity
 	}
 	rerank := topK * 3
 	if rerank > len(candidates) {

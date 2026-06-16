@@ -8,6 +8,7 @@ import (
 	"log"
 	"mddb/internal/envconf"
 	"mddb/internal/sliceutil"
+	vec "mddb/internal/vector"
 	"net/http"
 	"strings"
 	"time"
@@ -96,7 +97,7 @@ func (s *Server) loadVectorIndex() {
 
 		// Trigger training for trainable indexes (IVF, PQ)
 		for _, searcher := range s.VectorSearchers {
-			if trainer, ok := searcher.(Trainable); ok {
+			if trainer, ok := searcher.(vec.Trainable); ok {
 				trainer.Train(collection, collVecs)
 			}
 		}
@@ -180,7 +181,7 @@ func (s *Server) handleVectorSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Resolve distance metric
-	metric := ResolveSimilarity(req.DistanceMetric)
+	metric := vec.ResolveSimilarity(req.DistanceMetric)
 	metricName := req.DistanceMetric
 	if metricName == "" {
 		metricName = "cosine"
@@ -193,7 +194,7 @@ func (s *Server) handleVectorSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Search: with or without metadata filter
-	var results []VectorResult
+	var results []vec.VectorResult
 	if len(req.FilterMeta) > 0 {
 		allowedIDs := s.getDocIDsByMeta(req.Collection, req.FilterMeta)
 		if len(allowedIDs) == 0 {
@@ -211,7 +212,7 @@ func (s *Server) handleVectorSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Deduplicate chunk results: group by base docID, take max score
-	results = DeduplicateChunkResults(results)
+	results = vec.DeduplicateChunkResults(results)
 	if len(results) > topK {
 		results = results[:topK]
 	}
@@ -298,10 +299,10 @@ func (s *Server) handleVectorReindex(w http.ResponseWriter, r *http.Request) {
 	chunkEnabled := envconf.String("MDDB_EMBEDDING_CHUNK_ENABLED", "true") == "true"
 
 	// Resolve quantization for this collection
-	var qt QuantizationType
+	var qt vec.QuantizationType
 	if s.CollectionManager != nil {
 		if cfg, ok := s.CollectionManager.Get(req.Collection); ok && cfg.Quantization != "" {
-			qt = ParseQuantization(cfg.Quantization)
+			qt = vec.ParseQuantization(cfg.Quantization)
 		}
 	}
 
@@ -346,7 +347,7 @@ func (s *Server) handleVectorReindex(w http.ResponseWriter, r *http.Request) {
 		if !req.Force {
 			existing, err := s.VectorStore.Get(req.Collection, d.ID)
 			if err == nil && existing != nil {
-				currentHash := ContentHash(d.ContentMD)
+				currentHash := vec.ContentHash(d.ContentMD)
 				if existing.ContentHash == currentHash {
 					skipped++
 					continue
@@ -368,7 +369,7 @@ func (s *Server) handleVectorReindex(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Generate embedding for each chunk
-		var chunkEmbeddings []ChunkEmbedding
+		var chunkEmbeddings []vec.ChunkEmbedding
 		chunkFailed := false
 		for i, chunk := range chunks {
 			ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
@@ -380,7 +381,7 @@ func (s *Server) handleVectorReindex(w http.ResponseWriter, r *http.Request) {
 				chunkFailed = true
 				break
 			}
-			chunkEmbeddings = append(chunkEmbeddings, ChunkEmbedding{
+			chunkEmbeddings = append(chunkEmbeddings, vec.ChunkEmbedding{
 				ChunkIndex: i,
 				Vector:     vector,
 			})
@@ -390,7 +391,7 @@ func (s *Server) handleVectorReindex(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Store all chunks (with quantization if configured)
-		contentHash := ContentHash(d.ContentMD)
+		contentHash := vec.ContentHash(d.ContentMD)
 		if err := s.VectorStore.PutChunksQuantized(req.Collection, d.ID, chunkEmbeddings, s.Embedding.Model(), contentHash, qt); err != nil {
 			failed++
 			errs = append(errs, d.ID+": store: "+err.Error())
@@ -426,7 +427,7 @@ func (s *Server) handleVectorReindex(w http.ResponseWriter, r *http.Request) {
 				collVecs[docID] = rec.Vector
 			}
 			for _, searcher := range s.VectorSearchers {
-				if trainer, isTrainable := searcher.(Trainable); isTrainable {
+				if trainer, isTrainable := searcher.(vec.Trainable); isTrainable {
 					go trainer.Train(req.Collection, collVecs)
 				}
 			}
@@ -469,7 +470,7 @@ func (s *Server) handleVectorStats(w http.ResponseWriter, r *http.Request) {
 		}
 		c := bDocs.Cursor()
 		for k, _ := c.First(); k != nil; k, _ = c.Next() {
-			parts := splitKey(k)
+			parts := vec.SplitKey(k)
 			if len(parts) >= 2 {
 				docCounts[parts[1]]++
 			}

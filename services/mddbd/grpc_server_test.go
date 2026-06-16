@@ -13,6 +13,7 @@ import (
 
 	"mddb/internal/cache"
 	"mddb/internal/fts"
+	"mddb/internal/vector"
 	pb "mddb/proto"
 )
 
@@ -67,14 +68,14 @@ func newTestGRPCServer(t *testing.T) (*GRPCServer, *Server, func()) {
 	s.IndexQueue = NewIndexQueue(s, 2)
 
 	// VectorStore & VectorIndex
-	s.VectorStore = NewVectorStore(db)
+	s.VectorStore = vector.NewVectorStore(db)
 	if err := s.VectorStore.EnsureBucket(); err != nil {
 		_ = db.Close()
 		t.Fatal(err)
 	}
-	s.VectorIndex = NewVectorIndex()
+	s.VectorIndex = vector.NewVectorIndex()
 	s.VectorIndex.SetReady()
-	s.VectorSearchers = map[string]VectorSearcher{
+	s.VectorSearchers = map[string]vector.VectorSearcher{
 		"flat": s.VectorIndex,
 	}
 
@@ -1752,8 +1753,8 @@ func TestGRPCVectorSearch_IndexNotReady(t *testing.T) {
 	defer cleanup()
 
 	// Create a new index that is NOT ready
-	s.VectorIndex = NewVectorIndex() // ready defaults to false
-	s.VectorSearchers = map[string]VectorSearcher{
+	s.VectorIndex = vector.NewVectorIndex() // ready defaults to false
+	s.VectorSearchers = map[string]vector.VectorSearcher{
 		"flat": s.VectorIndex,
 	}
 

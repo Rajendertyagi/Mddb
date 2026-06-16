@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mddb/internal/vector"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -176,7 +177,7 @@ func TestFindSimilarDuplicates_IdenticalVectors(t *testing.T) {
 		{docID: "doc3", vector: []float32{0.0, 1.0, 0.0}},
 	}
 
-	groups := s.findSimilarDuplicates("blog", docs, 0.9, cosineSimilarity, false)
+	groups := s.findSimilarDuplicates("blog", docs, 0.9, vector.CosineSimilarity, false)
 
 	if len(groups) != 1 {
 		t.Fatalf("expected 1 group, got %d", len(groups))
@@ -195,7 +196,7 @@ func TestFindSimilarDuplicates_NoPairs(t *testing.T) {
 		{docID: "doc2", vector: []float32{0.0, 1.0, 0.0}},
 	}
 
-	groups := s.findSimilarDuplicates("blog", docs, 0.9, cosineSimilarity, false)
+	groups := s.findSimilarDuplicates("blog", docs, 0.9, vector.CosineSimilarity, false)
 	if len(groups) != 0 {
 		t.Errorf("expected 0 groups, got %d", len(groups))
 	}

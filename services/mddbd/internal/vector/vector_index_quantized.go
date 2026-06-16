@@ -1,4 +1,4 @@
-package main
+package vector
 
 import (
 	"sort"
@@ -227,7 +227,7 @@ func (qi *QuantizedVectorIndex) resolveQuantType(collection string) Quantization
 	return QuantNone
 }
 
-// baseDocIDQ is equivalent to baseDocID but local to avoid import cycles.
+// baseDocIDQ is equivalent to BaseDocID but local to avoid import cycles.
 func baseDocIDQ(key string) string {
 	if idx := strings.IndexByte(key, '#'); idx >= 0 {
 		return key[:idx]

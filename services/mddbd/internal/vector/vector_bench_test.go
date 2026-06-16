@@ -1,4 +1,4 @@
-package main
+package vector
 
 import (
 	"fmt"
@@ -117,7 +117,7 @@ func benchmarkSearchWithFilter(b *testing.B, numDocs, dims int, filterRatio floa
 	}
 }
 
-// --- Benchmarks for cosineSimilarity ---
+// --- Benchmarks for CosineSimilarity ---
 
 func BenchmarkCosineSimilarity_768(b *testing.B) {
 	benchmarkCosine(b, 768)
@@ -139,7 +139,7 @@ func benchmarkCosine(b *testing.B, dims int) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		_ = cosineSimilarity(a, vecB)
+		_ = CosineSimilarity(a, vecB)
 	}
 }
 
@@ -263,7 +263,7 @@ func benchmarkMarshal(b *testing.B, dims int) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		_ = marshalEmbeddingRecord(rec)
+		_ = MarshalEmbeddingRecord(rec)
 	}
 }
 
@@ -285,11 +285,11 @@ func benchmarkUnmarshal(b *testing.B, dims int) {
 		CreatedAt:   1709136000,
 		ContentHash: "abcdef0123456789",
 	}
-	data := marshalEmbeddingRecord(rec)
+	data := MarshalEmbeddingRecord(rec)
 
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		_, _ = unmarshalEmbeddingRecord(data)
+		_, _ = UnmarshalEmbeddingRecord(data)
 	}
 }

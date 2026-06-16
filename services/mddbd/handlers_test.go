@@ -6,6 +6,7 @@ import (
 	"io"
 	"mddb/internal/cache"
 	"mddb/internal/fts"
+	"mddb/internal/vector"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -57,14 +58,14 @@ func newHandlerTestServer(t *testing.T) (*Server, func()) {
 	}
 
 	// Vector subsystem
-	s.VectorStore = NewVectorStore(db)
+	s.VectorStore = vector.NewVectorStore(db)
 	if err := s.VectorStore.EnsureBucket(); err != nil {
 		_ = db.Close()
 		_ = os.Remove(f.Name())
 		t.Fatal(err)
 	}
-	s.VectorIndex = NewVectorIndex()
-	s.VectorSearchers = map[string]VectorSearcher{
+	s.VectorIndex = vector.NewVectorIndex()
+	s.VectorSearchers = map[string]vector.VectorSearcher{
 		"flat": s.VectorIndex,
 	}
 

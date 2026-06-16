@@ -23,6 +23,7 @@ import (
 	"mddb/internal/cache"
 	"mddb/internal/fts"
 	"mddb/internal/sliceutil"
+	vec "mddb/internal/vector"
 	proto "mddb/proto"
 )
 
@@ -715,7 +716,7 @@ func (g *GRPCServer) VectorSearch(ctx context.Context, req *proto.VectorSearchRe
 		searchTopK = 20
 	}
 
-	var results []VectorResult
+	var results []vec.VectorResult
 	if len(filterMeta) > 0 {
 		allowedIDs := g.server.getDocIDsByMeta(req.Collection, filterMeta)
 		results = searcher.SearchWithFilter(req.Collection, queryVector, searchTopK, req.Threshold, allowedIDs, nil)
@@ -724,7 +725,7 @@ func (g *GRPCServer) VectorSearch(ctx context.Context, req *proto.VectorSearchRe
 	}
 
 	// Deduplicate chunk results
-	results = DeduplicateChunkResults(results)
+	results = vec.DeduplicateChunkResults(results)
 	if len(results) > topK {
 		results = results[:topK]
 	}
@@ -821,7 +822,7 @@ func (g *GRPCServer) VectorReindex(ctx context.Context, req *proto.VectorReindex
 		}
 		if !req.Force {
 			existing, err := g.server.VectorStore.Get(req.Collection, d.ID)
-			if err == nil && existing != nil && existing.ContentHash == ContentHash(d.ContentMD) {
+			if err == nil && existing != nil && existing.ContentHash == vec.ContentHash(d.ContentMD) {
 				skipped++
 				continue
 			}
@@ -834,7 +835,7 @@ func (g *GRPCServer) VectorReindex(ctx context.Context, req *proto.VectorReindex
 			continue
 		}
 
-		if err := g.server.VectorStore.Put(req.Collection, d.ID, vector, g.server.Embedding.Model(), ContentHash(d.ContentMD)); err != nil {
+		if err := g.server.VectorStore.Put(req.Collection, d.ID, vector, g.server.Embedding.Model(), vec.ContentHash(d.ContentMD)); err != nil {
 			failed++
 			errs = append(errs, d.ID+": store: "+err.Error())
 			continue
@@ -2717,7 +2718,7 @@ func (g *GRPCServer) CrossSearch(ctx context.Context, req *proto.CrossSearchRequ
 		topK = 10
 	}
 
-	metric := ResolveSimilarity(req.DistanceMetric)
+	metric := vec.ResolveSimilarity(req.DistanceMetric)
 	metricName := req.DistanceMetric
 	if metricName == "" {
 		metricName = "cosine"
@@ -2736,12 +2737,12 @@ func (g *GRPCServer) CrossSearch(ctx context.Context, req *proto.CrossSearchRequ
 
 	type taggedResult struct {
 		collection string
-		result     VectorResult
+		result     vec.VectorResult
 	}
 	var allTagged []taggedResult
 
 	for _, coll := range req.TargetCollections {
-		var results []VectorResult
+		var results []vec.VectorResult
 		if len(filterMeta) > 0 {
 			allowedIDs := g.server.getDocIDsByMeta(coll, filterMeta)
 			if len(allowedIDs) == 0 {
@@ -2751,7 +2752,7 @@ func (g *GRPCServer) CrossSearch(ctx context.Context, req *proto.CrossSearchRequ
 		} else {
 			results = searcher.Search(coll, queryVector, searchTopK, req.Threshold, metric)
 		}
-		results = DeduplicateChunkResults(results)
+		results = vec.DeduplicateChunkResults(results)
 		for _, vr := range results {
 			allTagged = append(allTagged, taggedResult{collection: coll, result: vr})
 		}

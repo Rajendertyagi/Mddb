@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"mddb/internal/fts"
 	"mddb/internal/geo"
+	"mddb/internal/vector"
 	"net/http"
 	"sort"
 	"time"
@@ -391,7 +392,7 @@ func (s *Server) runFTSSearch(req HybridSearchRequest) ([]fts.FTSResult, error) 
 }
 
 // runVectorSearch executes the vector portion of hybrid search.
-func (s *Server) runVectorSearch(ctx context.Context, req HybridSearchRequest) ([]VectorResult, error) {
+func (s *Server) runVectorSearch(ctx context.Context, req HybridSearchRequest) ([]vector.VectorResult, error) {
 	if s.Embedding == nil || len(s.VectorSearchers) == 0 {
 		return nil, nil
 	}
@@ -419,9 +420,9 @@ func (s *Server) runVectorSearch(ctx context.Context, req HybridSearchRequest) (
 		searchTopK = 20
 	}
 
-	metric := ResolveSimilarity(req.DistanceMetric)
+	metric := vector.ResolveSimilarity(req.DistanceMetric)
 
-	var results []VectorResult
+	var results []vector.VectorResult
 	if len(req.FilterMeta) > 0 {
 		allowedIDs := s.getDocIDsByMeta(req.Collection, req.FilterMeta)
 		if len(allowedIDs) == 0 {
@@ -432,13 +433,13 @@ func (s *Server) runVectorSearch(ctx context.Context, req HybridSearchRequest) (
 		results = searcher.Search(req.Collection, queryVector, searchTopK, req.Threshold, metric)
 	}
 
-	results = DeduplicateChunkResults(results)
+	results = vector.DeduplicateChunkResults(results)
 	return results, nil
 }
 
 // mergeAlpha combines FTS and vector results using alpha blending.
 // combined = alpha * normalizedFTS + (1-alpha) * vectorScore
-func mergeAlpha(ftsResults []fts.FTSResult, vectorResults []VectorResult, alpha float64, topK int) []HybridSearchResultItem {
+func mergeAlpha(ftsResults []fts.FTSResult, vectorResults []vector.VectorResult, alpha float64, topK int) []HybridSearchResultItem {
 	// Normalize FTS scores to 0-1 range
 	var ftsMin, ftsMax float64
 	if len(ftsResults) > 0 {
@@ -512,7 +513,7 @@ func mergeAlpha(ftsResults []fts.FTSResult, vectorResults []VectorResult, alpha 
 
 // mergeRRF combines FTS and vector results using Reciprocal Rank Fusion.
 // score = 1/(k + rank_fts) + 1/(k + rank_vector)
-func mergeRRF(ftsResults []fts.FTSResult, vectorResults []VectorResult, rrfK int, topK int) []HybridSearchResultItem {
+func mergeRRF(ftsResults []fts.FTSResult, vectorResults []vector.VectorResult, rrfK int, topK int) []HybridSearchResultItem {
 	type combinedEntry struct {
 		rrfScore     float64
 		ftsScore     float64

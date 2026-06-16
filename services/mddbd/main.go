@@ -17,6 +17,7 @@ import (
 	"mddb/internal/fts"
 	"mddb/internal/geo"
 	"mddb/internal/sliceutil"
+	"mddb/internal/vector"
 	"net/http"
 	"os"
 	"os/signal"
@@ -72,17 +73,17 @@ type Server struct {
 	AdaptiveIndex       *AdaptiveIndexManager // Adaptive indexing
 	AsyncIO             *AsyncIO              // Async I/O
 	ZeroCopy            *ZeroCopyManager      // Zero-copy I/O
-	SIMD                *SIMDProcessor        // Vectorized operations
+	SIMD                *vector.SIMDProcessor // Vectorized operations
 	ShardCluster        *ShardCluster         // Distributed sharding
 	finalBatchProcessor *FinalBatchProcessor  // Final optimized batch processor
 	UseExtreme          bool                  // Enable extreme performance features
 	// Vector search
-	VectorStore       *VectorStore              // Persistent vector storage in BoltDB
-	VectorIndex       *VectorIndex              // In-memory flat vector index
-	VectorSearchers   map[string]VectorSearcher // algorithm name -> searcher (flat, hnsw, ivf, pq, sq, bq)
-	QuantizedVecIndex *QuantizedVectorIndex     // In-memory quantized vector index (int8/int4)
-	EmbeddingWorker   *EmbeddingWorker          // Background embedding processor
-	Embedding         embedding.Provider        // Embedding generation provider
+	VectorStore       *vector.VectorStore              // Persistent vector storage in BoltDB
+	VectorIndex       *vector.VectorIndex              // In-memory flat vector index
+	VectorSearchers   map[string]vector.VectorSearcher // algorithm name -> searcher (flat, hnsw, ivf, pq, sq, bq)
+	QuantizedVecIndex *vector.QuantizedVectorIndex     // In-memory quantized vector index (int8/int4)
+	EmbeddingWorker   *EmbeddingWorker                 // Background embedding processor
+	Embedding         embedding.Provider               // Embedding generation provider
 	// Geo search
 	GeoStore     *geo.GeoStore     // Persistent geo points in BoltDB ("geo" bucket)
 	GeoIndex     *geo.GeoIndex     // In-memory R-tree geo index (default)
@@ -258,7 +259,7 @@ func main() {
 		AdaptiveIndex: NewAdaptiveIndexManager(),         // Adaptive indexing
 		AsyncIO:       NewAsyncIO(),                      // Async I/O
 		ZeroCopy:      NewZeroCopyManager(),              // Zero-copy I/O
-		SIMD:          NewSIMDProcessor(),                // Vectorized operations
+		SIMD:          vector.NewSIMDProcessor(),         // Vectorized operations
 		ShardCluster:  NewShardCluster(4, 2),             // 4 shards, 2x replication
 		UseExtreme:    useExtreme,
 	}
@@ -316,11 +317,11 @@ func main() {
 	}
 
 	// Initialize vector search
-	s.VectorStore = NewVectorStore(db)
+	s.VectorStore = vector.NewVectorStore(db)
 	if err := s.VectorStore.EnsureBucket(); err != nil {
 		log.Fatal(err)
 	}
-	s.VectorIndex = NewVectorIndex()
+	s.VectorIndex = vector.NewVectorIndex()
 
 	// Initialize geo search. Startup rebuild from BoltDB happens asynchronously
 	// below so mddbd can start serving non-geo requests immediately.
@@ -337,24 +338,24 @@ func main() {
 	if bqRerank <= 0 {
 		bqRerank = 10
 	}
-	s.QuantizedVecIndex = NewQuantizedVectorIndex(func(collection string) QuantizationType {
+	s.QuantizedVecIndex = vector.NewQuantizedVectorIndex(func(collection string) vector.QuantizationType {
 		if s.CollectionManager == nil {
-			return QuantNone
+			return vector.QuantNone
 		}
 		cfg, ok := s.CollectionManager.Get(collection)
 		if !ok || cfg.Quantization == "" {
-			return QuantNone
+			return vector.QuantNone
 		}
-		return ParseQuantization(cfg.Quantization)
+		return vector.ParseQuantization(cfg.Quantization)
 	})
-	s.VectorSearchers = map[string]VectorSearcher{
+	s.VectorSearchers = map[string]vector.VectorSearcher{
 		"flat":      s.VectorIndex,
-		"hnsw":      NewHNSWIndex(16, 200, 100),
-		"ivf":       NewIVFIndex(10, 20),
-		"pq":        NewPQIndex(8, 256, 20),
-		"opq":       NewOPQIndex(8, 256, 20, 5),
-		"sq":        NewSQIndex(),
-		"bq":        NewBQIndex(bqRerank),
+		"hnsw":      vector.NewHNSWIndex(16, 200, 100),
+		"ivf":       vector.NewIVFIndex(10, 20),
+		"pq":        vector.NewPQIndex(8, 256, 20),
+		"opq":       vector.NewOPQIndex(8, 256, 20, 5),
+		"sq":        vector.NewSQIndex(),
+		"bq":        vector.NewBQIndex(bqRerank),
 		"quantized": s.QuantizedVecIndex,
 	}
 

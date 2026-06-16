@@ -1,4 +1,4 @@
-package main
+package vector
 
 // VectorSearcher is the interface for all vector search algorithms.
 type VectorSearcher interface {

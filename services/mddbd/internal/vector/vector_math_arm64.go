@@ -1,6 +1,6 @@
 //go:build arm64 && !nosme && cgo
 
-package main
+package vector
 
 /*
 #cgo CFLAGS: -O3
@@ -74,8 +74,8 @@ func init() {
 // vectorMathTier returns the active SIMD acceleration tier.
 func vectorMathTier() string { return tier }
 
-// cosineSimilarity computes cosine similarity using NEON or SME acceleration.
-func cosineSimilarity(a, b []float32) float32 {
+// CosineSimilarity computes cosine similarity using NEON or SME acceleration.
+func CosineSimilarity(a, b []float32) float32 {
 	if len(a) != len(b) || len(a) == 0 {
 		return 0
 	}

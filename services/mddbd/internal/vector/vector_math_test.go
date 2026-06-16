@@ -1,4 +1,4 @@
-package main
+package vector
 
 import (
 	"fmt"
@@ -18,44 +18,44 @@ func TestVectorMathTier(t *testing.T) {
 
 func TestCosineSimilarityIdentical(t *testing.T) {
 	a := []float32{1, 2, 3, 4, 5}
-	got := cosineSimilarity(a, a)
+	got := CosineSimilarity(a, a)
 	if math.Abs(float64(got)-1.0) > 1e-5 {
-		t.Errorf("cosineSimilarity(a, a) = %v, want 1.0", got)
+		t.Errorf("CosineSimilarity(a, a) = %v, want 1.0", got)
 	}
 }
 
 func TestCosineSimilarityOrthogonal(t *testing.T) {
 	a := []float32{1, 0, 0}
 	b := []float32{0, 1, 0}
-	got := cosineSimilarity(a, b)
+	got := CosineSimilarity(a, b)
 	if math.Abs(float64(got)) > 1e-5 {
-		t.Errorf("cosineSimilarity(orthogonal) = %v, want 0.0", got)
+		t.Errorf("CosineSimilarity(orthogonal) = %v, want 0.0", got)
 	}
 }
 
 func TestCosineSimilarityOpposite(t *testing.T) {
 	a := []float32{1, 2, 3}
 	b := []float32{-1, -2, -3}
-	got := cosineSimilarity(a, b)
+	got := CosineSimilarity(a, b)
 	if math.Abs(float64(got)+1.0) > 1e-5 {
-		t.Errorf("cosineSimilarity(opposite) = %v, want -1.0", got)
+		t.Errorf("CosineSimilarity(opposite) = %v, want -1.0", got)
 	}
 }
 
 func TestCosineSimilarityEdgeCases(t *testing.T) {
 	// Empty vectors
-	if cosineSimilarity(nil, nil) != 0 {
+	if CosineSimilarity(nil, nil) != 0 {
 		t.Error("nil vectors should return 0")
 	}
-	if cosineSimilarity([]float32{}, []float32{}) != 0 {
+	if CosineSimilarity([]float32{}, []float32{}) != 0 {
 		t.Error("empty vectors should return 0")
 	}
 	// Mismatched lengths
-	if cosineSimilarity([]float32{1}, []float32{1, 2}) != 0 {
+	if CosineSimilarity([]float32{1}, []float32{1, 2}) != 0 {
 		t.Error("mismatched lengths should return 0")
 	}
 	// Zero vectors
-	if cosineSimilarity([]float32{0, 0}, []float32{1, 1}) != 0 {
+	if CosineSimilarity([]float32{0, 0}, []float32{1, 1}) != 0 {
 		t.Error("zero vector should return 0")
 	}
 }
@@ -168,13 +168,13 @@ func TestCosineSimilarityLargeDims(t *testing.T) {
 					b[i] = rng.Float32()*2 - 1
 				}
 
-				got := cosineSimilarity(a, b)
+				got := CosineSimilarity(a, b)
 				if got < -1.0 || got > 1.0 {
-					t.Errorf("cosineSimilarity out of range: %v", got)
+					t.Errorf("CosineSimilarity out of range: %v", got)
 				}
 
 				// Self-similarity should be 1.0
-				self := cosineSimilarity(a, a)
+				self := CosineSimilarity(a, a)
 				if math.Abs(float64(self)-1.0) > 1e-4 {
 					t.Errorf("self-similarity = %v, want 1.0", self)
 				}
@@ -205,7 +205,7 @@ func TestBatchCosineSimLarge(t *testing.T) {
 	// Verify each batch result matches individual computation
 	for i := 0; i < count; i++ {
 		vec := matrix[i*dims : (i+1)*dims]
-		expected := cosineSimilarity(query, vec)
+		expected := CosineSimilarity(query, vec)
 		diff := math.Abs(float64(out[i] - expected))
 		if diff > 1e-5 {
 			t.Errorf("batch[%d] = %v, individual = %v, diff = %v", i, out[i], expected, diff)

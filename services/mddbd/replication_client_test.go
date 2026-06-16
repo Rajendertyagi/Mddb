@@ -2,6 +2,7 @@ package main
 
 import (
 	"mddb/internal/cache"
+	"mddb/internal/vector"
 	"os"
 	"testing"
 	"time"
@@ -324,9 +325,9 @@ func TestReplicationClientRebuildInMemoryState(t *testing.T) {
 	defer cleanup()
 
 	// Set up subsystems
-	s.VectorStore = NewVectorStore(s.DB)
-	s.VectorIndex = NewVectorIndex()
-	s.VectorSearchers = map[string]VectorSearcher{
+	s.VectorStore = vector.NewVectorStore(s.DB)
+	s.VectorIndex = vector.NewVectorIndex()
+	s.VectorSearchers = map[string]vector.VectorSearcher{
 		"flat": s.VectorIndex,
 	}
 	s.WebhookManager = NewWebhookManager(s.DB)

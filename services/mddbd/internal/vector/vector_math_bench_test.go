@@ -1,4 +1,4 @@
-package main
+package vector
 
 import (
 	"fmt"
@@ -31,7 +31,7 @@ func benchCosineSim(b *testing.B, dims int) {
 	b.SetBytes(int64(dims * 4 * 2)) // bytes read: two float32 vectors
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = cosineSimilarity(a, v)
+		_ = CosineSimilarity(a, v)
 	}
 }
 

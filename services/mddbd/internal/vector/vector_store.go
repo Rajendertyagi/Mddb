@@ -1,6 +1,7 @@
-package main
+package vector
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
@@ -81,7 +82,7 @@ func (vs *VectorStore) PutQuantized(collection, docID string, vector []float32, 
 		return b.Put(key, data)
 	})
 	if err == nil && vs.binlog != nil {
-		_ = vs.binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogPut, BucketName: "vectors", Key: CopyBytes(key), Value: CopyBytes(data)})
+		_ = vs.binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogPut, BucketName: "vectors", Key: bytes.Clone(key), Value: bytes.Clone(data)})
 	}
 	return err
 }
@@ -116,7 +117,7 @@ func (vs *VectorStore) PutChunksQuantized(collection, docID string, chunks []Chu
 			}
 
 			if vs.binlog != nil {
-				_ = vs.binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogPut, BucketName: "vectors", Key: CopyBytes(chunkKey), Value: CopyBytes(data)})
+				_ = vs.binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogPut, BucketName: "vectors", Key: bytes.Clone(chunkKey), Value: bytes.Clone(data)})
 			}
 		}
 		return nil
@@ -126,7 +127,7 @@ func (vs *VectorStore) PutChunksQuantized(collection, docID string, chunks []Chu
 // Put stores a single embedding record for a document (backward-compatible).
 func (vs *VectorStore) Put(collection, docID string, vector []float32, model string, contentHash string) error {
 	key := buildVecKey(collection, docID)
-	data := marshalEmbeddingRecord(&EmbeddingRecord{
+	data := MarshalEmbeddingRecord(&EmbeddingRecord{
 		DocID:       docID,
 		Vector:      vector,
 		Model:       model,
@@ -143,7 +144,7 @@ func (vs *VectorStore) Put(collection, docID string, vector []float32, model str
 		return b.Put(key, data)
 	})
 	if err == nil && vs.binlog != nil {
-		_ = vs.binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogPut, BucketName: "vectors", Key: CopyBytes(key), Value: CopyBytes(data)})
+		_ = vs.binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogPut, BucketName: "vectors", Key: bytes.Clone(key), Value: bytes.Clone(data)})
 	}
 	return err
 }
@@ -161,7 +162,7 @@ func (vs *VectorStore) PutChunks(collection, docID string, chunks []ChunkEmbeddi
 
 		for _, chunk := range chunks {
 			chunkKey := buildChunkKey(collection, docID, chunk.ChunkIndex)
-			data := marshalEmbeddingRecord(&EmbeddingRecord{
+			data := MarshalEmbeddingRecord(&EmbeddingRecord{
 				DocID:       docID,
 				Vector:      chunk.Vector,
 				Model:       model,
@@ -175,7 +176,7 @@ func (vs *VectorStore) PutChunks(collection, docID string, chunks []ChunkEmbeddi
 			}
 
 			if vs.binlog != nil {
-				_ = vs.binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogPut, BucketName: "vectors", Key: CopyBytes(chunkKey), Value: CopyBytes(data)})
+				_ = vs.binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogPut, BucketName: "vectors", Key: bytes.Clone(chunkKey), Value: bytes.Clone(data)})
 			}
 		}
 
@@ -257,7 +258,7 @@ func (vs *VectorStore) Get(collection, docID string) (*EmbeddingRecord, error) {
 		if isQuantizedRecord(v) {
 			rec, _, err = unmarshalEmbeddingRecordQuantized(v)
 		} else {
-			rec, err = unmarshalEmbeddingRecord(v)
+			rec, err = UnmarshalEmbeddingRecord(v)
 		}
 		return err
 	})
@@ -315,7 +316,7 @@ func (vs *VectorStore) LoadCollection(collection string) (map[string]*EmbeddingR
 			if isQuantizedRecord(v) {
 				rec, _, err = unmarshalEmbeddingRecordQuantized(v)
 			} else {
-				rec, err = unmarshalEmbeddingRecord(v)
+				rec, err = UnmarshalEmbeddingRecord(v)
 			}
 			if err != nil {
 				continue
@@ -352,7 +353,7 @@ func (vs *VectorStore) LoadCollectionQuantized(collection string) (map[string]*E
 				records[suffix] = rec
 				quantized[suffix] = qv
 			} else {
-				rec, err := unmarshalEmbeddingRecord(v)
+				rec, err := UnmarshalEmbeddingRecord(v)
 				if err != nil {
 					continue
 				}
@@ -459,7 +460,7 @@ func marshalEmbeddingRecordQuantized(rec *EmbeddingRecord, qt QuantizationType) 
 	qv := QuantizeFloat32(rec.Vector, qt)
 	if qv == nil {
 		// fallback to float32 if quantization fails
-		return marshalEmbeddingRecord(rec)
+		return MarshalEmbeddingRecord(rec)
 	}
 
 	qvData := MarshalQuantizedVector(qv)
@@ -600,7 +601,7 @@ func isQuantizedRecord(data []byte) bool {
 
 // Binary serialization for embedding records (compact, no JSON overhead).
 // Format v1: [4B model_len][model][4B dims][4B*dims float32s][8B created_at][4B hash_len][hash][4B docid_len][docid]
-func marshalEmbeddingRecord(rec *EmbeddingRecord) []byte {
+func MarshalEmbeddingRecord(rec *EmbeddingRecord) []byte {
 	modelBytes := []byte(rec.Model)
 	hashBytes := []byte(rec.ContentHash)
 	docIDBytes := []byte(rec.DocID)
@@ -649,7 +650,7 @@ func marshalEmbeddingRecord(rec *EmbeddingRecord) []byte {
 	return buf
 }
 
-func unmarshalEmbeddingRecord(data []byte) (*EmbeddingRecord, error) {
+func UnmarshalEmbeddingRecord(data []byte) (*EmbeddingRecord, error) {
 	if len(data) < 12 {
 		return nil, fmt.Errorf("embedding record too short")
 	}
@@ -713,8 +714,8 @@ func unmarshalEmbeddingRecord(data []byte) (*EmbeddingRecord, error) {
 	return rec, nil
 }
 
-// splitKey splits a BoltDB key by '|' separator.
-func splitKey(key []byte) []string {
+// SplitKey splits a BoltDB key by '|' separator.
+func SplitKey(key []byte) []string {
 	var parts []string
 	start := 0
 	for i, b := range key {

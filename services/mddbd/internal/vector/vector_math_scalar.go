@@ -1,15 +1,15 @@
 //go:build !arm64 || nosme || !cgo
 
-package main
+package vector
 
 import "math"
 
 // vectorMathTier returns the active SIMD acceleration tier.
 func vectorMathTier() string { return "scalar" }
 
-// cosineSimilarity computes cosine similarity between two vectors.
+// CosineSimilarity computes cosine similarity between two vectors.
 // Returns value between -1 and 1, where 1 = identical direction.
-func cosineSimilarity(a, b []float32) float32 {
+func CosineSimilarity(a, b []float32) float32 {
 	if len(a) != len(b) || len(a) == 0 {
 		return 0
 	}
@@ -73,6 +73,6 @@ func euclideanDistSq(a, b []float32) float64 {
 func batchCosineSim(query []float32, matrix []float32, dims, count int, out []float32) {
 	for i := 0; i < count; i++ {
 		off := i * dims
-		out[i] = cosineSimilarity(query, matrix[off:off+dims])
+		out[i] = CosineSimilarity(query, matrix[off:off+dims])
 	}
 }

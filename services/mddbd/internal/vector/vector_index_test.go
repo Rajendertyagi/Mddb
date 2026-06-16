@@ -1,4 +1,4 @@
-package main
+package vector
 
 import (
 	"math"
@@ -58,9 +58,9 @@ func TestCosineSimilarity(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := cosineSimilarity(tt.a, tt.b)
+			got := CosineSimilarity(tt.a, tt.b)
 			if diff := float32(math.Abs(float64(got - tt.expected))); diff > tt.delta {
-				t.Errorf("cosineSimilarity() = %v, want %v (diff %v)", got, tt.expected, diff)
+				t.Errorf("CosineSimilarity() = %v, want %v (diff %v)", got, tt.expected, diff)
 			}
 		})
 	}

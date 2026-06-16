@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"mddb/internal/vector"
 	proto "mddb/proto"
 )
 
@@ -346,7 +347,7 @@ func (rc *ReplicationClient) rebuildInMemoryState() {
 	// rebuilt asynchronously (loadVectorIndex acquires the restore read lock via
 	// DBView, so it waits until this restore releases the write lock).
 	if rc.server.VectorIndex != nil && rc.server.VectorStore != nil {
-		rc.server.VectorStore = NewVectorStore(rc.server.DB)
+		rc.server.VectorStore = vector.NewVectorStore(rc.server.DB)
 		go rc.server.loadVectorIndex()
 	}
 

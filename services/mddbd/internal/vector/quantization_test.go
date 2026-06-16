@@ -1,4 +1,4 @@
-package main
+package vector
 
 import (
 	"math"
@@ -204,7 +204,7 @@ func TestIsQuantizedRecord(t *testing.T) {
 	rec := &EmbeddingRecord{
 		DocID: "d", Vector: []float32{1.0}, Model: "m", Dimensions: 1, CreatedAt: 1, ContentHash: "h",
 	}
-	v1 := marshalEmbeddingRecord(rec)
+	v1 := MarshalEmbeddingRecord(rec)
 	if isQuantizedRecord(v1) {
 		t.Error("v1 record should not be identified as quantized")
 	}

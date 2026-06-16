@@ -4,6 +4,7 @@ import (
 	"log"
 	"mddb/internal/binlog"
 	"mddb/internal/cache"
+	"mddb/internal/vector"
 	"strings"
 	"sync/atomic"
 
@@ -154,7 +155,7 @@ func (ra *ReplicationApplier) applyVector(entry *binlog.BinlogEntry) {
 	}
 
 	// Parse key: vec|collection|docID
-	parts := splitKey(entry.Key)
+	parts := vector.SplitKey(entry.Key)
 	if len(parts) < 3 {
 		return
 	}
@@ -163,7 +164,7 @@ func (ra *ReplicationApplier) applyVector(entry *binlog.BinlogEntry) {
 
 	switch entry.Type {
 	case binlog.BinlogPut:
-		rec, err := unmarshalEmbeddingRecord(entry.Value)
+		rec, err := vector.UnmarshalEmbeddingRecord(entry.Value)
 		if err != nil {
 			log.Printf("Replication applier: failed to unmarshal embedding: %v", err)
 			return
@@ -178,7 +179,7 @@ func (ra *ReplicationApplier) applyVector(entry *binlog.BinlogEntry) {
 //
 // GO-002: the cache is keyed by cache.BuildCacheKey(collection, key, lang). The doc
 // key is `doc|<collection>|<docID>` where docID itself is `collection|key|lang`,
-// so a naive split (splitKey) over-splits and the previous `collection|docID`
+// so a naive split (vector.SplitKey) over-splits and the previous `collection|docID`
 // key never matched anything. We SplitN to recover collection + the full docID,
 // and for Put entries unmarshal the doc to build the exact write-path key.
 func (ra *ReplicationApplier) invalidateDocCache(entry *binlog.BinlogEntry) {

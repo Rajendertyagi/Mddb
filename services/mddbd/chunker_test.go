@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mddb/internal/vector"
 	"strings"
 	"testing"
 )
@@ -172,15 +173,15 @@ func TestBaseDocID(t *testing.T) {
 		{"no-hash", "no-hash"},
 	}
 	for _, tt := range tests {
-		got := baseDocID(tt.input)
+		got := vector.BaseDocID(tt.input)
 		if got != tt.expected {
-			t.Errorf("baseDocID(%q) = %q, want %q", tt.input, got, tt.expected)
+			t.Errorf("vector.BaseDocID(%q) = %q, want %q", tt.input, got, tt.expected)
 		}
 	}
 }
 
 func TestDeduplicateChunkResults(t *testing.T) {
-	results := []VectorResult{
+	results := []vector.VectorResult{
 		{DocID: "doc1#0", Score: 0.9},
 		{DocID: "doc1#1", Score: 0.7},
 		{DocID: "doc2#0", Score: 0.85},
@@ -188,7 +189,7 @@ func TestDeduplicateChunkResults(t *testing.T) {
 		{DocID: "doc3", Score: 0.6}, // legacy non-chunked
 	}
 
-	deduped := DeduplicateChunkResults(results)
+	deduped := vector.DeduplicateChunkResults(results)
 
 	if len(deduped) != 3 {
 		t.Fatalf("expected 3 results, got %d", len(deduped))
@@ -207,7 +208,7 @@ func TestDeduplicateChunkResults(t *testing.T) {
 }
 
 func TestDeduplicateChunkResults_Empty(t *testing.T) {
-	deduped := DeduplicateChunkResults(nil)
+	deduped := vector.DeduplicateChunkResults(nil)
 	if len(deduped) != 0 {
 		t.Fatalf("expected 0 results, got %d", len(deduped))
 	}

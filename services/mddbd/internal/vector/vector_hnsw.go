@@ -1,4 +1,4 @@
-package main
+package vector
 
 import (
 	"log"
@@ -113,7 +113,7 @@ func (h *HNSWIndex) Search(collection string, query []float32, topK int, thresho
 		topK = 5
 	}
 	if metric == nil {
-		metric = cosineSimilarity
+		metric = CosineSimilarity
 	}
 
 	neighbors := g.Search(query, topK)
@@ -144,7 +144,7 @@ func (h *HNSWIndex) SearchWithFilter(collection string, query []float32, topK in
 		topK = 5
 	}
 	if metric == nil {
-		metric = cosineSimilarity
+		metric = CosineSimilarity
 	}
 
 	g, ok := h.graphs[collection]
@@ -161,7 +161,7 @@ func (h *HNSWIndex) SearchWithFilter(collection string, query []float32, topK in
 
 	results := make([]VectorResult, 0, topK)
 	for _, n := range neighbors {
-		if !allowed[baseDocID(n.Key)] {
+		if !allowed[BaseDocID(n.Key)] {
 			continue
 		}
 		score := metric(query, n.Value)

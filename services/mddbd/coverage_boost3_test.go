@@ -603,18 +603,6 @@ func TestRtfSpecialChars(t *testing.T) {
 // vector_index.go: more similarity edge cases
 // ---------------------------------------------------------------------------
 
-func TestDotProductEmpty(t *testing.T) {
-	if dotProductSimilarity([]float32{}, []float32{}) != 0 {
-		t.Error("empty should be 0")
-	}
-}
-
-func TestEuclideanMismatch(t *testing.T) {
-	if euclideanSimilarity([]float32{1}, []float32{1, 2}) != 0 {
-		t.Error("mismatched should be 0")
-	}
-}
-
 // ---------------------------------------------------------------------------
 // FormatTimestamp (bytes_utils.go)
 // ---------------------------------------------------------------------------

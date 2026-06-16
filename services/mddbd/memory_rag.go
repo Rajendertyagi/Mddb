@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"mddb/internal/sliceutil"
+	"mddb/internal/vector"
 	"net/http"
 	"sort"
 	"strings"
@@ -425,17 +426,17 @@ func (s *Server) memoryRecallSemantic(ctx context.Context, query string, topK in
 		searchTopK = 20
 	}
 
-	metric := ResolveSimilarity("cosine")
+	metric := vector.ResolveSimilarity("cosine")
 	allowedIDs := s.getDocIDsByMeta(memoryMessagesCollection, filterMeta)
 
-	var vResults []VectorResult
+	var vResults []vector.VectorResult
 	if len(allowedIDs) > 0 {
 		vResults = searcher.SearchWithFilter(memoryMessagesCollection, queryVec, searchTopK, threshold, allowedIDs, metric)
 	} else if len(filterMeta) == 0 {
 		vResults = searcher.Search(memoryMessagesCollection, queryVec, searchTopK, threshold, metric)
 	}
 
-	vResults = DeduplicateChunkResults(vResults)
+	vResults = vector.DeduplicateChunkResults(vResults)
 	if len(vResults) > topK {
 		vResults = vResults[:topK]
 	}
@@ -554,7 +555,7 @@ func (s *Server) memoryRecallHybrid(ctx context.Context, query string, topK int,
 }
 
 // loadRecallResults loads full documents from vector results.
-func (s *Server) loadRecallResults(vResults []VectorResult, includeContent bool, strategy string) []MemoryRecallResultItem {
+func (s *Server) loadRecallResults(vResults []vector.VectorResult, includeContent bool, strategy string) []MemoryRecallResultItem {
 	var results []MemoryRecallResultItem
 	_ = s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))

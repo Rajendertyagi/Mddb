@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"mddb/internal/vector"
 	"net/http"
 	"sort"
 	"time"
@@ -188,7 +189,7 @@ func (s *Server) findDuplicates(req FindDuplicatesRequest) (*FindDuplicatesRespo
 	// Deduplicate to primary vectors only (chunk #0 or legacy single)
 	primaryMap := make(map[string]*docVec)
 	for suffix, rec := range records {
-		base := baseDocID(suffix)
+		base := vector.BaseDocID(suffix)
 		// Keep chunk #0 or legacy (no #) — skip higher chunks
 		if suffix != base && suffix != base+"#0" {
 			continue
@@ -235,7 +236,7 @@ func (s *Server) findDuplicates(req FindDuplicatesRequest) (*FindDuplicatesRespo
 
 	// ---- Similar duplicates ----
 	if req.Mode == "similar" || req.Mode == "both" {
-		metric := ResolveSimilarity(req.DistanceMetric)
+		metric := vector.ResolveSimilarity(req.DistanceMetric)
 		resp.SimilarGroups = s.findSimilarDuplicates(req.Collection, docs, req.Threshold, metric, req.IncludeContent)
 		// Count pairs: for a group of size n, there are n*(n-1)/2 pairs
 		for _, g := range resp.SimilarGroups {
@@ -294,14 +295,14 @@ func (s *Server) findExactDuplicates(collection string, docs []docVec, includeCo
 }
 
 // findSimilarDuplicates does pairwise comparison and clusters with Union-Find.
-func (s *Server) findSimilarDuplicates(collection string, docs []docVec, threshold float64, metric SimilarityFunc, includeContent bool) []DuplicateGroup {
+func (s *Server) findSimilarDuplicates(collection string, docs []docVec, threshold float64, metric vector.SimilarityFunc, includeContent bool) []DuplicateGroup {
 	n := len(docs)
 	if n < 2 {
 		return nil
 	}
 
 	if metric == nil {
-		metric = cosineSimilarity
+		metric = vector.CosineSimilarity
 	}
 
 	// Pairwise comparison (upper triangle) + Union-Find

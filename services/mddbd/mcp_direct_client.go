@@ -15,6 +15,7 @@ import (
 	"mddb/internal/envconf"
 	"mddb/internal/fts"
 	"mddb/internal/sliceutil"
+	vec "mddb/internal/vector"
 	proto "mddb/proto"
 
 	json "github.com/goccy/go-json"
@@ -614,13 +615,13 @@ func (c *DirectClient) VectorSearch(ctx context.Context, req *MCPVectorSearchReq
 		searchTopK = 20
 	}
 
-	metric := ResolveSimilarity(req.DistanceMetric)
+	metric := vec.ResolveSimilarity(req.DistanceMetric)
 	metricName := req.DistanceMetric
 	if metricName == "" {
 		metricName = "cosine"
 	}
 
-	var results []VectorResult
+	var results []vec.VectorResult
 	if len(req.FilterMeta) > 0 {
 		allowedIDs := s.getDocIDsByMeta(req.Collection, req.FilterMeta)
 		if len(allowedIDs) == 0 {
@@ -641,7 +642,7 @@ func (c *DirectClient) VectorSearch(ctx context.Context, req *MCPVectorSearchReq
 	}
 
 	// Deduplicate chunk results: group by base docID, take max score
-	results = DeduplicateChunkResults(results)
+	results = vec.DeduplicateChunkResults(results)
 	if len(results) > topK {
 		results = results[:topK]
 	}
@@ -736,7 +737,7 @@ func (c *DirectClient) VectorReindex(ctx context.Context, req *MCPVectorReindexR
 		if !req.Force {
 			existing, err := s.VectorStore.Get(req.Collection, d.ID)
 			if err == nil && existing != nil {
-				currentHash := ContentHash(d.ContentMD)
+				currentHash := vec.ContentHash(d.ContentMD)
 				if existing.ContentHash == currentHash {
 					skipped++
 					continue
@@ -759,7 +760,7 @@ func (c *DirectClient) VectorReindex(ctx context.Context, req *MCPVectorReindexR
 		}
 
 		// Embed each chunk
-		var chunkEmbeddings []ChunkEmbedding
+		var chunkEmbeddings []vec.ChunkEmbedding
 		chunkFailed := false
 		for i, chunk := range chunks {
 			embedCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
@@ -771,13 +772,13 @@ func (c *DirectClient) VectorReindex(ctx context.Context, req *MCPVectorReindexR
 				chunkFailed = true
 				break
 			}
-			chunkEmbeddings = append(chunkEmbeddings, ChunkEmbedding{ChunkIndex: i, Vector: vector})
+			chunkEmbeddings = append(chunkEmbeddings, vec.ChunkEmbedding{ChunkIndex: i, Vector: vector})
 		}
 		if chunkFailed {
 			continue
 		}
 
-		contentHash := ContentHash(d.ContentMD)
+		contentHash := vec.ContentHash(d.ContentMD)
 		if err := s.VectorStore.PutChunks(req.Collection, d.ID, chunkEmbeddings, s.Embedding.Model(), contentHash); err != nil {
 			failed++
 			errs = append(errs, d.ID+": store: "+err.Error())
@@ -800,7 +801,7 @@ func (c *DirectClient) VectorReindex(ctx context.Context, req *MCPVectorReindexR
 				collVecs[docID] = rec.Vector
 			}
 			for _, searcher := range s.VectorSearchers {
-				if trainer, ok := searcher.(Trainable); ok {
+				if trainer, ok := searcher.(vec.Trainable); ok {
 					go trainer.Train(req.Collection, collVecs)
 				}
 			}
@@ -839,7 +840,7 @@ func (c *DirectClient) VectorStats(ctx context.Context) (*MCPVectorStatsResponse
 		}
 		cur := bDocs.Cursor()
 		for k, _ := cur.First(); k != nil; k, _ = cur.Next() {
-			parts := splitKey(k)
+			parts := vec.SplitKey(k)
 			if len(parts) >= 2 {
 				docCounts[parts[1]]++
 			}
@@ -1894,7 +1895,7 @@ func (c *DirectClient) CrossSearch(ctx context.Context, req *MCPCrossSearchReque
 	if topK <= 0 {
 		topK = 10
 	}
-	metric := ResolveSimilarity(req.DistanceMetric)
+	metric := vec.ResolveSimilarity(req.DistanceMetric)
 	metricName := req.DistanceMetric
 	if metricName == "" {
 		metricName = "cosine"
@@ -1908,12 +1909,12 @@ func (c *DirectClient) CrossSearch(ctx context.Context, req *MCPCrossSearchReque
 	// Search each target collection
 	type taggedResult struct {
 		collection string
-		result     VectorResult
+		result     vec.VectorResult
 	}
 	var allTagged []taggedResult
 
 	for _, coll := range req.TargetCollections {
-		var results []VectorResult
+		var results []vec.VectorResult
 		if len(req.FilterMeta) > 0 {
 			allowedIDs := s.getDocIDsByMeta(coll, req.FilterMeta)
 			if len(allowedIDs) == 0 {
@@ -1923,7 +1924,7 @@ func (c *DirectClient) CrossSearch(ctx context.Context, req *MCPCrossSearchReque
 		} else {
 			results = searcher.Search(coll, queryVector, searchTopK, req.Threshold, metric)
 		}
-		results = DeduplicateChunkResults(results)
+		results = vec.DeduplicateChunkResults(results)
 		for _, vr := range results {
 			allTagged = append(allTagged, taggedResult{collection: coll, result: vr})
 		}

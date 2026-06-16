@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"mddb/internal/vector"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -55,7 +56,7 @@ func (m *embWorkerMockProvider) getCallCount() int {
 }
 
 // embWorkerSetup creates a VectorStore, VectorIndex, and opens a temp DB.
-func embWorkerSetup(t *testing.T) (*bolt.DB, *VectorStore, *VectorIndex) {
+func embWorkerSetup(t *testing.T) (*bolt.DB, *vector.VectorStore, *vector.VectorIndex) {
 	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), "worker_test.db")
 	db, err := bolt.Open(dbPath, 0600, nil)
@@ -63,12 +64,12 @@ func embWorkerSetup(t *testing.T) (*bolt.DB, *VectorStore, *VectorIndex) {
 		t.Fatalf("bolt.Open: %v", err)
 	}
 
-	vs := NewVectorStore(db)
+	vs := vector.NewVectorStore(db)
 	if err := vs.EnsureBucket(); err != nil {
 		t.Fatalf("EnsureBucket: %v", err)
 	}
 
-	vi := NewVectorIndex()
+	vi := vector.NewVectorIndex()
 	vi.SetReady()
 
 	t.Cleanup(func() { _ = db.Close() })
@@ -173,7 +174,7 @@ func TestEmbeddingWorker_SkipUpToDateEmbedding(t *testing.T) {
 	}
 
 	content := "Hello world"
-	contentHash := ContentHash(content)
+	contentHash := vector.ContentHash(content)
 
 	// Pre-store an embedding with the same content hash
 	if err := vs.Put("col", "doc-1", []float32{0.1, 0.2, 0.3}, "test-model", contentHash); err != nil {

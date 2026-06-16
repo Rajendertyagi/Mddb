@@ -3,6 +3,7 @@ package main
 import (
 	"mddb/internal/binlog"
 	"mddb/internal/fts"
+	"mddb/internal/vector"
 	"strings"
 	"testing"
 	"time"
@@ -881,9 +882,9 @@ func TestZeroCopyManagerStreamCopyCovBoost(t *testing.T) {
 }
 
 func TestSIMDProcessorVectorizedCompare(t *testing.T) {
-	sp := NewSIMDProcessor()
+	sp := vector.NewSIMDProcessor()
 	if sp == nil {
-		t.Fatal("nil SIMDProcessor")
+		t.Fatal("nil vector.SIMDProcessor")
 		return
 	}
 	data := [][]byte{
@@ -899,9 +900,9 @@ func TestSIMDProcessorVectorizedCompare(t *testing.T) {
 }
 
 func TestSIMDProcessorVectorizedSearch(t *testing.T) {
-	sp := NewSIMDProcessor()
+	sp := vector.NewSIMDProcessor()
 	if sp == nil {
-		t.Fatal("nil SIMDProcessor")
+		t.Fatal("nil vector.SIMDProcessor")
 		return
 	}
 	// Use a single byte pattern to avoid chunk-boundary splits
@@ -913,9 +914,9 @@ func TestSIMDProcessorVectorizedSearch(t *testing.T) {
 }
 
 func TestSIMDProcessorVectorizedSum(t *testing.T) {
-	sp := NewSIMDProcessor()
+	sp := vector.NewSIMDProcessor()
 	if sp == nil {
-		t.Fatal("nil SIMDProcessor")
+		t.Fatal("nil vector.SIMDProcessor")
 		return
 	}
 	data := []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
@@ -926,9 +927,9 @@ func TestSIMDProcessorVectorizedSum(t *testing.T) {
 }
 
 func TestSIMDProcessorVectorizedFilter(t *testing.T) {
-	sp := NewSIMDProcessor()
+	sp := vector.NewSIMDProcessor()
 	if sp == nil {
-		t.Fatal("nil SIMDProcessor")
+		t.Fatal("nil vector.SIMDProcessor")
 		return
 	}
 	data := [][]byte{[]byte("ab"), []byte("abc"), []byte("a"), []byte("abcd")}
@@ -939,9 +940,9 @@ func TestSIMDProcessorVectorizedFilter(t *testing.T) {
 }
 
 func TestSIMDProcessorVectorizedMap(t *testing.T) {
-	sp := NewSIMDProcessor()
+	sp := vector.NewSIMDProcessor()
 	if sp == nil {
-		t.Fatal("nil SIMDProcessor")
+		t.Fatal("nil vector.SIMDProcessor")
 		return
 	}
 	data := [][]byte{[]byte("hello"), []byte("world")}
@@ -957,9 +958,9 @@ func TestSIMDProcessorVectorizedMap(t *testing.T) {
 }
 
 func TestSIMDProcessorParallelSort(t *testing.T) {
-	sp := NewSIMDProcessor()
+	sp := vector.NewSIMDProcessor()
 	if sp == nil {
-		t.Fatal("nil SIMDProcessor")
+		t.Fatal("nil vector.SIMDProcessor")
 		return
 	}
 	data := [][]byte{[]byte("cherry"), []byte("apple"), []byte("banana")}
@@ -970,9 +971,9 @@ func TestSIMDProcessorParallelSort(t *testing.T) {
 }
 
 func TestSIMDProcessorStats(t *testing.T) {
-	sp := NewSIMDProcessor()
+	sp := vector.NewSIMDProcessor()
 	if sp == nil {
-		t.Fatal("nil SIMDProcessor")
+		t.Fatal("nil vector.SIMDProcessor")
 		return
 	}
 	stats := sp.Stats()

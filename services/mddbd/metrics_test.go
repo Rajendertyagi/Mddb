@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mddb/internal/vector"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -39,10 +40,10 @@ func newTestServerForMetrics(t *testing.T) (*Server, func()) {
 		_ = os.Remove(f.Name())
 		t.Fatal(err)
 	}
-	s.VectorStore = NewVectorStore(db)
+	s.VectorStore = vector.NewVectorStore(db)
 	_ = s.VectorStore.EnsureBucket()
-	s.VectorIndex = NewVectorIndex()
-	s.VectorSearchers = map[string]VectorSearcher{
+	s.VectorIndex = vector.NewVectorIndex()
+	s.VectorSearchers = map[string]vector.VectorSearcher{
 		"flat": s.VectorIndex,
 	}
 	s.WebhookManager = NewWebhookManager(db)
@@ -308,10 +309,10 @@ func BenchmarkMetricsHandler(b *testing.B) {
 	if err := s.ensureBuckets(); err != nil {
 		b.Fatal(err)
 	}
-	s.VectorStore = NewVectorStore(db)
+	s.VectorStore = vector.NewVectorStore(db)
 	_ = s.VectorStore.EnsureBucket()
-	s.VectorIndex = NewVectorIndex()
-	s.VectorSearchers = map[string]VectorSearcher{
+	s.VectorIndex = vector.NewVectorIndex()
+	s.VectorSearchers = map[string]vector.VectorSearcher{
 		"flat": s.VectorIndex,
 	}
 	s.WebhookManager = NewWebhookManager(db)

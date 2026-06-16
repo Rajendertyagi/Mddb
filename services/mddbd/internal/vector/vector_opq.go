@@ -1,4 +1,4 @@
-package main
+package vector
 
 import (
 	"math"
@@ -263,7 +263,7 @@ func (o *OPQIndex) adcSearchOPQ(c *opqCollection, query []float32, topK int, thr
 	}
 	candidates := make([]candidate, 0, len(c.codes))
 	for docID, code := range c.codes {
-		if allowed != nil && !allowed[baseDocID(docID)] {
+		if allowed != nil && !allowed[BaseDocID(docID)] {
 			continue
 		}
 		var dist float32
@@ -282,7 +282,7 @@ func (o *OPQIndex) adcSearchOPQ(c *opqCollection, query []float32, topK int, thr
 
 	// Re-rank with exact similarity on original (unrotated) vectors
 	if metric == nil {
-		metric = cosineSimilarity
+		metric = CosineSimilarity
 	}
 	rerank := topK * 3
 	if rerank > len(candidates) {
