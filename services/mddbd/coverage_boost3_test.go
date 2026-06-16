@@ -4,6 +4,7 @@ import (
 	"mddb/internal/binlog"
 	"mddb/internal/compression"
 	"mddb/internal/delta"
+	"mddb/internal/fts"
 	"strings"
 	"testing"
 	"time"
@@ -18,8 +19,8 @@ import (
 func TestTokenizeQueryNoSynonyms(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	terms := idx.TokenizeQuery("col", "quick brown fox")
@@ -31,9 +32,9 @@ func TestTokenizeQueryNoSynonyms(t *testing.T) {
 func TestTokenizeQueryWithSynonyms(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
-	sm := NewSynonymManager(db)
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
+	sm := fts.NewSynonymManager(db)
 	_ = sm.EnsureBucket()
 	_ = sm.Set("col", "fast", []string{"quick", "rapid"})
 	idx.SetSynonymManager(sm)
@@ -49,10 +50,10 @@ func TestTokenizeQueryWithSynonyms(t *testing.T) {
 func TestTokenizeQueryLangNoSynonyms(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
-	reg := NewLangRegistry("en")
-	RegisterDefaultLanguages(reg)
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
+	reg := fts.NewLangRegistry("en")
+	fts.RegisterDefaultLanguages(reg)
 	idx.SetLangRegistry(reg)
 	_ = idx.EnsureBuckets()
 
@@ -65,12 +66,12 @@ func TestTokenizeQueryLangNoSynonyms(t *testing.T) {
 func TestTokenizeQueryLangWithSynonyms(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
-	reg := NewLangRegistry("en")
-	RegisterDefaultLanguages(reg)
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
+	reg := fts.NewLangRegistry("en")
+	fts.RegisterDefaultLanguages(reg)
 	idx.SetLangRegistry(reg)
-	sm := NewSynonymManager(db)
+	sm := fts.NewSynonymManager(db)
 	_ = sm.EnsureBucket()
 	_ = sm.Set("col", "big", []string{"large", "huge"})
 	idx.SetSynonymManager(sm)
@@ -89,7 +90,7 @@ func TestTokenizeQueryLangWithSynonyms(t *testing.T) {
 func TestIsStopWord(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	swm := NewStopWordManager(db)
+	swm := fts.NewStopWordManager(db)
 	_ = swm.EnsureBucket()
 
 	// Default stop words
@@ -170,11 +171,11 @@ func TestMatchTimestampRange(t *testing.T) {
 func TestSearchBooleanEmpty(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
-	results, err := idx.SearchBoolean("col", &ParsedQuery{}, 10)
+	results, err := idx.SearchBoolean("col", &fts.ParsedQuery{}, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,16 +187,16 @@ func TestSearchBooleanEmpty(t *testing.T) {
 func TestSearchBooleanTerms(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	_ = idx.Index("col", "d1", "the quick brown fox")
 	_ = idx.Index("col", "d2", "the lazy brown dog")
 	_ = idx.Index("col", "d3", "a red car on highway")
 
-	pq := &ParsedQuery{
-		Clauses: []QueryClause{
+	pq := &fts.ParsedQuery{
+		Clauses: []fts.QueryClause{
 			{Type: "term", Value: "brown", Operator: "AND"},
 		},
 	}
@@ -274,8 +275,8 @@ func TestConfigureCompression(t *testing.T) {
 func TestRemovePositions(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	_ = idx.IndexPositionsWithLang("col", "doc1", "hello world test", "en")
@@ -297,7 +298,7 @@ func TestRemovePositions(t *testing.T) {
 func TestSynonymManagerSetBinlog(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	sm := NewSynonymManager(db)
+	sm := fts.NewSynonymManager(db)
 	sm.SetBinlog(nil) // no-op
 }
 
@@ -308,7 +309,7 @@ func TestSynonymManagerSetBinlog(t *testing.T) {
 func TestStopWordManagerSetBinlog(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	swm := NewStopWordManager(db)
+	swm := fts.NewStopWordManager(db)
 	swm.SetBinlog(nil)
 }
 
@@ -319,7 +320,7 @@ func TestStopWordManagerSetBinlog(t *testing.T) {
 func TestStopWordManagerLoadAll(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	swm := NewStopWordManager(db)
+	swm := fts.NewStopWordManager(db)
 	_ = swm.EnsureBucket()
 
 	// Add some custom stop words
@@ -327,7 +328,7 @@ func TestStopWordManagerLoadAll(t *testing.T) {
 	_ = swm.Add("col2", []string{"baz"})
 
 	// Create a new manager and load
-	swm2 := NewStopWordManager(db)
+	swm2 := fts.NewStopWordManager(db)
 	_ = swm2.EnsureBucket()
 	if err := swm2.LoadAll(); err != nil {
 		t.Fatal(err)
@@ -347,15 +348,15 @@ func TestStopWordManagerLoadAll(t *testing.T) {
 func TestSearchBooleanOR(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	_ = idx.Index("col", "d1", "apple banana cherry")
 	_ = idx.Index("col", "d2", "orange grape melon")
 
-	pq := &ParsedQuery{
-		Clauses: []QueryClause{
+	pq := &fts.ParsedQuery{
+		Clauses: []fts.QueryClause{
 			{Type: "term", Value: "apple", Operator: "OR"},
 			{Type: "term", Value: "orange", Operator: "OR"},
 		},
@@ -376,8 +377,8 @@ func TestSearchBooleanOR(t *testing.T) {
 func TestFTSSearchLimitCB3(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	for i := 0; i < 20; i++ {
@@ -413,8 +414,8 @@ func TestBackendRegistryDefault(t *testing.T) {
 func TestFTSIndexUpdateExisting(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	_ = idx.Index("col", "doc1", "original content here")
@@ -442,10 +443,10 @@ func TestFTSIndexUpdateExisting(t *testing.T) {
 func TestFTSIndexWithLangAndRemove(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
-	reg := NewLangRegistry("en")
-	RegisterDefaultLanguages(reg)
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
+	reg := fts.NewLangRegistry("en")
+	fts.RegisterDefaultLanguages(reg)
 	idx.SetLangRegistry(reg)
 	_ = idx.EnsureBuckets()
 
@@ -474,8 +475,8 @@ func TestFTSIndexWithLangAndRemove(t *testing.T) {
 func TestFTSPhraseSearch(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	_ = idx.Index("col", "d1", "the quick brown fox jumps over the lazy dog")
@@ -506,8 +507,8 @@ func TestFTSPhraseSearch(t *testing.T) {
 func TestFTSWildcardSearch(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	_ = idx.Index("col", "d1", "programming programmer programmatic")
@@ -625,8 +626,8 @@ func TestEuclideanMismatch(t *testing.T) {
 func TestSearchBooleanPhrase(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	_ = idx.Index("col", "d1", "the quick brown fox jumps over")
@@ -634,8 +635,8 @@ func TestSearchBooleanPhrase(t *testing.T) {
 	_ = idx.Index("col", "d2", "brown fox quick jumping around")
 	_ = idx.IndexPositionsWithLang("col", "d2", "brown fox quick jumping around", "en")
 
-	pq := &ParsedQuery{
-		Clauses: []QueryClause{
+	pq := &fts.ParsedQuery{
+		Clauses: []fts.QueryClause{
 			{Type: "phrase", Value: "quick brown fox", Operator: "AND"},
 		},
 	}
@@ -649,15 +650,15 @@ func TestSearchBooleanPhrase(t *testing.T) {
 func TestSearchBooleanWildcard(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	_ = idx.Index("col", "d1", "programming languages software")
 	_ = idx.Index("col", "d2", "cooking recipes kitchen")
 
-	pq := &ParsedQuery{
-		Clauses: []QueryClause{
+	pq := &fts.ParsedQuery{
+		Clauses: []fts.QueryClause{
 			{Type: "wildcard", Value: "program*", Operator: "AND"},
 		},
 	}
@@ -673,16 +674,16 @@ func TestSearchBooleanWildcard(t *testing.T) {
 func TestSearchBooleanMultipleAND(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	_ = idx.Index("col", "d1", "apple banana cherry")
 	_ = idx.Index("col", "d2", "apple cherry grape")
 	_ = idx.Index("col", "d3", "banana grape melon")
 
-	pq := &ParsedQuery{
-		Clauses: []QueryClause{
+	pq := &fts.ParsedQuery{
+		Clauses: []fts.QueryClause{
 			{Type: "term", Value: "apple", Operator: "AND"},
 			{Type: "term", Value: "cherry", Operator: "AND"},
 		},
@@ -704,8 +705,8 @@ func TestSearchBooleanMultipleAND(t *testing.T) {
 func TestFTSSearchNoResultsCB3(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	_ = idx.Index("col", "d1", "hello world")
@@ -721,8 +722,8 @@ func TestFTSSearchNoResultsCB3(t *testing.T) {
 func TestFTSSearchMultipleCollections(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	_ = idx.Index("col1", "d1", "unique document alpha")
@@ -746,8 +747,8 @@ func TestFTSSearchMultipleCollections(t *testing.T) {
 func TestSearchPhraseNoPositions(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	// Index without positions
@@ -762,8 +763,8 @@ func TestSearchPhraseNoPositions(t *testing.T) {
 func TestSearchPhraseEmpty(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	results, err := idx.SearchPhrase("col", "", 10)
@@ -782,8 +783,8 @@ func TestSearchPhraseEmpty(t *testing.T) {
 func TestSearchWildcardNoMatch(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	_ = idx.Index("col", "d1", "hello world")
@@ -799,8 +800,8 @@ func TestSearchWildcardNoMatch(t *testing.T) {
 func TestSearchWildcardQuestion(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	_ = idx.Index("col", "d1", "cat bat hat mat")
@@ -820,8 +821,8 @@ func TestSearchWildcardQuestion(t *testing.T) {
 func TestFTSSearchScoringOrder(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	// d1 mentions "database" 3 times, d2 once — d1 should score higher
@@ -841,8 +842,8 @@ func TestFTSSearchScoringOrder(t *testing.T) {
 func TestFTSWildcardStarOnly(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	_ = idx.Index("col", "d1", "hello world")
@@ -859,8 +860,8 @@ func TestFTSWildcardStarOnly(t *testing.T) {
 func TestFTSIndexPositionsMultipleDocs(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	for i := 0; i < 10; i++ {
@@ -957,8 +958,8 @@ func TestDeltaEncoderEmpty(t *testing.T) {
 func TestFTSIndexManyDocsSearch(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	// Index 50 docs
@@ -1051,29 +1052,6 @@ func TestMatchRangeFilterDate(t *testing.T) {
 // fts_bm25.go: decodeCollectionStats (partial 66.7%)
 // ---------------------------------------------------------------------------
 
-func TestDecodeCollectionStatsEmpty(t *testing.T) {
-	cs := decodeCollectionStats(nil)
-	if cs.TotalDocs != 0 || cs.TotalTerms != 0 {
-		t.Errorf("nil should decode to zeros: %+v", cs)
-	}
-	cs2 := decodeCollectionStats([]byte(""))
-	if cs2.TotalDocs != 0 {
-		t.Errorf("empty should decode to zeros: %+v", cs2)
-	}
-}
-
-func TestDecodeCollectionStatsValid(t *testing.T) {
-	cs := collectionStats{TotalDocs: 42, TotalTerms: 1000}
-	encoded := encodeCollectionStats(cs)
-	decoded := decodeCollectionStats(encoded)
-	if decoded.TotalDocs != 42 {
-		t.Errorf("TotalDocs: got %d, want 42", decoded.TotalDocs)
-	}
-	if decoded.TotalTerms != 1000 {
-		t.Errorf("TotalTerms: got %d, want 1000", decoded.TotalTerms)
-	}
-}
-
 // ---------------------------------------------------------------------------
 // fts_positions.go: SearchProximity, findMinSpan
 // ---------------------------------------------------------------------------
@@ -1081,8 +1059,8 @@ func TestDecodeCollectionStatsValid(t *testing.T) {
 func TestSearchProximity(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	_ = idx.Index("col", "d1", "the quick brown fox jumped over the lazy sleeping dog in the park")
@@ -1102,8 +1080,8 @@ func TestSearchProximity(t *testing.T) {
 func TestSearchProximityNoPositions(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	results, err := idx.SearchProximity("col", "hello world", 3, 10)
@@ -1120,8 +1098,8 @@ func TestSearchProximityNoPositions(t *testing.T) {
 func TestRemoveBM25MetaViaTx(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	_ = idx.Index("col", "doc1", "hello world test")
@@ -1138,31 +1116,6 @@ func TestRemoveBM25MetaViaTx(t *testing.T) {
 // fts_positions.go: decodePositions edge cases
 // ---------------------------------------------------------------------------
 
-func TestEncodeDecodePositions(t *testing.T) {
-	positions := []uint32{1, 5, 10, 20, 100}
-	encoded := encodePositions(positions)
-	decoded := decodePositions(encoded)
-	if len(decoded) != len(positions) {
-		t.Fatalf("length mismatch: %d vs %d", len(decoded), len(positions))
-	}
-	for i, p := range positions {
-		if decoded[i] != p {
-			t.Errorf("position[%d]: got %d, want %d", i, decoded[i], p)
-		}
-	}
-}
-
-func TestDecodePositionsEmpty(t *testing.T) {
-	decoded := decodePositions(nil)
-	if len(decoded) != 0 {
-		t.Errorf("nil should decode to empty, got %d", len(decoded))
-	}
-	decoded2 := decodePositions([]byte{})
-	if len(decoded2) != 0 {
-		t.Errorf("empty should decode to empty, got %d", len(decoded2))
-	}
-}
-
 // ---------------------------------------------------------------------------
 // fts_boolean.go: combineResults (AND logic)
 // ---------------------------------------------------------------------------
@@ -1170,15 +1123,15 @@ func TestDecodePositionsEmpty(t *testing.T) {
 func TestSearchBooleanANDNoOverlap(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	_ = idx.Index("col", "d1", "apple banana")
 	_ = idx.Index("col", "d2", "cherry grape")
 
-	pq := &ParsedQuery{
-		Clauses: []QueryClause{
+	pq := &fts.ParsedQuery{
+		Clauses: []fts.QueryClause{
 			{Type: "term", Value: "apple", Operator: "AND"},
 			{Type: "term", Value: "cherry", Operator: "AND"},
 		},
@@ -1200,8 +1153,8 @@ func TestSearchBooleanANDNoOverlap(t *testing.T) {
 func TestFTSIndexFieldsAndSearch(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	fields := map[string]string{
@@ -1227,10 +1180,10 @@ func TestFTSIndexFieldsAndSearch(t *testing.T) {
 func TestFTSIndexFieldsWithLang(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
-	reg := NewLangRegistry("en")
-	RegisterDefaultLanguages(reg)
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
+	reg := fts.NewLangRegistry("en")
+	fts.RegisterDefaultLanguages(reg)
 	idx.SetLangRegistry(reg)
 	_ = idx.EnsureBuckets()
 
@@ -1246,8 +1199,8 @@ func TestFTSIndexFieldsWithLang(t *testing.T) {
 func TestFTSSearchSingleChar(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	_ = idx.Index("col", "d1", "a short document")
@@ -1259,16 +1212,16 @@ func TestFTSSearchSingleChar(t *testing.T) {
 func TestSearchBooleanMultipleOR(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	for i := 0; i < 15; i++ {
 		_ = idx.Index("col", "d"+itoa(i), "word"+itoa(i)+" content text")
 	}
 
-	pq := &ParsedQuery{
-		Clauses: []QueryClause{
+	pq := &fts.ParsedQuery{
+		Clauses: []fts.QueryClause{
 			{Type: "term", Value: "word0", Operator: "OR"},
 			{Type: "term", Value: "word5", Operator: "OR"},
 			{Type: "term", Value: "word10", Operator: "OR"},
@@ -1286,9 +1239,9 @@ func TestSearchBooleanMultipleOR(t *testing.T) {
 func TestFTSSynonymExpansionInSearch(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
-	sm := NewSynonymManager(db)
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
+	sm := fts.NewSynonymManager(db)
 	_ = sm.EnsureBucket()
 	_ = sm.Set("col", "happy", []string{"glad", "joyful"})
 	idx.SetSynonymManager(sm)
@@ -1312,7 +1265,7 @@ func TestFTSSynonymExpansionInSearch(t *testing.T) {
 func TestFTSSynonymLoadDefaults(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	sm := NewSynonymManager(db)
+	sm := fts.NewSynonymManager(db)
 	_ = sm.EnsureBucket()
 	_ = sm.LoadDefaults("col")
 	// Should have loaded default synonyms
@@ -1323,7 +1276,7 @@ func TestFTSSynonymLoadDefaults(t *testing.T) {
 func TestFTSSynonymExpandMultiple(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	sm := NewSynonymManager(db)
+	sm := fts.NewSynonymManager(db)
 	_ = sm.EnsureBucket()
 	_ = sm.Set("col", "big", []string{"large", "huge", "enormous"})
 	_ = sm.Set("col", "fast", []string{"quick", "rapid", "swift"})
@@ -1337,7 +1290,7 @@ func TestFTSSynonymExpandMultiple(t *testing.T) {
 func TestFTSSynonymDelete(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	sm := NewSynonymManager(db)
+	sm := fts.NewSynonymManager(db)
 	_ = sm.EnsureBucket()
 	_ = sm.Set("col", "big", []string{"large"})
 	_ = sm.Delete("col", "big")
@@ -1350,7 +1303,7 @@ func TestFTSSynonymDelete(t *testing.T) {
 func TestFTSSynonymList(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	sm := NewSynonymManager(db)
+	sm := fts.NewSynonymManager(db)
 	_ = sm.EnsureBucket()
 	_ = sm.Set("col", "big", []string{"large"})
 	_ = sm.Set("col", "fast", []string{"quick"})
@@ -1400,8 +1353,8 @@ func TestMemoryBackendDeleteByKey(t *testing.T) {
 func TestFTSSearchBM25FFuzzy(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	fields1 := map[string]string{"title": "Golang Programming Guide", "body": "Learn Go language basics and advanced topics"}
@@ -1420,8 +1373,8 @@ func TestFTSSearchBM25FFuzzy(t *testing.T) {
 func TestFTSSearchBM25Fuzzy(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	_ = idx.Index("col", "d1", "algorithm optimization performance")

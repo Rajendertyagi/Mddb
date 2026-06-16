@@ -1,10 +1,11 @@
-package main
+package fts
 
 import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
 	"math"
+	"mddb/internal/sliceutil"
 	"sort"
 
 	bolt "go.etcd.io/bbolt"
@@ -224,7 +225,7 @@ func (f *FTSIndex) SearchBM25(collection, query string, limit int) ([]FTSResult,
 		results = append(results, FTSResult{
 			DocID:        ds.id,
 			Score:        ds.score,
-			MatchedTerms: unique(ds.matchedTerms),
+			MatchedTerms: sliceutil.Unique(ds.matchedTerms),
 		})
 	}
 

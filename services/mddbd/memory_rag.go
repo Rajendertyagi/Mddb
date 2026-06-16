@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"mddb/internal/sliceutil"
 	"net/http"
 	"sort"
 	"strings"
@@ -727,7 +728,7 @@ func (s *Server) handleMemorySessionsList(w http.ResponseWriter, r *http.Request
 						ids = append(ids, string(k[len(prefix):]))
 					}
 				}
-				ids = unique(ids)
+				ids = sliceutil.Unique(ids)
 				sets = append(sets, ids)
 			}
 			docIDs = intersect(sets...)

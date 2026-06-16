@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"mddb/internal/cache"
+	"mddb/internal/fts"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -76,7 +77,7 @@ func newHandlerTestServer(t *testing.T) (*Server, func()) {
 	}
 
 	// FTS
-	s.FTSIndex = NewFTSIndex(db)
+	s.FTSIndex = fts.NewFTSIndex(db)
 	if err := s.FTSIndex.EnsureBuckets(); err != nil {
 		_ = db.Close()
 		_ = os.Remove(f.Name())

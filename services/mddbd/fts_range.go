@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mddb/internal/fts"
 	"sort"
 	"strconv"
 	"strings"
@@ -20,7 +21,7 @@ type RangeFilter struct {
 
 // SearchRange filters documents by range conditions on metadata or timestamps.
 // Can be combined with other search results as a post-filter.
-func (s *Server) SearchRange(collection string, ranges []RangeFilter, limit int) ([]FTSResult, error) {
+func (s *Server) SearchRange(collection string, ranges []RangeFilter, limit int) ([]fts.FTSResult, error) {
 	if len(ranges) == 0 {
 		return nil, nil
 	}
@@ -75,9 +76,9 @@ func (s *Server) SearchRange(collection string, ranges []RangeFilter, limit int)
 		return nil, err
 	}
 
-	results := make([]FTSResult, 0, len(scores))
+	results := make([]fts.FTSResult, 0, len(scores))
 	for _, ds := range scores {
-		results = append(results, FTSResult{
+		results = append(results, fts.FTSResult{
 			DocID: ds.id,
 			Score: ds.score,
 		})
@@ -93,7 +94,7 @@ func (s *Server) SearchRange(collection string, ranges []RangeFilter, limit int)
 }
 
 // FilterByRange applies range filters to an existing result set.
-func (s *Server) FilterByRange(collection string, results []FTSResult, ranges []RangeFilter) ([]FTSResult, error) {
+func (s *Server) FilterByRange(collection string, results []fts.FTSResult, ranges []RangeFilter) ([]fts.FTSResult, error) {
 	if len(ranges) == 0 {
 		return results, nil
 	}

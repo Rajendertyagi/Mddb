@@ -5,6 +5,7 @@ import (
 	"io"
 	"mddb/internal/binlog"
 	"mddb/internal/cache"
+	"mddb/internal/fts"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -44,7 +45,7 @@ func newTestServerForAutomation(t *testing.T) (*Server, func()) {
 	}
 
 	// Set up FTSIndex
-	s.FTSIndex = NewFTSIndex(db)
+	s.FTSIndex = fts.NewFTSIndex(db)
 	if err := s.FTSIndex.EnsureBuckets(); err != nil {
 		_ = db.Close()
 		t.Fatal(err)

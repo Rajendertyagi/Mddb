@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"mddb/internal/cache"
+	"mddb/internal/fts"
 	pb "mddb/proto"
 )
 
@@ -85,13 +86,13 @@ func newTestGRPCServer(t *testing.T) (*GRPCServer, *Server, func()) {
 	}
 
 	// FTS
-	s.FTSIndex = NewFTSIndex(db)
+	s.FTSIndex = fts.NewFTSIndex(db)
 	if err := s.FTSIndex.EnsureBuckets(); err != nil {
 		_ = db.Close()
 		t.Fatal(err)
 	}
-	langReg := NewLangRegistry("en")
-	RegisterDefaultLanguages(langReg)
+	langReg := fts.NewLangRegistry("en")
+	fts.RegisterDefaultLanguages(langReg)
 	s.FTSIndex.SetLangRegistry(langReg)
 
 	// Webhooks

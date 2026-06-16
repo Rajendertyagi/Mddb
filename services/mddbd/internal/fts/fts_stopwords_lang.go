@@ -1,4 +1,4 @@
-package main
+package fts
 
 // Multi-language stop word lists for full-text search.
 // Sources: stopwords-iso project, NLTK, and standard NLP stop word lists.

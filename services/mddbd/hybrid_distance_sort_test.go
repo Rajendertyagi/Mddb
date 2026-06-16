@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"mddb/internal/fts"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -18,7 +19,7 @@ import (
 func newTestServerForHybridGeo(t *testing.T) (*Server, func()) {
 	t.Helper()
 	s, cleanup := newTestServerForGeo(t)
-	s.FTSIndex = NewFTSIndex(s.DB)
+	s.FTSIndex = fts.NewFTSIndex(s.DB)
 	if err := s.FTSIndex.EnsureBuckets(); err != nil {
 		cleanup()
 		t.Fatalf("ensure FTS buckets: %v", err)

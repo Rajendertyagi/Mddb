@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"mddb/internal/envconf"
+	"mddb/internal/sliceutil"
 	"net/http"
 	"strings"
 	"time"
@@ -535,7 +536,7 @@ func (s *Server) getDocIDsByMeta(collection string, filterMeta map[string][]stri
 					ids = append(ids, id)
 				}
 			}
-			ids = unique(ids)
+			ids = sliceutil.Unique(ids)
 			sets = append(sets, ids)
 		}
 

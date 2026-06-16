@@ -21,6 +21,8 @@ import (
 
 	"mddb/internal/binlog"
 	"mddb/internal/cache"
+	"mddb/internal/fts"
+	"mddb/internal/sliceutil"
 	proto "mddb/proto"
 )
 
@@ -370,7 +372,7 @@ func (g *GRPCServer) Search(ctx context.Context, req *proto.SearchRequest) (*pro
 						}
 					}
 				}
-				sets = append(sets, unique(union))
+				sets = append(sets, sliceutil.Unique(union))
 			}
 			docIDs = intersect(sets...)
 		}
@@ -1138,7 +1140,7 @@ func (g *GRPCServer) FTS(ctx context.Context, req *proto.FTSRequest) (*proto.FTS
 	queryLang := req.Lang
 	tokens := g.server.FTSIndex.TokenizeQueryLang(req.Collection, req.Query, queryLang)
 
-	var results []FTSResult
+	var results []fts.FTSResult
 	var err error
 	switch algo {
 	case "bm25f":
@@ -1333,13 +1335,13 @@ func (g *GRPCServer) FTSReindex(ctx context.Context, req *proto.FTSReindexReques
 
 // FTSLanguages implements the FTSLanguages RPC — returns supported languages.
 func (g *GRPCServer) FTSLanguages(ctx context.Context, _ *proto.FTSLanguagesRequest) (*proto.FTSLanguagesResponse, error) {
-	if g.server.FTSIndex == nil || g.server.FTSIndex.langRegistry == nil {
+	if g.server.FTSIndex == nil || g.server.FTSIndex.LangRegistry() == nil {
 		return &proto.FTSLanguagesResponse{}, nil
 	}
 
 	var langs []*proto.FTSLanguageInfo
-	for _, code := range g.server.FTSIndex.langRegistry.Languages() {
-		cfg := g.server.FTSIndex.langRegistry.Resolve(code)
+	for _, code := range g.server.FTSIndex.LangRegistry().Languages() {
+		cfg := g.server.FTSIndex.LangRegistry().Resolve(code)
 		name := code
 		if cfg != nil {
 			name = cfg.Name
@@ -1349,7 +1351,7 @@ func (g *GRPCServer) FTSLanguages(ctx context.Context, _ *proto.FTSLanguagesRequ
 
 	return &proto.FTSLanguagesResponse{
 		Languages:   langs,
-		DefaultLang: g.server.FTSIndex.langRegistry.DefaultLang(),
+		DefaultLang: g.server.FTSIndex.LangRegistry().DefaultLang(),
 	}, nil
 }
 

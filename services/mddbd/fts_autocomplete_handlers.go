@@ -2,15 +2,16 @@ package main
 
 import (
 	"errors"
+	"mddb/internal/fts"
 	"net/http"
 )
 
 // AutocompleteResponse is returned by the HTTP handler.
 type AutocompleteResponse struct {
-	Items []AutocompleteItem `json:"items"`
-	Total int                `json:"total"`
-	Query string             `json:"query"`
-	Field string             `json:"field,omitempty"`
+	Items []fts.AutocompleteItem `json:"items"`
+	Total int                    `json:"total"`
+	Query string                 `json:"query"`
+	Field string                 `json:"field,omitempty"`
 }
 
 // handleAutocomplete serves GET /v1/autocomplete?collection=X&q=mar&field=Y&topN=10.
@@ -36,7 +37,7 @@ func (s *Server) handleAutocomplete(w http.ResponseWriter, r *http.Request) {
 	if query == "" {
 		// Empty prefix returns empty result set rather than 400 — saves
 		// client-side guards on every keystroke that clears the input.
-		ok(w, AutocompleteResponse{Items: []AutocompleteItem{}, Query: query, Field: field})
+		ok(w, AutocompleteResponse{Items: []fts.AutocompleteItem{}, Query: query, Field: field})
 		return
 	}
 

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"mddb/internal/fts"
 	"net/http"
 	"strings"
 	"time"
@@ -56,11 +57,11 @@ type FTSSearchResponse struct {
 
 // FTSResultWithDoc includes the full document in the result.
 type FTSResultWithDoc struct {
-	Document     Doc         `json:"document"`
-	Score        float64     `json:"score"`
-	MatchedTerms []string    `json:"matchedTerms"`
-	Highlights   []Highlight `json:"highlights,omitempty"` // populated when request.highlight=true
-	Pinned       bool        `json:"pinned,omitempty"`     // set by curation rules (v2.9.14+)
+	Document     Doc             `json:"document"`
+	Score        float64         `json:"score"`
+	MatchedTerms []string        `json:"matchedTerms"`
+	Highlights   []fts.Highlight `json:"highlights,omitempty"` // populated when request.highlight=true
+	Pinned       bool            `json:"pinned,omitempty"`     // set by curation rules (v2.9.14+)
 }
 
 // --- HTTP handler ---
@@ -102,17 +103,17 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Per-query stemming/synonym control (thread-safe: no mutation of shared state)
-	origStemmer := s.FTSIndex.stemmer
-	origSynonyms := s.FTSIndex.synonymManager
+	origStemmer := s.FTSIndex.Stemmer()
+	origSynonyms := s.FTSIndex.SynonymManager()
 	if req.DisableStem {
-		s.FTSIndex.stemmer = nil
+		s.FTSIndex.SetStemmer(nil)
 	}
 	if req.DisableSynonyms {
-		s.FTSIndex.synonymManager = nil
+		s.FTSIndex.SetSynonymManager(nil)
 	}
 	defer func() {
-		s.FTSIndex.stemmer = origStemmer
-		s.FTSIndex.synonymManager = origSynonyms
+		s.FTSIndex.SetStemmer(origStemmer)
+		s.FTSIndex.SetSynonymManager(origSynonyms)
 	}()
 
 	// Resolve query language
@@ -133,7 +134,7 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 	// Determine search mode
 	mode := req.Mode
 	if mode == "" || mode == "auto" {
-		parsed := ParseAdvancedQuery(req.Query)
+		parsed := fts.ParseAdvancedQuery(req.Query)
 		if parsed.IsAdvanced() {
 			if parsed.HasPhrase && !parsed.HasBoolean && !parsed.HasWildcard && !parsed.HasProximity {
 				mode = "phrase"
@@ -167,12 +168,12 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 	// Tokenize query (needed for bm25f, reused below) — language-aware
 	tokens := s.FTSIndex.TokenizeQueryLang(req.Collection, req.Query, queryLang)
 
-	var results []FTSResult
+	var results []fts.FTSResult
 	var err error
 
 	switch mode {
 	case "boolean":
-		parsed := ParseAdvancedQuery(req.Query)
+		parsed := fts.ParseAdvancedQuery(req.Query)
 		results, err = s.FTSIndex.SearchBoolean(req.Collection, parsed, req.Limit)
 
 	case "phrase":
@@ -181,7 +182,7 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 		results, err = s.FTSIndex.SearchPhrase(req.Collection, phraseText, req.Limit)
 
 	case "proximity":
-		parsed := ParseAdvancedQuery(req.Query)
+		parsed := fts.ParseAdvancedQuery(req.Query)
 		distance := req.Distance
 		if distance <= 0 {
 			distance = 5 // default proximity distance
@@ -203,8 +204,8 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 		results, err = s.FTSIndex.SearchWildcard(req.Collection, req.Query, req.Limit)
 
 	case "expression":
-		var expr QueryExpr
-		expr, err = ParseQueryExpression(req.Query)
+		var expr fts.QueryExpr
+		expr, err = fts.ParseQueryExpression(req.Query)
 		if err != nil {
 			bad(w, err)
 			return
@@ -288,7 +289,7 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 		resp.FieldWeights = req.FieldWeights
 	}
 	resp.Results = make([]FTSResultWithDoc, 0, len(results))
-	hlOpts := HighlightOptions{
+	hlOpts := fts.HighlightOptions{
 		OpenTag:      req.HighlightTag,
 		MaxFragments: req.MaxHighlights,
 		FragmentSize: req.FragmentSize,
@@ -314,7 +315,7 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 				MatchedTerms: res.MatchedTerms,
 			}
 			if req.Highlight {
-				item.Highlights = ExtractHighlights(docPtr.ContentMD, res.MatchedTerms, hlOpts)
+				item.Highlights = fts.ExtractHighlights(docPtr.ContentMD, res.MatchedTerms, hlOpts)
 			}
 			resp.Results = append(resp.Results, item)
 		}
@@ -436,7 +437,7 @@ func (s *Server) handleFTSReindex(w http.ResponseWriter, r *http.Request) {
 
 // handleFTSLanguages returns the list of supported FTS languages.
 func (s *Server) handleFTSLanguages(w http.ResponseWriter, _ *http.Request) {
-	if s.FTSIndex == nil || s.FTSIndex.langRegistry == nil {
+	if s.FTSIndex == nil || s.FTSIndex.LangRegistry() == nil {
 		ok(w, map[string]interface{}{"languages": []string{}})
 		return
 	}
@@ -447,8 +448,8 @@ func (s *Server) handleFTSLanguages(w http.ResponseWriter, _ *http.Request) {
 	}
 
 	var langs []langInfo
-	for _, code := range s.FTSIndex.langRegistry.Languages() {
-		cfg := s.FTSIndex.langRegistry.Resolve(code)
+	for _, code := range s.FTSIndex.LangRegistry().Languages() {
+		cfg := s.FTSIndex.LangRegistry().Resolve(code)
 		name := code
 		if cfg != nil {
 			name = cfg.Name
@@ -458,7 +459,7 @@ func (s *Server) handleFTSLanguages(w http.ResponseWriter, _ *http.Request) {
 
 	ok(w, map[string]interface{}{
 		"languages":   langs,
-		"defaultLang": s.FTSIndex.langRegistry.DefaultLang(),
+		"defaultLang": s.FTSIndex.LangRegistry().DefaultLang(),
 	})
 }
 

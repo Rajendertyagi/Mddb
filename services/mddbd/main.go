@@ -14,6 +14,8 @@ import (
 	"mddb/internal/delta"
 	"mddb/internal/embedding"
 	"mddb/internal/envconf"
+	"mddb/internal/fts"
+	"mddb/internal/sliceutil"
 	"net/http"
 	"os"
 	"os/signal"
@@ -86,7 +88,7 @@ type Server struct {
 	GeoHashIndex *GeoHashIndex // Alternative geohash-prefix index
 	// New features
 	TTLManager         *TTLManager            // Document TTL / auto-expiry
-	FTSIndex           *FTSIndex              // Full-text search index
+	FTSIndex           *fts.FTSIndex          // Full-text search index
 	WebhookManager     *WebhookManager        // Webhook subscriptions and delivery
 	SchemaManager      *SchemaManager         // Per-collection metadata schema validation
 	Metrics            *Metrics               // Prometheus-compatible telemetry
@@ -98,8 +100,8 @@ type Server struct {
 	AuthFailureTracker *AuthFailureTracker    // Sliding-window auth failure counter → security.auth_failure_burst
 	LagMonitor         *ReplicationLagMonitor // Periodic replication-lag → ops.replication_lag_high
 	DiskMonitor        *DiskUsageMonitor      // Periodic disk-usage → ops.disk_usage_high
-	SynonymManager     *SynonymManager        // Synonym dictionaries for FTS
-	StopWordManager    *StopWordManager       // Per-collection custom stop words for FTS
+	SynonymManager     *fts.SynonymManager    // Synonym dictionaries for FTS
+	StopWordManager    *fts.StopWordManager   // Per-collection custom stop words for FTS
 	AutomationManager  *AutomationManager     // Automation: triggers, crons, webhook targets
 	AutomationLogStore *AutomationLogStore    // Automation execution logs
 	CronScheduler      *CronScheduler         // Cron scheduler for automation
@@ -465,22 +467,22 @@ func main() {
 	}
 
 	// Initialize FTS index
-	s.FTSIndex = NewFTSIndex(db)
+	s.FTSIndex = fts.NewFTSIndex(db)
 	if err := s.FTSIndex.EnsureBuckets(); err != nil {
 		log.Fatal(err)
 	}
 
 	// Initialize multi-language FTS support
-	langReg := NewLangRegistry(srvCfg.FTS.DefaultLang)
+	langReg := fts.NewLangRegistry(srvCfg.FTS.DefaultLang)
 	if srvCfg.FTS.StemmingEnabled {
-		RegisterDefaultLanguages(langReg)
-		s.FTSIndex.SetStemmer(NewPorterStemmer())
+		fts.RegisterDefaultLanguages(langReg)
+		s.FTSIndex.SetStemmer(fts.NewPorterStemmer())
 		s.FTSIndex.SetLangRegistry(langReg)
 		log.Printf("FTS stemming enabled — %d languages (default: %s)", len(langReg.Languages()), srvCfg.FTS.DefaultLang)
 	}
 
 	// Initialize synonym manager
-	s.SynonymManager = NewSynonymManager(db)
+	s.SynonymManager = fts.NewSynonymManager(db)
 	if err := s.SynonymManager.EnsureBucket(); err != nil {
 		log.Fatal(err)
 	}
@@ -493,7 +495,7 @@ func main() {
 	}
 
 	// Initialize stop word manager
-	s.StopWordManager = NewStopWordManager(db)
+	s.StopWordManager = fts.NewStopWordManager(db)
 	if err := s.StopWordManager.EnsureBucket(); err != nil {
 		log.Fatal(err)
 	}
@@ -505,7 +507,7 @@ func main() {
 	log.Println("Stop word manager initialized")
 
 	// Initialize PMI data for PMISparse search
-	s.FTSIndex.SetPMIData(NewPMIData())
+	s.FTSIndex.SetPMIData(fts.NewPMIData())
 
 	log.Println("Full-text search index initialized")
 
@@ -1932,7 +1934,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 						ids = append(ids, id)
 					}
 				}
-				ids = unique(ids)
+				ids = sliceutil.Unique(ids)
 				sets = append(sets, ids)
 			}
 			ids := intersect(sets...)
@@ -2909,17 +2911,6 @@ func safe(s string) string {
 		}
 		return '-'
 	}, s)
-}
-func unique(in []string) []string {
-	m := map[string]struct{}{}
-	out := make([]string, 0, len(in))
-	for _, x := range in {
-		if _, ok := m[x]; !ok {
-			m[x] = struct{}{}
-			out = append(out, x)
-		}
-	}
-	return out
 }
 func intersect(sets ...[]string) []string {
 	if len(sets) == 0 {

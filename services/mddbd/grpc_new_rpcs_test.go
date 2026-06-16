@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"mddb/internal/fts"
 	pb "mddb/proto"
 )
 
@@ -19,14 +20,14 @@ func newTestGRPCServerFull(t *testing.T) (*GRPCServer, *Server, func()) {
 	gs, s, cleanup := newTestGRPCServer(t)
 
 	// SynonymManager
-	s.SynonymManager = NewSynonymManager(s.DB)
+	s.SynonymManager = fts.NewSynonymManager(s.DB)
 	if err := s.SynonymManager.EnsureBucket(); err != nil {
 		cleanup()
 		t.Fatal(err)
 	}
 
 	// StopWordManager
-	s.StopWordManager = NewStopWordManager(s.DB)
+	s.StopWordManager = fts.NewStopWordManager(s.DB)
 	if err := s.StopWordManager.EnsureBucket(); err != nil {
 		cleanup()
 		t.Fatal(err)

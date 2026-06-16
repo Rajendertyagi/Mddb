@@ -1,9 +1,10 @@
-package main
+package fts
 
 import (
 	"bytes"
 	"encoding/binary"
 	"math"
+	"mddb/internal/sliceutil"
 	"sort"
 	"strings"
 
@@ -182,14 +183,14 @@ func (f *FTSIndex) SearchFuzzy(collection, query string, limit, maxDist int) ([]
 	queryTermCount := float64(len(queryTerms))
 	results := make([]FTSResult, 0, len(scores))
 	for _, ds := range scores {
-		matchRatio := float64(len(unique(ds.matchedTerms))) / queryTermCount
+		matchRatio := float64(len(sliceutil.Unique(ds.matchedTerms))) / queryTermCount
 		avgTF := ds.totalTF / float64(len(ds.matchedTerms))
 		score := matchRatio * (0.5 + 0.5*math.Min(avgTF/5.0, 1.0))
 
 		results = append(results, FTSResult{
 			DocID:        ds.id,
 			Score:        score,
-			MatchedTerms: unique(ds.matchedTerms),
+			MatchedTerms: sliceutil.Unique(ds.matchedTerms),
 		})
 	}
 
@@ -308,7 +309,7 @@ func (f *FTSIndex) SearchBM25Fuzzy(collection, query string, limit, maxDist int)
 		results = append(results, FTSResult{
 			DocID:        ds.id,
 			Score:        ds.score,
-			MatchedTerms: unique(ds.matchedTerms),
+			MatchedTerms: sliceutil.Unique(ds.matchedTerms),
 		})
 	}
 

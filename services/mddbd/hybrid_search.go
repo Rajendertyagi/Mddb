@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"mddb/internal/fts"
 	"net/http"
 	"sort"
 	"time"
@@ -304,23 +305,23 @@ func (s *Server) handleHybridSearch(w http.ResponseWriter, r *http.Request) {
 }
 
 // runFTSSearch executes the FTS portion of hybrid search.
-func (s *Server) runFTSSearch(req HybridSearchRequest) ([]FTSResult, error) {
+func (s *Server) runFTSSearch(req HybridSearchRequest) ([]fts.FTSResult, error) {
 	if s.FTSIndex == nil {
 		return nil, nil
 	}
 
 	// Per-query stemming/synonym control
-	origStemmer := s.FTSIndex.stemmer
-	origSynonyms := s.FTSIndex.synonymManager
+	origStemmer := s.FTSIndex.Stemmer()
+	origSynonyms := s.FTSIndex.SynonymManager()
 	if req.DisableStem {
-		s.FTSIndex.stemmer = nil
+		s.FTSIndex.SetStemmer(nil)
 	}
 	if req.DisableSynonyms {
-		s.FTSIndex.synonymManager = nil
+		s.FTSIndex.SetSynonymManager(nil)
 	}
 	defer func() {
-		s.FTSIndex.stemmer = origStemmer
-		s.FTSIndex.synonymManager = origSynonyms
+		s.FTSIndex.SetStemmer(origStemmer)
+		s.FTSIndex.SetSynonymManager(origSynonyms)
 	}()
 
 	// Pre-filter by metadata if provided
@@ -340,7 +341,7 @@ func (s *Server) runFTSSearch(req HybridSearchRequest) ([]FTSResult, error) {
 
 	tokens := s.FTSIndex.TokenizeQueryLang(req.Collection, req.Query, req.Lang)
 
-	var results []FTSResult
+	var results []fts.FTSResult
 	var err error
 
 	switch req.Algorithm {
@@ -436,7 +437,7 @@ func (s *Server) runVectorSearch(ctx context.Context, req HybridSearchRequest) (
 
 // mergeAlpha combines FTS and vector results using alpha blending.
 // combined = alpha * normalizedFTS + (1-alpha) * vectorScore
-func mergeAlpha(ftsResults []FTSResult, vectorResults []VectorResult, alpha float64, topK int) []HybridSearchResultItem {
+func mergeAlpha(ftsResults []fts.FTSResult, vectorResults []VectorResult, alpha float64, topK int) []HybridSearchResultItem {
 	// Normalize FTS scores to 0-1 range
 	var ftsMin, ftsMax float64
 	if len(ftsResults) > 0 {
@@ -510,7 +511,7 @@ func mergeAlpha(ftsResults []FTSResult, vectorResults []VectorResult, alpha floa
 
 // mergeRRF combines FTS and vector results using Reciprocal Rank Fusion.
 // score = 1/(k + rank_fts) + 1/(k + rank_vector)
-func mergeRRF(ftsResults []FTSResult, vectorResults []VectorResult, rrfK int, topK int) []HybridSearchResultItem {
+func mergeRRF(ftsResults []fts.FTSResult, vectorResults []VectorResult, rrfK int, topK int) []HybridSearchResultItem {
 	type combinedEntry struct {
 		rrfScore     float64
 		ftsScore     float64

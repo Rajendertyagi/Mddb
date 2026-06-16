@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"mddb/internal/sliceutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -1401,9 +1402,9 @@ func TestMainUnique(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		result := unique(tc.in)
+		result := sliceutil.Unique(tc.in)
 		if len(result) != tc.out {
-			t.Errorf("unique(%v): expected %d, got %d", tc.in, tc.out, len(result))
+			t.Errorf("sliceutil.Unique(%v): expected %d, got %d", tc.in, tc.out, len(result))
 		}
 	}
 }

@@ -1,9 +1,10 @@
-package main
+package fts
 
 import (
 	"bytes"
 	"encoding/binary"
 	"math"
+	"mddb/internal/sliceutil"
 	"strings"
 
 	bolt "go.etcd.io/bbolt"
@@ -122,7 +123,7 @@ func (f *FTSIndex) SearchWildcard(collection, pattern string, limit int) ([]FTSR
 		results = append(results, FTSResult{
 			DocID:        d.id,
 			Score:        d.score,
-			MatchedTerms: unique(d.matchedTerms),
+			MatchedTerms: sliceutil.Unique(d.matchedTerms),
 		})
 	}
 

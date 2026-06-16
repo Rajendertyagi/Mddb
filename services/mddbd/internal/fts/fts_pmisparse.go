@@ -1,9 +1,10 @@
-package main
+package fts
 
 import (
 	"bytes"
 	"encoding/binary"
 	"math"
+	"mddb/internal/sliceutil"
 	"sort"
 	"strings"
 	"sync"
@@ -358,7 +359,7 @@ func (f *FTSIndex) SearchPMISparse(collection, query string, limit int) ([]FTSRe
 		results = append(results, FTSResult{
 			DocID:        ds.id,
 			Score:        ds.score,
-			MatchedTerms: unique(ds.matchedTerms),
+			MatchedTerms: sliceutil.Unique(ds.matchedTerms),
 		})
 	}
 
@@ -504,7 +505,7 @@ func (f *FTSIndex) SearchPMISparseFuzzy(collection, query string, limit, maxDist
 		results = append(results, FTSResult{
 			DocID:        ds.id,
 			Score:        ds.score,
-			MatchedTerms: unique(ds.matchedTerms),
+			MatchedTerms: sliceutil.Unique(ds.matchedTerms),
 		})
 	}
 

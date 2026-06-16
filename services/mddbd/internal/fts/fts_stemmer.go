@@ -1,4 +1,4 @@
-package main
+package fts
 
 // PorterStemmer provides English word stemming using the Porter Stemming Algorithm.
 // Reference: https://tartarus.org/martin/PorterStemmer/

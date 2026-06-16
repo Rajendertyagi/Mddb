@@ -1,9 +1,10 @@
-package main
+package fts
 
 import (
 	"bytes"
 	"encoding/binary"
 	"math"
+	"mddb/internal/sliceutil"
 	"sort"
 	"strings"
 
@@ -146,7 +147,7 @@ func (f *FTSIndex) SearchBM25F(collection string, tokens map[string]int, limit i
 		results = append(results, FTSResult{
 			DocID:        docID,
 			Score:        ds.score,
-			MatchedTerms: unique(ds.matchedTerms),
+			MatchedTerms: sliceutil.Unique(ds.matchedTerms),
 		})
 	}
 	sort.Slice(results, func(i, j int) bool {
@@ -288,7 +289,7 @@ func (f *FTSIndex) SearchBM25FFuzzy(collection string, tokens map[string]int, li
 		results = append(results, FTSResult{
 			DocID:        docID,
 			Score:        ds.score,
-			MatchedTerms: unique(ds.matchedTerms),
+			MatchedTerms: sliceutil.Unique(ds.matchedTerms),
 		})
 	}
 	sort.Slice(results, func(i, j int) bool {

@@ -1,4 +1,4 @@
-package main
+package fts
 
 import (
 	"bytes"
@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"mddb/internal/binlog"
+	"mddb/internal/sliceutil"
 	"sort"
 	"strings"
 	"unicode"
@@ -51,6 +52,15 @@ func (f *FTSIndex) SetStopWordManager(swm *StopWordManager) { f.stopWordManager 
 func (f *FTSIndex) SetBinlog(bl *binlog.Binlog) {
 	f.binlog = bl
 }
+
+// Stemmer returns the active stemmer (nil when stemming is disabled).
+func (f *FTSIndex) Stemmer() Stemmer { return f.stemmer }
+
+// SynonymManager returns the active synonym manager (nil when disabled).
+func (f *FTSIndex) SynonymManager() *SynonymManager { return f.synonymManager }
+
+// LangRegistry returns the language registry (nil when multi-language FTS is off).
+func (f *FTSIndex) LangRegistry() *LangRegistry { return f.langRegistry }
 
 // FTSResult represents a full-text search result.
 type FTSResult struct {
@@ -511,7 +521,7 @@ func (f *FTSIndex) Search(collection, query string, limit int) ([]FTSResult, err
 		results = append(results, FTSResult{
 			DocID:        ds.id,
 			Score:        score,
-			MatchedTerms: unique(ds.matchedTerms),
+			MatchedTerms: sliceutil.Unique(ds.matchedTerms),
 		})
 	}
 

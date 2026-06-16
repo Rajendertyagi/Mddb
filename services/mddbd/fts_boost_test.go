@@ -2,6 +2,7 @@ package main
 
 import (
 	"math"
+	"mddb/internal/fts"
 	"testing"
 
 	bolt "go.etcd.io/bbolt"
@@ -88,7 +89,7 @@ func TestApplyBoostFTS_NoBoost(t *testing.T) {
 	s, cleanup := newTestServer(t)
 	defer cleanup()
 
-	results := []FTSResult{
+	results := []fts.FTSResult{
 		{DocID: "a", Score: 1.0},
 		{DocID: "b", Score: 2.0},
 	}
@@ -105,7 +106,7 @@ func TestApplyBoostFTS_PositiveBoost(t *testing.T) {
 	seedMeta(t, s, "posts", "a", "tag", "breed")
 	seedMeta(t, s, "posts", "b", "tag", "other")
 
-	results := []FTSResult{
+	results := []fts.FTSResult{
 		{DocID: "a", Score: 1.0},
 		{DocID: "b", Score: 2.0},
 	}
@@ -126,7 +127,7 @@ func TestApplyBoostFTS_NegativeDemotes(t *testing.T) {
 	seedMeta(t, s, "posts", "a", "tag", "spam")
 	seedMeta(t, s, "posts", "b", "tag", "ham")
 
-	results := []FTSResult{
+	results := []fts.FTSResult{
 		{DocID: "a", Score: 10.0},
 		{DocID: "b", Score: 2.0},
 	}
@@ -143,7 +144,7 @@ func TestApplyBoostFTS_SkipsInvalidKeys(t *testing.T) {
 	defer cleanup()
 
 	seedMeta(t, s, "posts", "a", "tag", "x")
-	results := []FTSResult{{DocID: "a", Score: 1.0}}
+	results := []fts.FTSResult{{DocID: "a", Score: 1.0}}
 
 	got := s.applyBoostFTS("posts", results, map[string]float64{
 		"malformed": 5.0,
@@ -161,7 +162,7 @@ func TestApplyBoostFTS_ZeroFactorNoop(t *testing.T) {
 	defer cleanup()
 
 	seedMeta(t, s, "posts", "a", "tag", "x")
-	results := []FTSResult{{DocID: "a", Score: 7.0}}
+	results := []fts.FTSResult{{DocID: "a", Score: 7.0}}
 	got := s.applyBoostFTS("posts", results, map[string]float64{"tag:x": 0.0})
 	if got[0].Score != 7.0 {
 		t.Errorf("zero factor must be noop, got %v", got[0].Score)

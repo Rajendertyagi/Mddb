@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"mddb/internal/envconf"
+	"mddb/internal/fts"
+	"mddb/internal/sliceutil"
 	proto "mddb/proto"
 
 	json "github.com/goccy/go-json"
@@ -288,7 +290,7 @@ func (c *DirectClient) Search(ctx context.Context, req *MCPSearchRequest) (*MCPS
 						ids = append(ids, id)
 					}
 				}
-				ids = unique(ids)
+				ids = sliceutil.Unique(ids)
 				sets = append(sets, ids)
 			}
 			ids := intersect(sets...)
@@ -453,7 +455,7 @@ func (c *DirectClient) Export(ctx context.Context, req *MCPExportRequest) (io.Re
 						ids = append(ids, id)
 					}
 				}
-				ids = unique(ids)
+				ids = sliceutil.Unique(ids)
 				sets = append(sets, ids)
 			}
 			for _, id := range intersect(sets...) {
@@ -975,7 +977,7 @@ func (c *DirectClient) FTSSearch(ctx context.Context, req *MCPFTSSearchRequest) 
 		fuzzy = 2
 	}
 
-	var results []FTSResult
+	var results []fts.FTSResult
 	var err error
 	switch algo {
 	case "bm25":
@@ -1101,13 +1103,13 @@ func (c *DirectClient) FTSReindex(ctx context.Context, req *MCPFTSReindexRequest
 
 // FTSLanguages returns the list of supported FTS languages.
 func (c *DirectClient) FTSLanguages(ctx context.Context) (*MCPFTSLanguagesResponse, error) {
-	if c.server.FTSIndex == nil || c.server.FTSIndex.langRegistry == nil {
+	if c.server.FTSIndex == nil || c.server.FTSIndex.LangRegistry() == nil {
 		return &MCPFTSLanguagesResponse{Languages: []MCPFTSLanguageInfo{}}, nil
 	}
 
 	var langs []MCPFTSLanguageInfo
-	for _, code := range c.server.FTSIndex.langRegistry.Languages() {
-		cfg := c.server.FTSIndex.langRegistry.Resolve(code)
+	for _, code := range c.server.FTSIndex.LangRegistry().Languages() {
+		cfg := c.server.FTSIndex.LangRegistry().Resolve(code)
 		name := code
 		if cfg != nil {
 			name = cfg.Name
@@ -1117,7 +1119,7 @@ func (c *DirectClient) FTSLanguages(ctx context.Context) (*MCPFTSLanguagesRespon
 
 	return &MCPFTSLanguagesResponse{
 		Languages:   langs,
-		DefaultLang: c.server.FTSIndex.langRegistry.DefaultLang(),
+		DefaultLang: c.server.FTSIndex.LangRegistry().DefaultLang(),
 	}, nil
 }
 

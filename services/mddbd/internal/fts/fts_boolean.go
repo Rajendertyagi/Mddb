@@ -1,9 +1,10 @@
-package main
+package fts
 
 import (
 	"bytes"
 	"encoding/binary"
 	"math"
+	"mddb/internal/sliceutil"
 	"sort"
 
 	bolt "go.etcd.io/bbolt"
@@ -109,7 +110,7 @@ func (f *FTSIndex) SearchBoolean(collection string, parsed *ParsedQuery, limit i
 		results = append(results, FTSResult{
 			DocID:        ds.id,
 			Score:        ds.score,
-			MatchedTerms: unique(ds.matchedTerms),
+			MatchedTerms: sliceutil.Unique(ds.matchedTerms),
 		})
 	}
 
@@ -280,7 +281,7 @@ func (f *FTSIndex) searchSingleTerm(collection, term string) ([]FTSResult, error
 		results = append(results, FTSResult{
 			DocID:        d.id,
 			Score:        d.score,
-			MatchedTerms: unique(d.matchedTerms),
+			MatchedTerms: sliceutil.Unique(d.matchedTerms),
 		})
 	}
 	return results, nil

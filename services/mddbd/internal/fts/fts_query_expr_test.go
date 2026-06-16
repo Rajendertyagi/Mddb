@@ -1,53 +1,10 @@
-package main
+package fts
 
 import (
 	"testing"
 )
 
 // --- Tokenizer ---
-
-func TestTokenize_Basics(t *testing.T) {
-	cases := []struct {
-		in  string
-		out []tokenType
-	}{
-		{"rust", []tokenType{tokTerm, tokEOF}},
-		{"rust AND performance", []tokenType{tokTerm, tokAnd, tokTerm, tokEOF}},
-		{"a OR b", []tokenType{tokTerm, tokOr, tokTerm, tokEOF}},
-		{"NOT spam", []tokenType{tokNot, tokTerm, tokEOF}},
-		{"-spam", []tokenType{tokNot, tokTerm, tokEOF}},
-		{"+must have", []tokenType{tokRequire, tokTerm, tokTerm, tokEOF}},
-		{`"machine learning"`, []tokenType{tokPhrase, tokEOF}},
-		{`"machine learning"~5`, []tokenType{tokProximity, tokEOF}},
-		{"mark*", []tokenType{tokWildcard, tokEOF}},
-		{"color~1", []tokenType{tokFuzzy, tokEOF}},
-		{"(a OR b) AND c", []tokenType{tokLParen, tokTerm, tokOr, tokTerm, tokRParen, tokAnd, tokTerm, tokEOF}},
-	}
-	for _, tc := range cases {
-		t.Run(tc.in, func(t *testing.T) {
-			got := tokenize(tc.in)
-			if len(got) != len(tc.out) {
-				t.Fatalf("len(tokens)=%d want %d: %+v", len(got), len(tc.out), got)
-			}
-			for i, tok := range got {
-				if tok.typ != tc.out[i] {
-					t.Errorf("token %d: type=%d want %d (payload=%q)", i, tok.typ, tc.out[i], tok.s)
-				}
-			}
-		})
-	}
-}
-
-func TestTokenize_FuzzyAndProximityPayload(t *testing.T) {
-	toks := tokenize("color~2")
-	if len(toks) < 1 || toks[0].typ != tokFuzzy || toks[0].s != "color" || toks[0].n != 2 {
-		t.Errorf("fuzzy payload mismatch: %+v", toks[0])
-	}
-	toks = tokenize(`"rust systems"~7`)
-	if len(toks) < 1 || toks[0].typ != tokProximity || toks[0].s != "rust systems" || toks[0].n != 7 {
-		t.Errorf("proximity payload mismatch: %+v", toks[0])
-	}
-}
 
 // --- Parser ---
 
@@ -129,25 +86,23 @@ func TestParseQueryExpression_FuzzyDistanceClamped(t *testing.T) {
 
 // newQueryExprServer prepares an FTSIndex so evaluator tests can seed a
 // small corpus and exercise AND / OR / NOT / phrase semantics end-to-end.
-func newQueryExprServer(t *testing.T) (*Server, func()) {
+func newQueryExprServer(t *testing.T) (*FTSIndex, func()) {
 	t.Helper()
-	s, cleanup := newTestServer(t)
-	s.FTSIndex = NewFTSIndex(s.DB)
-	if err := s.FTSIndex.EnsureBuckets(); err != nil {
-		cleanup()
+	idx := NewFTSIndex(openTestDB(t))
+	if err := idx.EnsureBuckets(); err != nil {
 		t.Fatalf("ensure FTS buckets: %v", err)
 	}
-	return s, cleanup
+	return idx, func() {}
 }
 
 // indexExprDoc wires both the flat and positional indices so phrase and
 // proximity clauses in the evaluator have something to match against.
-func indexExprDoc(t *testing.T, s *Server, collection, docID, content string) {
+func indexExprDoc(t *testing.T, s *FTSIndex, collection, docID, content string) {
 	t.Helper()
-	if err := s.FTSIndex.Index(collection, docID, content); err != nil {
+	if err := s.Index(collection, docID, content); err != nil {
 		t.Fatalf("index: %v", err)
 	}
-	if err := s.FTSIndex.IndexPositions(collection, docID, content); err != nil {
+	if err := s.IndexPositions(collection, docID, content); err != nil {
 		t.Fatalf("index positions: %v", err)
 	}
 }
@@ -163,7 +118,7 @@ func TestEvaluateExpression_And(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := s.FTSIndex.EvaluateExpression("c", expr, 10)
+	res, err := s.EvaluateExpression("c", expr, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,7 +136,7 @@ func TestEvaluateExpression_Or(t *testing.T) {
 	indexExprDoc(t, s, "c", "c", "python async")
 
 	expr, _ := ParseQueryExpression("rust OR golang")
-	res, _ := s.FTSIndex.EvaluateExpression("c", expr, 10)
+	res, _ := s.EvaluateExpression("c", expr, 10)
 	ids := docIDsFromFTS(res)
 	if len(ids) != 2 {
 		t.Errorf("expected 2 docs, got %v", ids)
@@ -196,7 +151,7 @@ func TestEvaluateExpression_Not(t *testing.T) {
 	indexExprDoc(t, s, "c", "c", "rust perfect")
 
 	expr, _ := ParseQueryExpression("rust AND NOT spam")
-	res, _ := s.FTSIndex.EvaluateExpression("c", expr, 10)
+	res, _ := s.EvaluateExpression("c", expr, 10)
 	ids := docIDsFromFTS(res)
 	// "a" and "c" match rust but not spam; "b" is excluded.
 	if len(ids) != 2 {
@@ -222,7 +177,7 @@ func TestEvaluateExpression_NestedGrouping(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, _ := s.FTSIndex.EvaluateExpression("c", expr, 10)
+	res, _ := s.EvaluateExpression("c", expr, 10)
 	ids := docIDsFromFTS(res)
 	if len(ids) != 2 {
 		t.Errorf("expected 2 docs, got %v", ids)
@@ -241,7 +196,7 @@ func TestEvaluateExpression_PhraseAtom(t *testing.T) {
 	indexExprDoc(t, s, "c", "b", "learning to use machine")
 
 	expr, _ := ParseQueryExpression(`"machine learning"`)
-	res, _ := s.FTSIndex.EvaluateExpression("c", expr, 10)
+	res, _ := s.EvaluateExpression("c", expr, 10)
 	ids := docIDsFromFTS(res)
 	if len(ids) != 1 || ids[0] != "a" {
 		t.Errorf("expected [a] only, got %v", ids)
@@ -251,7 +206,7 @@ func TestEvaluateExpression_PhraseAtom(t *testing.T) {
 func TestEvaluateExpression_EmptyReturnsNothing(t *testing.T) {
 	s, cleanup := newQueryExprServer(t)
 	defer cleanup()
-	res, err := s.FTSIndex.EvaluateExpression("c", nil, 10)
+	res, err := s.EvaluateExpression("c", nil, 10)
 	if err != nil || res != nil {
 		t.Errorf("nil AST should yield (nil, nil), got (%v, %v)", res, err)
 	}
@@ -264,4 +219,24 @@ func docIDsFromFTS(res []FTSResult) []string {
 		out[i] = r.DocID
 	}
 	return out
+}
+
+func TestEvaluateExpression_FuzzyProximityWildcard(t *testing.T) {
+	s, cleanup := newQueryExprServer(t)
+	defer cleanup()
+	indexExprDoc(t, s, "c", "d1", "machine learning algorithms")
+	indexExprDoc(t, s, "c", "d2", "deep learning networks")
+
+	cases := []QueryExpr{
+		&FuzzyExpr{Term: "learnin", Distance: 2},
+		&ProximityExpr{Phrase: "machine algorithms", Distance: 3},
+		&WildcardExpr{Pattern: "learn*"},
+		&AndExpr{Left: &TermExpr{Term: "learning"}, Right: &NotExpr{Inner: &WildcardExpr{Pattern: "deep*"}}},
+		&OrExpr{Left: &FuzzyExpr{Term: "machin", Distance: 1}, Right: &PhraseExpr{Phrase: "deep learning"}},
+	}
+	for i, expr := range cases {
+		if _, err := s.EvaluateExpression("c", expr, 10); err != nil {
+			t.Fatalf("case %d: %v", i, err)
+		}
+	}
 }

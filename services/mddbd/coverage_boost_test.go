@@ -2,6 +2,7 @@ package main
 
 import (
 	"mddb/internal/binlog"
+	"mddb/internal/fts"
 	"strings"
 	"testing"
 	"time"
@@ -10,353 +11,6 @@ import (
 // ---------------------------------------------------------------------------
 // 1. fts_stemmer.go — Porter stemmer helper functions
 // ---------------------------------------------------------------------------
-
-func TestIsConsonant(t *testing.T) {
-	tests := []struct {
-		name string
-		word string
-		idx  int
-		want bool
-	}{
-		{"vowel_a", "apple", 0, false},
-		{"vowel_e", "hello", 1, false},
-		{"vowel_i", "bit", 1, false},
-		{"vowel_o", "top", 1, false},
-		{"vowel_u", "cup", 1, false},
-		{"consonant_b", "bat", 0, true},
-		{"consonant_t", "bat", 2, true},
-		{"y_at_start", "yes", 0, true},
-		{"y_after_consonant", "byte", 1, false},
-		{"y_after_vowel", "day", 2, true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := isConsonant([]byte(tt.word), tt.idx)
-			if got != tt.want {
-				t.Errorf("isConsonant(%q, %d) = %v, want %v", tt.word, tt.idx, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestMeasure(t *testing.T) {
-	tests := []struct {
-		word string
-		want int
-	}{
-		{"", 0},
-		{"a", 0},        // V
-		{"b", 0},        // C
-		{"ab", 1},       // VC = (VC){1}
-		{"tr", 0},       // CC
-		{"tree", 0},     // CCVV
-		{"trouble", 1},  // CC V C V C V = (VC){1}
-		{"oats", 1},     // V C V C
-		{"trees", 1},    // CC V V C
-		{"troubles", 2}, // CC V C V C V C
-	}
-	for _, tt := range tests {
-		t.Run(tt.word, func(t *testing.T) {
-			got := measure([]byte(tt.word))
-			if got != tt.want {
-				t.Errorf("measure(%q) = %d, want %d", tt.word, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestHasVowel(t *testing.T) {
-	tests := []struct {
-		word string
-		want bool
-	}{
-		{"bcd", false},
-		{"abc", true},
-		{"xyz", true}, // y after x (consonant) is a vowel
-		{"yell", true},
-		{"", false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.word, func(t *testing.T) {
-			got := hasVowel([]byte(tt.word))
-			if got != tt.want {
-				t.Errorf("hasVowel(%q) = %v, want %v", tt.word, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestEndsWithDouble(t *testing.T) {
-	tests := []struct {
-		word string
-		want bool
-	}{
-		{"fall", true},
-		{"miss", true},
-		{"buzz", true},
-		{"cat", false},
-		{"a", false},
-		{"", false},
-		{"bee", false}, // ee are vowels, not consonants
-	}
-	for _, tt := range tests {
-		t.Run(tt.word, func(t *testing.T) {
-			got := endsWithDouble([]byte(tt.word))
-			if got != tt.want {
-				t.Errorf("endsWithDouble(%q) = %v, want %v", tt.word, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestEndsCVC(t *testing.T) {
-	tests := []struct {
-		word string
-		want bool
-	}{
-		{"hop", true},  // h-o-p, CVC, p not w/x/y
-		{"lov", true},  // l-o-v, CVC
-		{"bow", false}, // ends with w
-		{"box", false}, // ends with x
-		{"boy", false}, // ends with y
-		{"ab", false},  // too short
-		{"a", false},   // too short
-		{"", false},    // empty
-		{"oat", false}, // o is vowel at position 0, a is vowel at 1 => not CVC
-		{"bat", true},  // b-a-t CVC
-		{"pet", true},  // p-e-t CVC
-	}
-	for _, tt := range tests {
-		t.Run(tt.word, func(t *testing.T) {
-			got := endsCVC([]byte(tt.word))
-			if got != tt.want {
-				t.Errorf("endsCVC(%q) = %v, want %v", tt.word, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestHasSuffix(t *testing.T) {
-	tests := []struct {
-		word   string
-		suffix string
-		want   bool
-	}{
-		{"running", "ing", true},
-		{"running", "run", false},
-		{"ed", "ed", true},
-		{"a", "ab", false},
-		{"", "x", false},
-		{"test", "", true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.word+"_"+tt.suffix, func(t *testing.T) {
-			got := hasSuffix([]byte(tt.word), tt.suffix)
-			if got != tt.want {
-				t.Errorf("hasSuffix(%q, %q) = %v, want %v", tt.word, tt.suffix, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestRemoveSuffix(t *testing.T) {
-	tests := []struct {
-		word string
-		n    int
-		want string
-	}{
-		{"running", 3, "runn"},
-		{"tested", 2, "test"},
-		{"abc", 0, "abc"},
-		{"abc", 3, ""},
-	}
-	for _, tt := range tests {
-		t.Run(tt.word, func(t *testing.T) {
-			got := string(removeSuffix([]byte(tt.word), tt.n))
-			if got != tt.want {
-				t.Errorf("removeSuffix(%q, %d) = %q, want %q", tt.word, tt.n, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestStep1a(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"caresses", "caress"}, // SSES -> SS
-		{"ponies", "poni"},     // IES -> I
-		{"caress", "caress"},   // SS -> SS
-		{"cats", "cat"},        // S -> (remove)
-		{"cat", "cat"},         // no suffix
-	}
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := string(step1a([]byte(tt.input)))
-			if got != tt.want {
-				t.Errorf("step1a(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestStep1b(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"feed", "feed"},          // EED with m=0 -> unchanged
-		{"agreed", "agree"},       // EED with m>0 -> EE
-		{"plastered", "plaster"},  // ED with vowel in stem
-		{"bled", "bled"},          // ED without vowel in stem
-		{"motoring", "motor"},     // ING with vowel in stem
-		{"sing", "sing"},          // ING without vowel in stem
-		{"conflated", "conflate"}, // ED -> stem ends "at" -> add e
-		{"troubled", "trouble"},   // ED -> stem ends with double (ll) but l is exempt
-		{"hopping", "hop"},        // ING -> stem ends with double (pp) -> remove last
-		{"filing", "file"},        // ING -> m=1, CVC -> add e
-	}
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := string(step1b([]byte(tt.input)))
-			if got != tt.want {
-				t.Errorf("step1b(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestStep1c(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"happy", "happi"}, // Y with vowel in stem -> I
-		{"sky", "sky"},     // Y without vowel in stem -> unchanged
-		{"cat", "cat"},     // no Y suffix
-	}
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := string(step1c([]byte(tt.input)))
-			if got != tt.want {
-				t.Errorf("step1c(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestStep2(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"relational", "relate"},     // ational -> ate
-		{"conditional", "condition"}, // tional -> tion
-		{"valenci", "valence"},       // enci -> ence
-		{"hesitanci", "hesitance"},   // anci -> ance
-		{"digitizer", "digitize"},    // izer -> ize
-		{"formalli", "formal"},       // alli -> al
-		{"cat", "cat"},               // no matching suffix
-		// m=0 stem should not apply
-		{"ational", "ational"}, // stem "at" has m=0
-	}
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := string(step2([]byte(tt.input)))
-			if got != tt.want {
-				t.Errorf("step2(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestStep3(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"triplicate", "triplic"},   // icate -> ic
-		{"formative", "form"},       // ative -> ""
-		{"formalize", "formal"},     // alize -> al
-		{"electriciti", "electric"}, // iciti -> ic
-		{"electrical", "electric"},  // ical -> ic
-		{"hopeful", "hope"},         // ful -> ""
-		{"goodness", "good"},        // ness -> ""
-		{"cat", "cat"},              // no matching suffix
-	}
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := string(step3([]byte(tt.input)))
-			if got != tt.want {
-				t.Errorf("step3(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestStep4(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"revival", "reviv"},      // al with m>1
-		{"allowance", "allow"},    // ance with m>1
-		{"inference", "infer"},    // ence with m>1
-		{"adjustable", "adjust"},  // able with m>1
-		{"adoption", "adopt"},     // ion with t preceding, m>1
-		{"impression", "impress"}, // ion with s preceding, m>1
-		{"activate", "activ"},     // ate with m>1
-		{"cat", "cat"},            // no matching suffix
-	}
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := string(step4([]byte(tt.input)))
-			if got != tt.want {
-				t.Errorf("step4(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestStep5a(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"probate", "probat"}, // m>1, remove e
-		{"rate", "rate"},      // m=1, CVC -> keep e
-		{"cease", "ceas"},     // m>1
-		{"cat", "cat"},        // no e suffix
-	}
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := string(step5a([]byte(tt.input)))
-			if got != tt.want {
-				t.Errorf("step5a(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestStep5b(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"controll", "control"}, // m>1, double l -> single l
-		{"roll", "roll"},        // m=1 -> unchanged
-		{"cat", "cat"},          // no double ending
-	}
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := string(step5b([]byte(tt.input)))
-			if got != tt.want {
-				t.Errorf("step5b(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
-}
 
 // ---------------------------------------------------------------------------
 // 2. schema.go — validation functions
@@ -715,51 +369,6 @@ func TestMatchStringRange(t *testing.T) {
 // 4. fts_wildcard.go — wildcardMatch
 // ---------------------------------------------------------------------------
 
-func TestWildcardMatchCoverage(t *testing.T) {
-	tests := []struct {
-		pattern string
-		text    string
-		want    bool
-	}{
-		{"*", "anything", true},
-		{"*", "", true},
-		{"?", "a", true},
-		{"?", "", false},
-		{"?", "ab", false},
-		{"hello", "hello", true},
-		{"hello", "world", false},
-		{"hel*", "hello", true},
-		{"hel*", "help", true},
-		{"hel*", "he", false},
-		{"*lo", "hello", true},
-		{"*lo", "lo", true},
-		{"*lo", "low", false},
-		{"h?llo", "hello", true},
-		{"h?llo", "hallo", true},
-		{"h?llo", "hllo", false},
-		{"h*o", "hello", true},
-		{"h*o", "ho", true},
-		{"h*o", "hey", false},
-		{"*a*b*", "aXYZb", true},
-		{"*a*b*", "xaxbx", true},
-		{"*a*b*", "xyz", false},
-		{"", "", true},
-		{"", "a", false},
-		{"**", "abc", true},
-		{"a*b*c", "abc", true},
-		{"a*b*c", "aXbYc", true},
-		{"a*b*c", "aXbY", false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.pattern+"_"+tt.text, func(t *testing.T) {
-			got := wildcardMatch(tt.pattern, tt.text)
-			if got != tt.want {
-				t.Errorf("wildcardMatch(%q, %q) = %v, want %v", tt.pattern, tt.text, got, tt.want)
-			}
-		})
-	}
-}
-
 // ---------------------------------------------------------------------------
 // 5. aggregation.go — weekNumber, itoa
 // ---------------------------------------------------------------------------
@@ -1023,16 +632,16 @@ func TestAsyncIOWaitAllNoPending(t *testing.T) {
 func TestFTSSetSynonymManager(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	sm := NewSynonymManager(db)
+	idx := fts.NewFTSIndex(db)
+	sm := fts.NewSynonymManager(db)
 	idx.SetSynonymManager(sm)
 }
 
 func TestFTSSetStopWordManager(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	swm := NewStopWordManager(db)
+	idx := fts.NewFTSIndex(db)
+	swm := fts.NewStopWordManager(db)
 	idx.SetStopWordManager(swm)
 }
 
@@ -1119,8 +728,8 @@ func TestBloomFilterStats(t *testing.T) {
 func TestFTSSearchEmptyQueryCovBoost(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	results, err := idx.Search("col1", "", 10)
@@ -1135,8 +744,8 @@ func TestFTSSearchEmptyQueryCovBoost(t *testing.T) {
 func TestFTSIndexAndSearchCovBoost(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	// Index some documents
@@ -1177,10 +786,10 @@ func TestFTSIndexAndSearchCovBoost(t *testing.T) {
 func TestFTSSearchWithLangCovBoost(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
-	reg := NewLangRegistry("en")
-	RegisterDefaultLanguages(reg)
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
+	reg := fts.NewLangRegistry("en")
+	fts.RegisterDefaultLanguages(reg)
 	idx.SetLangRegistry(reg)
 	_ = idx.EnsureBuckets()
 
@@ -1199,8 +808,8 @@ func TestFTSSearchWithLangCovBoost(t *testing.T) {
 func TestFTSRemoveNonExistentCovBoost(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 	if err := idx.Remove("col", "nonexistent"); err != nil {
 		t.Fatal(err)
