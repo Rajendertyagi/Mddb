@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"mddb/internal/storage"
 	pb "mddb/proto"
 )
 
@@ -37,8 +38,8 @@ func TestGRPCVectorSearch_WithFilter(t *testing.T) {
 	// Manually add meta index entries so filter works
 	_ = s.DB.Update(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket(s.BucketNames.IdxMeta)
-		_ = bIdx.Put(append(kMetaKeyPrefix("blog", "category", "tech"), []byte(docID1)...), []byte("1"))
-		_ = bIdx.Put(append(kMetaKeyPrefix("blog", "category", "cooking"), []byte(docID2)...), []byte("1"))
+		_ = bIdx.Put(append(storage.MetaKeyPrefix("blog", "category", "tech"), []byte(docID1)...), []byte("1"))
+		_ = bIdx.Put(append(storage.MetaKeyPrefix("blog", "category", "cooking"), []byte(docID2)...), []byte("1"))
 		return nil
 	})
 
@@ -279,7 +280,7 @@ func TestGRPCStats_WithRevisionsAndMeta(t *testing.T) {
 	docID := genID("blog", "statpost", "en")
 	_ = s.DB.Update(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket(s.BucketNames.IdxMeta)
-		return bIdx.Put(append(kMetaKeyPrefix("blog", "tag", "stats"), []byte(docID)...), []byte("1"))
+		return bIdx.Put(append(storage.MetaKeyPrefix("blog", "tag", "stats"), []byte(docID)...), []byte("1"))
 	})
 
 	resp, err := gs.Stats(context.Background(), &pb.StatsRequest{})
@@ -544,10 +545,10 @@ func TestGRPCSearch_MultipleMetaFilters(t *testing.T) {
 	// Manually index meta
 	_ = s.DB.Update(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket(s.BucketNames.IdxMeta)
-		_ = bIdx.Put(append(kMetaKeyPrefix("blog", "category", "tech"), []byte("id-mf1")...), []byte("1"))
-		_ = bIdx.Put(append(kMetaKeyPrefix("blog", "category", "tech"), []byte("id-mf2")...), []byte("1"))
-		_ = bIdx.Put(append(kMetaKeyPrefix("blog", "status", "published"), []byte("id-mf1")...), []byte("1"))
-		_ = bIdx.Put(append(kMetaKeyPrefix("blog", "status", "draft"), []byte("id-mf2")...), []byte("1"))
+		_ = bIdx.Put(append(storage.MetaKeyPrefix("blog", "category", "tech"), []byte("id-mf1")...), []byte("1"))
+		_ = bIdx.Put(append(storage.MetaKeyPrefix("blog", "category", "tech"), []byte("id-mf2")...), []byte("1"))
+		_ = bIdx.Put(append(storage.MetaKeyPrefix("blog", "status", "published"), []byte("id-mf1")...), []byte("1"))
+		_ = bIdx.Put(append(storage.MetaKeyPrefix("blog", "status", "draft"), []byte("id-mf2")...), []byte("1"))
 		return nil
 	})
 

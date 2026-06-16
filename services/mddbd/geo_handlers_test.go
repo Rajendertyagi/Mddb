@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"mddb/internal/cache"
 	"mddb/internal/geo"
+	"mddb/internal/storage"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -259,7 +260,7 @@ func seedGeoDocs(t *testing.T, s *Server, collection string, points [][2]float64
 		b := tx.Bucket(s.BucketNames.Docs)
 		for i, p := range points {
 			docID := "d" + string(rune('0'+i))
-			d := Doc{
+			d := storage.Doc{
 				ID:        docID,
 				Key:       docID,
 				Lang:      "en",
@@ -270,7 +271,7 @@ func seedGeoDocs(t *testing.T, s *Server, collection string, points [][2]float64
 			if err != nil {
 				return err
 			}
-			if err := b.Put(kDoc(collection, docID), data); err != nil {
+			if err := b.Put(storage.DocKey(collection, docID), data); err != nil {
 				return err
 			}
 			s.GeoIndex.Add(collection, docID, p[0], p[1])

@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"mddb/internal/storage"
 	proto "mddb/proto"
 
 	json "github.com/goccy/go-json"
@@ -251,7 +252,7 @@ func (s *Server) buildContentHashMap(collection string, docs []IngestDocumentHTT
 			}
 
 			docID := genID(collection, key, d.Lang)
-			docKey := kDoc(collection, docID)
+			docKey := storage.DocKey(collection, docID)
 			if v := bDocs.Get(docKey); v != nil {
 				existing, err := unmarshalDoc(v)
 				if err == nil {

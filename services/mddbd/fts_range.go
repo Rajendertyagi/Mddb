@@ -2,6 +2,7 @@ package main
 
 import (
 	"mddb/internal/fts"
+	"mddb/internal/storage"
 	"sort"
 	"strconv"
 	"strings"
@@ -107,7 +108,7 @@ func (s *Server) FilterByRange(collection string, results []fts.FTSResult, range
 		}
 
 		for _, r := range results {
-			v := bDocs.Get(kDoc(collection, r.DocID))
+			v := bDocs.Get(storage.DocKey(collection, r.DocID))
 			if v == nil {
 				continue
 			}
@@ -133,7 +134,7 @@ func (s *Server) FilterByRange(collection string, results []fts.FTSResult, range
 }
 
 // matchRangeFilter checks if a document matches a single range filter.
-func matchRangeFilter(doc *Doc, rf RangeFilter) bool {
+func matchRangeFilter(doc *storage.Doc, rf RangeFilter) bool {
 	field := strings.ToLower(rf.Field)
 
 	// Built-in timestamp fields

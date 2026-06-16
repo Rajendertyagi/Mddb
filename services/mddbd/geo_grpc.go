@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"mddb/internal/geo"
+	"mddb/internal/storage"
 	"mddb/proto"
 
 	bolt "go.etcd.io/bbolt"
@@ -58,7 +59,7 @@ func (g *GRPCServer) GeoSearch(ctx context.Context, req *proto.GeoSearchRequest)
 			return nil
 		}
 		for i, h := range hits {
-			v := bDocs.Get(kDoc(req.Collection, h.DocID))
+			v := bDocs.Get(storage.DocKey(req.Collection, h.DocID))
 			if v == nil {
 				continue
 			}
@@ -127,7 +128,7 @@ func (g *GRPCServer) GeoWithin(ctx context.Context, req *proto.GeoWithinRequest)
 			return nil
 		}
 		for i, h := range hits {
-			v := bDocs.Get(kDoc(req.Collection, h.DocID))
+			v := bDocs.Get(storage.DocKey(req.Collection, h.DocID))
 			if v == nil {
 				continue
 			}

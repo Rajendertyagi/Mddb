@@ -14,6 +14,7 @@ import (
 	"mddb/internal/cache"
 	"mddb/internal/fts"
 	"mddb/internal/schema"
+	"mddb/internal/storage"
 	"mddb/internal/vector"
 	pb "mddb/proto"
 )
@@ -155,7 +156,7 @@ func addDocViaGRPC(t *testing.T, gs *GRPCServer, coll, key, lang, content string
 // a simple docID without pipes allows Search to correctly look up the doc.
 func addDocForSearch(t *testing.T, s *Server, coll, docID, key, lang, content string, meta map[string][]string) {
 	t.Helper()
-	doc := Doc{
+	doc := storage.Doc{
 		ID:        docID,
 		Key:       key,
 		Lang:      lang,
@@ -170,7 +171,7 @@ func addDocForSearch(t *testing.T, s *Server, coll, docID, key, lang, content st
 	}
 	err = s.DB.Update(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(s.BucketNames.Docs)
-		return bDocs.Put(kDoc(coll, docID), buf)
+		return bDocs.Put(storage.DocKey(coll, docID), buf)
 	})
 	if err != nil {
 		t.Fatalf("addDocForSearch put: %v", err)
@@ -319,7 +320,7 @@ func TestGRPCAdd_WithRevision(t *testing.T) {
 	_ = s.DB.View(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket(s.BucketNames.Rev)
 		c := bRev.Cursor()
-		prefix := kRevPrefix("blog", genID("blog", "rev-doc", "en"))
+		prefix := storage.RevPrefix("blog", genID("blog", "rev-doc", "en"))
 		for k, _ := c.Seek(prefix); k != nil && len(k) >= len(prefix) && string(k[:len(prefix)]) == string(prefix); k, _ = c.Next() {
 			revCount++
 		}
@@ -543,8 +544,8 @@ func TestGRPCSearch_WithMetaFilter(t *testing.T) {
 	// Manually add meta index entries so the filter path works
 	_ = s.DB.Update(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket(s.BucketNames.IdxMeta)
-		_ = bIdx.Put(append(kMetaKeyPrefix("blog", "category", "tech"), []byte("id-p1")...), []byte("1"))
-		_ = bIdx.Put(append(kMetaKeyPrefix("blog", "category", "cooking"), []byte("id-p2")...), []byte("1"))
+		_ = bIdx.Put(append(storage.MetaKeyPrefix("blog", "category", "tech"), []byte("id-p1")...), []byte("1"))
+		_ = bIdx.Put(append(storage.MetaKeyPrefix("blog", "category", "cooking"), []byte("id-p2")...), []byte("1"))
 		return nil
 	})
 
@@ -806,7 +807,7 @@ func TestGRPCTruncate_Success(t *testing.T) {
 	// Manually insert revisions with distinct timestamps to guarantee
 	// multiple revision keys (the gRPC Add method uses time.Now().Unix()
 	// which may produce the same second across rapid calls).
-	doc := Doc{ID: docID, Key: "truncdoc", Lang: "en", ContentMD: "v"}
+	doc := storage.Doc{ID: docID, Key: "truncdoc", Lang: "en", ContentMD: "v"}
 	for i := 0; i < 5; i++ {
 		doc.UpdatedAt = int64(1000 + i)
 		buf, err := marshalDoc(&doc)
@@ -823,7 +824,7 @@ func TestGRPCTruncate_Success(t *testing.T) {
 	// Also ensure a doc exists in docs bucket so Truncate can find docIDs
 	docBuf, _ := marshalDoc(&doc)
 	_ = s.DB.Update(func(tx *bolt.Tx) error {
-		return tx.Bucket(s.BucketNames.Docs).Put(kDoc("blog", docID), docBuf)
+		return tx.Bucket(s.BucketNames.Docs).Put(storage.DocKey("blog", docID), docBuf)
 	})
 
 	// Verify revisions exist
@@ -831,7 +832,7 @@ func TestGRPCTruncate_Success(t *testing.T) {
 	_ = s.DB.View(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket(s.BucketNames.Rev)
 		c := bRev.Cursor()
-		prefix := kRevPrefix("blog", docID)
+		prefix := storage.RevPrefix("blog", docID)
 		for k, _ := c.Seek(prefix); k != nil && len(k) >= len(prefix) && string(k[:len(prefix)]) == string(prefix); k, _ = c.Next() {
 			revCountBefore++
 		}
@@ -858,7 +859,7 @@ func TestGRPCTruncate_Success(t *testing.T) {
 	_ = s.DB.View(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket(s.BucketNames.Rev)
 		c := bRev.Cursor()
-		prefix := kRevPrefix("blog", docID)
+		prefix := storage.RevPrefix("blog", docID)
 		for k, _ := c.Seek(prefix); k != nil && len(k) >= len(prefix) && string(k[:len(prefix)]) == string(prefix); k, _ = c.Next() {
 			revCountAfter++
 		}
@@ -1957,7 +1958,7 @@ func TestGRPCExport_Unimplemented(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestDocToProto(t *testing.T) {
-	doc := &Doc{
+	doc := &storage.Doc{
 		ID:        "test-id",
 		Key:       "mykey",
 		Lang:      "en",
@@ -2003,7 +2004,7 @@ func TestDocToProto(t *testing.T) {
 }
 
 func TestDocToProto_NilMeta(t *testing.T) {
-	doc := &Doc{
+	doc := &storage.Doc{
 		ID:   "test",
 		Key:  "k",
 		Lang: "en",

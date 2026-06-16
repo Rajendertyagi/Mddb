@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"mddb/internal/storage"
 	"mddb/internal/vector"
 	"net/http"
 	"sort"
@@ -408,14 +409,14 @@ func (s *Server) enrichDuplicateGroups(collection string, groups []DuplicateGrou
 	}
 
 	// Load docs in single transaction
-	docMap := make(map[string]*Doc)
+	docMap := make(map[string]*storage.Doc)
 	_ = s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs == nil {
 			return nil
 		}
 		for docID := range docIDs {
-			v := bDocs.Get(kDoc(collection, docID))
+			v := bDocs.Get(storage.DocKey(collection, docID))
 			if v == nil {
 				continue
 			}

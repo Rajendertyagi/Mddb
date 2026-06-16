@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"mddb/internal/fts"
 	"mddb/internal/spell"
+	"mddb/internal/storage"
 	"net/http"
 	"strings"
 	"time"
@@ -58,7 +59,7 @@ type FTSSearchResponse struct {
 
 // FTSResultWithDoc includes the full document in the result.
 type FTSResultWithDoc struct {
-	Document     Doc             `json:"document"`
+	Document     storage.Doc     `json:"document"`
 	Score        float64         `json:"score"`
 	MatchedTerms []string        `json:"matchedTerms"`
 	Highlights   []fts.Highlight `json:"highlights,omitempty"` // populated when request.highlight=true
@@ -298,7 +299,7 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 	_ = s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		for _, res := range results {
-			v := bDocs.Get(kDoc(req.Collection, res.DocID))
+			v := bDocs.Get(storage.DocKey(req.Collection, res.DocID))
 			if v == nil {
 				continue
 			}
@@ -331,7 +332,7 @@ func (s *Server) handleFTS(w http.ResponseWriter, r *http.Request) {
 	resp.Total = len(resp.Results)
 
 	if len(req.FacetBy) > 0 && len(resp.Results) > 0 {
-		docs := make([]Doc, len(resp.Results))
+		docs := make([]storage.Doc, len(resp.Results))
 		for i, it := range resp.Results {
 			docs[i] = it.Document
 		}

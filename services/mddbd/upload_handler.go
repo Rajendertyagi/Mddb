@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mddb/internal/storage"
 	"mime/multipart"
 	"net/http"
 	"path"
@@ -22,10 +23,10 @@ const (
 
 // UploadResponse is the JSON response for a single uploaded file.
 type UploadResponse struct {
-	Key       string `json:"key"`
-	Format    string `json:"format"`
-	Converted bool   `json:"converted"`
-	Doc       Doc    `json:"document"`
+	Key       string      `json:"key"`
+	Format    string      `json:"format"`
+	Converted bool        `json:"converted"`
+	Doc       storage.Doc `json:"document"`
 }
 
 // UploadBatchResponse is the JSON response for multi-file upload.

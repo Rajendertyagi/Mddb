@@ -5,6 +5,7 @@ import (
 	"mddb/internal/compression"
 	"mddb/internal/delta"
 	"mddb/internal/fts"
+	"mddb/internal/storage"
 	"strings"
 	"testing"
 	"time"
@@ -993,7 +994,7 @@ func TestMatchStringRangeCB3(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestMatchRangeFilterTimestamp(t *testing.T) {
-	doc := &Doc{AddedAt: 1000, UpdatedAt: 2000}
+	doc := &storage.Doc{AddedAt: 1000, UpdatedAt: 2000}
 	if !matchRangeFilter(doc, RangeFilter{Field: "addedAt", Gte: "500", Lte: "1500"}) {
 		t.Error("addedAt=1000 should match [500,1500]")
 	}
@@ -1006,7 +1007,7 @@ func TestMatchRangeFilterTimestamp(t *testing.T) {
 }
 
 func TestMatchRangeFilterNumeric(t *testing.T) {
-	doc := &Doc{Meta: map[string][]string{"price": {"25.5"}}}
+	doc := &storage.Doc{Meta: map[string][]string{"price": {"25.5"}}}
 	if !matchRangeFilter(doc, RangeFilter{Field: "price", Gte: "10", Lte: "50"}) {
 		t.Error("price=25.5 should match [10,50]")
 	}
@@ -1016,21 +1017,21 @@ func TestMatchRangeFilterNumeric(t *testing.T) {
 }
 
 func TestMatchRangeFilterString(t *testing.T) {
-	doc := &Doc{Meta: map[string][]string{"name": {"medium"}}}
+	doc := &storage.Doc{Meta: map[string][]string{"name": {"medium"}}}
 	if !matchRangeFilter(doc, RangeFilter{Field: "name", Gte: "a", Lte: "z"}) {
 		t.Error("name=medium should match [a,z]")
 	}
 }
 
 func TestMatchRangeFilterMissing(t *testing.T) {
-	doc := &Doc{Meta: map[string][]string{}}
+	doc := &storage.Doc{Meta: map[string][]string{}}
 	if matchRangeFilter(doc, RangeFilter{Field: "missing", Gte: "0"}) {
 		t.Error("missing field should not match")
 	}
 }
 
 func TestMatchRangeFilterDate(t *testing.T) {
-	doc := &Doc{Meta: map[string][]string{"published": {"2024-06-15"}}}
+	doc := &storage.Doc{Meta: map[string][]string{"published": {"2024-06-15"}}}
 	if !matchRangeFilter(doc, RangeFilter{Field: "published", Gte: "2024-01-01", Lte: "2024-12-31"}) {
 		t.Error("2024-06-15 should match [2024-01-01, 2024-12-31]")
 	}

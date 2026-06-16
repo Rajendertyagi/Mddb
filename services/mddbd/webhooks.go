@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"mddb/internal/binlog"
+	"mddb/internal/storage"
 	"net/http"
 	"sync"
 	"time"
@@ -34,7 +35,7 @@ type WebhookPayload struct {
 	Key        string                 `json:"key"`
 	Lang       string                 `json:"lang"`
 	Timestamp  int64                  `json:"timestamp"`
-	Document   *Doc                   `json:"document,omitempty"`
+	Document   *storage.Doc           `json:"document,omitempty"`
 	Detail     map[string]interface{} `json:"detail,omitempty"` // incident events (security.*, ops.*)
 }
 
@@ -196,18 +197,18 @@ func (wm *WebhookManager) Delete(id string) error {
 }
 
 // Fire sends webhook notifications for a given event.
-func (wm *WebhookManager) Fire(event, collection, key, lang string, doc *Doc) {
+func (wm *WebhookManager) Fire(event, collection, key, lang string, doc *storage.Doc) {
 	wm.fire(event, collection, key, lang, doc, nil)
 }
 
 // FireEvent dispatches a typed incident event carrying a free-form
 // detail map (sent to subscribers as JSON). Used by the security and
-// ops incident detectors where the event body is not a Doc.
+// ops incident detectors where the event body is not a storage.Doc.
 func (wm *WebhookManager) FireEvent(event string, detail map[string]interface{}) {
 	wm.fire(event, "", "", "", nil, detail)
 }
 
-func (wm *WebhookManager) fire(event, collection, key, lang string, doc *Doc, detail map[string]interface{}) {
+func (wm *WebhookManager) fire(event, collection, key, lang string, doc *storage.Doc, detail map[string]interface{}) {
 	wm.mu.RLock()
 	defer wm.mu.RUnlock()
 

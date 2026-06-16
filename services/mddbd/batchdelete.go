@@ -7,6 +7,7 @@ import (
 
 	"mddb/internal/binlog"
 	"mddb/internal/cache"
+	"mddb/internal/storage"
 	proto "mddb/proto"
 
 	bolt "go.etcd.io/bbolt"
@@ -107,7 +108,7 @@ func (bd *BatchDeleter) lookupDocument(collection string, deleteDoc *proto.Delet
 	// Load existing document (to get metadata for cleanup)
 	err := bd.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(bd.server.BucketNames.Docs)
-		if v := bDocs.Get(kDoc(collection, docID)); v != nil {
+		if v := bDocs.Get(storage.DocKey(collection, docID)); v != nil {
 			existingDoc, err := unmarshalDoc(v)
 			if err != nil {
 				return err
@@ -151,7 +152,7 @@ func (bd *BatchDeleter) commitDelete(collection string, deleted []*DeletedDoc) *
 			}
 
 			// Delete document
-			docKey := kDoc(collection, d.DocID)
+			docKey := storage.DocKey(collection, d.DocID)
 			if err := bDocs.Delete(docKey); err != nil {
 				resp.Failed++
 				resp.Errors = append(resp.Errors, fmt.Sprintf("%s/%s: delete error: %v", d.Key, d.Lang, err))
@@ -160,7 +161,7 @@ func (bd *BatchDeleter) commitDelete(collection string, deleted []*DeletedDoc) *
 			bo.Delete("docs", docKey)
 
 			// Delete bykey index
-			byKeyKey := kByKey(collection, d.Key, d.Lang)
+			byKeyKey := storage.ByKeyKey(collection, d.Key, d.Lang)
 			_ = bByK.Delete(byKeyKey)
 			bo.Delete("bykey", byKeyKey)
 
@@ -168,7 +169,7 @@ func (bd *BatchDeleter) commitDelete(collection string, deleted []*DeletedDoc) *
 			if d.OldMeta != nil {
 				for mk, vals := range d.OldMeta {
 					for _, mv := range vals {
-						metaKey := append(kMetaKeyPrefix(collection, mk, mv), []byte(d.DocID)...)
+						metaKey := append(storage.MetaKeyPrefix(collection, mk, mv), []byte(d.DocID)...)
 						_ = bIdx.Delete(metaKey)
 						bo.Delete("idxmeta", metaKey)
 					}
@@ -176,7 +177,7 @@ func (bd *BatchDeleter) commitDelete(collection string, deleted []*DeletedDoc) *
 			}
 
 			// Delete revisions
-			revPrefix := kRevPrefix(collection, d.DocID)
+			revPrefix := storage.RevPrefix(collection, d.DocID)
 			c := bRev.Cursor()
 			for k, _ := c.Seek(revPrefix); k != nil && len(k) >= len(revPrefix); k, _ = c.Next() {
 				if string(k[:len(revPrefix)]) != string(revPrefix) {

@@ -20,6 +20,7 @@ import (
 	"mddb/internal/schema"
 	"mddb/internal/sliceutil"
 	"mddb/internal/spell"
+	"mddb/internal/storage"
 	"mddb/internal/temporal"
 	"mddb/internal/vector"
 	"net/http"
@@ -147,18 +148,7 @@ type Hooks struct {
 	PostUpdateExec       []string
 }
 
-// Doc represents a stored markdown document.
-type Doc struct {
-	ID        string              `json:"id"`        // generated
-	Key       string              `json:"key"`       // e.g. "homepage"
-	Lang      string              `json:"lang"`      // e.g. "en_GB"
-	Meta      map[string][]string `json:"meta"`      // meta values (multi)
-	ContentMD string              `json:"contentMd"` // raw markdown
-	AddedAt   int64               `json:"addedAt"`
-	UpdatedAt int64               `json:"updatedAt"`
-	ExpiresAt int64               `json:"expiresAt,omitempty"` // unix timestamp; 0 = never
-}
-
+// storage.Doc represents a stored markdown document.
 // AddRequest is the HTTP request body for adding or updating a document.
 type AddRequest struct {
 	Collection string              `json:"collection"`
@@ -1298,13 +1288,6 @@ func (s *Server) ensureBuckets() error {
 	})
 }
 
-func kDoc(coll, id string) []byte          { return []byte("doc|" + coll + "|" + id) }
-func kByKey(coll, key, lang string) []byte { return []byte("bykey|" + coll + "|" + key + "|" + lang) }
-func kRevPrefix(coll, id string) []byte    { return []byte("rev|" + coll + "|" + id + "|") }
-func kMetaKeyPrefix(coll, mk, mv string) []byte {
-	return []byte("meta|" + coll + "|" + mk + "|" + mv + "|")
-}
-
 // --- middleware
 
 func withCORS(h http.Handler) http.Handler {
@@ -1432,7 +1415,7 @@ func effectiveMode(global, perProtocol AccessMode) AccessMode {
 // saveRevision lets the transport opt out of revision history (gRPC exposes a
 // per-request SaveRevision flag); all other callers pass true to preserve the
 // always-record-a-revision behaviour they have always had.
-func (s *Server) addDocument(collection, key, lang string, meta map[string][]string, contentMD string, ttl int64, saveRevision bool) (Doc, bool, error) {
+func (s *Server) addDocument(collection, key, lang string, meta map[string][]string, contentMD string, ttl int64, saveRevision bool) (storage.Doc, bool, error) {
 	// GO-003: validate in the single write path so EVERY transport is covered.
 	// Previously only gRPC Add and HTTP handleAdd validated; MCP (DirectClient)
 	// and GraphQL went straight to addDocument with no checks, and the batch
@@ -1440,18 +1423,18 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 	// (no-op unless a schema is registered for the collection), so this is safe
 	// for internal callers (memory/upload/import) too.
 	if collection == "" || key == "" || lang == "" {
-		return Doc{}, false, errors.New("missing required field: collection, key and lang are required")
+		return storage.Doc{}, false, errors.New("missing required field: collection, key and lang are required")
 	}
 	if s.SchemaManager != nil {
 		if err := s.SchemaManager.Validate(collection, meta); err != nil {
-			return Doc{}, false, err
+			return storage.Doc{}, false, err
 		}
 	}
 
 	now := time.Now().Unix()
 	docID := genID(collection, key, lang)
 
-	var saved Doc
+	var saved storage.Doc
 	var isNew bool
 	var bo binlog.BinlogOps
 	var cachedBuf []byte // marshaled doc, reused to refresh the read cache (GO-002)
@@ -1461,8 +1444,8 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 		bRev := tx.Bucket([]byte("rev"))
 		bByK := tx.Bucket([]byte("bykey"))
 
-		existing := Doc{}
-		if v := bDocs.Get(kDoc(collection, docID)); v != nil {
+		existing := storage.Doc{}
+		if v := bDocs.Get(storage.DocKey(collection, docID)); v != nil {
 			existingPtr, err := loadDoc(v)
 			if err != nil {
 				return err
@@ -1475,7 +1458,7 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 			isNew = true
 		}
 
-		doc := Doc{
+		doc := storage.Doc{
 			ID: docID, Key: key, Lang: lang, Meta: meta,
 			ContentMD: contentMD, AddedAt: added, UpdatedAt: now,
 		}
@@ -1488,13 +1471,13 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 			return err
 		}
 		cachedBuf = buf
-		docKey := kDoc(collection, docID)
+		docKey := storage.DocKey(collection, docID)
 		if err := bDocs.Put(docKey, buf); err != nil {
 			return err
 		}
 		bo.Put("docs", docKey, buf)
 
-		byKeyK := kByKey(collection, key, lang)
+		byKeyK := storage.ByKeyKey(collection, key, lang)
 		if err := bByK.Put(byKeyK, []byte(docID)); err != nil {
 			return err
 		}
@@ -1504,7 +1487,7 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 			if existing.ID != "" && existing.Meta != nil {
 				for mk, vals := range existing.Meta {
 					for _, mv := range vals {
-						prefix := append(kMetaKeyPrefix(collection, mk, mv), []byte(existing.ID)...)
+						prefix := append(storage.MetaKeyPrefix(collection, mk, mv), []byte(existing.ID)...)
 						_ = bIdx.Delete(prefix)
 						bo.Delete("idxmeta", prefix)
 					}
@@ -1512,7 +1495,7 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 			}
 			for mk, vals := range doc.Meta {
 				for _, mv := range vals {
-					mkey := append(kMetaKeyPrefix(collection, mk, mv), []byte(doc.ID)...)
+					mkey := append(storage.MetaKeyPrefix(collection, mk, mv), []byte(doc.ID)...)
 					if err := bIdx.Put(mkey, []byte("1")); err != nil {
 						return err
 					}
@@ -1522,7 +1505,7 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 		}
 
 		if saveRevision {
-			rkey := append(kRevPrefix(collection, doc.ID), []byte(fmt.Sprintf("%020d", now))...)
+			rkey := append(storage.RevPrefix(collection, doc.ID), []byte(fmt.Sprintf("%020d", now))...)
 			if err := bRev.Put(rkey, buf); err != nil {
 				return err
 			}
@@ -1546,7 +1529,7 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 		bo.FlushTo(s.Binlog)
 	}
 	if err != nil {
-		return Doc{}, false, err
+		return storage.Doc{}, false, err
 	}
 
 	// Refresh the read cache so a subsequent gRPC Get (the only path that
@@ -1580,7 +1563,7 @@ func (s *Server) addDocument(collection, key, lang string, meta map[string][]str
 // Revision writing and MaxRevisions trimming are intentionally NOT here: they
 // must happen inside the write transaction (see addDocument / the batch
 // commits) so a crash can never leave a doc without its revision.
-func (s *Server) runPostWriteHooks(collection string, saved Doc, isNew bool) {
+func (s *Server) runPostWriteHooks(collection string, saved storage.Doc, isNew bool) {
 	// Trigger async embedding
 	if s.EmbeddingWorker != nil && saved.ContentMD != "" {
 		s.EmbeddingWorker.Enqueue(EmbeddingJob{
@@ -1667,14 +1650,14 @@ func (s *Server) deleteDocumentInternal(collection, key, lang string) error {
 	docID := genID(collection, key, lang)
 
 	var bo binlog.BinlogOps
-	var deletedDoc Doc // captured for trigger evaluation
+	var deletedDoc storage.Doc // captured for trigger evaluation
 	err := s.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bIdx := tx.Bucket([]byte("idxmeta"))
 		bRev := tx.Bucket([]byte("rev"))
 		bByK := tx.Bucket([]byte("bykey"))
 
-		v := bDocs.Get(kDoc(collection, docID))
+		v := bDocs.Get(storage.DocKey(collection, docID))
 		if v == nil {
 			return errors.New("document not found")
 		}
@@ -1685,20 +1668,20 @@ func (s *Server) deleteDocumentInternal(collection, key, lang string) error {
 		doc := *docPtr
 		deletedDoc = doc
 
-		docKey := kDoc(collection, docID)
+		docKey := storage.DocKey(collection, docID)
 		if err := bDocs.Delete(docKey); err != nil {
 			return err
 		}
 		bo.Delete("docs", docKey)
 
-		byKeyK := kByKey(collection, key, lang)
+		byKeyK := storage.ByKeyKey(collection, key, lang)
 		if err := bByK.Delete(byKeyK); err != nil {
 			return err
 		}
 		bo.Delete("bykey", byKeyK)
 
 		c := bRev.Cursor()
-		rp := kRevPrefix(collection, docID)
+		rp := storage.RevPrefix(collection, docID)
 		for k, _ := c.Seek(rp); k != nil && bytes.HasPrefix(k, rp); k, _ = c.Next() {
 			if err := bRev.Delete(k); err != nil {
 				return err
@@ -1708,7 +1691,7 @@ func (s *Server) deleteDocumentInternal(collection, key, lang string) error {
 
 		for mk, vals := range doc.Meta {
 			for _, mv := range vals {
-				mkey := append(kMetaKeyPrefix(collection, mk, mv), []byte(docID)...)
+				mkey := append(storage.MetaKeyPrefix(collection, mk, mv), []byte(docID)...)
 				if err := bIdx.Delete(mkey); err != nil {
 					return err
 				}
@@ -1839,15 +1822,15 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var doc Doc
+	var doc storage.Doc
 	err := s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bByK := tx.Bucket([]byte("bykey"))
-		docID := bByK.Get(kByKey(req.Collection, req.Key, req.Lang))
+		docID := bByK.Get(storage.ByKeyKey(req.Collection, req.Key, req.Lang))
 		if docID == nil {
 			return errors.New("not found")
 		}
-		v := bDocs.Get(kDoc(req.Collection, string(docID)))
+		v := bDocs.Get(storage.DocKey(req.Collection, string(docID)))
 		if v == nil {
 			return errors.New("not found")
 		}
@@ -1905,7 +1888,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	type row struct{ Doc Doc }
+	type row struct{ Doc storage.Doc }
 	var rows []row
 
 	err := s.DBView(func(tx *bolt.Tx) error {
@@ -1933,7 +1916,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			for mk, mvals := range req.FilterMeta {
 				var ids []string
 				for _, mv := range mvals {
-					prefix := kMetaKeyPrefix(req.Collection, mk, mv)
+					prefix := storage.MetaKeyPrefix(req.Collection, mk, mv)
 					c := bIdx.Cursor()
 					for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
 						id := string(k[len(prefix):])
@@ -1949,7 +1932,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 				seen[id] = true
-				v := tx.Bucket([]byte("docs")).Get(kDoc(req.Collection, id))
+				v := tx.Bucket([]byte("docs")).Get(storage.DocKey(req.Collection, id))
 				if v == nil {
 					continue
 				}
@@ -2005,7 +1988,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		end = len(rows)
 	}
 
-	out := make([]Doc, 0, end-start)
+	out := make([]storage.Doc, 0, end-start)
 	for _, r := range rows[start:end] {
 		out = append(out, r.Doc)
 	}
@@ -2040,7 +2023,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 		// stream NDJSON
 		res, _ := http.Post("http://localhost"+env("MDDB_ADDR", ":11023")+"/v1/search", "application/json", bytes.NewReader(mustJSON(sr)))
 		defer func() { _ = res.Body.Close() }()
-		var docs []Doc
+		var docs []storage.Doc
 		_ = json.NewDecoder(res.Body).Decode(&docs)
 		for _, d := range docs {
 			b, _ := json.Marshal(d)
@@ -2054,7 +2037,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 		// pack contentMd as files {key}.{lang}.md
 		res, _ := http.Post("http://localhost"+env("MDDB_ADDR", ":11023")+"/v1/search", "application/json", bytes.NewReader(mustJSON(sr)))
 		defer func() { _ = res.Body.Close() }()
-		var docs []Doc
+		var docs []storage.Doc
 		_ = json.NewDecoder(res.Body).Decode(&docs)
 		var z bytes.Buffer
 		zw := zip.NewWriter(&z)
@@ -2184,7 +2167,7 @@ func (s *Server) handleTruncate(w http.ResponseWriter, r *http.Request) {
 			d := *dPtr
 			// Zbierz revety
 			rc := bRev.Cursor()
-			rp := kRevPrefix(req.Collection, d.ID)
+			rp := storage.RevPrefix(req.Collection, d.ID)
 			var revKeys [][]byte
 			for rk, _ := rc.Seek(rp); rk != nil && bytes.HasPrefix(rk, rp); rk, _ = rc.Next() {
 				cp := make([]byte, len(rk))
@@ -2403,7 +2386,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 
 	// Load existing doc, apply partial changes, save
 	now := time.Now().Unix()
-	var saved Doc
+	var saved storage.Doc
 	var bo binlog.BinlogOps
 	var metaDidChange bool
 
@@ -2414,12 +2397,12 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		bByK := tx.Bucket([]byte("bykey"))
 
 		// Find existing doc
-		docIDBytes := bByK.Get(kByKey(collection, key, lang))
+		docIDBytes := bByK.Get(storage.ByKeyKey(collection, key, lang))
 		if docIDBytes == nil {
 			return errors.New("not found")
 		}
 
-		v := bDocs.Get(kDoc(collection, string(docIDBytes)))
+		v := bDocs.Get(storage.DocKey(collection, string(docIDBytes)))
 		if v == nil {
 			return errors.New("not found")
 		}
@@ -2459,7 +2442,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 
-		docKey := kDoc(collection, doc.ID)
+		docKey := storage.DocKey(collection, doc.ID)
 		if err := bDocs.Put(docKey, buf); err != nil {
 			return err
 		}
@@ -2471,7 +2454,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 			if existing.Meta != nil {
 				for mk, vals := range existing.Meta {
 					for _, mv := range vals {
-						mkey := append(kMetaKeyPrefix(collection, mk, mv), []byte(doc.ID)...)
+						mkey := append(storage.MetaKeyPrefix(collection, mk, mv), []byte(doc.ID)...)
 						_ = bIdx.Delete(mkey)
 						bo.Delete("idxmeta", mkey)
 					}
@@ -2480,7 +2463,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 			// Add new meta index entries
 			for mk, vals := range doc.Meta {
 				for _, mv := range vals {
-					mkey := append(kMetaKeyPrefix(collection, mk, mv), []byte(doc.ID)...)
+					mkey := append(storage.MetaKeyPrefix(collection, mk, mv), []byte(doc.ID)...)
 					if err := bIdx.Put(mkey, []byte("1")); err != nil {
 						return err
 					}
@@ -2490,7 +2473,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Save revision
-		rkey := append(kRevPrefix(collection, doc.ID), []byte(fmt.Sprintf("%020d", now))...)
+		rkey := append(storage.RevPrefix(collection, doc.ID), []byte(fmt.Sprintf("%020d", now))...)
 		if err := bRev.Put(rkey, buf); err != nil {
 			return err
 		}
@@ -2606,15 +2589,15 @@ func (s *Server) handleDocMeta(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var doc Doc
+	var doc storage.Doc
 	err := s.DBView(func(tx *bolt.Tx) error {
 		bByK := tx.Bucket([]byte("bykey"))
 		bDocs := tx.Bucket([]byte("docs"))
-		docID := bByK.Get(kByKey(collection, key, lang))
+		docID := bByK.Get(storage.ByKeyKey(collection, key, lang))
 		if docID == nil {
 			return errors.New("not found")
 		}
-		v := bDocs.Get(kDoc(collection, string(docID)))
+		v := bDocs.Get(storage.DocKey(collection, string(docID)))
 		if v == nil {
 			return errors.New("not found")
 		}
@@ -2965,7 +2948,7 @@ func mustJSON(v any) []byte {
 	}
 	return b
 }
-func sortDocs(docs []Doc, field string, asc bool) {
+func sortDocs(docs []storage.Doc, field string, asc bool) {
 	sort.Slice(docs, func(i, j int) bool {
 		var less bool
 		switch field {
@@ -3122,7 +3105,7 @@ func (s *Server) handleDeleteCollection(w http.ResponseWriter, r *http.Request) 
 			bo.Delete("docs", k)
 
 			// Delete from bykey index
-			bykKey := kByKey(req.Collection, doc.Key, doc.Lang)
+			bykKey := storage.ByKeyKey(req.Collection, doc.Key, doc.Lang)
 			if err := bByK.Delete(bykKey); err != nil {
 				return err
 			}
@@ -3130,7 +3113,7 @@ func (s *Server) handleDeleteCollection(w http.ResponseWriter, r *http.Request) 
 
 			// Delete all revisions
 			rc := bRev.Cursor()
-			rp := kRevPrefix(req.Collection, doc.ID)
+			rp := storage.RevPrefix(req.Collection, doc.ID)
 			for rk, _ := rc.Seek(rp); rk != nil && bytes.HasPrefix(rk, rp); rk, _ = rc.Next() {
 				if err := bRev.Delete(rk); err != nil {
 					return err
@@ -3141,7 +3124,7 @@ func (s *Server) handleDeleteCollection(w http.ResponseWriter, r *http.Request) 
 			// Delete metadata indices
 			for mk, vals := range doc.Meta {
 				for _, mv := range vals {
-					mkey := append(kMetaKeyPrefix(req.Collection, mk, mv), []byte(doc.ID)...)
+					mkey := append(storage.MetaKeyPrefix(req.Collection, mk, mv), []byte(doc.ID)...)
 					if err := bIdx.Delete(mkey); err != nil {
 						return err
 					}

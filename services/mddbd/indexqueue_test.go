@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"mddb/internal/storage"
 	"os"
 	"testing"
 	"time"
@@ -46,7 +47,7 @@ func TestIndexQueue_EnqueueFallbackWhenFull(t *testing.T) {
 	found := false
 	_ = s.DB.View(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket(s.BucketNames.IdxMeta)
-		key := append(kMetaKeyPrefix("c", "tag", "x"), []byte("doc1")...)
+		key := append(storage.MetaKeyPrefix("c", "tag", "x"), []byte("doc1")...)
 		found = bIdx.Get(key) != nil
 		return nil
 	})
@@ -251,7 +252,7 @@ func TestIndexQueue_EnqueueAndProcess(t *testing.T) {
 		bIdx := tx.Bucket([]byte("idxmeta"))
 
 		// Check meta|blog|tag|go|doc1
-		key1 := kMetaKeyPrefix("blog", "tag", "go")
+		key1 := storage.MetaKeyPrefix("blog", "tag", "go")
 		key1 = append(key1, []byte("doc1")...)
 		v1 := bIdx.Get(key1)
 		if v1 == nil {
@@ -259,7 +260,7 @@ func TestIndexQueue_EnqueueAndProcess(t *testing.T) {
 		}
 
 		// Check meta|blog|tag|db|doc1
-		key2 := kMetaKeyPrefix("blog", "tag", "db")
+		key2 := storage.MetaKeyPrefix("blog", "tag", "db")
 		key2 = append(key2, []byte("doc1")...)
 		v2 := bIdx.Get(key2)
 		if v2 == nil {
@@ -267,7 +268,7 @@ func TestIndexQueue_EnqueueAndProcess(t *testing.T) {
 		}
 
 		// Check meta|blog|author|alice|doc1
-		key3 := kMetaKeyPrefix("blog", "author", "alice")
+		key3 := storage.MetaKeyPrefix("blog", "author", "alice")
 		key3 = append(key3, []byte("doc1")...)
 		v3 := bIdx.Get(key3)
 		if v3 == nil {
@@ -321,14 +322,14 @@ func TestIndexQueue_EnqueueUpdateMeta(t *testing.T) {
 		bIdx := tx.Bucket([]byte("idxmeta"))
 
 		// Old index should be gone
-		oldKey := kMetaKeyPrefix("blog", "tag", "go")
+		oldKey := storage.MetaKeyPrefix("blog", "tag", "go")
 		oldKey = append(oldKey, []byte("doc1")...)
 		if v := bIdx.Get(oldKey); v != nil {
 			t.Error("old index entry for tag=go should be deleted")
 		}
 
 		// New index should exist
-		newKey := kMetaKeyPrefix("blog", "tag", "python")
+		newKey := storage.MetaKeyPrefix("blog", "tag", "python")
 		newKey = append(newKey, []byte("doc1")...)
 		if v := bIdx.Get(newKey); v == nil {
 			t.Error("new index entry for tag=python should exist")
@@ -351,7 +352,7 @@ func TestIndexQueue_ProcessJob_DeleteOldMeta(t *testing.T) {
 	// Manually add an index entry first
 	err := srv.DB.Update(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket([]byte("idxmeta"))
-		key := kMetaKeyPrefix("blog", "cat", "tech")
+		key := storage.MetaKeyPrefix("blog", "cat", "tech")
 		key = append(key, []byte("d1")...)
 		return bIdx.Put(key, []byte("1"))
 	})
@@ -372,13 +373,13 @@ func TestIndexQueue_ProcessJob_DeleteOldMeta(t *testing.T) {
 	err = srv.DB.View(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket([]byte("idxmeta"))
 
-		oldKey := kMetaKeyPrefix("blog", "cat", "tech")
+		oldKey := storage.MetaKeyPrefix("blog", "cat", "tech")
 		oldKey = append(oldKey, []byte("d1")...)
 		if v := bIdx.Get(oldKey); v != nil {
 			t.Error("old meta index should be deleted")
 		}
 
-		newKey := kMetaKeyPrefix("blog", "cat", "science")
+		newKey := storage.MetaKeyPrefix("blog", "cat", "science")
 		newKey = append(newKey, []byte("d1")...)
 		if v := bIdx.Get(newKey); v == nil {
 			t.Error("new meta index should exist")
@@ -401,7 +402,7 @@ func TestIndexQueue_ProcessJob_NilNewMeta(t *testing.T) {
 	// Add an index entry
 	err := srv.DB.Update(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket([]byte("idxmeta"))
-		key := kMetaKeyPrefix("blog", "tag", "go")
+		key := storage.MetaKeyPrefix("blog", "tag", "go")
 		key = append(key, []byte("d1")...)
 		return bIdx.Put(key, []byte("1"))
 	})
@@ -421,7 +422,7 @@ func TestIndexQueue_ProcessJob_NilNewMeta(t *testing.T) {
 
 	err = srv.DB.View(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket([]byte("idxmeta"))
-		key := kMetaKeyPrefix("blog", "tag", "go")
+		key := storage.MetaKeyPrefix("blog", "tag", "go")
 		key = append(key, []byte("d1")...)
 		if v := bIdx.Get(key); v != nil {
 			t.Error("old meta index should be deleted")
@@ -452,7 +453,7 @@ func TestIndexQueue_ProcessJob_NilOldMeta(t *testing.T) {
 
 	err := srv.DB.View(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket([]byte("idxmeta"))
-		key := kMetaKeyPrefix("docs", "type", "article")
+		key := storage.MetaKeyPrefix("docs", "type", "article")
 		key = append(key, []byte("d2")...)
 		if v := bIdx.Get(key); v == nil {
 			t.Error("new meta index should exist")

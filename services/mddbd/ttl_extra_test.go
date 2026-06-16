@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"mddb/internal/cache"
 	"mddb/internal/schema"
+	"mddb/internal/storage"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -77,7 +78,7 @@ func ttlExtraTestServer(t *testing.T) (*Server, func()) {
 func ttlExtraInsertDoc(t *testing.T, s *Server, collection, key, lang, content string) {
 	t.Helper()
 	docID := genID(collection, key, lang)
-	doc := Doc{
+	doc := storage.Doc{
 		ID:        docID,
 		Key:       key,
 		Lang:      lang,
@@ -88,7 +89,7 @@ func ttlExtraInsertDoc(t *testing.T, s *Server, collection, key, lang, content s
 	data, _ := marshalDoc(&doc)
 	err := s.DB.Update(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
-		return bDocs.Put(kDoc(collection, docID), data)
+		return bDocs.Put(storage.DocKey(collection, docID), data)
 	})
 	if err != nil {
 		t.Fatalf("insert doc: %v", err)
@@ -115,7 +116,7 @@ func TestHandleSetTTL_Success(t *testing.T) {
 	}
 
 	// Verify response has ExpiresAt
-	var result Doc
+	var result storage.Doc
 	_ = json.Unmarshal(w.Body.Bytes(), &result)
 	if result.ExpiresAt == 0 {
 		t.Error("expected ExpiresAt to be set")
@@ -148,7 +149,7 @@ func TestHandleSetTTL_ClearTTL(t *testing.T) {
 		t.Errorf("clear TTL: expected 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var result Doc
+	var result storage.Doc
 	_ = json.Unmarshal(w.Body.Bytes(), &result)
 	if result.ExpiresAt != 0 {
 		t.Errorf("expected ExpiresAt=0 after clearing TTL, got %d", result.ExpiresAt)
@@ -218,7 +219,7 @@ func TestTTLCleanup_ExpiredDocs(t *testing.T) {
 
 	// Insert a doc with JSON serialization (cleanup uses json.Unmarshal)
 	docID := genID("blog", "expired", "en")
-	doc := Doc{
+	doc := storage.Doc{
 		ID:        docID,
 		Key:       "expired",
 		Lang:      "en",
@@ -229,9 +230,9 @@ func TestTTLCleanup_ExpiredDocs(t *testing.T) {
 	data, _ := marshalDoc(&doc)
 	_ = s.DB.Update(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
-		_ = bDocs.Put(kDoc("blog", docID), data)
+		_ = bDocs.Put(storage.DocKey("blog", docID), data)
 		bByK := tx.Bucket(s.BucketNames.ByKey)
-		return bByK.Put(kByKey("blog", "expired", "en"), []byte(docID))
+		return bByK.Put(storage.ByKeyKey("blog", "expired", "en"), []byte(docID))
 	})
 
 	// Set TTL to past time
@@ -245,7 +246,7 @@ func TestTTLCleanup_ExpiredDocs(t *testing.T) {
 	var val []byte
 	_ = s.DB.View(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
-		val = bDocs.Get(kDoc("blog", docID))
+		val = bDocs.Get(storage.DocKey("blog", docID))
 		return nil
 	})
 	if val != nil {
@@ -259,7 +260,7 @@ func TestTTLCleanup_NotExpired(t *testing.T) {
 
 	// Insert a doc
 	docID := genID("blog", "alive", "en")
-	doc := Doc{
+	doc := storage.Doc{
 		ID:        docID,
 		Key:       "alive",
 		Lang:      "en",
@@ -270,9 +271,9 @@ func TestTTLCleanup_NotExpired(t *testing.T) {
 	data, _ := marshalDoc(&doc)
 	_ = s.DB.Update(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
-		_ = bDocs.Put(kDoc("blog", docID), data)
+		_ = bDocs.Put(storage.DocKey("blog", docID), data)
 		bByK := tx.Bucket(s.BucketNames.ByKey)
-		return bByK.Put(kByKey("blog", "alive", "en"), []byte(docID))
+		return bByK.Put(storage.ByKeyKey("blog", "alive", "en"), []byte(docID))
 	})
 
 	// Set TTL to future time
@@ -286,7 +287,7 @@ func TestTTLCleanup_NotExpired(t *testing.T) {
 	var val []byte
 	_ = s.DB.View(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
-		val = bDocs.Get(kDoc("blog", docID))
+		val = bDocs.Get(storage.DocKey("blog", docID))
 		return nil
 	})
 	if val == nil {

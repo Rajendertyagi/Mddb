@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/base64"
+	"mddb/internal/storage"
 	"strings"
 	"testing"
 )
@@ -198,7 +199,7 @@ func TestLoadDocTransparentDecrypt(t *testing.T) {
 	defer SetGlobalEncryptor(nil)
 	e.SetCollectionEnabled("secrets", true)
 
-	doc := &Doc{ID: "secrets|k|en", Key: "k", Lang: "en", ContentMD: "top-secret"}
+	doc := &storage.Doc{ID: "secrets|k|en", Key: "k", Lang: "en", ContentMD: "top-secret"}
 	buf, err := marshalAndEncrypt(doc, "secrets")
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
@@ -222,7 +223,7 @@ func TestLoadDocBackwardCompatPlaintext(t *testing.T) {
 	SetGlobalEncryptor(e)
 	defer SetGlobalEncryptor(nil)
 
-	doc := &Doc{ID: "blog|k|en", Key: "k", Lang: "en", ContentMD: "legacy"}
+	doc := &storage.Doc{ID: "blog|k|en", Key: "k", Lang: "en", ContentMD: "legacy"}
 	buf, err := marshalDoc(doc)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
@@ -271,7 +272,7 @@ func TestMaybeDecryptWithoutGlobalEncryptor(t *testing.T) {
 
 func TestMarshalAndEncryptNoGlobalEncryptor(t *testing.T) {
 	SetGlobalEncryptor(nil)
-	doc := &Doc{ID: "x|k|en", Key: "k", Lang: "en"}
+	doc := &storage.Doc{ID: "x|k|en", Key: "k", Lang: "en"}
 	buf, err := marshalAndEncrypt(doc, "x")
 	if err != nil {
 		t.Fatal(err)
@@ -287,7 +288,7 @@ func TestMarshalAndEncryptFallbackWhenKeyMissing(t *testing.T) {
 	SetGlobalEncryptor(e)
 	defer SetGlobalEncryptor(nil)
 
-	doc := &Doc{ID: "x|k|en", Key: "k", Lang: "en"}
+	doc := &storage.Doc{ID: "x|k|en", Key: "k", Lang: "en"}
 	buf, err := marshalAndEncrypt(doc, "x")
 	if err != nil {
 		t.Fatal(err)

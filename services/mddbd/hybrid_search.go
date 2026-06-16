@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"mddb/internal/fts"
 	"mddb/internal/geo"
+	"mddb/internal/storage"
 	"mddb/internal/vector"
 	"net/http"
 	"sort"
@@ -54,14 +55,14 @@ type HybridGeoFilter struct {
 
 // HybridSearchResultItem represents a single hybrid search result.
 type HybridSearchResultItem struct {
-	Document       Doc      `json:"document"`
-	CombinedScore  float64  `json:"combinedScore"`
-	FTSScore       float64  `json:"ftsScore"`
-	VectorScore    float64  `json:"vectorScore"`
-	DistanceMeters float64  `json:"distanceMeters,omitempty"`
-	MatchedTerms   []string `json:"matchedTerms,omitempty"`
-	Rank           int      `json:"rank"`
-	Pinned         bool     `json:"pinned,omitempty"` // set by curation rules (v2.9.14+)
+	Document       storage.Doc `json:"document"`
+	CombinedScore  float64     `json:"combinedScore"`
+	FTSScore       float64     `json:"ftsScore"`
+	VectorScore    float64     `json:"vectorScore"`
+	DistanceMeters float64     `json:"distanceMeters,omitempty"`
+	MatchedTerms   []string    `json:"matchedTerms,omitempty"`
+	Rank           int         `json:"rank"`
+	Pinned         bool        `json:"pinned,omitempty"` // set by curation rules (v2.9.14+)
 }
 
 // HybridSearchResponse represents the response from hybrid search.
@@ -277,7 +278,7 @@ func (s *Server) handleHybridSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(req.FacetBy) > 0 && len(items) > 0 {
-		docs := make([]Doc, len(items))
+		docs := make([]storage.Doc, len(items))
 		for i, it := range items {
 			docs[i] = it.Document
 		}
@@ -493,7 +494,7 @@ func mergeAlpha(ftsResults []fts.FTSResult, vectorResults []vector.VectorResult,
 	for docID, e := range combined {
 		combinedScore := (1-alpha)*e.ftsScore + alpha*e.vectorScore
 		results = append(results, HybridSearchResultItem{
-			Document:      Doc{ID: docID},
+			Document:      storage.Doc{ID: docID},
 			CombinedScore: combinedScore,
 			FTSScore:      e.ftsScore,
 			VectorScore:   e.vectorScore,
@@ -546,7 +547,7 @@ func mergeRRF(ftsResults []fts.FTSResult, vectorResults []vector.VectorResult, r
 	results := make([]HybridSearchResultItem, 0, len(combined))
 	for docID, e := range combined {
 		results = append(results, HybridSearchResultItem{
-			Document:      Doc{ID: docID},
+			Document:      storage.Doc{ID: docID},
 			CombinedScore: e.rrfScore,
 			FTSScore:      e.ftsScore,
 			VectorScore:   e.vectorScore,
@@ -574,7 +575,7 @@ func (s *Server) loadHybridDocs(collection string, items []HybridSearchResultIte
 		}
 		rank := 0
 		for _, item := range items {
-			v := bDocs.Get(kDoc(collection, item.Document.ID))
+			v := bDocs.Get(storage.DocKey(collection, item.Document.ID))
 			if v == nil {
 				continue
 			}

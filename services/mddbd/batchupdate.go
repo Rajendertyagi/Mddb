@@ -8,6 +8,7 @@ import (
 
 	"mddb/internal/binlog"
 	"mddb/internal/cache"
+	"mddb/internal/storage"
 	proto "mddb/proto"
 
 	bolt "go.etcd.io/bbolt"
@@ -35,10 +36,10 @@ type UpdatedDoc struct {
 	Key          string
 	Lang         string
 	DocID        string
-	Doc          Doc
+	Doc          storage.Doc
 	Buf          []byte
 	Meta         map[string][]string
-	Existing     Doc
+	Existing     storage.Doc
 	Found        bool
 	SaveRevision bool
 	Error        error
@@ -120,10 +121,10 @@ func (bu *BatchUpdater) processDocument(collection string, updateDoc *proto.Upda
 	result.DocID = docID
 
 	// Load existing
-	existing := Doc{}
+	existing := storage.Doc{}
 	err := bu.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(bu.server.BucketNames.Docs)
-		if v := bDocs.Get(kDoc(collection, docID)); v != nil {
+		if v := bDocs.Get(storage.DocKey(collection, docID)); v != nil {
 			existingDoc, err := unmarshalDoc(v)
 			if err != nil {
 				return err
@@ -147,7 +148,7 @@ func (bu *BatchUpdater) processDocument(collection string, updateDoc *proto.Upda
 	result.Existing = existing
 
 	// Prepare updated document
-	doc := Doc{
+	doc := storage.Doc{
 		ID:        docID,
 		Key:       updateDoc.Key,
 		Lang:      updateDoc.Lang,
@@ -196,7 +197,7 @@ func (bu *BatchUpdater) commitUpdate(collection string, updated []*UpdatedDoc, n
 			}
 
 			// Update document
-			docKey := kDoc(collection, u.DocID)
+			docKey := storage.DocKey(collection, u.DocID)
 			if err := bDocs.Put(docKey, u.Buf); err != nil {
 				resp.Failed++
 				resp.Errors = append(resp.Errors, fmt.Sprintf("%s/%s: update error: %v", u.Key, u.Lang, err))
@@ -216,7 +217,7 @@ func (bu *BatchUpdater) commitUpdate(collection string, updated []*UpdatedDoc, n
 
 			// Revision (optional)
 			if u.SaveRevision {
-				rkey := append(kRevPrefix(collection, u.Doc.ID), []byte(fmt.Sprintf("%020d", now))...)
+				rkey := append(storage.RevPrefix(collection, u.Doc.ID), []byte(fmt.Sprintf("%020d", now))...)
 				if err := bRev.Put(rkey, u.Buf); err != nil {
 					resp.Failed++
 					resp.Errors = append(resp.Errors, fmt.Sprintf("%s/%s: revision error: %v", u.Key, u.Lang, err))

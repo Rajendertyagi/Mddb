@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"mddb/internal/binlog"
+	"mddb/internal/storage"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -26,7 +27,7 @@ func trimRevisions(tx *bolt.Tx, bo *binlog.BinlogOps, collection, docID string, 
 		return nil
 	}
 
-	prefix := kRevPrefix(collection, docID)
+	prefix := storage.RevPrefix(collection, docID)
 	c := bRev.Cursor()
 
 	var keys [][]byte

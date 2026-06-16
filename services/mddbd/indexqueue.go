@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"mddb/internal/binlog"
+	"mddb/internal/storage"
 	"sync"
 
 	bolt "go.etcd.io/bbolt"
@@ -131,7 +132,7 @@ func (iq *IndexQueue) processJob(job *IndexJob) error {
 		if job.OldMeta != nil {
 			for mk, vals := range job.OldMeta {
 				for _, mv := range vals {
-					key := kMetaKeyPrefix(job.Collection, mk, mv)
+					key := storage.MetaKeyPrefix(job.Collection, mk, mv)
 					key = append(key, []byte(job.DocID)...)
 					_ = bIdx.Delete(key)
 					bo.Delete("idxmeta", key)
@@ -143,7 +144,7 @@ func (iq *IndexQueue) processJob(job *IndexJob) error {
 		if job.NewMeta != nil {
 			for mk, vals := range job.NewMeta {
 				for _, mv := range vals {
-					key := kMetaKeyPrefix(job.Collection, mk, mv)
+					key := storage.MetaKeyPrefix(job.Collection, mk, mv)
 					key = append(key, []byte(job.DocID)...)
 					if err := bIdx.Put(key, []byte("1")); err != nil {
 						return err

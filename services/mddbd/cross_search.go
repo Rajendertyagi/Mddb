@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"mddb/internal/storage"
 	"mddb/internal/vector"
 	"net/http"
 	"sort"
@@ -30,10 +31,10 @@ type CrossSearchRequest struct {
 
 // CrossSearchResultItem represents a single cross-collection search result.
 type CrossSearchResultItem struct {
-	Collection string  `json:"collection"`
-	Document   Doc     `json:"document"`
-	Score      float32 `json:"score"`
-	Rank       int     `json:"rank"`
+	Collection string      `json:"collection"`
+	Document   storage.Doc `json:"document"`
+	Score      float32     `json:"score"`
+	Rank       int         `json:"rank"`
 }
 
 // CrossSearchResponse represents the response from cross-collection search.
@@ -193,7 +194,7 @@ func (s *Server) handleCrossSearch(w http.ResponseWriter, r *http.Request) {
 			return nil
 		}
 		for rank, tr := range allTagged {
-			v := bDocs.Get(kDoc(tr.collection, tr.result.DocID))
+			v := bDocs.Get(storage.DocKey(tr.collection, tr.result.DocID))
 			if v == nil {
 				continue
 			}

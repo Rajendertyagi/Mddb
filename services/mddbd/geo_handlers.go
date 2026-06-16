@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"mddb/internal/geo"
+	"mddb/internal/storage"
 	"net/http"
 	"time"
 
@@ -63,9 +64,9 @@ type GeoWithinRequest struct {
 
 // GeoSearchResultItem is a single item in a geo search response.
 type GeoSearchResultItem struct {
-	Document       Doc     `json:"document"`
-	DistanceMeters float64 `json:"distanceMeters,omitempty"`
-	Rank           int     `json:"rank"`
+	Document       storage.Doc `json:"document"`
+	DistanceMeters float64     `json:"distanceMeters,omitempty"`
+	Rank           int         `json:"rank"`
 }
 
 // GeoSearchResponse is returned from /v1/geo-search.
@@ -465,7 +466,7 @@ func (s *Server) handleGeoStats(w http.ResponseWriter, r *http.Request) {
 }
 
 // hydrateGeoResults turns raw geo.GeoResult entries into GeoSearchResultItems by
-// loading the underlying Doc from BoltDB. If includeContent is false, the
+// loading the underlying storage.Doc from BoltDB. If includeContent is false, the
 // ContentMd field is stripped to keep responses small (matches the pattern
 // used by vector/FTS handlers).
 func (s *Server) hydrateGeoResults(collection string, hits []geo.GeoResult, includeContent, includeDistance bool) []GeoSearchResultItem {
@@ -479,7 +480,7 @@ func (s *Server) hydrateGeoResults(collection string, hits []geo.GeoResult, incl
 			return nil
 		}
 		for i, h := range hits {
-			v := b.Get(kDoc(collection, h.DocID))
+			v := b.Get(storage.DocKey(collection, h.DocID))
 			if v == nil {
 				continue
 			}

@@ -15,6 +15,7 @@ import (
 	"mddb/internal/envconf"
 	"mddb/internal/fts"
 	"mddb/internal/sliceutil"
+	"mddb/internal/storage"
 	vec "mddb/internal/vector"
 	proto "mddb/proto"
 
@@ -217,15 +218,15 @@ func (c *DirectClient) DeleteBatch(ctx context.Context, req *MCPDeleteBatchReque
 
 // Get retrieves a document via the direct client.
 func (c *DirectClient) Get(ctx context.Context, req *MCPGetRequest) (*MCPDocument, error) {
-	var doc Doc
+	var doc storage.Doc
 	err := c.server.DBView(func(tx *bolt.Tx) error {
 		bByK := tx.Bucket([]byte("bykey"))
-		docID := bByK.Get(kByKey(req.Collection, req.Key, req.Lang))
+		docID := bByK.Get(storage.ByKeyKey(req.Collection, req.Key, req.Lang))
 		if docID == nil {
 			return errors.New("not found")
 		}
 		bDocs := tx.Bucket([]byte("docs"))
-		v := bDocs.Get(kDoc(req.Collection, string(docID)))
+		v := bDocs.Get(storage.DocKey(req.Collection, string(docID)))
 		if v == nil {
 			return errors.New("not found")
 		}
@@ -258,7 +259,7 @@ func (c *DirectClient) Search(ctx context.Context, req *MCPSearchRequest) (*MCPS
 		req.Limit = 50
 	}
 
-	type row struct{ Doc Doc }
+	type row struct{ Doc storage.Doc }
 	var rows []row
 
 	err := c.server.DBView(func(tx *bolt.Tx) error {
@@ -284,7 +285,7 @@ func (c *DirectClient) Search(ctx context.Context, req *MCPSearchRequest) (*MCPS
 			for mk, mvals := range req.FilterMeta {
 				var ids []string
 				for _, mv := range mvals {
-					prefix := kMetaKeyPrefix(req.Collection, mk, mv)
+					prefix := storage.MetaKeyPrefix(req.Collection, mk, mv)
 					c2 := bIdx.Cursor()
 					for k, _ := c2.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c2.Next() {
 						id := string(k[len(prefix):])
@@ -300,7 +301,7 @@ func (c *DirectClient) Search(ctx context.Context, req *MCPSearchRequest) (*MCPS
 					continue
 				}
 				seen[id] = true
-				v := bDocs.Get(kDoc(req.Collection, id))
+				v := bDocs.Get(storage.DocKey(req.Collection, id))
 				if v == nil {
 					continue
 				}
@@ -393,12 +394,12 @@ func (c *DirectClient) DeleteCollection(ctx context.Context, req *MCPDeleteColle
 			if err := bDocs.Delete(k); err != nil {
 				return err
 			}
-			if err := bByK.Delete(kByKey(req.Collection, doc.Key, doc.Lang)); err != nil {
+			if err := bByK.Delete(storage.ByKeyKey(req.Collection, doc.Key, doc.Lang)); err != nil {
 				return err
 			}
 
 			rc := bRev.Cursor()
-			rp := kRevPrefix(req.Collection, doc.ID)
+			rp := storage.RevPrefix(req.Collection, doc.ID)
 			for rk, _ := rc.Seek(rp); rk != nil && bytes.HasPrefix(rk, rp); rk, _ = rc.Next() {
 				if err := bRev.Delete(rk); err != nil {
 					return err
@@ -407,7 +408,7 @@ func (c *DirectClient) DeleteCollection(ctx context.Context, req *MCPDeleteColle
 
 			for mk, vals := range doc.Meta {
 				for _, mv := range vals {
-					mkey := append(kMetaKeyPrefix(req.Collection, mk, mv), []byte(doc.ID)...)
+					mkey := append(storage.MetaKeyPrefix(req.Collection, mk, mv), []byte(doc.ID)...)
 					if err := bIdx.Delete(mkey); err != nil {
 						return err
 					}
@@ -428,7 +429,7 @@ func (c *DirectClient) DeleteCollection(ctx context.Context, req *MCPDeleteColle
 // Export exports documents from a collection via the direct client.
 func (c *DirectClient) Export(ctx context.Context, req *MCPExportRequest) (io.ReadCloser, error) {
 	// Collect matching documents
-	var docs []Doc
+	var docs []storage.Doc
 
 	err := c.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
@@ -449,7 +450,7 @@ func (c *DirectClient) Export(ctx context.Context, req *MCPExportRequest) (io.Re
 			for mk, mvals := range req.FilterMeta {
 				var ids []string
 				for _, mv := range mvals {
-					prefix := kMetaKeyPrefix(req.Collection, mk, mv)
+					prefix := storage.MetaKeyPrefix(req.Collection, mk, mv)
 					cur := bIdx.Cursor()
 					for k, _ := cur.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = cur.Next() {
 						id := string(k[len(prefix):])
@@ -460,7 +461,7 @@ func (c *DirectClient) Export(ctx context.Context, req *MCPExportRequest) (io.Re
 				sets = append(sets, ids)
 			}
 			for _, id := range intersect(sets...) {
-				v := bDocs.Get(kDoc(req.Collection, id))
+				v := bDocs.Get(storage.DocKey(req.Collection, id))
 				if v == nil {
 					continue
 				}
@@ -540,7 +541,7 @@ func (c *DirectClient) Truncate(ctx context.Context, req *MCPTruncateRequest) (*
 			}
 			d := *dPtr
 			rc := bRev.Cursor()
-			rp := kRevPrefix(req.Collection, d.ID)
+			rp := storage.RevPrefix(req.Collection, d.ID)
 			var revKeys [][]byte
 			for rk, _ := rc.Seek(rp); rk != nil && bytes.HasPrefix(rk, rp); rk, _ = rc.Next() {
 				cp := make([]byte, len(rk))
@@ -654,7 +655,7 @@ func (c *DirectClient) VectorSearch(ctx context.Context, req *MCPVectorSearchReq
 			return nil
 		}
 		for rank, vr := range results {
-			v := bDocs.Get(kDoc(req.Collection, vr.DocID))
+			v := bDocs.Get(storage.DocKey(req.Collection, vr.DocID))
 			if v == nil {
 				continue
 			}
@@ -917,10 +918,10 @@ func (c *DirectClient) SetTTL(ctx context.Context, req *MCPSetTTLRequest) (*MCPD
 		expiresAt = now + req.TTL
 	}
 
-	var updated Doc
+	var updated storage.Doc
 	err := c.server.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
-		dk := kDoc(req.Collection, docID)
+		dk := storage.DocKey(req.Collection, docID)
 		v := bDocs.Get(dk)
 		if v == nil {
 			return errors.New("document not found")
@@ -1019,7 +1020,7 @@ func (c *DirectClient) FTSSearch(ctx context.Context, req *MCPFTSSearchRequest) 
 	_ = c.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		for _, res := range results {
-			v := bDocs.Get(kDoc(req.Collection, res.DocID))
+			v := bDocs.Get(storage.DocKey(req.Collection, res.DocID))
 			if v == nil {
 				continue
 			}
@@ -1330,17 +1331,17 @@ func (c *DirectClient) UpdateDocument(ctx context.Context, req *MCPUpdateDocumen
 	}
 
 	now := time.Now().Unix()
-	var saved Doc
+	var saved storage.Doc
 
 	err := c.server.DBUpdate(func(tx *bolt.Tx) error {
 		bByK := tx.Bucket([]byte("bykey"))
 		bDocs := tx.Bucket([]byte("docs"))
 
-		docIDBytes := bByK.Get(kByKey(req.Collection, req.Key, req.Lang))
+		docIDBytes := bByK.Get(storage.ByKeyKey(req.Collection, req.Key, req.Lang))
 		if docIDBytes == nil {
 			return errors.New("not found")
 		}
-		v := bDocs.Get(kDoc(req.Collection, string(docIDBytes)))
+		v := bDocs.Get(storage.DocKey(req.Collection, string(docIDBytes)))
 		if v == nil {
 			return errors.New("not found")
 		}
@@ -1370,7 +1371,7 @@ func (c *DirectClient) UpdateDocument(ctx context.Context, req *MCPUpdateDocumen
 		if err != nil {
 			return err
 		}
-		if err := bDocs.Put(kDoc(req.Collection, doc.ID), buf); err != nil {
+		if err := bDocs.Put(storage.DocKey(req.Collection, doc.ID), buf); err != nil {
 			return err
 		}
 
@@ -1391,15 +1392,15 @@ func (c *DirectClient) GetDocumentMeta(ctx context.Context, req *MCPGetDocMetaRe
 		return nil, errors.New("missing required fields: collection, key, lang")
 	}
 
-	var doc Doc
+	var doc storage.Doc
 	err := c.server.DBView(func(tx *bolt.Tx) error {
 		bByK := tx.Bucket([]byte("bykey"))
 		bDocs := tx.Bucket([]byte("docs"))
-		docID := bByK.Get(kByKey(req.Collection, req.Key, req.Lang))
+		docID := bByK.Get(storage.ByKeyKey(req.Collection, req.Key, req.Lang))
 		if docID == nil {
 			return errors.New("not found")
 		}
-		v := bDocs.Get(kDoc(req.Collection, string(docID)))
+		v := bDocs.Get(storage.DocKey(req.Collection, string(docID)))
 		if v == nil {
 			return errors.New("not found")
 		}
@@ -1678,7 +1679,7 @@ func (c *DirectClient) ListRevisions(ctx context.Context, collection, key, lang 
 		if bRev == nil {
 			return nil
 		}
-		prefix := kRevPrefix(collection, docID)
+		prefix := storage.RevPrefix(collection, docID)
 		cur := bRev.Cursor()
 		for k, v := cur.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = cur.Next() {
 			lastPipe := bytes.LastIndexByte(k, '|')
@@ -1721,9 +1722,9 @@ func (c *DirectClient) ListRevisions(ctx context.Context, collection, key, lang 
 func (c *DirectClient) RestoreRevision(ctx context.Context, collection, key, lang string, timestamp int64) (*MCPDocument, error) {
 	docID := genID(collection, key, lang)
 	tsKey := fmt.Sprintf("%020d", timestamp)
-	revKey := append(kRevPrefix(collection, docID), []byte(tsKey)...)
+	revKey := append(storage.RevPrefix(collection, docID), []byte(tsKey)...)
 
-	var revDoc *Doc
+	var revDoc *storage.Doc
 	err := c.server.DBView(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket([]byte("rev"))
 		if bRev == nil {
@@ -1945,7 +1946,7 @@ func (c *DirectClient) CrossSearch(ctx context.Context, req *MCPCrossSearchReque
 			return nil
 		}
 		for rank, tr := range allTagged {
-			v := bDocs.Get(kDoc(tr.collection, tr.result.DocID))
+			v := bDocs.Get(storage.DocKey(tr.collection, tr.result.DocID))
 			if v == nil {
 				continue
 			}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"mddb/internal/compression"
+	"mddb/internal/storage"
 	"reflect"
 	"strings"
 	"testing"
@@ -10,7 +11,7 @@ import (
 // --- marshalDoc / unmarshalDoc round-trip ---
 
 func TestMarshalUnmarshalDoc_Basic(t *testing.T) {
-	doc := &Doc{
+	doc := &storage.Doc{
 		ID:        "abc123",
 		Key:       "homepage",
 		Lang:      "en_GB",
@@ -57,7 +58,7 @@ func TestMarshalUnmarshalDoc_Basic(t *testing.T) {
 }
 
 func TestMarshalUnmarshalDoc_EmptyMeta(t *testing.T) {
-	doc := &Doc{
+	doc := &storage.Doc{
 		ID:        "x1",
 		Key:       "empty",
 		Lang:      "en",
@@ -83,7 +84,7 @@ func TestMarshalUnmarshalDoc_EmptyMeta(t *testing.T) {
 }
 
 func TestMarshalUnmarshalDoc_NilMeta(t *testing.T) {
-	doc := &Doc{
+	doc := &storage.Doc{
 		ID:        "x2",
 		Key:       "nilmeta",
 		Lang:      "de",
@@ -110,7 +111,7 @@ func TestMarshalUnmarshalDoc_NilMeta(t *testing.T) {
 }
 
 func TestMarshalUnmarshalDoc_ExpiresAt(t *testing.T) {
-	doc := &Doc{
+	doc := &storage.Doc{
 		ID:        "ttl1",
 		Key:       "expiring",
 		Lang:      "en",
@@ -139,7 +140,7 @@ func TestMarshalUnmarshalDoc_ExpiresAt(t *testing.T) {
 func TestMarshalUnmarshalDoc_LargeContent(t *testing.T) {
 	// Create a large document to trigger compression (>1KB)
 	bigContent := strings.Repeat("This is a line of markdown content. ", 200)
-	doc := &Doc{
+	doc := &storage.Doc{
 		ID:        "big1",
 		Key:       "bigpage",
 		Lang:      "en",
@@ -170,7 +171,7 @@ func TestMarshalUnmarshalDoc_LargeContent(t *testing.T) {
 func TestMarshalUnmarshalDoc_VeryLargeContent(t *testing.T) {
 	// >10KB triggers zstd compression path
 	bigContent := strings.Repeat("abcdefghij", 2000)
-	doc := &Doc{
+	doc := &storage.Doc{
 		ID:        "huge1",
 		Key:       "hugepage",
 		Lang:      "en",
@@ -227,7 +228,7 @@ func TestUnmarshalDoc_InvalidZstdData(t *testing.T) {
 // --- docToProtoInternal ---
 
 func TestDocToProtoInternal_AllFields(t *testing.T) {
-	doc := &Doc{
+	doc := &storage.Doc{
 		ID:        "proto1",
 		Key:       "prototest",
 		Lang:      "fr",
@@ -238,7 +239,7 @@ func TestDocToProtoInternal_AllFields(t *testing.T) {
 		ExpiresAt: 333,
 	}
 
-	pb := docToProtoInternal(doc)
+	pb := storage.DocToProto(doc)
 
 	if pb.Id != doc.ID {
 		t.Errorf("Id mismatch: got %q, want %q", pb.Id, doc.ID)
@@ -285,12 +286,12 @@ func TestDocToProtoInternal_AllFields(t *testing.T) {
 }
 
 func TestDocToProtoInternal_NilMeta(t *testing.T) {
-	doc := &Doc{
+	doc := &storage.Doc{
 		ID:   "nm1",
 		Meta: nil,
 	}
 
-	pb := docToProtoInternal(doc)
+	pb := storage.DocToProto(doc)
 	if len(pb.Meta) != 0 {
 		t.Errorf("expected empty meta, got %v", pb.Meta)
 	}
@@ -299,7 +300,7 @@ func TestDocToProtoInternal_NilMeta(t *testing.T) {
 // --- protoToDoc ---
 
 func TestProtoToDoc_AllFields(t *testing.T) {
-	doc := &Doc{
+	doc := &storage.Doc{
 		ID:        "rt1",
 		Key:       "roundtrip",
 		Lang:      "es",
@@ -310,8 +311,8 @@ func TestProtoToDoc_AllFields(t *testing.T) {
 		ExpiresAt: 300,
 	}
 
-	protoDoc := docToProtoInternal(doc)
-	got := protoToDoc(protoDoc)
+	protoDoc := storage.DocToProto(doc)
+	got := storage.ProtoToDoc(protoDoc)
 
 	if !reflect.DeepEqual(got, doc) {
 		t.Errorf("round-trip mismatch:\ngot:  %+v\nwant: %+v", got, doc)
@@ -319,8 +320,8 @@ func TestProtoToDoc_AllFields(t *testing.T) {
 }
 
 func TestProtoToDoc_EmptyProto(t *testing.T) {
-	protoDoc := docToProtoInternal(&Doc{Meta: map[string][]string{}})
-	got := protoToDoc(protoDoc)
+	protoDoc := storage.DocToProto(&storage.Doc{Meta: map[string][]string{}})
+	got := storage.ProtoToDoc(protoDoc)
 
 	if got.ID != "" {
 		t.Errorf("expected empty ID, got %q", got.ID)
@@ -333,7 +334,7 @@ func TestProtoToDoc_EmptyProto(t *testing.T) {
 // --- Compression behavior verification ---
 
 func TestMarshalDoc_SmallDocNotCompressed(t *testing.T) {
-	doc := &Doc{
+	doc := &storage.Doc{
 		ID:        "s1",
 		Key:       "small",
 		Lang:      "en",
@@ -356,7 +357,7 @@ func TestMarshalDoc_SmallDocNotCompressed(t *testing.T) {
 }
 
 func TestMarshalDoc_MultipleMetaValues(t *testing.T) {
-	doc := &Doc{
+	doc := &storage.Doc{
 		ID:   "mv1",
 		Key:  "multimeta",
 		Lang: "en",
@@ -386,7 +387,7 @@ func TestMarshalDoc_MultipleMetaValues(t *testing.T) {
 }
 
 func TestMarshalUnmarshalDoc_UnicodeContent(t *testing.T) {
-	doc := &Doc{
+	doc := &storage.Doc{
 		ID:        "uni1",
 		Key:       "unicode",
 		Lang:      "ja",
@@ -415,7 +416,7 @@ func TestMarshalUnmarshalDoc_UnicodeContent(t *testing.T) {
 }
 
 func TestMarshalUnmarshalDoc_EmptyStrings(t *testing.T) {
-	doc := &Doc{
+	doc := &storage.Doc{
 		ID:        "",
 		Key:       "",
 		Lang:      "",

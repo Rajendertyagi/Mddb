@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"mddb/internal/storage"
 	pb "mddb/proto"
 
 	bolt "go.etcd.io/bbolt"
@@ -56,7 +57,7 @@ func TestGRPCAdd_MetaIndexParity(t *testing.T) {
 	found := false
 	err := s.DB.View(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket(s.BucketNames.IdxMeta)
-		mkey := append(kMetaKeyPrefix("blog", "author", "alice"), []byte(docID)...)
+		mkey := append(storage.MetaKeyPrefix("blog", "author", "alice"), []byte(docID)...)
 		found = bIdx.Get(mkey) != nil
 		return nil
 	})

@@ -23,6 +23,7 @@ import (
 	"mddb/internal/cache"
 	"mddb/internal/fts"
 	"mddb/internal/sliceutil"
+	"mddb/internal/storage"
 	vec "mddb/internal/vector"
 	proto "mddb/proto"
 )
@@ -270,18 +271,18 @@ func (g *GRPCServer) Get(ctx context.Context, req *proto.GetRequest) (*proto.Doc
 		}
 	}
 
-	var doc Doc
+	var doc storage.Doc
 	var docData []byte
 	err := g.server.DBView(func(tx *bolt.Tx) error {
 		bByK := tx.Bucket(g.server.BucketNames.ByKey)
 		bDocs := tx.Bucket(g.server.BucketNames.Docs)
 
-		docID := bByK.Get(kByKey(req.Collection, req.Key, req.Lang))
+		docID := bByK.Get(storage.ByKeyKey(req.Collection, req.Key, req.Lang))
 		if docID == nil {
 			return errors.New("not found")
 		}
 
-		v := bDocs.Get(kDoc(req.Collection, string(docID)))
+		v := bDocs.Get(storage.DocKey(req.Collection, string(docID)))
 		if v == nil {
 			return errors.New("not found")
 		}
@@ -341,7 +342,7 @@ func (g *GRPCServer) Search(ctx context.Context, req *proto.SearchRequest) (*pro
 	}
 
 	// Single transaction for both ID collection and document loading
-	var docs []Doc
+	var docs []storage.Doc
 	var docIDs []string
 
 	err := g.server.DBView(func(tx *bolt.Tx) error {
@@ -365,7 +366,7 @@ func (g *GRPCServer) Search(ctx context.Context, req *proto.SearchRequest) (*pro
 				union := []string{}
 				for _, mv := range mvs {
 					c := bIdx.Cursor()
-					prefix := kMetaKeyPrefix(req.Collection, mk, mv)
+					prefix := storage.MetaKeyPrefix(req.Collection, mk, mv)
 					for k, _ := c.Seek(prefix); k != nil && BytesHasPrefix(k, prefix); k, _ = c.Next() {
 						// Extract docID (5th part) without string allocations
 						if docID := ExtractPart(k, 4); docID != nil {
@@ -380,7 +381,7 @@ func (g *GRPCServer) Search(ctx context.Context, req *proto.SearchRequest) (*pro
 
 		// Load documents in the same transaction
 		for _, id := range docIDs {
-			v := bDocs.Get(kDoc(req.Collection, id))
+			v := bDocs.Get(storage.DocKey(req.Collection, id))
 			if v != nil {
 				d, err := unmarshalDoc(v)
 				if err == nil {
@@ -538,7 +539,7 @@ func (g *GRPCServer) Truncate(ctx context.Context, req *proto.TruncateRequest) (
 		for _, docID := range docIDs {
 			var revKeys []string
 			rc := bRev.Cursor()
-			rprefix := kRevPrefix(req.Collection, docID)
+			rprefix := storage.RevPrefix(req.Collection, docID)
 			for k, _ := rc.Seek(rprefix); k != nil && strings.HasPrefix(string(k), string(rprefix)); k, _ = rc.Next() {
 				revKeys = append(revKeys, string(k))
 			}
@@ -735,7 +736,7 @@ func (g *GRPCServer) VectorSearch(ctx context.Context, req *proto.VectorSearchRe
 	_ = g.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(g.server.BucketNames.Docs)
 		for rank, vr := range results {
-			v := bDocs.Get(kDoc(req.Collection, vr.DocID))
+			v := bDocs.Get(storage.DocKey(req.Collection, vr.DocID))
 			if v == nil {
 				continue
 			}
@@ -908,8 +909,8 @@ func (g *GRPCServer) VectorStats(ctx context.Context, req *proto.VectorStatsRequ
 	return resp, nil
 }
 
-// Helper: convert internal Doc to proto Document
-func docToProto(doc *Doc) *proto.Document {
+// Helper: convert internal storage.Doc to proto Document
+func docToProto(doc *storage.Doc) *proto.Document {
 	protoMeta := make(map[string]*proto.MetaValues)
 	for k, v := range doc.Meta {
 		protoMeta[k] = &proto.MetaValues{Values: v}
@@ -1048,10 +1049,10 @@ func (g *GRPCServer) SetTTL(ctx context.Context, req *proto.SetTTLRequest) (*pro
 		expiresAt = now + req.Ttl
 	}
 
-	var updated Doc
+	var updated storage.Doc
 	err := g.server.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
-		v := bDocs.Get(kDoc(req.Collection, docID))
+		v := bDocs.Get(storage.DocKey(req.Collection, docID))
 		if v == nil {
 			return fmt.Errorf("not found")
 		}
@@ -1065,7 +1066,7 @@ func (g *GRPCServer) SetTTL(ctx context.Context, req *proto.SetTTLRequest) (*pro
 			return err
 		}
 		updated = *d
-		return bDocs.Put(kDoc(req.Collection, docID), buf)
+		return bDocs.Put(storage.DocKey(req.Collection, docID), buf)
 	})
 	if err != nil {
 		if err.Error() == "not found" {
@@ -1196,7 +1197,7 @@ func (g *GRPCServer) FTS(ctx context.Context, req *proto.FTSRequest) (*proto.FTS
 	_ = g.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		for _, res := range results {
-			v := bDocs.Get(kDoc(req.Collection, res.DocID))
+			v := bDocs.Get(storage.DocKey(req.Collection, res.DocID))
 			if v == nil {
 				continue
 			}
@@ -1240,7 +1241,7 @@ func (g *GRPCServer) FTS(ctx context.Context, req *proto.FTSRequest) (*proto.FTS
 		Lang:      queryLang,
 	}
 	if len(req.FacetBy) > 0 && len(docResults) > 0 {
-		docs := make([]Doc, len(docResults))
+		docs := make([]storage.Doc, len(docResults))
 		for i, r := range docResults {
 			docs[i] = r.Document
 		}
@@ -1510,7 +1511,7 @@ func (g *GRPCServer) HybridSearch(ctx context.Context, req *proto.HybridSearchRe
 		VectorAlgorithm: vectorAlgo,
 	}
 	if len(req.FacetBy) > 0 && len(items) > 0 {
-		docs := make([]Doc, len(items))
+		docs := make([]storage.Doc, len(items))
 		for i, it := range items {
 			docs[i] = it.Document
 		}
@@ -1755,7 +1756,7 @@ func (g *GRPCServer) UpdateDocument(ctx context.Context, req *proto.UpdateDocume
 	}
 
 	now := time.Now().Unix()
-	var saved Doc
+	var saved storage.Doc
 	var metaDidChange bool
 	var bo binlog.BinlogOps
 
@@ -1765,12 +1766,12 @@ func (g *GRPCServer) UpdateDocument(ctx context.Context, req *proto.UpdateDocume
 		bRev := tx.Bucket([]byte("rev"))
 		bByK := tx.Bucket([]byte("bykey"))
 
-		docIDBytes := bByK.Get(kByKey(req.Collection, req.Key, req.Lang))
+		docIDBytes := bByK.Get(storage.ByKeyKey(req.Collection, req.Key, req.Lang))
 		if docIDBytes == nil {
 			return errors.New("not found")
 		}
 
-		v := bDocs.Get(kDoc(req.Collection, string(docIDBytes)))
+		v := bDocs.Get(storage.DocKey(req.Collection, string(docIDBytes)))
 		if v == nil {
 			return errors.New("not found")
 		}
@@ -1803,7 +1804,7 @@ func (g *GRPCServer) UpdateDocument(ctx context.Context, req *proto.UpdateDocume
 			return err
 		}
 
-		docKey := kDoc(req.Collection, doc.ID)
+		docKey := storage.DocKey(req.Collection, doc.ID)
 		if err := bDocs.Put(docKey, buf); err != nil {
 			return err
 		}
@@ -1813,7 +1814,7 @@ func (g *GRPCServer) UpdateDocument(ctx context.Context, req *proto.UpdateDocume
 			if existing.Meta != nil {
 				for mk, vals := range existing.Meta {
 					for _, mv := range vals {
-						mkey := append(kMetaKeyPrefix(req.Collection, mk, mv), []byte(doc.ID)...)
+						mkey := append(storage.MetaKeyPrefix(req.Collection, mk, mv), []byte(doc.ID)...)
 						_ = bIdx.Delete(mkey)
 						bo.Delete("idxmeta", mkey)
 					}
@@ -1821,7 +1822,7 @@ func (g *GRPCServer) UpdateDocument(ctx context.Context, req *proto.UpdateDocume
 			}
 			for mk, vals := range doc.Meta {
 				for _, mv := range vals {
-					mkey := append(kMetaKeyPrefix(req.Collection, mk, mv), []byte(doc.ID)...)
+					mkey := append(storage.MetaKeyPrefix(req.Collection, mk, mv), []byte(doc.ID)...)
 					if err := bIdx.Put(mkey, []byte("1")); err != nil {
 						return err
 					}
@@ -1830,7 +1831,7 @@ func (g *GRPCServer) UpdateDocument(ctx context.Context, req *proto.UpdateDocume
 			}
 		}
 
-		rkey := append(kRevPrefix(req.Collection, doc.ID), []byte(fmt.Sprintf("%020d", now))...)
+		rkey := append(storage.RevPrefix(req.Collection, doc.ID), []byte(fmt.Sprintf("%020d", now))...)
 		if err := bRev.Put(rkey, buf); err != nil {
 			return err
 		}
@@ -1885,15 +1886,15 @@ func (g *GRPCServer) GetDocumentMeta(ctx context.Context, req *proto.GetDocument
 		}
 	}
 
-	var doc Doc
+	var doc storage.Doc
 	err := g.server.DBView(func(tx *bolt.Tx) error {
 		bByK := tx.Bucket([]byte("bykey"))
 		bDocs := tx.Bucket([]byte("docs"))
-		docID := bByK.Get(kByKey(req.Collection, req.Key, req.Lang))
+		docID := bByK.Get(storage.ByKeyKey(req.Collection, req.Key, req.Lang))
 		if docID == nil {
 			return errors.New("not found")
 		}
-		v := bDocs.Get(kDoc(req.Collection, string(docID)))
+		v := bDocs.Get(storage.DocKey(req.Collection, string(docID)))
 		if v == nil {
 			return errors.New("not found")
 		}
@@ -2029,14 +2030,14 @@ func (g *GRPCServer) DeleteCollection(ctx context.Context, req *proto.DeleteColl
 			}
 			bo.Delete("docs", k)
 
-			bykKey := kByKey(req.Collection, doc.Key, doc.Lang)
+			bykKey := storage.ByKeyKey(req.Collection, doc.Key, doc.Lang)
 			if err := bByK.Delete(bykKey); err != nil {
 				return err
 			}
 			bo.Delete("bykey", bykKey)
 
 			rc := bRev.Cursor()
-			rp := kRevPrefix(req.Collection, doc.ID)
+			rp := storage.RevPrefix(req.Collection, doc.ID)
 			for rk, _ := rc.Seek(rp); rk != nil && bytes.HasPrefix(rk, rp); rk, _ = rc.Next() {
 				if err := bRev.Delete(rk); err != nil {
 					return err
@@ -2046,7 +2047,7 @@ func (g *GRPCServer) DeleteCollection(ctx context.Context, req *proto.DeleteColl
 
 			for mk, vals := range doc.Meta {
 				for _, mv := range vals {
-					mkey := append(kMetaKeyPrefix(req.Collection, mk, mv), []byte(doc.ID)...)
+					mkey := append(storage.MetaKeyPrefix(req.Collection, mk, mv), []byte(doc.ID)...)
 					if err := bIdx.Delete(mkey); err != nil {
 						return err
 					}
@@ -2489,7 +2490,7 @@ func (g *GRPCServer) TestAutomation(ctx context.Context, req *proto.TestAutomati
 			return nil
 		}
 		for _, m := range matches {
-			v := bDocs.Get(kDoc(m.Collection, m.DocID))
+			v := bDocs.Get(storage.DocKey(m.Collection, m.DocID))
 			if v == nil {
 				continue
 			}
@@ -2773,7 +2774,7 @@ func (g *GRPCServer) CrossSearch(ctx context.Context, req *proto.CrossSearchRequ
 			return nil
 		}
 		for rank, tr := range allTagged {
-			v := bDocs.Get(kDoc(tr.collection, tr.result.DocID))
+			v := bDocs.Get(storage.DocKey(tr.collection, tr.result.DocID))
 			if v == nil {
 				continue
 			}
@@ -2902,7 +2903,7 @@ func (g *GRPCServer) ListRevisions(ctx context.Context, req *proto.ListRevisions
 		if bRev == nil {
 			return nil
 		}
-		prefix := kRevPrefix(req.Collection, docID)
+		prefix := storage.RevPrefix(req.Collection, docID)
 		c := bRev.Cursor()
 		for k, v := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = c.Next() {
 			keyStr := string(k)
@@ -2965,9 +2966,9 @@ func (g *GRPCServer) RestoreRevision(ctx context.Context, req *proto.RestoreRevi
 
 	docID := genID(req.Collection, req.Key, req.Lang)
 	tsKey := fmt.Sprintf("%020d", req.Timestamp)
-	revKey := append(kRevPrefix(req.Collection, docID), []byte(tsKey)...)
+	revKey := append(storage.RevPrefix(req.Collection, docID), []byte(tsKey)...)
 
-	var revDoc *Doc
+	var revDoc *storage.Doc
 	err := g.server.DBView(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket([]byte("rev"))
 		if bRev == nil {

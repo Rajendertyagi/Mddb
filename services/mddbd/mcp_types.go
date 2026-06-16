@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"io"
+	"mddb/internal/storage"
 	"time"
 )
 
@@ -792,7 +793,7 @@ type MCPClient interface {
 
 // --- Type Conversion Helpers ---
 
-func docToMCPDocument(d Doc) MCPDocument {
+func docToMCPDocument(d storage.Doc) MCPDocument {
 	return MCPDocument{
 		ID:        d.ID,
 		Key:       d.Key,

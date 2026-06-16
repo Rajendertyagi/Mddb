@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"mddb/internal/storage"
 	"os"
 	"strconv"
 	"strings"
@@ -386,7 +387,7 @@ func SetGlobalEncryptor(e *Encryptor) { globalEncryptor = e }
 // collection is opted into at-rest encryption AND a key is loaded,
 // seals the resulting bytes before they reach the docs / rev buckets.
 // When encryption is off the behaviour is identical to marshalDoc.
-func marshalAndEncrypt(doc *Doc, collection string) ([]byte, error) {
+func marshalAndEncrypt(doc *storage.Doc, collection string) ([]byte, error) {
 	buf, err := marshalDoc(doc)
 	if err != nil {
 		return nil, err

@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"io"
+	"mddb/internal/storage"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -377,7 +378,7 @@ func TestWebhookFire(t *testing.T) {
 
 	_, _ = wm.Register(ts.URL, []string{"doc.added"}, "")
 
-	doc := &Doc{
+	doc := &storage.Doc{
 		ID:        "test-id",
 		Key:       "test-key",
 		Lang:      "en",

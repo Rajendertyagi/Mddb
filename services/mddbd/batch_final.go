@@ -8,6 +8,7 @@ import (
 
 	"mddb/internal/binlog"
 	"mddb/internal/cache"
+	"mddb/internal/storage"
 	proto "mddb/proto"
 
 	bolt "go.etcd.io/bbolt"
@@ -175,7 +176,7 @@ func (fbp *FinalBatchProcessor) processDocumentFast(collection string, batchDoc 
 		added = now
 	}
 
-	doc := Doc{
+	doc := storage.Doc{
 		ID: docID, Key: batchDoc.Key, Lang: batchDoc.Lang, Meta: meta,
 		ContentMD: batchDoc.ContentMd, AddedAt: added, UpdatedAt: now,
 	}

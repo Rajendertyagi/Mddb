@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"mddb/internal/audit"
+	"mddb/internal/storage"
 	"strings"
 	"testing"
 	"time"
@@ -529,11 +530,11 @@ func TestProcessOne_DecryptError(t *testing.T) {
 	bogus = append(bogus, make([]byte, encryptionNonceLen+16)...)
 	if err := s.DB.Update(func(tx *bolt.Tx) error {
 		b, _ := tx.CreateBucketIfNotExists([]byte("docs"))
-		return b.Put(kDoc("c", "x"), bogus)
+		return b.Put(storage.DocKey("c", "x"), bogus)
 	}); err != nil {
 		t.Fatal(err)
 	}
-	rewrote, err := rm.processOne("docs", kDoc("c", "x"))
+	rewrote, err := rm.processOne("docs", storage.DocKey("c", "x"))
 	if err == nil {
 		t.Fatal("expected decrypt error")
 	}

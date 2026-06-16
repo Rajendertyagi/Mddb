@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"mddb/internal/storage"
 	"testing"
 
 	bolt "go.etcd.io/bbolt"
@@ -13,7 +14,7 @@ func revCount(t *testing.T, s *Server, coll, docID string) int {
 	t.Helper()
 	var n int
 	_ = s.DB.View(func(tx *bolt.Tx) error {
-		prefix := kRevPrefix(coll, docID)
+		prefix := storage.RevPrefix(coll, docID)
 		c := tx.Bucket([]byte("rev")).Cursor()
 		for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
 			n++
@@ -32,7 +33,7 @@ func seedFakeRevisions(t *testing.T, s *Server, coll, key, lang string, count in
 	if err := s.DB.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("rev"))
 		for i := 0; i < count; i++ {
-			rkey := append(kRevPrefix(coll, docID), []byte(fmt.Sprintf("%020d", int64(100+i)))...)
+			rkey := append(storage.RevPrefix(coll, docID), []byte(fmt.Sprintf("%020d", int64(100+i)))...)
 			if err := b.Put(rkey, []byte(fmt.Sprintf("v%d", i))); err != nil {
 				return err
 			}

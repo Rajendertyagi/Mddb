@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"mddb/internal/geo"
+	"mddb/internal/storage"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -157,7 +158,7 @@ func (c *DirectClient) GeoDecode(ctx context.Context, hash string) (float64, flo
 }
 
 // loadGeoResults hydrates R-tree / geohash candidate hits into MCP result
-// items by reading the underlying Doc from BoltDB. Shared between
+// items by reading the underlying storage.Doc from BoltDB. Shared between
 // GeoSearch and GeoWithin to avoid duplicate loops.
 func (c *DirectClient) loadGeoResults(collection string, hits []geo.GeoResult, includeContent, includeDistance bool) []MCPGeoSearchResult {
 	if len(hits) == 0 {
@@ -170,7 +171,7 @@ func (c *DirectClient) loadGeoResults(collection string, hits []geo.GeoResult, i
 			return nil
 		}
 		for i, h := range hits {
-			v := b.Get(kDoc(collection, h.DocID))
+			v := b.Get(storage.DocKey(collection, h.DocID))
 			if v == nil {
 				continue
 			}

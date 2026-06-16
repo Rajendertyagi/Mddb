@@ -8,6 +8,7 @@ import (
 	"log"
 	"mddb/internal/envconf"
 	"mddb/internal/sliceutil"
+	"mddb/internal/storage"
 	vec "mddb/internal/vector"
 	"net/http"
 	"strings"
@@ -32,9 +33,9 @@ type VectorSearchRequest struct {
 
 // VectorSearchResultItem represents a single search result.
 type VectorSearchResultItem struct {
-	Document Doc     `json:"document"`
-	Score    float32 `json:"score"`
-	Rank     int     `json:"rank"`
+	Document storage.Doc `json:"document"`
+	Score    float32     `json:"score"`
+	Rank     int         `json:"rank"`
 }
 
 // VectorSearchResponseHTTP represents the response from vector search.
@@ -230,7 +231,7 @@ func (s *Server) handleVectorSearch(w http.ResponseWriter, r *http.Request) {
 			return nil
 		}
 		for rank, vr := range results {
-			v := bDocs.Get(kDoc(req.Collection, vr.DocID))
+			v := bDocs.Get(storage.DocKey(req.Collection, vr.DocID))
 			if v == nil {
 				continue
 			}
@@ -530,7 +531,7 @@ func (s *Server) getDocIDsByMeta(collection string, filterMeta map[string][]stri
 		for mk, mvals := range filterMeta {
 			var ids []string
 			for _, mv := range mvals {
-				prefix := kMetaKeyPrefix(collection, mk, mv)
+				prefix := storage.MetaKeyPrefix(collection, mk, mv)
 				c := bIdx.Cursor()
 				for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
 					id := string(k[len(prefix):])

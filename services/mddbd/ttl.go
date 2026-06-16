@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"mddb/internal/binlog"
+	"mddb/internal/storage"
 	"net/http"
 	"strings"
 	"time"
@@ -164,7 +165,7 @@ func (t *TTLManager) cleanup() {
 
 			// Look up key and lang from the document
 			bDocs := tx.Bucket([]byte("docs"))
-			if v := bDocs.Get(kDoc(coll, docID)); v != nil {
+			if v := bDocs.Get(storage.DocKey(coll, docID)); v != nil {
 				if doc, err := loadDoc(v); err == nil {
 					expired = append(expired, expiredDoc{coll, doc.Key, doc.Lang})
 				}
@@ -227,11 +228,11 @@ func (s *Server) handleSetTTL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update document in DB
-	var updated Doc
+	var updated storage.Doc
 	var bo binlog.BinlogOps
 	err := s.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
-		dk := kDoc(req.Collection, docID)
+		dk := storage.DocKey(req.Collection, docID)
 		v := bDocs.Get(dk)
 		if v == nil {
 			return fmt.Errorf("document not found")

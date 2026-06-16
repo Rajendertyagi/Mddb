@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"mddb/internal/fts"
+	"mddb/internal/storage"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -29,11 +30,11 @@ func newTestServerForHybridGeo(t *testing.T) (*Server, func()) {
 
 // seedHybridGeoDoc wires a doc's content into the FTS index and its geo
 // point into both geo indices under a stable caller-chosen docID. It also
-// persists a minimal Doc record so loadHybridDocs can retrieve something
+// persists a minimal storage.Doc record so loadHybridDocs can retrieve something
 // back from the `docs` bucket when handleHybridSearch hydrates results.
 func seedHybridGeoDoc(t *testing.T, s *Server, collection, docID, content string, lat, lng float64) {
 	t.Helper()
-	d := Doc{
+	d := storage.Doc{
 		ID:        docID,
 		Key:       docID,
 		Lang:      "en",
@@ -44,7 +45,7 @@ func seedHybridGeoDoc(t *testing.T, s *Server, collection, docID, content string
 		t.Fatalf("marshal doc: %v", err)
 	}
 	err = s.DB.Update(func(tx *bolt.Tx) error {
-		return tx.Bucket(s.BucketNames.Docs).Put(kDoc(collection, docID), data)
+		return tx.Bucket(s.BucketNames.Docs).Put(storage.DocKey(collection, docID), data)
 	})
 	if err != nil {
 		t.Fatalf("put doc: %v", err)

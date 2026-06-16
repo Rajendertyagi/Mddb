@@ -1,5 +1,7 @@
 package main
 
+import "mddb/internal/storage"
+
 // FacetResult holds per-key bucket lists keyed by metadata field name.
 // Encoded as a JSON object so clients can index it like `facets.category[0]`.
 // FacetBucket is reused from aggregation.go to keep a single wire shape across
@@ -10,7 +12,7 @@ type FacetResult map[string][]FacetBucket
 // requested metadata key. Unknown/missing keys produce an empty bucket list
 // (not omitted) so UIs can render a stable set of facet groups across queries.
 // maxPerKey clamps the per-key bucket list; 0 disables the cap.
-func computeFacets(docs []Doc, facetBy []string, maxPerKey int) FacetResult {
+func computeFacets(docs []storage.Doc, facetBy []string, maxPerKey int) FacetResult {
 	if len(facetBy) == 0 || len(docs) == 0 {
 		return nil
 	}

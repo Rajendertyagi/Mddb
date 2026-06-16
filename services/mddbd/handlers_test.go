@@ -7,6 +7,7 @@ import (
 	"mddb/internal/cache"
 	"mddb/internal/fts"
 	"mddb/internal/schema"
+	"mddb/internal/storage"
 	"mddb/internal/vector"
 	"net/http"
 	"net/http/httptest"
@@ -125,7 +126,7 @@ func newHandlerTestServer(t *testing.T) (*Server, func()) {
 // addTestDoc is a convenience helper that creates a document via the internal
 // addDocument method (bypassing HTTP) so that other handlers can be tested
 // against pre-existing data.
-func addTestDoc(t *testing.T, s *Server, coll, key, lang, content string, meta map[string][]string) Doc {
+func addTestDoc(t *testing.T, s *Server, coll, key, lang, content string, meta map[string][]string) storage.Doc {
 	t.Helper()
 	doc, _, err := s.addDocument(coll, key, lang, meta, content, 0, true)
 	if err != nil {
@@ -189,7 +190,7 @@ func TestHandleAdd_Success(t *testing.T) {
 		t.Fatalf("expected 200, got %d; body=%s", rec.Code, rec.Body.String())
 	}
 
-	var doc Doc
+	var doc storage.Doc
 	if err := json.Unmarshal(rec.Body.Bytes(), &doc); err != nil {
 		t.Fatal(err)
 	}
@@ -277,7 +278,7 @@ func TestHandleAdd_UpdateExisting(t *testing.T) {
 	if rec1.Code != http.StatusOK {
 		t.Fatalf("first add failed: %d %s", rec1.Code, rec1.Body.String())
 	}
-	var doc1 Doc
+	var doc1 storage.Doc
 	_ = json.Unmarshal(rec1.Body.Bytes(), &doc1)
 
 	// Update the same document
@@ -287,7 +288,7 @@ func TestHandleAdd_UpdateExisting(t *testing.T) {
 	if rec2.Code != http.StatusOK {
 		t.Fatalf("second add failed: %d %s", rec2.Code, rec2.Body.String())
 	}
-	var doc2 Doc
+	var doc2 storage.Doc
 	_ = json.Unmarshal(rec2.Body.Bytes(), &doc2)
 
 	if doc2.ID != doc1.ID {
@@ -323,7 +324,7 @@ func TestHandleGet_Success(t *testing.T) {
 		t.Fatalf("expected 200, got %d; body=%s", rec.Code, rec.Body.String())
 	}
 
-	var doc Doc
+	var doc storage.Doc
 	if err := json.Unmarshal(rec.Body.Bytes(), &doc); err != nil {
 		t.Fatal(err)
 	}
@@ -392,7 +393,7 @@ func TestHandleGet_EnvTemplating(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 
-	var doc Doc
+	var doc storage.Doc
 	_ = json.Unmarshal(rec.Body.Bytes(), &doc)
 	if doc.ContentMD != "Welcome Alice to MDDB!" {
 		t.Errorf("expected templated content, got: %s", doc.ContentMD)
@@ -560,7 +561,7 @@ func TestHandleSearch_NoFilter(t *testing.T) {
 		t.Fatalf("expected 200, got %d; body=%s", rec.Code, rec.Body.String())
 	}
 
-	var docs []Doc
+	var docs []storage.Doc
 	if err := json.Unmarshal(rec.Body.Bytes(), &docs); err != nil {
 		t.Fatal(err)
 	}
@@ -588,7 +589,7 @@ func TestHandleSearch_WithMetaFilter(t *testing.T) {
 		t.Fatalf("expected 200, got %d; body=%s", rec.Code, rec.Body.String())
 	}
 
-	var docs []Doc
+	var docs []storage.Doc
 	_ = json.Unmarshal(rec.Body.Bytes(), &docs)
 	if len(docs) != 2 {
 		t.Errorf("expected 2 docs with tag=go, got %d", len(docs))
@@ -615,7 +616,7 @@ func TestHandleSearch_SortByKeyAsc(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 
-	var docs []Doc
+	var docs []storage.Doc
 	_ = json.Unmarshal(rec.Body.Bytes(), &docs)
 	if len(docs) != 3 {
 		t.Fatalf("expected 3, got %d", len(docs))
@@ -648,7 +649,7 @@ func TestHandleSearch_Pagination(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 
-	var docs []Doc
+	var docs []storage.Doc
 	_ = json.Unmarshal(rec.Body.Bytes(), &docs)
 	if len(docs) != 3 {
 		t.Errorf("expected 3 docs (limit=3), got %d", len(docs))
@@ -667,7 +668,7 @@ func TestHandleSearch_EmptyCollection(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 
-	var docs []Doc
+	var docs []storage.Doc
 	_ = json.Unmarshal(rec.Body.Bytes(), &docs)
 	if len(docs) != 0 {
 		t.Errorf("expected 0 docs, got %d", len(docs))
@@ -692,7 +693,7 @@ func TestHandleSearch_DefaultLimit(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 
-	var docs []Doc
+	var docs []storage.Doc
 	_ = json.Unmarshal(rec.Body.Bytes(), &docs)
 	if len(docs) != 50 {
 		t.Errorf("expected default limit of 50, got %d", len(docs))
@@ -808,7 +809,7 @@ func TestHandleTruncate_Success(t *testing.T) {
 		t.Fatalf("initial add failed: %d", rec.Code)
 	}
 
-	var doc Doc
+	var doc storage.Doc
 	_ = json.Unmarshal(rec.Body.Bytes(), &doc)
 
 	// Manually insert additional revision entries with distinct timestamps
@@ -818,8 +819,8 @@ func TestHandleTruncate_Success(t *testing.T) {
 		bRev := tx.Bucket([]byte("rev"))
 		for i := 1; i <= 4; i++ {
 			ts := doc.AddedAt + int64(i)
-			rkey := append(kRevPrefix("blog", doc.ID), []byte(fmt.Sprintf("%020d", ts))...)
-			buf, _ := json.Marshal(Doc{
+			rkey := append(storage.RevPrefix("blog", doc.ID), []byte(fmt.Sprintf("%020d", ts))...)
+			buf, _ := json.Marshal(storage.Doc{
 				ID: doc.ID, Key: "rev-test", Lang: "en",
 				ContentMD: "version " + string(rune('0'+i)),
 				AddedAt:   doc.AddedAt, UpdatedAt: ts,
@@ -833,7 +834,7 @@ func TestHandleTruncate_Success(t *testing.T) {
 	var revsBefore int
 	_ = s.DB.View(func(tx *bolt.Tx) error {
 		c := tx.Bucket([]byte("rev")).Cursor()
-		prefix := kRevPrefix("blog", doc.ID)
+		prefix := storage.RevPrefix("blog", doc.ID)
 		for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
 			revsBefore++
 		}
@@ -854,7 +855,7 @@ func TestHandleTruncate_Success(t *testing.T) {
 	var revsAfter int
 	_ = s.DB.View(func(tx *bolt.Tx) error {
 		c := tx.Bucket([]byte("rev")).Cursor()
-		prefix := kRevPrefix("blog", doc.ID)
+		prefix := storage.RevPrefix("blog", doc.ID)
 		for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
 			revsAfter++
 		}
@@ -991,7 +992,7 @@ func TestHandleAdd_WithTTL(t *testing.T) {
 		t.Fatalf("expected 200, got %d; body=%s", rec.Code, rec.Body.String())
 	}
 
-	var doc Doc
+	var doc storage.Doc
 	_ = json.Unmarshal(rec.Body.Bytes(), &doc)
 	if doc.ExpiresAt == 0 {
 		t.Error("expected non-zero expiresAt with TTL")
@@ -1143,7 +1144,7 @@ func TestHandleSearch_MetaFilterIntersection(t *testing.T) {
 		t.Fatalf("expected 200, got %d; body=%s", rec.Code, rec.Body.String())
 	}
 
-	var docs []Doc
+	var docs []storage.Doc
 	_ = json.Unmarshal(rec.Body.Bytes(), &docs)
 	if len(docs) != 1 {
 		t.Errorf("expected 1 doc (tag=go AND author=alice), got %d", len(docs))
@@ -1173,7 +1174,7 @@ func TestHandleSearch_SortByAddedAtDesc(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 
-	var docs []Doc
+	var docs []storage.Doc
 	_ = json.Unmarshal(rec.Body.Bytes(), &docs)
 	if len(docs) != 3 {
 		t.Fatalf("expected 3, got %d", len(docs))
@@ -1201,7 +1202,7 @@ func TestMultiLanguageDocuments(t *testing.T) {
 	if recEn.Code != http.StatusOK {
 		t.Fatalf("expected 200 for en, got %d", recEn.Code)
 	}
-	var docEn Doc
+	var docEn storage.Doc
 	_ = json.Unmarshal(recEn.Body.Bytes(), &docEn)
 	if docEn.ContentMD != "Hello" {
 		t.Errorf("expected 'Hello', got %s", docEn.ContentMD)
@@ -1212,7 +1213,7 @@ func TestMultiLanguageDocuments(t *testing.T) {
 	if recPl.Code != http.StatusOK {
 		t.Fatalf("expected 200 for pl, got %d", recPl.Code)
 	}
-	var docPl Doc
+	var docPl storage.Doc
 	_ = json.Unmarshal(recPl.Body.Bytes(), &docPl)
 	if docPl.ContentMD != "Czesc" {
 		t.Errorf("expected 'Czesc', got %s", docPl.ContentMD)
@@ -1220,7 +1221,7 @@ func TestMultiLanguageDocuments(t *testing.T) {
 
 	// Search should return all 3
 	searchRec := doRequest(t, s.handleSearch, SearchRequest{Collection: "pages"})
-	var allDocs []Doc
+	var allDocs []storage.Doc
 	_ = json.Unmarshal(searchRec.Body.Bytes(), &allDocs)
 	if len(allDocs) != 3 {
 		t.Errorf("expected 3 language variants, got %d", len(allDocs))
@@ -1347,7 +1348,7 @@ func TestDeleteThenReAdd(t *testing.T) {
 		t.Fatalf("re-add failed: %d; body=%s", addRec.Code, addRec.Body.String())
 	}
 
-	var doc Doc
+	var doc storage.Doc
 	_ = json.Unmarshal(addRec.Body.Bytes(), &doc)
 	if doc.ContentMD != "version 2" {
 		t.Errorf("expected 'version 2', got %s", doc.ContentMD)
@@ -1425,7 +1426,7 @@ func TestHandleSearch_MetaFilterORWithinValues(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 
-	var docs []Doc
+	var docs []storage.Doc
 	_ = json.Unmarshal(rec.Body.Bytes(), &docs)
 	if len(docs) != 2 {
 		t.Errorf("expected 2 docs (tag in [go,rust]), got %d", len(docs))

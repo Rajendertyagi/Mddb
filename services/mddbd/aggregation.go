@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"mddb/internal/storage"
 	"net/http"
 	"sort"
 	"strings"
@@ -104,7 +105,7 @@ func (s *Server) resolveMetaFilter(tx *bolt.Tx, collection string, filterMeta ma
 		var ids []string
 		seen := make(map[string]bool)
 		for _, mv := range mvals {
-			prefix := kMetaKeyPrefix(collection, mk, mv)
+			prefix := storage.MetaKeyPrefix(collection, mk, mv)
 			c := bIdx.Cursor()
 			for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
 				id := string(k[len(prefix):])

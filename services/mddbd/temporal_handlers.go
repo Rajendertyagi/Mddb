@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"mddb/internal/storage"
 	"mddb/internal/temporal"
 	"net/http"
 	"time"
@@ -43,10 +44,10 @@ type TemporalHotResponse struct {
 
 // HotEntryWithDoc embeds the full document alongside access stats.
 type HotEntryWithDoc struct {
-	Document     *Doc   `json:"document,omitempty"`
-	DocID        string `json:"docId"`
-	AccessCount  uint64 `json:"accessCount"`
-	LastAccessAt int64  `json:"lastAccessAt"`
+	Document     *storage.Doc `json:"document,omitempty"`
+	DocID        string       `json:"docId"`
+	AccessCount  uint64       `json:"accessCount"`
+	LastAccessAt int64        `json:"lastAccessAt"`
 }
 
 // TemporalHistogramRequest is the HTTP request body for activity histograms.
