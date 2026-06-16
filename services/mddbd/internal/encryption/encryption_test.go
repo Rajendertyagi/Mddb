@@ -1,10 +1,9 @@
-package main
+package encryption
 
 import (
 	"bytes"
 	"crypto/rand"
 	"encoding/base64"
-	"mddb/internal/storage"
 	"strings"
 	"testing"
 )
@@ -13,7 +12,7 @@ import (
 // MDDB_ENCRYPTION_KEY.
 func genKey(t *testing.T) string {
 	t.Helper()
-	k := make([]byte, encryptionKeyLen)
+	k := make([]byte, KeyLen)
 	if _, err := rand.Read(k); err != nil {
 		t.Fatalf("rand: %v", err)
 	}
@@ -74,7 +73,7 @@ func TestEncryptDecryptRoundtrip(t *testing.T) {
 	if bytes.Equal(ct, plaintext) {
 		t.Fatal("ciphertext must not equal plaintext")
 	}
-	if !isEncrypted(ct) {
+	if !IsEncrypted(ct) {
 		t.Fatal("ciphertext missing magic prefix")
 	}
 	pt, err := e.Decrypt(ct)
@@ -142,7 +141,7 @@ func TestDecryptShortPayload(t *testing.T) {
 	t.Setenv("MDDB_ENCRYPTION_KEY", genKey(t))
 	e, _ := NewEncryptor()
 	// Magic prefix present but no room for nonce + tag.
-	short := append([]byte{}, encryptionMagicV2...)
+	short := append([]byte{}, MagicV2...)
 	if _, err := e.Decrypt(short); err == nil {
 		t.Fatal("expected error on short ciphertext")
 	}
@@ -173,13 +172,13 @@ func TestNilEncryptorSafe(t *testing.T) {
 }
 
 func TestIsEncryptedPrefix(t *testing.T) {
-	if isEncrypted([]byte("short")) {
+	if IsEncrypted([]byte("short")) {
 		t.Fatal("short should not match")
 	}
-	if !isEncrypted(append([]byte(encryptionMagicV2), 0, 1, 2)) {
+	if !IsEncrypted(append([]byte(MagicV2), 0, 1, 2)) {
 		t.Fatal("V2 magic prefix should match")
 	}
-	if !isEncrypted(append([]byte(encryptionMagicV1), 0, 1, 2)) {
+	if !IsEncrypted(append([]byte(MagicV1), 0, 1, 2)) {
 		t.Fatal("V1 magic prefix should still match (backward compat)")
 	}
 }
@@ -192,54 +191,6 @@ func TestEncryptAlwaysWithoutKey(t *testing.T) {
 	}
 }
 
-func TestLoadDocTransparentDecrypt(t *testing.T) {
-	t.Setenv("MDDB_ENCRYPTION_KEY", genKey(t))
-	e, _ := NewEncryptor()
-	SetGlobalEncryptor(e)
-	defer SetGlobalEncryptor(nil)
-	e.SetCollectionEnabled("secrets", true)
-
-	doc := &storage.Doc{ID: "secrets|k|en", Key: "k", Lang: "en", ContentMD: "top-secret"}
-	buf, err := marshalAndEncrypt(doc, "secrets")
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	if !isEncrypted(buf) {
-		t.Fatal("buf should be ciphertext")
-	}
-	got, err := loadDoc(buf)
-	if err != nil {
-		t.Fatalf("loadDoc: %v", err)
-	}
-	if got.ContentMD != "top-secret" {
-		t.Fatalf("roundtrip failed: %+v", got)
-	}
-}
-
-func TestLoadDocBackwardCompatPlaintext(t *testing.T) {
-	// Set a key but the doc was saved before encryption — no magic prefix.
-	t.Setenv("MDDB_ENCRYPTION_KEY", genKey(t))
-	e, _ := NewEncryptor()
-	SetGlobalEncryptor(e)
-	defer SetGlobalEncryptor(nil)
-
-	doc := &storage.Doc{ID: "blog|k|en", Key: "k", Lang: "en", ContentMD: "legacy"}
-	buf, err := marshalDoc(doc)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	if isEncrypted(buf) {
-		t.Fatal("plain marshal must not carry the magic prefix")
-	}
-	got, err := loadDoc(buf)
-	if err != nil {
-		t.Fatalf("loadDoc: %v", err)
-	}
-	if got.ContentMD != "legacy" {
-		t.Fatalf("got %+v", got)
-	}
-}
-
 func TestEncryptAlwaysRoundtrip(t *testing.T) {
 	t.Setenv("MDDB_ENCRYPTION_KEY", genKey(t))
 	e, _ := NewEncryptor()
@@ -247,53 +198,11 @@ func TestEncryptAlwaysRoundtrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !isEncrypted(ct) {
+	if !IsEncrypted(ct) {
 		t.Fatal("expected ciphertext")
 	}
 	pt, err := e.Decrypt(ct)
 	if err != nil || string(pt) != "v" {
 		t.Fatalf("roundtrip failed: %q err=%v", pt, err)
-	}
-}
-
-func TestMaybeDecryptWithoutGlobalEncryptor(t *testing.T) {
-	SetGlobalEncryptor(nil)
-	// Plaintext passes through even when no global encryptor.
-	if out, err := maybeDecrypt([]byte("plaintext")); err != nil || string(out) != "plaintext" {
-		t.Fatalf("plaintext passthrough: %q %v", out, err)
-	}
-	// Ciphertext without a global encryptor must error.
-	ct := append([]byte{}, encryptionMagicV2...)
-	ct = append(ct, make([]byte, 40)...)
-	if _, err := maybeDecrypt(ct); err == nil {
-		t.Fatal("expected error when globalEncryptor nil")
-	}
-}
-
-func TestMarshalAndEncryptNoGlobalEncryptor(t *testing.T) {
-	SetGlobalEncryptor(nil)
-	doc := &storage.Doc{ID: "x|k|en", Key: "k", Lang: "en"}
-	buf, err := marshalAndEncrypt(doc, "x")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if isEncrypted(buf) {
-		t.Fatal("no global encryptor: must passthrough")
-	}
-}
-
-func TestMarshalAndEncryptFallbackWhenKeyMissing(t *testing.T) {
-	t.Setenv("MDDB_ENCRYPTION_KEY", "")
-	e, _ := NewEncryptor()
-	SetGlobalEncryptor(e)
-	defer SetGlobalEncryptor(nil)
-
-	doc := &storage.Doc{ID: "x|k|en", Key: "k", Lang: "en"}
-	buf, err := marshalAndEncrypt(doc, "x")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if isEncrypted(buf) {
-		t.Fatal("should fall back to plaintext when disabled")
 	}
 }

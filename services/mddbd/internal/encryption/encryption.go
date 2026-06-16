@@ -1,4 +1,4 @@
-package main
+package encryption
 
 import (
 	"bytes"
@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"mddb/internal/storage"
 	"os"
 	"strconv"
 	"strings"
@@ -31,15 +30,15 @@ import (
 // V1 ciphertexts are decrypted with the primary key — the assumption
 // is that pre-2.9.16 deployments only ever had one key.
 var (
-	encryptionMagicV1 = []byte("MDDB_ENC_V1\x00")
-	encryptionMagicV2 = []byte("MDDB_ENC_V2\x00")
+	MagicV1 = []byte("MDDB_ENC_V1\x00")
+	MagicV2 = []byte("MDDB_ENC_V2\x00")
 )
 
 const (
-	encryptionMagicLen = 12 // len(encryptionMagicV1) == len(encryptionMagicV2)
-	encryptionNonceLen = 12 // AES-GCM standard nonce length
-	encryptionKeyLen   = 32 // AES-256
-	encryptionKeyIDLen = 1  // V2 keyID is a single byte (1..255)
+	MagicLen = 12 // len(MagicV1) == len(MagicV2)
+	NonceLen = 12 // AES-GCM standard nonce length
+	KeyLen   = 32 // AES-256
+	KeyIDLen = 1  // V2 keyID is a single byte (1..255)
 )
 
 // previousKey is one entry of MDDB_ENCRYPTION_KEYS_PREVIOUS — a
@@ -131,8 +130,8 @@ func buildAEAD(rawBase64 string) (cipher.AEAD, error) {
 	if err != nil {
 		return nil, fmt.Errorf("base64 decode: %w", err)
 	}
-	if len(key) != encryptionKeyLen {
-		return nil, fmt.Errorf("want %d bytes (AES-256), got %d", encryptionKeyLen, len(key))
+	if len(key) != KeyLen {
+		return nil, fmt.Errorf("want %d bytes (AES-256), got %d", KeyLen, len(key))
 	}
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -240,13 +239,13 @@ func (e *Encryptor) EncryptAlways(plaintext []byte) ([]byte, error) {
 }
 
 func (e *Encryptor) sealRaw(plaintext []byte) ([]byte, error) {
-	nonce := make([]byte, encryptionNonceLen)
+	nonce := make([]byte, NonceLen)
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, fmt.Errorf("rand nonce: %w", err)
 	}
 	// V2: magic | keyID | nonce | ciphertext+tag
-	out := make([]byte, 0, encryptionMagicLen+encryptionKeyIDLen+encryptionNonceLen+len(plaintext)+e.primary.Overhead())
-	out = append(out, encryptionMagicV2...)
+	out := make([]byte, 0, MagicLen+KeyIDLen+NonceLen+len(plaintext)+e.primary.Overhead())
+	out = append(out, MagicV2...)
 	out = append(out, e.primaryID)
 	out = append(out, nonce...)
 	out = e.primary.Seal(out, nonce, plaintext, nil)
@@ -257,7 +256,7 @@ func (e *Encryptor) sealRaw(plaintext []byte) ([]byte, error) {
 // prefix, otherwise returns data as-is so legacy plaintext documents
 // keep reading after a collection is opted in.
 func (e *Encryptor) Decrypt(data []byte) ([]byte, error) {
-	switch ciphertextVersion(data) {
+	switch CiphertextVersion(data) {
 	case 0:
 		return data, nil // plaintext passthrough
 	case 1:
@@ -276,7 +275,7 @@ func (e *Encryptor) IsEncryptedWithPrimary(data []byte) bool {
 	if !e.Enabled() {
 		return false
 	}
-	id, ok := ciphertextKeyID(data)
+	id, ok := CiphertextKeyID(data)
 	if !ok {
 		return false
 	}
@@ -287,11 +286,11 @@ func (e *Encryptor) decryptV1(data []byte) ([]byte, error) {
 	if !e.Enabled() {
 		return nil, errors.New("encrypted payload but MDDB_ENCRYPTION_KEY not set")
 	}
-	if len(data) < encryptionMagicLen+encryptionNonceLen {
+	if len(data) < MagicLen+NonceLen {
 		return nil, errors.New("encrypted payload too short")
 	}
-	nonce := data[encryptionMagicLen : encryptionMagicLen+encryptionNonceLen]
-	ct := data[encryptionMagicLen+encryptionNonceLen:]
+	nonce := data[MagicLen : MagicLen+NonceLen]
+	ct := data[MagicLen+NonceLen:]
 	pt, err := e.primary.Open(nil, nonce, ct, nil)
 	if err != nil {
 		return nil, fmt.Errorf("decrypt v1: %w", err)
@@ -303,12 +302,12 @@ func (e *Encryptor) decryptV2(data []byte) ([]byte, error) {
 	if !e.Enabled() {
 		return nil, errors.New("encrypted payload but MDDB_ENCRYPTION_KEY not set")
 	}
-	if len(data) < encryptionMagicLen+encryptionKeyIDLen+encryptionNonceLen {
+	if len(data) < MagicLen+KeyIDLen+NonceLen {
 		return nil, errors.New("encrypted payload too short")
 	}
-	keyID := data[encryptionMagicLen]
-	nonce := data[encryptionMagicLen+encryptionKeyIDLen : encryptionMagicLen+encryptionKeyIDLen+encryptionNonceLen]
-	ct := data[encryptionMagicLen+encryptionKeyIDLen+encryptionNonceLen:]
+	keyID := data[MagicLen]
+	nonce := data[MagicLen+KeyIDLen : MagicLen+KeyIDLen+NonceLen]
+	ct := data[MagicLen+KeyIDLen+NonceLen:]
 
 	aead, err := e.lookupKey(keyID)
 	if err != nil {
@@ -335,79 +334,40 @@ func (e *Encryptor) lookupKey(id byte) (cipher.AEAD, error) {
 	return nil, fmt.Errorf("unknown encryption keyID %d", id)
 }
 
-// ciphertextVersion returns 1 for V1, 2 for V2, 0 for plaintext, -1
+// CiphertextVersion returns 1 for V1, 2 for V2, 0 for plaintext, -1
 // for "looks like an MDDB envelope but the version is unrecognised".
-func ciphertextVersion(data []byte) int {
-	if len(data) < encryptionMagicLen {
+func CiphertextVersion(data []byte) int {
+	if len(data) < MagicLen {
 		return 0
 	}
-	if bytes.Equal(data[:encryptionMagicLen], encryptionMagicV2) {
+	if bytes.Equal(data[:MagicLen], MagicV2) {
 		return 2
 	}
-	if bytes.Equal(data[:encryptionMagicLen], encryptionMagicV1) {
+	if bytes.Equal(data[:MagicLen], MagicV1) {
 		return 1
 	}
 	// Any other "MDDB_ENC_V*\x00" lookalike is treated as plaintext —
-	// callers that want strictness use ciphertextKeyID().
+	// callers that want strictness use CiphertextKeyID().
 	return 0
 }
 
-// ciphertextKeyID returns the V2 keyID. Returns (id, true) for V2,
+// CiphertextKeyID returns the V2 keyID. Returns (id, true) for V2,
 // (primaryID-marker, true) for V1 only when caller wraps in an
 // Encryptor method that knows the primary; here just (0, false) for
 // V1 because the helper is version-agnostic.
-func ciphertextKeyID(data []byte) (byte, bool) {
-	if ciphertextVersion(data) != 2 {
+func CiphertextKeyID(data []byte) (byte, bool) {
+	if CiphertextVersion(data) != 2 {
 		return 0, false
 	}
-	if len(data) < encryptionMagicLen+encryptionKeyIDLen {
+	if len(data) < MagicLen+KeyIDLen {
 		return 0, false
 	}
-	return data[encryptionMagicLen], true
+	return data[MagicLen], true
 }
 
-// isEncrypted reports whether data is a payload produced by sealRaw —
+// IsEncrypted reports whether data is a payload produced by sealRaw —
 // either the legacy V1 format or the current V2.
-func isEncrypted(data []byte) bool {
-	v := ciphertextVersion(data)
+func IsEncrypted(data []byte) bool {
+	v := CiphertextVersion(data)
 	return v == 1 || v == 2
-}
-
-// globalEncryptor is the process-wide singleton consulted by loadDoc
-// to transparently decrypt documents at read time. Set once at
-// startup from Server initialization; reads are lock-free because
-// the pointer is written before any goroutine that reads from it.
-var globalEncryptor *Encryptor
-
-// SetGlobalEncryptor wires the process-wide encryptor used by the
-// read path. Called exactly once at startup; tests pass nil to clear.
-func SetGlobalEncryptor(e *Encryptor) { globalEncryptor = e }
-
-// marshalAndEncrypt marshals a document and, when the given
-// collection is opted into at-rest encryption AND a key is loaded,
-// seals the resulting bytes before they reach the docs / rev buckets.
-// When encryption is off the behaviour is identical to marshalDoc.
-func marshalAndEncrypt(doc *storage.Doc, collection string) ([]byte, error) {
-	buf, err := marshalDoc(doc)
-	if err != nil {
-		return nil, err
-	}
-	if globalEncryptor == nil {
-		return buf, nil
-	}
-	return globalEncryptor.Encrypt(buf, collection)
-}
-
-// maybeDecrypt returns plaintext for data — transparently decrypting
-// when a magic prefix is present and passing plaintext through
-// otherwise. Safe to call when no encryptor is configured; such a
-// call only errors if the caller hands in ciphertext without a key.
-func maybeDecrypt(data []byte) ([]byte, error) {
-	if !isEncrypted(data) {
-		return data, nil
-	}
-	if globalEncryptor == nil {
-		return nil, errors.New("encrypted payload but encryptor not initialized")
-	}
-	return globalEncryptor.Decrypt(data)
 }

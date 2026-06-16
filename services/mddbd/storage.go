@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"mddb/internal/compression"
+	"mddb/internal/encryption"
 	"mddb/internal/storage"
 	pb "mddb/proto"
 
@@ -27,7 +28,7 @@ func marshalDoc(doc *storage.Doc) ([]byte, error) {
 // If data starts with the at-rest encryption magic prefix it is
 // transparently decrypted before decompression.
 func unmarshalDoc(data []byte) (*storage.Doc, error) {
-	if isEncrypted(data) {
+	if encryption.IsEncrypted(data) {
 		pt, err := maybeDecrypt(data)
 		if err != nil {
 			return nil, err
@@ -56,7 +57,7 @@ func loadDoc(data []byte) (*storage.Doc, error) {
 	if len(data) == 0 {
 		return nil, errors.New("empty document data")
 	}
-	if isEncrypted(data) {
+	if encryption.IsEncrypted(data) {
 		pt, err := maybeDecrypt(data)
 		if err != nil {
 			return nil, err

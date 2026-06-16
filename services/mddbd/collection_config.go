@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"mddb/internal/binlog"
+	"mddb/internal/encryption"
 	"net/http"
 	"sync"
 
@@ -58,7 +59,7 @@ type CollectionManager struct {
 	mu        sync.RWMutex
 	cache     map[string]*CollectionConfig
 	binlog    *binlog.Binlog
-	encryptor *Encryptor // optional; when set, cache changes are mirrored into it
+	encryptor *encryption.Encryptor // optional; when set, cache changes are mirrored into it
 }
 
 // NewCollectionManager creates a new collection config manager.
@@ -76,7 +77,7 @@ func (cm *CollectionManager) SetBinlog(bl *binlog.Binlog) {
 
 // SetEncryptor wires the at-rest encryptor so cache updates can keep
 // the encryptor's per-collection flag in sync with CollectionConfig.
-func (cm *CollectionManager) SetEncryptor(e *Encryptor) {
+func (cm *CollectionManager) SetEncryptor(e *encryption.Encryptor) {
 	cm.mu.Lock()
 	cm.encryptor = e
 	// Mirror existing cache into the encryptor on first wire-up.

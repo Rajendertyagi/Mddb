@@ -14,6 +14,7 @@ import (
 	"mddb/internal/compression"
 	"mddb/internal/delta"
 	"mddb/internal/embedding"
+	"mddb/internal/encryption"
 	"mddb/internal/envconf"
 	"mddb/internal/fts"
 	"mddb/internal/geo"
@@ -106,7 +107,7 @@ type Server struct {
 	AuthManager        *AuthManager              // Authentication and authorization
 	AuditManager       *audit.AuditManager       // Audit log (ISO 27001 A.8.15, SOC 2 CC7.2)
 	RateLimiter        *RateLimiter              // Cross-transport rate limiter (ISO 27001 A.5.30, SOC 2 CC6.6)
-	Encryptor          *Encryptor                // At-rest AES-256-GCM encryption (ISO 27001 A.8.24, SOC 2 CC6.7)
+	Encryptor          *encryption.Encryptor     // At-rest AES-256-GCM encryption (ISO 27001 A.8.24, SOC 2 CC6.7)
 	RotationManager    *RotationManager          // Background re-encryption after key rotation
 	AuthFailureTracker *AuthFailureTracker       // Sliding-window auth failure counter → security.auth_failure_burst
 	LagMonitor         *ReplicationLagMonitor    // Periodic replication-lag → ops.replication_lag_high
@@ -581,7 +582,7 @@ func main() {
 	// is a no-op when MDDB_ENCRYPTION_KEY is unset; a misconfigured key
 	// fatals to avoid silently storing plaintext for a collection that
 	// was explicitly opted in.
-	enc, err := NewEncryptor()
+	enc, err := encryption.NewEncryptor()
 	if err != nil {
 		log.Fatalf("encryption init: %v", err)
 	}
