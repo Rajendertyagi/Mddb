@@ -1,4 +1,4 @@
-package main
+package geo
 
 import (
 	"sort"
@@ -61,10 +61,10 @@ func (gi *GeoHashIndex) SetReady() { gi.ready.Store(true) }
 // slice is resorted on every insert, which is fine for bulk rebuilds
 // (hits happen in batch order) and acceptable for low-write workloads.
 func (gi *GeoHashIndex) Add(collection, docID string, lat, lng float64) {
-	if !validLatLng(lat, lng) {
+	if !ValidLatLng(lat, lng) {
 		return
 	}
-	hash := geohashEncode(lat, lng, geohashIndexPrecision)
+	hash := GeohashEncode(lat, lng, geohashIndexPrecision)
 	if hash == "" {
 		return
 	}
@@ -146,7 +146,7 @@ func (gi *GeoHashIndex) Len(collection string) int {
 // This is conceptually identical to how PostGIS GEOHASH_NEIGHBORS works,
 // just without the multi-level hierarchy caching.
 func (gi *GeoHashIndex) Search(collection string, lat, lng, radiusMeters float64, topK int, allowedDocIDs map[string]struct{}) []GeoResult {
-	if !validLatLng(lat, lng) || radiusMeters <= 0 || radiusMeters > maxGeoRadiusM {
+	if !ValidLatLng(lat, lng) || radiusMeters <= 0 || radiusMeters > maxGeoRadiusM {
 		return nil
 	}
 	if topK <= 0 {
@@ -161,7 +161,7 @@ func (gi *GeoHashIndex) Search(collection string, lat, lng, radiusMeters float64
 
 	// Pick the coarsest prefix whose cell is larger than 2×radius. This
 	// guarantees the 3×3 neighbour fan covers the whole search disk.
-	prefix := geohashEncode(lat, lng, geohashIndexPrecision)
+	prefix := GeohashEncode(lat, lng, geohashIndexPrecision)
 	coarseLen := len(prefix)
 	for coarseLen > 1 {
 		// approximate cell half-height in meters at this precision:
@@ -249,7 +249,7 @@ func (gi *GeoHashIndex) scanAllLocked(c *collectionGeoHashIndex, lat, lng, radiu
 // radius queries, while `within` on the R-tree index remains the
 // recommended bbox path.
 func (gi *GeoHashIndex) Within(collection string, minLat, maxLat, minLng, maxLng float64, allowedDocIDs map[string]struct{}) []GeoResult {
-	if !validLatLng(minLat, minLng) || !validLatLng(maxLat, maxLng) || minLat > maxLat || minLng > maxLng {
+	if !ValidLatLng(minLat, minLng) || !ValidLatLng(maxLat, maxLng) || minLat > maxLat || minLng > maxLng {
 		return nil
 	}
 	gi.mu.RLock()

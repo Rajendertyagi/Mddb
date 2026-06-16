@@ -1,4 +1,4 @@
-package main
+package geo
 
 import (
 	"bytes"
@@ -55,8 +55,8 @@ func (gs *GeoStore) Put(collection, docID string, lat, lng float64) error {
 		_ = gs.binlog.Append(&binlog.BinlogEntry{
 			Type:       binlog.BinlogPut,
 			BucketName: "geo",
-			Key:        CopyBytes(key),
-			Value:      CopyBytes(value),
+			Key:        bytes.Clone(key),
+			Value:      bytes.Clone(value),
 		})
 	}
 	return err
@@ -76,7 +76,7 @@ func (gs *GeoStore) Delete(collection, docID string) error {
 		_ = gs.binlog.Append(&binlog.BinlogEntry{
 			Type:       binlog.BinlogDelete,
 			BucketName: "geo",
-			Key:        CopyBytes(key),
+			Key:        bytes.Clone(key),
 		})
 	}
 	return err
@@ -94,7 +94,7 @@ func (gs *GeoStore) DeleteCollection(collection string) error {
 		c := b.Cursor()
 		var toDelete [][]byte
 		for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
-			toDelete = append(toDelete, CopyBytes(k))
+			toDelete = append(toDelete, bytes.Clone(k))
 		}
 		for _, k := range toDelete {
 			if err := b.Delete(k); err != nil {
@@ -104,7 +104,7 @@ func (gs *GeoStore) DeleteCollection(collection string) error {
 				_ = gs.binlog.Append(&binlog.BinlogEntry{
 					Type:       binlog.BinlogDelete,
 					BucketName: "geo",
-					Key:        CopyBytes(k),
+					Key:        bytes.Clone(k),
 				})
 			}
 		}

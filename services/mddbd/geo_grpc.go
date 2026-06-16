@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 
+	"mddb/internal/geo"
 	"mddb/proto"
 
 	bolt "go.etcd.io/bbolt"
@@ -23,7 +24,7 @@ func (g *GRPCServer) GeoSearch(ctx context.Context, req *proto.GeoSearchRequest)
 	if req.RadiusMeters <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "radius_meters must be > 0")
 	}
-	if !validLatLng(req.Lat, req.Lng) {
+	if !geo.ValidLatLng(req.Lat, req.Lng) {
 		return nil, status.Error(codes.InvalidArgument, "invalid lat/lng")
 	}
 	if g.server.GeoIndex == nil || !g.server.GeoIndex.IsReady() {
@@ -170,7 +171,7 @@ func (g *GRPCServer) GeoReindex(ctx context.Context, req *proto.GeoReindexReques
 	if len(req.LoadPostcodes) > 0 {
 		pc := g.server.GeoIndex.Postcodes()
 		if pc == nil {
-			pc = NewPostcodeLookup()
+			pc = geo.NewPostcodeLookup()
 			g.server.GeoIndex.SetPostcodes(pc)
 		}
 		for _, p := range req.LoadPostcodes {
@@ -198,14 +199,14 @@ func (g *GRPCServer) GeoReindex(ctx context.Context, req *proto.GeoReindexReques
 // GeoEncode implements the GeoEncode RPC.
 func (g *GRPCServer) GeoEncode(ctx context.Context, req *proto.GeoEncodeRequest) (*proto.GeoEncodeResponse, error) {
 	_ = ctx
-	if !validLatLng(req.Lat, req.Lng) {
+	if !geo.ValidLatLng(req.Lat, req.Lng) {
 		return nil, status.Error(codes.InvalidArgument, "invalid lat/lng")
 	}
 	prec := int(req.Precision)
 	if prec == 0 {
-		prec = geohashMaxPrecision
+		prec = geo.GeohashMaxPrecision
 	}
-	h := geohashEncode(req.Lat, req.Lng, prec)
+	h := geo.GeohashEncode(req.Lat, req.Lng, prec)
 	if h == "" {
 		return nil, status.Error(codes.Internal, "encoding failed")
 	}
@@ -218,11 +219,11 @@ func (g *GRPCServer) GeoDecode(ctx context.Context, req *proto.GeoDecodeRequest)
 	if req.Geohash == "" {
 		return nil, status.Error(codes.InvalidArgument, "missing geohash")
 	}
-	lat, lng, err := geohashDecode(req.Geohash)
+	lat, lng, err := geo.GeohashDecode(req.Geohash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	minLat, maxLat, minLng, maxLng, err := geohashBBox(req.Geohash)
+	minLat, maxLat, minLng, maxLng, err := geo.GeohashBBox(req.Geohash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}

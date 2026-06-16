@@ -1,4 +1,4 @@
-package main
+package geo
 
 // Pure-Go geohash encoder/decoder. Compatible with the canonical
 // geohash.org alphabet and bit-interleaving scheme:
@@ -18,7 +18,7 @@ import (
 
 const (
 	geohashAlphabet     = "0123456789bcdefghjkmnpqrstuvwxyz"
-	geohashMaxPrecision = 12
+	GeohashMaxPrecision = 12
 )
 
 // geohashAlphabetIndex maps each alphabet rune back to its 0..31 index.
@@ -34,18 +34,18 @@ func init() {
 	}
 }
 
-// geohashEncode converts (lat, lng) to a geohash string of the requested
+// GeohashEncode converts (lat, lng) to a geohash string of the requested
 // precision. Invalid coordinates or out-of-range precision return "".
 // Precision is clamped to [1, 12].
-func geohashEncode(lat, lng float64, precision int) string {
-	if !validLatLng(lat, lng) {
+func GeohashEncode(lat, lng float64, precision int) string {
+	if !ValidLatLng(lat, lng) {
 		return ""
 	}
 	if precision < 1 {
 		precision = 1
 	}
-	if precision > geohashMaxPrecision {
-		precision = geohashMaxPrecision
+	if precision > GeohashMaxPrecision {
+		precision = GeohashMaxPrecision
 	}
 	latMin, latMax := -90.0, 90.0
 	lngMin, lngMax := -180.0, 180.0
@@ -82,10 +82,10 @@ func geohashEncode(lat, lng float64, precision int) string {
 	return b.String()
 }
 
-// geohashDecode converts a geohash string back to the center (lat, lng)
+// GeohashDecode converts a geohash string back to the center (lat, lng)
 // of its cell. Returns an error on unknown characters. The returned
 // point is the centroid of the cell, not any corner.
-func geohashDecode(hash string) (float64, float64, error) {
+func GeohashDecode(hash string) (float64, float64, error) {
 	if hash == "" {
 		return 0, 0, errors.New("empty geohash")
 	}
@@ -125,10 +125,10 @@ func geohashDecode(hash string) (float64, float64, error) {
 	return (latMin + latMax) / 2, (lngMin + lngMax) / 2, nil
 }
 
-// geohashBBox returns the (minLat, maxLat, minLng, maxLng) bounding box
+// GeohashBBox returns the (minLat, maxLat, minLng, maxLng) bounding box
 // covered by a geohash cell. Used by the geohash index for bbox queries
 // and by `/v1/geo-decode?bbox=true` for introspection.
-func geohashBBox(hash string) (minLat, maxLat, minLng, maxLng float64, err error) {
+func GeohashBBox(hash string) (minLat, maxLat, minLng, maxLng float64, err error) {
 	if hash == "" {
 		return 0, 0, 0, 0, errors.New("empty geohash")
 	}
@@ -180,11 +180,11 @@ func extractGeoHash(meta map[string][]string) (float64, float64, bool) {
 	if len(vals) == 0 {
 		return 0, 0, false
 	}
-	lat, lng, err := geohashDecode(vals[0])
+	lat, lng, err := GeohashDecode(vals[0])
 	if err != nil {
 		return 0, 0, false
 	}
-	if !validLatLng(lat, lng) {
+	if !ValidLatLng(lat, lng) {
 		return 0, 0, false
 	}
 	return lat, lng, true

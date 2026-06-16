@@ -1,4 +1,4 @@
-package main
+package geo
 
 import (
 	"fmt"
@@ -11,7 +11,7 @@ import (
 // holds rings: the first ring is the polygon's outer boundary; any
 // subsequent rings are holes. Each ring is a closed line string —
 // [[lng,lat], [lng,lat], …, [lng,lat]] with the first and last point equal.
-// Callers may omit the closing point; validatePolygon tolerates both forms.
+// Callers may omit the closing point; ValidatePolygon tolerates both forms.
 type GeoJSONPolygon struct {
 	Type        string        `json:"type"`
 	Coordinates [][][]float64 `json:"coordinates"`
@@ -27,10 +27,10 @@ type GeoJSONMultiPolygon struct {
 
 // --- Validation ---
 
-// validatePolygon rejects malformed input before any index scan so the
+// ValidatePolygon rejects malformed input before any index scan so the
 // caller gets a clean 400 rather than silently empty results from an
 // unsatisfiable query.
-func validatePolygon(p *GeoJSONPolygon) error {
+func ValidatePolygon(p *GeoJSONPolygon) error {
 	if p == nil {
 		return fmt.Errorf("polygon is nil")
 	}
@@ -48,7 +48,7 @@ func validatePolygon(p *GeoJSONPolygon) error {
 			if len(pt) < 2 {
 				return fmt.Errorf("polygon ring %d point %d must have [lng, lat]", i, j)
 			}
-			if !validLatLng(pt[1], pt[0]) {
+			if !ValidLatLng(pt[1], pt[0]) {
 				return fmt.Errorf("polygon ring %d point %d has invalid lat/lng: %v", i, j, pt)
 			}
 		}
@@ -56,8 +56,8 @@ func validatePolygon(p *GeoJSONPolygon) error {
 	return nil
 }
 
-// validateMultiPolygon applies validatePolygon to every member.
-func validateMultiPolygon(mp *GeoJSONMultiPolygon) error {
+// ValidateMultiPolygon applies ValidatePolygon to every member.
+func ValidateMultiPolygon(mp *GeoJSONMultiPolygon) error {
 	if mp == nil {
 		return fmt.Errorf("multiPolygon is nil")
 	}
@@ -68,7 +68,7 @@ func validateMultiPolygon(mp *GeoJSONMultiPolygon) error {
 		return fmt.Errorf("multiPolygon.coordinates must have at least one polygon")
 	}
 	for i, poly := range mp.Coordinates {
-		if err := validatePolygon(&GeoJSONPolygon{Type: "Polygon", Coordinates: poly}); err != nil {
+		if err := ValidatePolygon(&GeoJSONPolygon{Type: "Polygon", Coordinates: poly}); err != nil {
 			return fmt.Errorf("polygon %d: %w", i, err)
 		}
 	}

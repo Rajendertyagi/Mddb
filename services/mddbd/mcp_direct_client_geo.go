@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"mddb/internal/geo"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -18,7 +19,7 @@ func (c *DirectClient) GeoSearch(ctx context.Context, req *MCPGeoSearchRequest) 
 	if req.RadiusMeters <= 0 {
 		return nil, errors.New("radiusMeters must be > 0")
 	}
-	if !validLatLng(req.Lat, req.Lng) {
+	if !geo.ValidLatLng(req.Lat, req.Lng) {
 		return nil, errors.New("invalid lat/lng")
 	}
 	algo := req.Algorithm
@@ -45,7 +46,7 @@ func (c *DirectClient) GeoSearch(ctx context.Context, req *MCPGeoSearchRequest) 
 		}
 	}
 
-	var hits []GeoResult
+	var hits []geo.GeoResult
 	switch algo {
 	case "geohash":
 		if s.GeoHashIndex == nil || !s.GeoHashIndex.IsReady() {
@@ -130,16 +131,16 @@ func (c *DirectClient) GeoStats(ctx context.Context) (*MCPGeoStatsResponse, erro
 }
 
 // GeoEncode returns the geohash for a (lat, lng) at the requested precision.
-// Precision is clamped to [1, 12] by geohashEncode.
+// Precision is clamped to [1, 12] by geo.GeohashEncode.
 func (c *DirectClient) GeoEncode(ctx context.Context, lat, lng float64, precision int) (string, error) {
 	_ = ctx
-	if !validLatLng(lat, lng) {
+	if !geo.ValidLatLng(lat, lng) {
 		return "", errors.New("invalid lat/lng")
 	}
 	if precision == 0 {
-		precision = geohashMaxPrecision
+		precision = geo.GeohashMaxPrecision
 	}
-	h := geohashEncode(lat, lng, precision)
+	h := geo.GeohashEncode(lat, lng, precision)
 	if h == "" {
 		return "", errors.New("encoding failed")
 	}
@@ -152,13 +153,13 @@ func (c *DirectClient) GeoDecode(ctx context.Context, hash string) (float64, flo
 	if hash == "" {
 		return 0, 0, errors.New("missing geohash")
 	}
-	return geohashDecode(hash)
+	return geo.GeohashDecode(hash)
 }
 
 // loadGeoResults hydrates R-tree / geohash candidate hits into MCP result
 // items by reading the underlying Doc from BoltDB. Shared between
 // GeoSearch and GeoWithin to avoid duplicate loops.
-func (c *DirectClient) loadGeoResults(collection string, hits []GeoResult, includeContent, includeDistance bool) []MCPGeoSearchResult {
+func (c *DirectClient) loadGeoResults(collection string, hits []geo.GeoResult, includeContent, includeDistance bool) []MCPGeoSearchResult {
 	if len(hits) == 0 {
 		return []MCPGeoSearchResult{}
 	}

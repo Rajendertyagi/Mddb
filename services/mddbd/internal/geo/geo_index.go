@@ -1,4 +1,4 @@
-package main
+package geo
 
 import (
 	"math"
@@ -94,7 +94,7 @@ func (gi *GeoIndex) Postcodes() *PostcodeLookup {
 // Add inserts or updates a single point. If the docID already exists it is
 // replaced, so the index stays consistent with document updates.
 func (gi *GeoIndex) Add(collection, docID string, lat, lng float64) {
-	if !validLatLng(lat, lng) {
+	if !ValidLatLng(lat, lng) {
 		return
 	}
 	gi.mu.Lock()
@@ -134,7 +134,7 @@ func (gi *GeoIndex) Remove(collection, docID string) {
 // order and adds the resulting point to the index:
 //
 //  1. Explicit geo_lat + geo_lng (float64 strings) — canonical, fastest.
-//  2. geo_hash — a canonical geohash string. Decoded via geohashDecode
+//  2. geo_hash — a canonical geohash string. Decoded via GeohashDecode
 //     to the centroid of the cell. This is a third ingest path beyond
 //     explicit coords and postcode fallback; useful for clients that
 //     only have a geohash from an upstream system.
@@ -166,7 +166,7 @@ func (gi *GeoIndex) AddFromMeta(collection, docID string, meta map[string][]stri
 // distance, truncated to topK. If allowedDocIDs is non-nil, only docs present
 // in that set are returned (used for FilterMeta / hybrid composition).
 func (gi *GeoIndex) Search(collection string, lat, lng, radiusMeters float64, topK int, allowedDocIDs map[string]struct{}) []GeoResult {
-	if !validLatLng(lat, lng) || radiusMeters <= 0 || radiusMeters > maxGeoRadiusM {
+	if !ValidLatLng(lat, lng) || radiusMeters <= 0 || radiusMeters > maxGeoRadiusM {
 		return nil
 	}
 	if topK <= 0 {
@@ -231,7 +231,7 @@ func (gi *GeoIndex) Search(collection string, lat, lng, radiusMeters float64, to
 // Within returns all docs whose point is inside the closed bbox
 // [minLat, maxLat] × [minLng, maxLng]. No ordering is applied.
 func (gi *GeoIndex) Within(collection string, minLat, maxLat, minLng, maxLng float64, allowedDocIDs map[string]struct{}) []GeoResult {
-	if !validLatLng(minLat, minLng) || !validLatLng(maxLat, maxLng) || minLat > maxLat || minLng > maxLng {
+	if !ValidLatLng(minLat, minLng) || !ValidLatLng(maxLat, maxLng) || minLat > maxLat || minLng > maxLng {
 		return nil
 	}
 	gi.mu.RLock()
@@ -318,14 +318,14 @@ func extractLatLng(meta map[string][]string) (float64, float64, bool) {
 	if err != nil {
 		return 0, 0, false
 	}
-	if !validLatLng(lat, lng) {
+	if !ValidLatLng(lat, lng) {
 		return 0, 0, false
 	}
 	return lat, lng, true
 }
 
-// validLatLng rejects NaN, Inf, and out-of-range coordinates.
-func validLatLng(lat, lng float64) bool {
+// ValidLatLng rejects NaN, Inf, and out-of-range coordinates.
+func ValidLatLng(lat, lng float64) bool {
 	if math.IsNaN(lat) || math.IsNaN(lng) || math.IsInf(lat, 0) || math.IsInf(lng, 0) {
 		return false
 	}

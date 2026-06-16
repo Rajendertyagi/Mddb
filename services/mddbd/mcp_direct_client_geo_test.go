@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"mddb/internal/geo"
 	"testing"
 )
 
@@ -167,8 +168,8 @@ func TestDirectClientGeoEncode_DefaultPrecision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(h) != geohashMaxPrecision {
-		t.Errorf("length=%d, want %d", len(h), geohashMaxPrecision)
+	if len(h) != geo.GeohashMaxPrecision {
+		t.Errorf("length=%d, want %d", len(h), geo.GeohashMaxPrecision)
 	}
 }
 

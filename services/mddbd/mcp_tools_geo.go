@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"mddb/internal/geo"
 )
 
 func (s *MCPToolServer) toolGeoSearch(ctx context.Context, args map[string]interface{}) (string, error) {
@@ -85,16 +86,16 @@ func (s *MCPToolServer) toolGeoPolygon(_ context.Context, args map[string]interf
 		}
 	}
 
-	var hits []GeoResult
+	var hits []geo.GeoResult
 	var shape string
 	if gotPolygon {
-		if err := validatePolygon(polygon); err != nil {
+		if err := geo.ValidatePolygon(polygon); err != nil {
 			return "", err
 		}
 		hits = dc.server.GeoIndex.SearchPolygon(collection, polygon.Coordinates, allowed)
 		shape = "polygon"
 	} else {
-		if err := validateMultiPolygon(multi); err != nil {
+		if err := geo.ValidateMultiPolygon(multi); err != nil {
 			return "", err
 		}
 		hits = dc.server.GeoIndex.SearchMultiPolygon(collection, multi.Coordinates, allowed)
@@ -114,9 +115,9 @@ func (s *MCPToolServer) toolGeoPolygon(_ context.Context, args map[string]interf
 }
 
 // extractPolygonArg coerces a JSON object coming off the MCP wire into the
-// GeoJSONPolygon shape the index layer expects. Returns (polygon, true) on
+// geo.GeoJSONPolygon shape the index layer expects. Returns (polygon, true) on
 // success; (nil, false) when the key is missing entirely.
-func extractPolygonArg(args map[string]interface{}, key string) (*GeoJSONPolygon, bool) {
+func extractPolygonArg(args map[string]interface{}, key string) (*geo.GeoJSONPolygon, bool) {
 	raw, ok := args[key]
 	if !ok || raw == nil {
 		return nil, false
@@ -125,7 +126,7 @@ func extractPolygonArg(args map[string]interface{}, key string) (*GeoJSONPolygon
 	if err != nil {
 		return nil, false
 	}
-	p := &GeoJSONPolygon{}
+	p := &geo.GeoJSONPolygon{}
 	if err := json.Unmarshal(buf, p); err != nil {
 		return nil, false
 	}
@@ -133,7 +134,7 @@ func extractPolygonArg(args map[string]interface{}, key string) (*GeoJSONPolygon
 }
 
 // extractMultiPolygonArg is the MultiPolygon counterpart of the helper above.
-func extractMultiPolygonArg(args map[string]interface{}, key string) (*GeoJSONMultiPolygon, bool) {
+func extractMultiPolygonArg(args map[string]interface{}, key string) (*geo.GeoJSONMultiPolygon, bool) {
 	raw, ok := args[key]
 	if !ok || raw == nil {
 		return nil, false
@@ -142,7 +143,7 @@ func extractMultiPolygonArg(args map[string]interface{}, key string) (*GeoJSONMu
 	if err != nil {
 		return nil, false
 	}
-	mp := &GeoJSONMultiPolygon{}
+	mp := &geo.GeoJSONMultiPolygon{}
 	if err := json.Unmarshal(buf, mp); err != nil {
 		return nil, false
 	}

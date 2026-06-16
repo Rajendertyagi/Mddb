@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"mddb/internal/fts"
+	"mddb/internal/geo"
 	"net/http"
 	"sort"
 	"time"
@@ -150,7 +151,7 @@ func (s *Server) handleHybridSearch(w http.ResponseWriter, r *http.Request) {
 			bad(w, errors.New("geo index not ready"))
 			return
 		}
-		if !validLatLng(req.Geo.Lat, req.Geo.Lng) || req.Geo.RadiusMeters <= 0 {
+		if !geo.ValidLatLng(req.Geo.Lat, req.Geo.Lng) || req.Geo.RadiusMeters <= 0 {
 			bad(w, errors.New("invalid geo filter: lat/lng/radiusMeters"))
 			return
 		}

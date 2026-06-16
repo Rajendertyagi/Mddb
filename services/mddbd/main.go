@@ -15,6 +15,7 @@ import (
 	"mddb/internal/embedding"
 	"mddb/internal/envconf"
 	"mddb/internal/fts"
+	"mddb/internal/geo"
 	"mddb/internal/sliceutil"
 	"net/http"
 	"os"
@@ -83,9 +84,9 @@ type Server struct {
 	EmbeddingWorker   *EmbeddingWorker          // Background embedding processor
 	Embedding         embedding.Provider        // Embedding generation provider
 	// Geo search
-	GeoStore     *GeoStore     // Persistent geo points in BoltDB ("geo" bucket)
-	GeoIndex     *GeoIndex     // In-memory R-tree geo index (default)
-	GeoHashIndex *GeoHashIndex // Alternative geohash-prefix index
+	GeoStore     *geo.GeoStore     // Persistent geo points in BoltDB ("geo" bucket)
+	GeoIndex     *geo.GeoIndex     // In-memory R-tree geo index (default)
+	GeoHashIndex *geo.GeoHashIndex // Alternative geohash-prefix index
 	// New features
 	TTLManager         *TTLManager            // Document TTL / auto-expiry
 	FTSIndex           *fts.FTSIndex          // Full-text search index
@@ -326,12 +327,12 @@ func main() {
 	// Both indexes share the same "geo" bucket in BoltDB — they're two views
 	// of the same underlying data, picked by the /v1/geo-search?algorithm=...
 	// parameter at query time.
-	s.GeoStore = NewGeoStore(db)
+	s.GeoStore = geo.NewGeoStore(db)
 	if err := s.GeoStore.EnsureBucket(); err != nil {
 		log.Fatal(err)
 	}
-	s.GeoIndex = NewGeoIndex()
-	s.GeoHashIndex = NewGeoHashIndex()
+	s.GeoIndex = geo.NewGeoIndex()
+	s.GeoHashIndex = geo.NewGeoHashIndex()
 	bqRerank := srvCfg.Vector.BQRerankFactor
 	if bqRerank <= 0 {
 		bqRerank = 10

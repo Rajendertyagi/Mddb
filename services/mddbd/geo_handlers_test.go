@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"mddb/internal/cache"
+	"mddb/internal/geo"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -41,14 +42,14 @@ func newTestServerForGeo(t *testing.T) (*Server, func()) {
 		_ = db.Close()
 		t.Fatal(err)
 	}
-	s.GeoStore = NewGeoStore(db)
+	s.GeoStore = geo.NewGeoStore(db)
 	if err := s.GeoStore.EnsureBucket(); err != nil {
 		_ = db.Close()
 		t.Fatal(err)
 	}
-	s.GeoIndex = NewGeoIndex()
+	s.GeoIndex = geo.NewGeoIndex()
 	s.GeoIndex.SetReady()
-	s.GeoHashIndex = NewGeoHashIndex()
+	s.GeoHashIndex = geo.NewGeoHashIndex()
 	s.GeoHashIndex.SetReady()
 	return s, func() { _ = db.Close() }
 }
@@ -106,7 +107,7 @@ func TestHandleGeoSearch_IndexNotReady(t *testing.T) {
 	s, cleanup := newTestServerForGeo(t)
 	defer cleanup()
 	// Reset ready flag on a fresh index.
-	s.GeoIndex = NewGeoIndex()
+	s.GeoIndex = geo.NewGeoIndex()
 	body := []byte(`{"collection":"v","lat":52,"lng":13,"radiusMeters":1000}`)
 	req := httptest.NewRequest(http.MethodPost, "/v1/geo-search", bytes.NewReader(body))
 	w := httptest.NewRecorder()

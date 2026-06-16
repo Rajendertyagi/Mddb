@@ -1,4 +1,4 @@
-package main
+package geo
 
 import (
 	"encoding/csv"
@@ -75,7 +75,7 @@ func (pl *PostcodeLookup) loadFromReader(country string, r io.Reader) (int, erro
 		if err != nil {
 			return 0, fmt.Errorf("csv row %d: lng: %w", row, err)
 		}
-		if !validLatLng(lat, lng) {
+		if !ValidLatLng(lat, lng) {
 			continue
 		}
 		table[postcode] = [2]float64{lat, lng}

@@ -1,4 +1,4 @@
-package main
+package geo
 
 import (
 	"fmt"
@@ -54,8 +54,8 @@ func TestValidLatLng(t *testing.T) {
 		{0, math.Inf(1), false},
 	}
 	for _, c := range cases {
-		if got := validLatLng(c.lat, c.lng); got != c.ok {
-			t.Errorf("validLatLng(%v, %v) = %v, want %v", c.lat, c.lng, got, c.ok)
+		if got := ValidLatLng(c.lat, c.lng); got != c.ok {
+			t.Errorf("ValidLatLng(%v, %v) = %v, want %v", c.lat, c.lng, got, c.ok)
 		}
 	}
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"mddb/internal/geo"
 	"net/http"
 	"time"
 
@@ -87,11 +88,11 @@ type GeoWithinResponse struct {
 // present the handler returns 400 so callers don't accidentally receive
 // an intersection-of-whatever-we-felt-like-picking result.
 type GeoPolygonRequest struct {
-	Collection     string               `json:"collection"`
-	Polygon        *GeoJSONPolygon      `json:"polygon,omitempty"`
-	MultiPolygon   *GeoJSONMultiPolygon `json:"multiPolygon,omitempty"`
-	FilterMeta     map[string][]string  `json:"filterMeta,omitempty"`
-	IncludeContent bool                 `json:"includeContent,omitempty"`
+	Collection     string                   `json:"collection"`
+	Polygon        *geo.GeoJSONPolygon      `json:"polygon,omitempty"`
+	MultiPolygon   *geo.GeoJSONMultiPolygon `json:"multiPolygon,omitempty"`
+	FilterMeta     map[string][]string      `json:"filterMeta,omitempty"`
+	IncludeContent bool                     `json:"includeContent,omitempty"`
 }
 
 // GeoPolygonResponse is returned from /v1/geo-polygon.
@@ -150,7 +151,7 @@ func (s *Server) handleGeoSearch(w http.ResponseWriter, r *http.Request) {
 		bad(w, errors.New("radiusMeters must be > 0"))
 		return
 	}
-	if !validLatLng(req.Lat, req.Lng) {
+	if !geo.ValidLatLng(req.Lat, req.Lng) {
 		bad(w, errors.New("invalid lat/lng"))
 		return
 	}
@@ -181,7 +182,7 @@ func (s *Server) handleGeoSearch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var hits []GeoResult
+	var hits []geo.GeoResult
 	switch algo {
 	case "geohash":
 		if s.GeoHashIndex == nil || !s.GeoHashIndex.IsReady() {
@@ -209,15 +210,15 @@ func (s *Server) handleGeoEncode(w http.ResponseWriter, r *http.Request) {
 		bad(w, err)
 		return
 	}
-	if !validLatLng(req.Lat, req.Lng) {
+	if !geo.ValidLatLng(req.Lat, req.Lng) {
 		bad(w, errors.New("invalid lat/lng"))
 		return
 	}
 	prec := req.Precision
 	if prec == 0 {
-		prec = geohashMaxPrecision
+		prec = geo.GeohashMaxPrecision
 	}
-	h := geohashEncode(req.Lat, req.Lng, prec)
+	h := geo.GeohashEncode(req.Lat, req.Lng, prec)
 	if h == "" {
 		bad(w, errors.New("encoding failed"))
 		return
@@ -236,12 +237,12 @@ func (s *Server) handleGeoDecode(w http.ResponseWriter, r *http.Request) {
 		bad(w, errors.New("missing geohash"))
 		return
 	}
-	lat, lng, err := geohashDecode(req.Geohash)
+	lat, lng, err := geo.GeohashDecode(req.Geohash)
 	if err != nil {
 		bad(w, err)
 		return
 	}
-	minLat, maxLat, minLng, maxLng, err := geohashBBox(req.Geohash)
+	minLat, maxLat, minLng, maxLng, err := geo.GeohashBBox(req.Geohash)
 	if err != nil {
 		bad(w, err)
 		return
@@ -320,12 +321,12 @@ func (s *Server) handleGeoPolygon(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Polygon != nil {
-		if err := validatePolygon(req.Polygon); err != nil {
+		if err := geo.ValidatePolygon(req.Polygon); err != nil {
 			bad(w, err)
 			return
 		}
 	} else {
-		if err := validateMultiPolygon(req.MultiPolygon); err != nil {
+		if err := geo.ValidateMultiPolygon(req.MultiPolygon); err != nil {
 			bad(w, err)
 			return
 		}
@@ -354,7 +355,7 @@ func (s *Server) handleGeoPolygon(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var hits []GeoResult
+	var hits []geo.GeoResult
 	var shape string
 	if req.Polygon != nil {
 		hits = s.GeoIndex.SearchPolygon(req.Collection, req.Polygon.Coordinates, allowed)
@@ -401,7 +402,7 @@ func (s *Server) handleGeoReindex(w http.ResponseWriter, r *http.Request) {
 	if len(req.LoadPostcodes) > 0 {
 		pc := s.GeoIndex.Postcodes()
 		if pc == nil {
-			pc = NewPostcodeLookup()
+			pc = geo.NewPostcodeLookup()
 			s.GeoIndex.SetPostcodes(pc)
 		}
 		for _, p := range req.LoadPostcodes {
@@ -463,11 +464,11 @@ func (s *Server) handleGeoStats(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// hydrateGeoResults turns raw GeoResult entries into GeoSearchResultItems by
+// hydrateGeoResults turns raw geo.GeoResult entries into GeoSearchResultItems by
 // loading the underlying Doc from BoltDB. If includeContent is false, the
 // ContentMd field is stripped to keep responses small (matches the pattern
 // used by vector/FTS handlers).
-func (s *Server) hydrateGeoResults(collection string, hits []GeoResult, includeContent, includeDistance bool) []GeoSearchResultItem {
+func (s *Server) hydrateGeoResults(collection string, hits []geo.GeoResult, includeContent, includeDistance bool) []GeoSearchResultItem {
 	if len(hits) == 0 {
 		return []GeoSearchResultItem{}
 	}
