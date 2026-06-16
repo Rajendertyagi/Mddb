@@ -339,7 +339,7 @@ func (rc *ReplicationClient) replaceDatabase(snapshotPath string) error {
 // MUST be called while holding the restore write lock (see requestSnapshot):
 // it reads the freshly swapped rc.server.DB and re-points the caches/managers.
 // The managers and cache are reloaded IN PLACE (same pointers) so concurrent
-// readers of Server.WebhookManager / SchemaManager / Cache never see a swapped
+// readers of Server.WebhookManager / schema.SchemaManager / Cache never see a swapped
 // field (GO-004). The manager reload helpers use their own (lowercase) db
 // handle, not DBView/DBUpdate, so they don't re-enter the restore lock.
 func (rc *ReplicationClient) rebuildInMemoryState() {
@@ -360,7 +360,7 @@ func (rc *ReplicationClient) rebuildInMemoryState() {
 
 	// Reload schemas in place.
 	if rc.server.SchemaManager != nil {
-		if err := rc.server.SchemaManager.reload(rc.server.DB); err != nil {
+		if err := rc.server.SchemaManager.Reload(rc.server.DB); err != nil {
 			log.Printf("Replication: schema reload after snapshot failed: %v", err)
 		}
 	}

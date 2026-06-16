@@ -1,12 +1,11 @@
-package main
+package schema
 
 import (
-	"errors"
+	"bytes"
 	"fmt"
-	"io"
 	"mddb/internal/binlog"
-	"net/http"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -55,11 +54,11 @@ func NewSchemaManager(db *bolt.DB) *SchemaManager {
 	}
 }
 
-// reload re-points the manager at a freshly restored database, drops the cached
+// Reload re-points the manager at a freshly restored database, drops the cached
 // schemas and reloads them (GO-004). Keeping the same *SchemaManager (rather
 // than swapping Server.SchemaManager) avoids racing the field with readers; the
 // db handle and schema map are reset under the manager's own lock.
-func (sm *SchemaManager) reload(db *bolt.DB) error {
+func (sm *SchemaManager) Reload(db *bolt.DB) error {
 	sm.mu.Lock()
 	sm.db = db
 	sm.schemas = make(map[string]*MetaSchema)
@@ -117,7 +116,7 @@ func (sm *SchemaManager) Set(collection, schemaJSON string) error {
 	}
 
 	if sm.binlog != nil {
-		_ = sm.binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogPut, BucketName: "schemas", Key: CopyBytes(key), Value: CopyBytes(val)})
+		_ = sm.binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogPut, BucketName: "schemas", Key: bytes.Clone(key), Value: bytes.Clone(val)})
 	}
 
 	sm.mu.Lock()
@@ -148,7 +147,7 @@ func (sm *SchemaManager) Delete(collection string) error {
 	}
 
 	if sm.binlog != nil {
-		_ = sm.binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogDelete, BucketName: "schemas", Key: CopyBytes(key)})
+		_ = sm.binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogDelete, BucketName: "schemas", Key: bytes.Clone(key)})
 	}
 
 	sm.mu.Lock()
@@ -248,7 +247,7 @@ func validateMeta(schema *MetaSchema, meta map[string][]string) error {
 			}
 			// Enum validation
 			if len(prop.Enum) > 0 {
-				if !contains(prop.Enum, v) {
+				if !slices.Contains(prop.Enum, v) {
 					errs = append(errs, fmt.Sprintf("field %q value %q not in allowed values %v", key, v, prop.Enum))
 				}
 			}
@@ -287,123 +286,4 @@ func validateType(key, value, expectedType string) string {
 		}
 	}
 	return ""
-}
-
-func contains(slice []string, val string) bool {
-	for _, s := range slice {
-		if s == val {
-			return true
-		}
-	}
-	return false
-}
-
-// --- HTTP Handlers ---
-
-func (s *Server) handleSchemaSet(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Collection string `json:"collection"`
-		Schema     string `json:"schema"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		bad(w, err)
-		return
-	}
-	if req.Collection == "" {
-		bad(w, errors.New("missing collection"))
-		return
-	}
-	if req.Schema == "" {
-		bad(w, errors.New("missing schema"))
-		return
-	}
-	if err := s.SchemaManager.Set(req.Collection, req.Schema); err != nil {
-		bad(w, err)
-		return
-	}
-	ok(w, map[string]string{"status": "ok", "collection": req.Collection})
-}
-
-func (s *Server) handleSchemaGet(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Collection string `json:"collection"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		bad(w, err)
-		return
-	}
-	if req.Collection == "" {
-		bad(w, errors.New("missing collection"))
-		return
-	}
-	raw, found := s.SchemaManager.Get(req.Collection)
-	ok(w, map[string]interface{}{
-		"collection": req.Collection,
-		"schema":     raw,
-		"enabled":    found,
-	})
-}
-
-func (s *Server) handleSchemaDelete(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Collection string `json:"collection"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		bad(w, err)
-		return
-	}
-	if req.Collection == "" {
-		bad(w, errors.New("missing collection"))
-		return
-	}
-	if err := s.SchemaManager.Delete(req.Collection); err != nil {
-		bad(w, err)
-		return
-	}
-	ok(w, map[string]string{"status": "ok", "collection": req.Collection})
-}
-
-func (s *Server) handleSchemaList(w http.ResponseWriter, r *http.Request) {
-	// Drain body to avoid issues
-	_, _ = io.Copy(io.Discard, r.Body)
-	schemas := s.SchemaManager.List()
-	type schemaInfo struct {
-		Collection string `json:"collection"`
-		Schema     string `json:"schema"`
-	}
-	var result []schemaInfo
-	for col, raw := range schemas {
-		result = append(result, schemaInfo{Collection: col, Schema: raw})
-	}
-	if result == nil {
-		result = []schemaInfo{}
-	}
-	ok(w, map[string]interface{}{"schemas": result})
-}
-
-func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Collection string              `json:"collection"`
-		Meta       map[string][]string `json:"meta"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		bad(w, err)
-		return
-	}
-	if req.Collection == "" {
-		bad(w, errors.New("missing collection"))
-		return
-	}
-	err := s.SchemaManager.Validate(req.Collection, req.Meta)
-	if err != nil {
-		ok(w, map[string]interface{}{
-			"valid":  false,
-			"errors": strings.Split(err.Error(), "; "),
-		})
-		return
-	}
-	ok(w, map[string]interface{}{
-		"valid":  true,
-		"errors": []string{},
-	})
 }

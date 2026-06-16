@@ -2,6 +2,7 @@ package main
 
 import (
 	"mddb/internal/cache"
+	"mddb/internal/schema"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -177,7 +178,7 @@ func TestRebuildInMemoryState_InPlace(t *testing.T) {
 
 	cache := cache.NewDocumentCache(10, 60)
 	t.Cleanup(cache.Close)
-	sm := NewSchemaManager(db)
+	sm := schema.NewSchemaManager(db)
 	if err := sm.EnsureBucket(); err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +202,7 @@ func TestRebuildInMemoryState_InPlace(t *testing.T) {
 		t.Error("Cache pointer was swapped (expected in-place Clear)")
 	}
 	if s.SchemaManager != sm {
-		t.Error("SchemaManager pointer was swapped (expected in-place reload)")
+		t.Error("schema.SchemaManager pointer was swapped (expected in-place reload)")
 	}
 	if s.WebhookManager != wm {
 		t.Error("WebhookManager pointer was swapped (expected in-place reload)")
@@ -216,7 +217,7 @@ func TestRebuildInMemoryState_InPlace(t *testing.T) {
 func TestSchemaManagerReload_RepointsDB(t *testing.T) {
 	dir := t.TempDir()
 	db1 := openDocsDB(t, filepath.Join(dir, "1.db"))
-	sm := NewSchemaManager(db1)
+	sm := schema.NewSchemaManager(db1)
 	if err := sm.EnsureBucket(); err != nil {
 		t.Fatal(err)
 	}
@@ -228,7 +229,7 @@ func TestSchemaManagerReload_RepointsDB(t *testing.T) {
 	// A second DB with no schemas — after reload, the blog schema must be gone.
 	db2 := openDocsDB(t, filepath.Join(dir, "2.db"))
 	t.Cleanup(func() { _ = db2.Close() })
-	if err := sm.reload(db2); err != nil {
+	if err := sm.Reload(db2); err != nil {
 		t.Fatalf("reload: %v", err)
 	}
 	if _, found := sm.Get("blog"); found {

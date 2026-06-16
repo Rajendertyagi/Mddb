@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mddb/internal/schema"
 	"mddb/internal/vector"
 	"net/http"
 	"net/http/httptest"
@@ -49,7 +50,7 @@ func newTestServerForMetrics(t *testing.T) (*Server, func()) {
 	s.WebhookManager = NewWebhookManager(db)
 	_ = s.WebhookManager.EnsureBucket()
 	_ = s.WebhookManager.LoadAll()
-	s.SchemaManager = NewSchemaManager(db)
+	s.SchemaManager = schema.NewSchemaManager(db)
 	_ = s.SchemaManager.EnsureBucket()
 	_ = s.SchemaManager.LoadAll()
 
@@ -318,7 +319,7 @@ func BenchmarkMetricsHandler(b *testing.B) {
 	s.WebhookManager = NewWebhookManager(db)
 	_ = s.WebhookManager.EnsureBucket()
 	_ = s.WebhookManager.LoadAll()
-	s.SchemaManager = NewSchemaManager(db)
+	s.SchemaManager = schema.NewSchemaManager(db)
 	_ = s.SchemaManager.EnsureBucket()
 	_ = s.SchemaManager.LoadAll()
 	s.Metrics = NewMetrics(s, true)

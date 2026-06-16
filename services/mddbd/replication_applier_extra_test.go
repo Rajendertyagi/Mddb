@@ -3,6 +3,7 @@ package main
 import (
 	"mddb/internal/binlog"
 	"mddb/internal/cache"
+	"mddb/internal/schema"
 	"mddb/internal/vector"
 	"os"
 	"testing"
@@ -10,7 +11,7 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-// applierExtraTestServer creates a Server with VectorIndex, WebhookManager, SchemaManager, and Cache
+// applierExtraTestServer creates a Server with VectorIndex, WebhookManager, schema.SchemaManager, and Cache
 // for comprehensive applier tests.
 func applierExtraTestServer(t *testing.T) (*Server, func()) {
 	t.Helper()
@@ -64,8 +65,8 @@ func applierExtraTestServer(t *testing.T) (*Server, func()) {
 	s.WebhookManager = NewWebhookManager(db)
 	_ = s.WebhookManager.EnsureBucket()
 
-	// SchemaManager
-	s.SchemaManager = NewSchemaManager(db)
+	// schema.SchemaManager
+	s.SchemaManager = schema.NewSchemaManager(db)
 	_ = s.SchemaManager.EnsureBucket()
 
 	cleanup := func() {

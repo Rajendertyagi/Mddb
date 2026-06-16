@@ -6,6 +6,7 @@ import (
 	"io"
 	"mddb/internal/cache"
 	"mddb/internal/fts"
+	"mddb/internal/schema"
 	"mddb/internal/vector"
 	"net/http"
 	"net/http/httptest"
@@ -20,7 +21,7 @@ import (
 
 // newHandlerTestServer creates a fully-initialised Server suitable for HTTP
 // handler tests.  Every subsystem that the handlers touch (Cache, FTSIndex,
-// TTLManager, WebhookManager, SchemaManager, Metrics, VectorStore,
+// TTLManager, WebhookManager, schema.SchemaManager, Metrics, VectorStore,
 // VectorIndex) is wired up so that no nil-pointer panics occur.
 func newHandlerTestServer(t *testing.T) (*Server, func()) {
 	t.Helper()
@@ -99,7 +100,7 @@ func newHandlerTestServer(t *testing.T) (*Server, func()) {
 	}
 
 	// Schema
-	s.SchemaManager = NewSchemaManager(db)
+	s.SchemaManager = schema.NewSchemaManager(db)
 	if err := s.SchemaManager.EnsureBucket(); err != nil {
 		_ = db.Close()
 		_ = os.Remove(f.Name())

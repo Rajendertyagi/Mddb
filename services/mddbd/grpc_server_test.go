@@ -13,6 +13,7 @@ import (
 
 	"mddb/internal/cache"
 	"mddb/internal/fts"
+	"mddb/internal/schema"
 	"mddb/internal/vector"
 	pb "mddb/proto"
 )
@@ -20,7 +21,7 @@ import (
 // newTestGRPCServer creates a fully-initialised GRPCServer suitable for tests.
 // It opens a temp BoltDB, creates all required buckets, and wires up the
 // subsystems that gRPC methods depend on (Cache, FTSIndex, IndexQueue,
-// SchemaManager, WebhookManager, VectorStore, VectorIndex, TTLManager, Metrics).
+// schema.SchemaManager, WebhookManager, VectorStore, VectorIndex, TTLManager, Metrics).
 // The returned cleanup function must be deferred by the caller.
 func newTestGRPCServer(t *testing.T) (*GRPCServer, *Server, func()) {
 	t.Helper()
@@ -108,7 +109,7 @@ func newTestGRPCServer(t *testing.T) (*GRPCServer, *Server, func()) {
 	}
 
 	// Schema
-	s.SchemaManager = NewSchemaManager(db)
+	s.SchemaManager = schema.NewSchemaManager(db)
 	if err := s.SchemaManager.EnsureBucket(); err != nil {
 		_ = db.Close()
 		t.Fatal(err)

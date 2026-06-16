@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"mddb/internal/cache"
+	"mddb/internal/schema"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -56,8 +57,8 @@ func ttlExtraTestServer(t *testing.T) (*Server, func()) {
 
 	// IndexQueue needed for addDocument
 	s.IndexQueue = NewIndexQueue(s, 2)
-	// SchemaManager
-	s.SchemaManager = NewSchemaManager(db)
+	// schema.SchemaManager
+	s.SchemaManager = schema.NewSchemaManager(db)
 	_ = s.SchemaManager.EnsureBucket()
 
 	// Metrics

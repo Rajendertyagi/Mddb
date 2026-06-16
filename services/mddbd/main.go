@@ -16,6 +16,7 @@ import (
 	"mddb/internal/envconf"
 	"mddb/internal/fts"
 	"mddb/internal/geo"
+	"mddb/internal/schema"
 	"mddb/internal/sliceutil"
 	"mddb/internal/spell"
 	"mddb/internal/temporal"
@@ -94,7 +95,7 @@ type Server struct {
 	TTLManager         *TTLManager               // Document TTL / auto-expiry
 	FTSIndex           *fts.FTSIndex             // Full-text search index
 	WebhookManager     *WebhookManager           // Webhook subscriptions and delivery
-	SchemaManager      *SchemaManager            // Per-collection metadata schema validation
+	SchemaManager      *schema.SchemaManager     // Per-collection metadata schema validation
 	Metrics            *Metrics                  // Prometheus-compatible telemetry
 	AuthManager        *AuthManager              // Authentication and authorization
 	AuditManager       *AuditManager             // Audit log (ISO 27001 A.8.15, SOC 2 CC7.2)
@@ -562,7 +563,7 @@ func main() {
 	}
 
 	// Initialize schema manager
-	s.SchemaManager = NewSchemaManager(db)
+	s.SchemaManager = schema.NewSchemaManager(db)
 	if err := s.SchemaManager.EnsureBucket(); err != nil {
 		log.Fatal(err)
 	}

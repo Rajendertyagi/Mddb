@@ -2,6 +2,7 @@ package main
 
 import (
 	"mddb/internal/cache"
+	"mddb/internal/schema"
 	"mddb/internal/vector"
 	"os"
 	"testing"
@@ -332,7 +333,7 @@ func TestReplicationClientRebuildInMemoryState(t *testing.T) {
 	}
 	s.WebhookManager = NewWebhookManager(s.DB)
 	_ = s.WebhookManager.EnsureBucket()
-	s.SchemaManager = NewSchemaManager(s.DB)
+	s.SchemaManager = schema.NewSchemaManager(s.DB)
 	_ = s.SchemaManager.EnsureBucket()
 	s.Cache = cache.NewDocumentCache(100, 60)
 
@@ -352,7 +353,7 @@ func TestReplicationClientRebuildInMemoryState(t *testing.T) {
 		t.Error("expected WebhookManager to be rebuilt")
 	}
 	if s.SchemaManager == nil {
-		t.Error("expected SchemaManager to be rebuilt")
+		t.Error("expected schema.SchemaManager to be rebuilt")
 	}
 	if s.Cache == nil {
 		t.Error("expected Cache to be rebuilt")
