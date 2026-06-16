@@ -6,6 +6,7 @@ import (
 	"io"
 	"mddb/internal/cache"
 	"mddb/internal/fts"
+	"mddb/internal/metrics"
 	"mddb/internal/schema"
 	"mddb/internal/storage"
 	"mddb/internal/vector"
@@ -114,7 +115,7 @@ func newHandlerTestServer(t *testing.T) (*Server, func()) {
 	}
 
 	// Metrics (disabled in tests — avoids goroutines)
-	s.Metrics = NewMetrics(s, false)
+	s.Metrics = metrics.NewMetrics(false, &serverMetricsStats{s: s})
 
 	cleanup := func() {
 		_ = db.Close()

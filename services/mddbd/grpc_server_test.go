@@ -13,6 +13,7 @@ import (
 
 	"mddb/internal/cache"
 	"mddb/internal/fts"
+	"mddb/internal/metrics"
 	"mddb/internal/schema"
 	"mddb/internal/storage"
 	"mddb/internal/vector"
@@ -121,7 +122,7 @@ func newTestGRPCServer(t *testing.T) (*GRPCServer, *Server, func()) {
 	}
 
 	// Metrics (disabled)
-	s.Metrics = NewMetrics(s, false)
+	s.Metrics = metrics.NewMetrics(false, &serverMetricsStats{s: s})
 
 	gs := NewGRPCServer(s)
 

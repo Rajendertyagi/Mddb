@@ -435,23 +435,6 @@ func TestDeduplicateChunkResultsCB2(t *testing.T) {
 // metrics.go — pure helper functions
 // ---------------------------------------------------------------------------
 
-func TestNormalizePathCB2(t *testing.T) {
-	tests := []struct {
-		in, want string
-	}{
-		{"/v1/docs", "/v1/docs"},
-		{"/health", "/health"},
-		{"/metrics", "/metrics"},
-		{"/random", "/other"},
-		{"/api/foo", "/other"},
-	}
-	for _, tc := range tests {
-		if got := normalizePath(tc.in); got != tc.want {
-			t.Errorf("normalizePath(%q) = %q, want %q", tc.in, got, tc.want)
-		}
-	}
-}
-
 func TestExtractCollectionCB2(t *testing.T) {
 	tests := []struct {
 		in   []byte
@@ -463,8 +446,8 @@ func TestExtractCollectionCB2(t *testing.T) {
 		{[]byte("one|only"), "only"},
 	}
 	for _, tc := range tests {
-		if got := extractCollection(tc.in); got != tc.want {
-			t.Errorf("extractCollection(%q) = %q, want %q", tc.in, got, tc.want)
+		if got := metricsExtractCollection(tc.in); got != tc.want {
+			t.Errorf("metricsExtractCollection(%q) = %q, want %q", tc.in, got, tc.want)
 		}
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"mddb/internal/binlog"
+	"mddb/internal/metrics"
 	"mddb/internal/storage"
 	"net/http"
 	"sync"
@@ -45,7 +46,7 @@ type WebhookManager struct {
 	mu      sync.RWMutex
 	hooks   []Webhook
 	binlog  *binlog.Binlog
-	metrics *Metrics
+	metrics *metrics.Metrics
 }
 
 // SetBinlog sets the binlog for replication logging.

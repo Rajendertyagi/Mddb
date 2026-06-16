@@ -1,17 +1,13 @@
-package main
+package metrics
 
 import (
-	"bytes"
 	"fmt"
 	"net/http"
-	"os"
 	"runtime"
 	"sort"
 	"strings"
 	"sync"
 	"time"
-
-	bolt "go.etcd.io/bbolt"
 )
 
 // Prometheus-compatible metrics in text exposition format.
@@ -26,17 +22,49 @@ var defaultBuckets = []float64{0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 
 type Metrics struct {
 	enabled   bool
 	startTime time.Time
-	server    *Server
+	stats     StatsProvider // server-derived gauges, supplied by the caller
 
 	mu         sync.Mutex
 	reqCount   map[string]int64      // "method|path|status" -> count
 	histograms map[string]*histogram // "method|path" -> histogram
 	opsCount   map[string]int64      // operation counters (e.g. "fts_search|bm25" -> count)
+}
 
-	// Cached DB stats (refreshed at most every 15s)
-	cacheMu    sync.Mutex
-	cachedDB   *dbStats
-	cacheStamp time.Time
+// StatsProvider supplies the server/runtime gauges that the /metrics endpoint
+// reports but the counter core does not own. It inverts the former
+// Metrics->*Server dependency: package main implements it over *Server.
+type StatsProvider interface {
+	Mode() string
+	VectorIndexReady() bool
+	EmbeddingConfigured() bool
+	EmbeddingQueueSize() (size int, present bool)
+	ReplicationRole() string
+	BinlogStats() (s BinlogStatsView, present bool)
+	DBStats() DBStats
+}
+
+// BinlogStatsView mirrors the binlog statistics needed for replication metrics.
+type BinlogStatsView struct {
+	CurrentLSN  uint64
+	FileSize    int64
+	OldestLSN   uint64
+	Subscribers int
+}
+
+// DBStats is a snapshot of database-derived gauges.
+type DBStats struct {
+	SizeBytes    int64
+	Collections  map[string]CollectionStats
+	WebhookCount int
+	SchemaCount  int
+}
+
+// CollectionStats holds per-collection counts.
+type CollectionStats struct {
+	Documents  int
+	Revisions  int
+	MetaIndex  int
+	Embeddings int
 }
 
 type histogram struct {
@@ -46,26 +74,13 @@ type histogram struct {
 	total   int64
 }
 
-type dbStats struct {
-	sizeBytes    int64
-	collections  map[string]collectionMetrics
-	webhookCount int
-	schemaCount  int
-}
-
-type collectionMetrics struct {
-	documents  int
-	revisions  int
-	metaIndex  int
-	embeddings int
-}
-
-// NewMetrics creates a new Metrics collector.
-func NewMetrics(s *Server, enabled bool) *Metrics {
+// NewMetrics creates a new Metrics collector. stats supplies the server-derived
+// gauges (pass nil only when metrics are disabled).
+func NewMetrics(enabled bool, stats StatsProvider) *Metrics {
 	return &Metrics{
 		enabled:    enabled,
 		startTime:  time.Now(),
-		server:     s,
+		stats:      stats,
 		reqCount:   make(map[string]int64),
 		histograms: make(map[string]*histogram),
 		opsCount:   make(map[string]int64),
@@ -193,7 +208,7 @@ func (m *Metrics) HandleMetrics(w http.ResponseWriter, r *http.Request) {
 	// --- Server info ---
 	writef(&buf, "# HELP mddb_info MDDB server information.\n")
 	writef(&buf, "# TYPE mddb_info gauge\n")
-	writef(&buf, "mddb_info{mode=%q} 1\n\n", string(m.server.Mode))
+	writef(&buf, "mddb_info{mode=%q} 1\n\n", string(m.stats.Mode()))
 
 	// --- Uptime ---
 	writef(&buf, "# HELP mddb_uptime_seconds Time since server start in seconds.\n")
@@ -262,37 +277,37 @@ func (m *Metrics) HandleMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// --- Database metrics (cached) ---
-	ds := m.getDBStats()
+	ds := m.stats.DBStats()
 	writef(&buf, "# HELP mddb_database_size_bytes Database file size in bytes.\n")
 	writef(&buf, "# TYPE mddb_database_size_bytes gauge\n")
-	writef(&buf, "mddb_database_size_bytes %d\n\n", ds.sizeBytes)
+	writef(&buf, "mddb_database_size_bytes %d\n\n", ds.SizeBytes)
 
 	writef(&buf, "# HELP mddb_documents_total Total documents per collection.\n")
 	writef(&buf, "# TYPE mddb_documents_total gauge\n")
-	for _, coll := range sortedCollections(ds.collections) {
-		writef(&buf, "mddb_documents_total{collection=%q} %d\n", coll, ds.collections[coll].documents)
+	for _, coll := range sortedCollections(ds.Collections) {
+		writef(&buf, "mddb_documents_total{collection=%q} %d\n", coll, ds.Collections[coll].Documents)
 	}
 	buf.WriteString("\n")
 
 	writef(&buf, "# HELP mddb_revisions_total Total revisions per collection.\n")
 	writef(&buf, "# TYPE mddb_revisions_total gauge\n")
-	for _, coll := range sortedCollections(ds.collections) {
-		writef(&buf, "mddb_revisions_total{collection=%q} %d\n", coll, ds.collections[coll].revisions)
+	for _, coll := range sortedCollections(ds.Collections) {
+		writef(&buf, "mddb_revisions_total{collection=%q} %d\n", coll, ds.Collections[coll].Revisions)
 	}
 	buf.WriteString("\n")
 
 	writef(&buf, "# HELP mddb_meta_indices_total Total metadata index entries per collection.\n")
 	writef(&buf, "# TYPE mddb_meta_indices_total gauge\n")
-	for _, coll := range sortedCollections(ds.collections) {
-		writef(&buf, "mddb_meta_indices_total{collection=%q} %d\n", coll, ds.collections[coll].metaIndex)
+	for _, coll := range sortedCollections(ds.Collections) {
+		writef(&buf, "mddb_meta_indices_total{collection=%q} %d\n", coll, ds.Collections[coll].MetaIndex)
 	}
 	buf.WriteString("\n")
 
 	writef(&buf, "# HELP mddb_vector_embeddings_total Embedded documents per collection.\n")
 	writef(&buf, "# TYPE mddb_vector_embeddings_total gauge\n")
-	for _, coll := range sortedCollections(ds.collections) {
-		if ds.collections[coll].embeddings > 0 {
-			writef(&buf, "mddb_vector_embeddings_total{collection=%q} %d\n", coll, ds.collections[coll].embeddings)
+	for _, coll := range sortedCollections(ds.Collections) {
+		if ds.Collections[coll].Embeddings > 0 {
+			writef(&buf, "mddb_vector_embeddings_total{collection=%q} %d\n", coll, ds.Collections[coll].Embeddings)
 		}
 	}
 	buf.WriteString("\n")
@@ -300,7 +315,7 @@ func (m *Metrics) HandleMetrics(w http.ResponseWriter, r *http.Request) {
 	// --- Vector search status ---
 	writef(&buf, "# HELP mddb_vector_index_ready Whether the vector index is loaded (1=ready, 0=loading).\n")
 	writef(&buf, "# TYPE mddb_vector_index_ready gauge\n")
-	if m.server.VectorIndex != nil && m.server.VectorIndex.IsReady() {
+	if m.stats.VectorIndexReady() {
 		buf.WriteString("mddb_vector_index_ready 1\n")
 	} else {
 		buf.WriteString("mddb_vector_index_ready 0\n")
@@ -309,7 +324,7 @@ func (m *Metrics) HandleMetrics(w http.ResponseWriter, r *http.Request) {
 
 	writef(&buf, "# HELP mddb_embedding_provider_configured Whether an embedding provider is configured (1=yes, 0=no).\n")
 	writef(&buf, "# TYPE mddb_embedding_provider_configured gauge\n")
-	if m.server.Embedding != nil {
+	if m.stats.EmbeddingConfigured() {
 		buf.WriteString("mddb_embedding_provider_configured 1\n")
 	} else {
 		buf.WriteString("mddb_embedding_provider_configured 0\n")
@@ -317,25 +332,25 @@ func (m *Metrics) HandleMetrics(w http.ResponseWriter, r *http.Request) {
 	buf.WriteString("\n")
 
 	// Embedding queue size
-	if m.server.EmbeddingWorker != nil {
+	if qsize, ok := m.stats.EmbeddingQueueSize(); ok {
 		writef(&buf, "# HELP mddb_embedding_queue_size Current number of pending embedding jobs.\n")
 		writef(&buf, "# TYPE mddb_embedding_queue_size gauge\n")
-		writef(&buf, "mddb_embedding_queue_size %d\n\n", len(m.server.EmbeddingWorker.jobs))
+		writef(&buf, "mddb_embedding_queue_size %d\n\n", qsize)
 	}
 
 	// --- Webhooks & schemas ---
 	writef(&buf, "# HELP mddb_webhooks_total Number of registered webhooks.\n")
 	writef(&buf, "# TYPE mddb_webhooks_total gauge\n")
-	writef(&buf, "mddb_webhooks_total %d\n\n", ds.webhookCount)
+	writef(&buf, "mddb_webhooks_total %d\n\n", ds.WebhookCount)
 
 	writef(&buf, "# HELP mddb_schemas_total Number of registered metadata schemas.\n")
 	writef(&buf, "# TYPE mddb_schemas_total gauge\n")
-	writef(&buf, "mddb_schemas_total %d\n\n", ds.schemaCount)
+	writef(&buf, "mddb_schemas_total %d\n\n", ds.SchemaCount)
 
 	// --- Replication ---
 	writef(&buf, "# HELP mddb_replication_role Replication role (0=standalone, 1=leader, 2=follower).\n")
 	writef(&buf, "# TYPE mddb_replication_role gauge\n")
-	switch m.server.ReplicationRole {
+	switch m.stats.ReplicationRole() {
 	case "leader":
 		buf.WriteString("mddb_replication_role 1\n")
 	case "follower":
@@ -345,8 +360,7 @@ func (m *Metrics) HandleMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 	buf.WriteString("\n")
 
-	if m.server.Binlog != nil {
-		bstats := m.server.Binlog.Stats()
+	if bstats, ok := m.stats.BinlogStats(); ok {
 		writef(&buf, "# HELP mddb_replication_lsn Current Log Sequence Number.\n")
 		writef(&buf, "# TYPE mddb_replication_lsn gauge\n")
 		writef(&buf, "mddb_replication_lsn %d\n\n", bstats.CurrentLSN)
@@ -395,100 +409,6 @@ func (m *Metrics) HandleMetrics(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(buf.String()))
 }
 
-// getDBStats returns cached database statistics (refreshed every 15s).
-func (m *Metrics) getDBStats() *dbStats {
-	m.cacheMu.Lock()
-	defer m.cacheMu.Unlock()
-
-	if m.cachedDB != nil && time.Since(m.cacheStamp) < 15*time.Second {
-		return m.cachedDB
-	}
-
-	ds := &dbStats{
-		collections: make(map[string]collectionMetrics),
-	}
-
-	// File size
-	if info, err := os.Stat(m.server.Path); err == nil {
-		ds.sizeBytes = info.Size()
-	}
-
-	// Collection-level stats from BoltDB
-	_ = m.server.DBView(func(tx *bolt.Tx) error {
-		// Documents
-		if b := tx.Bucket([]byte("docs")); b != nil {
-			c := b.Cursor()
-			for k, _ := c.First(); k != nil; k, _ = c.Next() {
-				if coll := extractCollection(k); coll != "" {
-					cm := ds.collections[coll]
-					cm.documents++
-					ds.collections[coll] = cm
-				}
-			}
-		}
-		// Revisions
-		if b := tx.Bucket([]byte("rev")); b != nil {
-			c := b.Cursor()
-			for k, _ := c.First(); k != nil; k, _ = c.Next() {
-				if coll := extractCollection(k); coll != "" {
-					cm := ds.collections[coll]
-					cm.revisions++
-					ds.collections[coll] = cm
-				}
-			}
-		}
-		// Meta index
-		if b := tx.Bucket([]byte("idxmeta")); b != nil {
-			c := b.Cursor()
-			for k, _ := c.First(); k != nil; k, _ = c.Next() {
-				if coll := extractCollection(k); coll != "" {
-					cm := ds.collections[coll]
-					cm.metaIndex++
-					ds.collections[coll] = cm
-				}
-			}
-		}
-		return nil
-	})
-
-	// Vector embedding counts
-	if m.server.VectorStore != nil {
-		if counts, err := m.server.VectorStore.CountByCollection(); err == nil {
-			for coll, n := range counts {
-				cm := ds.collections[coll]
-				cm.embeddings = n
-				ds.collections[coll] = cm
-			}
-		}
-	}
-
-	// Webhook + schema counts
-	if m.server.WebhookManager != nil {
-		ds.webhookCount = len(m.server.WebhookManager.List())
-	}
-	if m.server.SchemaManager != nil {
-		ds.schemaCount = len(m.server.SchemaManager.List())
-	}
-
-	m.cachedDB = ds
-	m.cacheStamp = time.Now()
-	return ds
-}
-
-// extractCollection pulls the collection name from a BoltDB key like "doc|blog|id".
-func extractCollection(key []byte) string {
-	i := bytes.IndexByte(key, '|')
-	if i < 0 {
-		return ""
-	}
-	rest := key[i+1:]
-	j := bytes.IndexByte(rest, '|')
-	if j < 0 {
-		return string(rest)
-	}
-	return string(rest[:j])
-}
-
 // ---- helpers ----------------------------------------------------------------
 
 func writef(b *strings.Builder, format string, args ...any) {
@@ -504,7 +424,7 @@ func sortedMapKeys[V any](m map[string]V) []string {
 	return keys
 }
 
-func sortedCollections(m map[string]collectionMetrics) []string {
+func sortedCollections(m map[string]CollectionStats) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)

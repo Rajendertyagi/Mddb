@@ -17,6 +17,7 @@ import (
 	"mddb/internal/envconf"
 	"mddb/internal/fts"
 	"mddb/internal/geo"
+	"mddb/internal/metrics"
 	"mddb/internal/schema"
 	"mddb/internal/sliceutil"
 	"mddb/internal/spell"
@@ -98,7 +99,7 @@ type Server struct {
 	FTSIndex           *fts.FTSIndex             // Full-text search index
 	WebhookManager     *WebhookManager           // Webhook subscriptions and delivery
 	SchemaManager      *schema.SchemaManager     // Per-collection metadata schema validation
-	Metrics            *Metrics                  // Prometheus-compatible telemetry
+	Metrics            *metrics.Metrics          // Prometheus-compatible telemetry
 	AuthManager        *AuthManager              // Authentication and authorization
 	AuditManager       *audit.AuditManager       // Audit log (ISO 27001 A.8.15, SOC 2 CC7.2)
 	RateLimiter        *RateLimiter              // Cross-transport rate limiter (ISO 27001 A.5.30, SOC 2 CC6.6)
@@ -654,7 +655,7 @@ func main() {
 
 	// Initialize metrics (enabled by default, set MDDB_METRICS=false to disable)
 	metricsEnabled := env("MDDB_METRICS", "true") != "false"
-	s.Metrics = NewMetrics(s, metricsEnabled)
+	s.Metrics = metrics.NewMetrics(metricsEnabled, &serverMetricsStats{s: s})
 	if metricsEnabled {
 		log.Println("Prometheus metrics enabled (GET /metrics)")
 	}

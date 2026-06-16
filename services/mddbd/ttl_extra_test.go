@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"mddb/internal/cache"
+	"mddb/internal/metrics"
 	"mddb/internal/schema"
 	"mddb/internal/storage"
 	"net/http"
@@ -63,7 +64,7 @@ func ttlExtraTestServer(t *testing.T) (*Server, func()) {
 	_ = s.SchemaManager.EnsureBucket()
 
 	// Metrics
-	s.Metrics = NewMetrics(s, false)
+	s.Metrics = metrics.NewMetrics(false, &serverMetricsStats{s: s})
 
 	cleanup := func() {
 		s.IndexQueue.Shutdown()

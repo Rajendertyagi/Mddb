@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mddb/internal/metrics"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -31,7 +32,7 @@ func newTestServerForCollectionConfig(t *testing.T) (*Server, func()) {
 			Rev:     []byte("rev"),
 			ByKey:   []byte("bykey"),
 		},
-		Metrics: NewMetrics(nil, false),
+		Metrics: metrics.NewMetrics(false, nil),
 	}
 
 	if err := s.ensureBuckets(); err != nil {

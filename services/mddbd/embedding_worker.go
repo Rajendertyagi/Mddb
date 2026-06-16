@@ -6,6 +6,7 @@ import (
 	"log"
 	"mddb/internal/embedding"
 	"mddb/internal/envconf"
+	"mddb/internal/metrics"
 	vec "mddb/internal/vector"
 	"sync"
 	"time"
@@ -28,7 +29,7 @@ type EmbeddingWorker struct {
 	stopCh       chan struct{}
 	chunkSize    int
 	chunkEnabled bool
-	metrics      *Metrics
+	metrics      *metrics.Metrics
 }
 
 // NewEmbeddingWorker creates a new background embedding worker.

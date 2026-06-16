@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mddb/internal/metrics"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -12,7 +13,7 @@ import (
 func TestHandleListEmbeddingConfigs_Empty(t *testing.T) {
 	s, cleanup := newTestServerForEmbeddingConfig(t)
 	defer cleanup()
-	s.Metrics = NewMetrics(s, false)
+	s.Metrics = metrics.NewMetrics(false, &serverMetricsStats{s: s})
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/embedding-configs", nil)
 	w := httptest.NewRecorder()
@@ -35,7 +36,7 @@ func TestHandleListEmbeddingConfigs_Empty(t *testing.T) {
 func TestHandleCreateEmbeddingConfig_Success(t *testing.T) {
 	s, cleanup := newTestServerForEmbeddingConfig(t)
 	defer cleanup()
-	s.Metrics = NewMetrics(s, false)
+	s.Metrics = metrics.NewMetrics(false, &serverMetricsStats{s: s})
 
 	payload := `{"id":"cfg-1","name":"Test","provider":"openai","model":"ada","dimensions":1536,"apiKey":"sk-test"}`
 	req := httptest.NewRequest(http.MethodPost, "/v1/embedding-configs", strings.NewReader(payload))
@@ -50,7 +51,7 @@ func TestHandleCreateEmbeddingConfig_Success(t *testing.T) {
 func TestHandleCreateEmbeddingConfig_MissingFields(t *testing.T) {
 	s, cleanup := newTestServerForEmbeddingConfig(t)
 	defer cleanup()
-	s.Metrics = NewMetrics(s, false)
+	s.Metrics = metrics.NewMetrics(false, &serverMetricsStats{s: s})
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/embedding-configs",
 		strings.NewReader(`{"id":"cfg-1"}`))
@@ -65,7 +66,7 @@ func TestHandleCreateEmbeddingConfig_MissingFields(t *testing.T) {
 func TestHandleCreateEmbeddingConfig_InvalidProvider(t *testing.T) {
 	s, cleanup := newTestServerForEmbeddingConfig(t)
 	defer cleanup()
-	s.Metrics = NewMetrics(s, false)
+	s.Metrics = metrics.NewMetrics(false, &serverMetricsStats{s: s})
 
 	payload := `{"id":"cfg-1","name":"Test","provider":"invalid","model":"ada","dimensions":1536}`
 	req := httptest.NewRequest(http.MethodPost, "/v1/embedding-configs", strings.NewReader(payload))
@@ -81,7 +82,7 @@ func TestHandleCreateEmbeddingConfig_ReadOnlyMode(t *testing.T) {
 	s, cleanup := newTestServerForEmbeddingConfig(t)
 	defer cleanup()
 	s.Mode = ModeRead
-	s.Metrics = NewMetrics(s, false)
+	s.Metrics = metrics.NewMetrics(false, &serverMetricsStats{s: s})
 
 	payload := `{"id":"cfg-1","name":"Test","provider":"openai","model":"ada","dimensions":1536}`
 	req := httptest.NewRequest(http.MethodPost, "/v1/embedding-configs", strings.NewReader(payload))
@@ -96,7 +97,7 @@ func TestHandleCreateEmbeddingConfig_ReadOnlyMode(t *testing.T) {
 func TestHandleGetEmbeddingConfig_Success(t *testing.T) {
 	s, cleanup := newTestServerForEmbeddingConfig(t)
 	defer cleanup()
-	s.Metrics = NewMetrics(s, false)
+	s.Metrics = metrics.NewMetrics(false, &serverMetricsStats{s: s})
 
 	_ = s.SaveEmbeddingConfig(&EmbeddingConfig{
 		ID: "cfg-1", Name: "Test", Provider: "openai", Model: "ada", Dimensions: 1536,
@@ -114,7 +115,7 @@ func TestHandleGetEmbeddingConfig_Success(t *testing.T) {
 func TestHandleGetEmbeddingConfig_NotFound(t *testing.T) {
 	s, cleanup := newTestServerForEmbeddingConfig(t)
 	defer cleanup()
-	s.Metrics = NewMetrics(s, false)
+	s.Metrics = metrics.NewMetrics(false, &serverMetricsStats{s: s})
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/embedding-configs/nonexistent", nil)
 	w := httptest.NewRecorder()
@@ -129,7 +130,7 @@ func TestHandleUpdateEmbeddingConfig_ReadOnlyMode(t *testing.T) {
 	s, cleanup := newTestServerForEmbeddingConfig(t)
 	defer cleanup()
 	s.Mode = ModeRead
-	s.Metrics = NewMetrics(s, false)
+	s.Metrics = metrics.NewMetrics(false, &serverMetricsStats{s: s})
 
 	payload := `{"name":"Updated","provider":"openai","model":"ada","dimensions":1536}`
 	req := httptest.NewRequest(http.MethodPut, "/v1/embedding-configs/cfg-1", strings.NewReader(payload))
@@ -145,7 +146,7 @@ func TestHandleDeleteEmbeddingConfig_ReadOnlyMode(t *testing.T) {
 	s, cleanup := newTestServerForEmbeddingConfig(t)
 	defer cleanup()
 	s.Mode = ModeRead
-	s.Metrics = NewMetrics(s, false)
+	s.Metrics = metrics.NewMetrics(false, &serverMetricsStats{s: s})
 
 	req := httptest.NewRequest(http.MethodDelete, "/v1/embedding-configs/cfg-1", nil)
 	w := httptest.NewRecorder()
@@ -159,7 +160,7 @@ func TestHandleDeleteEmbeddingConfig_ReadOnlyMode(t *testing.T) {
 func TestHandleDeleteEmbeddingConfig_CannotDeleteDefault(t *testing.T) {
 	s, cleanup := newTestServerForEmbeddingConfig(t)
 	defer cleanup()
-	s.Metrics = NewMetrics(s, false)
+	s.Metrics = metrics.NewMetrics(false, &serverMetricsStats{s: s})
 
 	_ = s.SaveEmbeddingConfig(&EmbeddingConfig{
 		ID: "cfg-1", Name: "Default", Provider: "openai", Model: "ada", Dimensions: 1536, IsDefault: true,
@@ -178,7 +179,7 @@ func TestHandleSetDefaultEmbeddingConfig_ReadOnlyMode(t *testing.T) {
 	s, cleanup := newTestServerForEmbeddingConfig(t)
 	defer cleanup()
 	s.Mode = ModeRead
-	s.Metrics = NewMetrics(s, false)
+	s.Metrics = metrics.NewMetrics(false, &serverMetricsStats{s: s})
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/embedding-configs/set-default",
 		strings.NewReader(`{"id":"cfg-1"}`))
