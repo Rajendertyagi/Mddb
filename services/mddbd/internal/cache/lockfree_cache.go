@@ -1,4 +1,4 @@
-package main
+package cache
 
 import (
 	"sync"
@@ -204,32 +204,37 @@ func (lfc *LockFreeCache) cleanup() {
 		case <-lfc.done:
 			return
 		case <-ticker.C:
+			lfc.evictExpired()
+		}
+	}
+}
+
+// evictExpired removes all entries whose TTL has elapsed. Called periodically
+// by cleanup; factored out so it can be exercised directly in tests.
+func (lfc *LockFreeCache) evictExpired() {
+	now := time.Now().Unix()
+
+	for _, shard := range lfc.shards {
+		shard.mu.Lock()
+
+		oldMap := shard.data.Load().(map[string]*LockFreeCacheEntry)
+		newMap := make(map[string]*LockFreeCacheEntry)
+
+		removed := 0
+		for k, v := range oldMap {
+			if now <= v.ExpiresAt {
+				newMap[k] = v
+			} else {
+				removed++
+			}
 		}
 
-		now := time.Now().Unix()
-
-		for _, shard := range lfc.shards {
-			shard.mu.Lock()
-
-			oldMap := shard.data.Load().(map[string]*LockFreeCacheEntry)
-			newMap := make(map[string]*LockFreeCacheEntry)
-
-			removed := 0
-			for k, v := range oldMap {
-				if now <= v.ExpiresAt {
-					newMap[k] = v
-				} else {
-					removed++
-				}
-			}
-
-			if removed > 0 {
-				shard.data.Store(newMap)
-				shard.size.Add(int32(-removed))
-			}
-
-			shard.mu.Unlock()
+		if removed > 0 {
+			shard.data.Store(newMap)
+			shard.size.Add(int32(-removed))
 		}
+
+		shard.mu.Unlock()
 	}
 }
 

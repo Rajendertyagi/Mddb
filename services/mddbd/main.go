@@ -68,7 +68,7 @@ type Server struct {
 	Hooks               Hooks        // optional extensions
 	BucketNames         BucketNames
 	Cache               *cache.DocumentCache  // Read-through cache (legacy)
-	LockFreeCache       *LockFreeCache        // Lock-free cache (extreme performance)
+	LockFreeCache       *cache.LockFreeCache  // Lock-free cache (extreme performance)
 	IndexQueue          *IndexQueue           // Async metadata indexing
 	WAL                 *WAL                  // Write-Ahead Log
 	MVCC                *MVCC                 // Multi-Version Concurrency Control
@@ -255,16 +255,16 @@ func main() {
 			Rev:     []byte("rev"),
 			ByKey:   []byte("bykey"),
 		},
-		Cache:         cache.NewDocumentCache(1000, 300), // 1000 docs, 5min TTL
-		LockFreeCache: NewLockFreeCache(10000, 300),      // 10k docs, 5min TTL (lock-free)
-		IndexQueue:    NewIndexQueue(nil, 4),             // 4 workers (will set server below)
-		BloomFilters:  NewBloomFilterManager(),           // Bloom filters
-		DeltaEncoder:  delta.NewDeltaEncoder(),           // Delta encoding
-		AdaptiveIndex: NewAdaptiveIndexManager(),         // Adaptive indexing
-		AsyncIO:       NewAsyncIO(),                      // Async I/O
-		ZeroCopy:      NewZeroCopyManager(),              // Zero-copy I/O
-		SIMD:          vector.NewSIMDProcessor(),         // Vectorized operations
-		ShardCluster:  NewShardCluster(4, 2),             // 4 shards, 2x replication
+		Cache:         cache.NewDocumentCache(1000, 300),  // 1000 docs, 5min TTL
+		LockFreeCache: cache.NewLockFreeCache(10000, 300), // 10k docs, 5min TTL (lock-free)
+		IndexQueue:    NewIndexQueue(nil, 4),              // 4 workers (will set server below)
+		BloomFilters:  NewBloomFilterManager(),            // Bloom filters
+		DeltaEncoder:  delta.NewDeltaEncoder(),            // Delta encoding
+		AdaptiveIndex: NewAdaptiveIndexManager(),          // Adaptive indexing
+		AsyncIO:       NewAsyncIO(),                       // Async I/O
+		ZeroCopy:      NewZeroCopyManager(),               // Zero-copy I/O
+		SIMD:          vector.NewSIMDProcessor(),          // Vectorized operations
+		ShardCluster:  NewShardCluster(4, 2),              // 4 shards, 2x replication
 		UseExtreme:    useExtreme,
 	}
 	s.IndexQueue.server = s // Set server reference

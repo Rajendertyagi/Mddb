@@ -37,7 +37,7 @@ func applierExtraTestServer(t *testing.T) (*Server, func()) {
 			ByKey:   []byte("bykey"),
 		},
 		Cache:         cache.NewDocumentCache(100, 60),
-		LockFreeCache: NewLockFreeCache(100, 60),
+		LockFreeCache: cache.NewLockFreeCache(100, 60),
 	}
 
 	if err := s.ensureBuckets(); err != nil {

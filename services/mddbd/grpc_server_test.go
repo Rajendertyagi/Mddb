@@ -43,7 +43,7 @@ func newTestGRPCServer(t *testing.T) (*GRPCServer, *Server, func()) {
 			ByKey:   []byte("bykey"),
 		},
 		Cache:         cache.NewDocumentCache(100, 60),
-		LockFreeCache: NewLockFreeCache(100, 60),
+		LockFreeCache: cache.NewLockFreeCache(100, 60),
 	}
 
 	// Create all required buckets
