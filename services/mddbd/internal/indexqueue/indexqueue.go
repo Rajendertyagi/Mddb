@@ -1,4 +1,4 @@
-package main
+package indexqueue
 
 import (
 	"context"
@@ -14,6 +14,20 @@ import (
 // ErrQueueClosed is returned by Enqueue when the queue is shutting down.
 var ErrQueueClosed = errors.New("index queue closed")
 
+// Store is the persistence surface the queue needs to write the metadata index.
+// It is a dependency-inversion seam (GO-015): the queue owns the interface and
+// the daemon implements it over its *Server, so the queue no longer holds a
+// back-reference to the Server god-object.
+type Store interface {
+	// DBUpdate runs fn inside a writable BoltDB transaction.
+	DBUpdate(func(*bolt.Tx) error) error
+	// IdxMetaBucket returns the name of the metadata-index bucket.
+	IdxMetaBucket() []byte
+	// Binlog returns the replication binary log (may be nil), read lazily so a
+	// log wired after queue construction is still observed.
+	Binlog() *binlog.Binlog
+}
+
 // IndexJob represents a metadata indexing job
 type IndexJob struct {
 	Collection string
@@ -24,7 +38,7 @@ type IndexJob struct {
 
 // IndexQueue manages asynchronous metadata indexing
 type IndexQueue struct {
-	server    *Server
+	store     Store
 	queue     chan *IndexJob
 	workers   int
 	wg        sync.WaitGroup
@@ -37,7 +51,7 @@ type IndexQueue struct {
 }
 
 // NewIndexQueue creates a new index queue
-func NewIndexQueue(server *Server, workers int) *IndexQueue {
+func NewIndexQueue(store Store, workers int) *IndexQueue {
 	if workers <= 0 {
 		workers = 4 // Default 4 workers
 	}
@@ -45,7 +59,7 @@ func NewIndexQueue(server *Server, workers int) *IndexQueue {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	iq := &IndexQueue{
-		server:  server,
+		store:   store,
 		queue:   make(chan *IndexJob, 1000), // Buffer 1000 jobs
 		workers: workers,
 		ctx:     ctx,
@@ -59,6 +73,13 @@ func NewIndexQueue(server *Server, workers int) *IndexQueue {
 	}
 
 	return iq
+}
+
+// SetStore wires the persistence surface after construction. The daemon builds
+// the queue before its *Server is fully assembled, so the store is set once the
+// server is ready (before any job is ever enqueued).
+func (iq *IndexQueue) SetStore(store Store) {
+	iq.store = store
 }
 
 // Enqueue submits a metadata indexing job. It NEVER drops the job (GO-010):
@@ -125,8 +146,8 @@ func (iq *IndexQueue) worker(id int) {
 // processJob processes a single indexing job
 func (iq *IndexQueue) processJob(job *IndexJob) error {
 	var bo binlog.BinlogOps
-	err := iq.server.DBUpdate(func(tx *bolt.Tx) error {
-		bIdx := tx.Bucket(iq.server.BucketNames.IdxMeta)
+	err := iq.store.DBUpdate(func(tx *bolt.Tx) error {
+		bIdx := tx.Bucket(iq.store.IdxMetaBucket())
 
 		// Delete old indices
 		if job.OldMeta != nil {
@@ -157,7 +178,7 @@ func (iq *IndexQueue) processJob(job *IndexJob) error {
 		return nil
 	})
 	if err == nil {
-		bo.FlushTo(iq.server.Binlog)
+		bo.FlushTo(iq.store.Binlog())
 	}
 	return err
 }

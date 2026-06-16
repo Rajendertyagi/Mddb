@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"mddb/internal/cache"
+	"mddb/internal/indexqueue"
 	"mddb/internal/storage"
 	proto "mddb/proto"
 
@@ -65,7 +66,7 @@ func newTestServerForBatch(t *testing.T) (*Server, func()) {
 	}
 
 	// Set up IndexQueue so batch update can enqueue reindex jobs
-	srv.IndexQueue = NewIndexQueue(srv, 2)
+	srv.IndexQueue = indexqueue.NewIndexQueue(serverIndexStore{s: srv}, 2)
 
 	cleanup := func() {
 		srv.IndexQueue.Shutdown()

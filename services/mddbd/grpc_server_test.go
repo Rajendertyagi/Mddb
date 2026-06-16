@@ -13,6 +13,7 @@ import (
 
 	"mddb/internal/cache"
 	"mddb/internal/fts"
+	"mddb/internal/indexqueue"
 	"mddb/internal/metrics"
 	"mddb/internal/schema"
 	"mddb/internal/storage"
@@ -69,7 +70,7 @@ func newTestGRPCServer(t *testing.T) (*GRPCServer, *Server, func()) {
 	}
 
 	// IndexQueue
-	s.IndexQueue = NewIndexQueue(s, 2)
+	s.IndexQueue = indexqueue.NewIndexQueue(serverIndexStore{s: s}, 2)
 
 	// VectorStore & VectorIndex
 	s.VectorStore = vector.NewVectorStore(db)

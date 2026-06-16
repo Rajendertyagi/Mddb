@@ -1,8 +1,9 @@
-package main
+package indexqueue
 
 import (
 	"context"
 	"errors"
+	"mddb/internal/binlog"
 	"mddb/internal/storage"
 	"os"
 	"testing"
@@ -14,7 +15,7 @@ import (
 // TestIndexQueue_EnqueueFallbackWhenFull — GO-010: a full queue must NOT drop
 // the job; Enqueue indexes it synchronously (fallback) so it is never lost.
 func TestIndexQueue_EnqueueFallbackWhenFull(t *testing.T) {
-	s, cleanup := newTestServerForIndexQueue(t)
+	s, cleanup := newTestStore(t)
 	defer cleanup()
 
 	// No workers drain this queue, and the buffer holds exactly one job, so
@@ -22,7 +23,7 @@ func TestIndexQueue_EnqueueFallbackWhenFull(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	iq := &IndexQueue{
-		server: s,
+		store:  s,
 		queue:  make(chan *IndexJob, 1),
 		ctx:    ctx,
 		cancel: cancel,
@@ -46,7 +47,7 @@ func TestIndexQueue_EnqueueFallbackWhenFull(t *testing.T) {
 	// The fallback must have written the meta index entry synchronously.
 	found := false
 	_ = s.DB.View(func(tx *bolt.Tx) error {
-		bIdx := tx.Bucket(s.BucketNames.IdxMeta)
+		bIdx := tx.Bucket([]byte("idxmeta"))
 		key := append(storage.MetaKeyPrefix("c", "tag", "x"), []byte("doc1")...)
 		found = bIdx.Get(key) != nil
 		return nil
@@ -60,11 +61,11 @@ func TestIndexQueue_EnqueueFallbackWhenFull(t *testing.T) {
 // write (here: the DB is closed), Enqueue surfaces the error and counts it as a
 // failure rather than swallowing it.
 func TestIndexQueue_EnqueueFallbackError(t *testing.T) {
-	s, cleanup := newTestServerForIndexQueue(t)
+	s, cleanup := newTestStore(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	iq := &IndexQueue{server: s, queue: make(chan *IndexJob, 1), ctx: ctx, cancel: cancel}
+	iq := &IndexQueue{store: s, queue: make(chan *IndexJob, 1), ctx: ctx, cancel: cancel}
 	iq.queue <- &IndexJob{Collection: "c", DocID: "filler"} // full
 
 	cleanup() // close the DB so the fallback's write transaction fails
@@ -81,7 +82,7 @@ func TestIndexQueue_EnqueueFallbackError(t *testing.T) {
 // TestIndexQueue_EnqueueAfterShutdown — Enqueue returns ErrQueueClosed (and does
 // not panic) once the queue has been shut down.
 func TestIndexQueue_EnqueueAfterShutdown(t *testing.T) {
-	s, cleanup := newTestServerForIndexQueue(t)
+	s, cleanup := newTestStore(t)
 	defer cleanup()
 
 	iq := NewIndexQueue(s, 2)
@@ -93,8 +94,19 @@ func TestIndexQueue_EnqueueAfterShutdown(t *testing.T) {
 	}
 }
 
-// newTestServerForIndexQueue creates a minimal Server with a temp BoltDB and required buckets.
-func newTestServerForIndexQueue(t *testing.T) (*Server, func()) {
+// testStore is a stub Store backed by a temp BoltDB, used to exercise the queue
+// without the Server god-object. DB is exported so tests can verify the
+// metadata-index entries the queue writes.
+type testStore struct {
+	DB *bolt.DB
+}
+
+func (s *testStore) DBUpdate(fn func(*bolt.Tx) error) error { return s.DB.Update(fn) }
+func (s *testStore) IdxMetaBucket() []byte                  { return []byte("idxmeta") }
+func (s *testStore) Binlog() *binlog.Binlog                 { return nil }
+
+// newTestStore creates a testStore with a temp BoltDB and the required buckets.
+func newTestStore(t *testing.T) (*testStore, func()) {
 	t.Helper()
 
 	f, err := os.CreateTemp("", "iq_test_*.db")
@@ -124,30 +136,18 @@ func newTestServerForIndexQueue(t *testing.T) (*Server, func()) {
 		t.Fatal(err)
 	}
 
-	srv := &Server{
-		DB:   db,
-		Path: f.Name(),
-		Mode: ModeRW,
-		BucketNames: BucketNames{
-			Docs:    []byte("docs"),
-			IdxMeta: []byte("idxmeta"),
-			Rev:     []byte("rev"),
-			ByKey:   []byte("bykey"),
-		},
-	}
-
 	cleanup := func() {
 		_ = db.Close()
 		_ = os.Remove(f.Name())
 	}
 
-	return srv, cleanup
+	return &testStore{DB: db}, cleanup
 }
 
 // --- NewIndexQueue ---
 
 func TestNewIndexQueue_DefaultWorkers(t *testing.T) {
-	srv, cleanup := newTestServerForIndexQueue(t)
+	srv, cleanup := newTestStore(t)
 	defer cleanup()
 
 	iq := NewIndexQueue(srv, 0) // 0 => default 4 workers
@@ -156,13 +156,13 @@ func TestNewIndexQueue_DefaultWorkers(t *testing.T) {
 	if iq.workers != 4 {
 		t.Errorf("expected default 4 workers, got %d", iq.workers)
 	}
-	if iq.server != srv {
+	if iq.store != srv {
 		t.Error("server reference mismatch")
 	}
 }
 
 func TestNewIndexQueue_NegativeWorkers(t *testing.T) {
-	srv, cleanup := newTestServerForIndexQueue(t)
+	srv, cleanup := newTestStore(t)
 	defer cleanup()
 
 	iq := NewIndexQueue(srv, -1) // negative => default 4 workers
@@ -174,7 +174,7 @@ func TestNewIndexQueue_NegativeWorkers(t *testing.T) {
 }
 
 func TestNewIndexQueue_CustomWorkers(t *testing.T) {
-	srv, cleanup := newTestServerForIndexQueue(t)
+	srv, cleanup := newTestStore(t)
 	defer cleanup()
 
 	iq := NewIndexQueue(srv, 8)
@@ -186,7 +186,7 @@ func TestNewIndexQueue_CustomWorkers(t *testing.T) {
 }
 
 func TestNewIndexQueue_SingleWorker(t *testing.T) {
-	srv, cleanup := newTestServerForIndexQueue(t)
+	srv, cleanup := newTestStore(t)
 	defer cleanup()
 
 	iq := NewIndexQueue(srv, 1)
@@ -200,7 +200,7 @@ func TestNewIndexQueue_SingleWorker(t *testing.T) {
 // --- Stats ---
 
 func TestIndexQueue_Stats_Initial(t *testing.T) {
-	srv, cleanup := newTestServerForIndexQueue(t)
+	srv, cleanup := newTestStore(t)
 	defer cleanup()
 
 	iq := NewIndexQueue(srv, 2)
@@ -221,7 +221,7 @@ func TestIndexQueue_Stats_Initial(t *testing.T) {
 // --- Enqueue and processJob ---
 
 func TestIndexQueue_EnqueueAndProcess(t *testing.T) {
-	srv, cleanup := newTestServerForIndexQueue(t)
+	srv, cleanup := newTestStore(t)
 	defer cleanup()
 
 	iq := NewIndexQueue(srv, 2)
@@ -283,7 +283,7 @@ func TestIndexQueue_EnqueueAndProcess(t *testing.T) {
 }
 
 func TestIndexQueue_EnqueueUpdateMeta(t *testing.T) {
-	srv, cleanup := newTestServerForIndexQueue(t)
+	srv, cleanup := newTestStore(t)
 	defer cleanup()
 
 	iq := NewIndexQueue(srv, 1)
@@ -343,7 +343,7 @@ func TestIndexQueue_EnqueueUpdateMeta(t *testing.T) {
 }
 
 func TestIndexQueue_ProcessJob_DeleteOldMeta(t *testing.T) {
-	srv, cleanup := newTestServerForIndexQueue(t)
+	srv, cleanup := newTestStore(t)
 	defer cleanup()
 
 	iq := NewIndexQueue(srv, 1)
@@ -393,7 +393,7 @@ func TestIndexQueue_ProcessJob_DeleteOldMeta(t *testing.T) {
 }
 
 func TestIndexQueue_ProcessJob_NilNewMeta(t *testing.T) {
-	srv, cleanup := newTestServerForIndexQueue(t)
+	srv, cleanup := newTestStore(t)
 	defer cleanup()
 
 	iq := NewIndexQueue(srv, 1)
@@ -435,7 +435,7 @@ func TestIndexQueue_ProcessJob_NilNewMeta(t *testing.T) {
 }
 
 func TestIndexQueue_ProcessJob_NilOldMeta(t *testing.T) {
-	srv, cleanup := newTestServerForIndexQueue(t)
+	srv, cleanup := newTestStore(t)
 	defer cleanup()
 
 	iq := NewIndexQueue(srv, 1)
@@ -466,7 +466,7 @@ func TestIndexQueue_ProcessJob_NilOldMeta(t *testing.T) {
 }
 
 func TestIndexQueue_MultipleJobs(t *testing.T) {
-	srv, cleanup := newTestServerForIndexQueue(t)
+	srv, cleanup := newTestStore(t)
 	defer cleanup()
 
 	iq := NewIndexQueue(srv, 4)
@@ -498,7 +498,7 @@ func TestIndexQueue_MultipleJobs(t *testing.T) {
 // --- Shutdown ---
 
 func TestIndexQueue_Shutdown(t *testing.T) {
-	srv, cleanup := newTestServerForIndexQueue(t)
+	srv, cleanup := newTestStore(t)
 	defer cleanup()
 
 	iq := NewIndexQueue(srv, 2)
@@ -526,7 +526,7 @@ func TestIndexQueue_Shutdown(t *testing.T) {
 }
 
 func TestIndexQueue_ShutdownPreventsNewEnqueue(t *testing.T) {
-	srv, cleanup := newTestServerForIndexQueue(t)
+	srv, cleanup := newTestStore(t)
 	defer cleanup()
 
 	iq := NewIndexQueue(srv, 1)
@@ -545,7 +545,7 @@ func TestIndexQueue_ShutdownPreventsNewEnqueue(t *testing.T) {
 // --- processJob directly ---
 
 func TestProcessJob_EmptyJob(t *testing.T) {
-	srv, cleanup := newTestServerForIndexQueue(t)
+	srv, cleanup := newTestStore(t)
 	defer cleanup()
 
 	iq := NewIndexQueue(srv, 1)
@@ -566,7 +566,7 @@ func TestProcessJob_EmptyJob(t *testing.T) {
 }
 
 func TestProcessJob_MultipleValues(t *testing.T) {
-	srv, cleanup := newTestServerForIndexQueue(t)
+	srv, cleanup := newTestStore(t)
 	defer cleanup()
 
 	iq := NewIndexQueue(srv, 1)
@@ -630,7 +630,7 @@ func TestIndexJob_Fields(t *testing.T) {
 }
 
 func TestIndexQueue_StatsAfterProcessing(t *testing.T) {
-	srv, cleanup := newTestServerForIndexQueue(t)
+	srv, cleanup := newTestStore(t)
 	defer cleanup()
 
 	iq := NewIndexQueue(srv, 2)

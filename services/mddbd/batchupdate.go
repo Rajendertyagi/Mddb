@@ -8,6 +8,7 @@ import (
 
 	"mddb/internal/binlog"
 	"mddb/internal/cache"
+	"mddb/internal/indexqueue"
 	"mddb/internal/storage"
 	proto "mddb/proto"
 
@@ -179,7 +180,7 @@ func (bu *BatchUpdater) commitUpdate(collection string, updated []*UpdatedDoc, n
 	// Metadata reindex jobs collected during the tx and enqueued AFTER commit:
 	// Enqueue's full-queue fallback opens its own write transaction, so it must
 	// never run inside this one (GO-010 — would deadlock BoltDB's single writer).
-	var indexJobs []*IndexJob
+	var indexJobs []*indexqueue.IndexJob
 	// Single transaction for all updates
 	err := bu.server.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(bu.server.BucketNames.Docs)
@@ -207,7 +208,7 @@ func (bu *BatchUpdater) commitUpdate(collection string, updated []*UpdatedDoc, n
 
 			// Collect metadata reindex job; enqueued after the tx commits.
 			if metadataChanged(u.Existing.Meta, u.Doc.Meta) {
-				indexJobs = append(indexJobs, &IndexJob{
+				indexJobs = append(indexJobs, &indexqueue.IndexJob{
 					Collection: collection,
 					DocID:      u.DocID,
 					OldMeta:    u.Existing.Meta,

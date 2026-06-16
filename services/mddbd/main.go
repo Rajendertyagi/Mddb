@@ -17,6 +17,7 @@ import (
 	"mddb/internal/envconf"
 	"mddb/internal/fts"
 	"mddb/internal/geo"
+	"mddb/internal/indexqueue"
 	"mddb/internal/metrics"
 	"mddb/internal/schema"
 	"mddb/internal/sliceutil"
@@ -70,20 +71,20 @@ type Server struct {
 	Config              ServerConfig // protocol toggles & addresses
 	Hooks               Hooks        // optional extensions
 	BucketNames         BucketNames
-	Cache               *cache.DocumentCache  // Read-through cache (legacy)
-	LockFreeCache       *cache.LockFreeCache  // Lock-free cache (extreme performance)
-	IndexQueue          *IndexQueue           // Async metadata indexing
-	WAL                 *WAL                  // Write-Ahead Log
-	MVCC                *MVCC                 // Multi-Version Concurrency Control
-	BloomFilters        *BloomFilterManager   // Bloom filters for negative lookups
-	DeltaEncoder        *delta.DeltaEncoder   // Delta encoding for revisions
-	AdaptiveIndex       *AdaptiveIndexManager // Adaptive indexing
-	AsyncIO             *AsyncIO              // Async I/O
-	ZeroCopy            *ZeroCopyManager      // Zero-copy I/O
-	SIMD                *vector.SIMDProcessor // Vectorized operations
-	ShardCluster        *ShardCluster         // Distributed sharding
-	finalBatchProcessor *FinalBatchProcessor  // Final optimized batch processor
-	UseExtreme          bool                  // Enable extreme performance features
+	Cache               *cache.DocumentCache   // Read-through cache (legacy)
+	LockFreeCache       *cache.LockFreeCache   // Lock-free cache (extreme performance)
+	IndexQueue          *indexqueue.IndexQueue // Async metadata indexing
+	WAL                 *WAL                   // Write-Ahead Log
+	MVCC                *MVCC                  // Multi-Version Concurrency Control
+	BloomFilters        *BloomFilterManager    // Bloom filters for negative lookups
+	DeltaEncoder        *delta.DeltaEncoder    // Delta encoding for revisions
+	AdaptiveIndex       *AdaptiveIndexManager  // Adaptive indexing
+	AsyncIO             *AsyncIO               // Async I/O
+	ZeroCopy            *ZeroCopyManager       // Zero-copy I/O
+	SIMD                *vector.SIMDProcessor  // Vectorized operations
+	ShardCluster        *ShardCluster          // Distributed sharding
+	finalBatchProcessor *FinalBatchProcessor   // Final optimized batch processor
+	UseExtreme          bool                   // Enable extreme performance features
 	// Vector search
 	VectorStore       *vector.VectorStore              // Persistent vector storage in BoltDB
 	VectorIndex       *vector.VectorIndex              // In-memory flat vector index
@@ -249,7 +250,7 @@ func main() {
 		},
 		Cache:         cache.NewDocumentCache(1000, 300),  // 1000 docs, 5min TTL
 		LockFreeCache: cache.NewLockFreeCache(10000, 300), // 10k docs, 5min TTL (lock-free)
-		IndexQueue:    NewIndexQueue(nil, 4),              // 4 workers (will set server below)
+		IndexQueue:    indexqueue.NewIndexQueue(nil, 4),   // 4 workers (store wired below)
 		BloomFilters:  NewBloomFilterManager(),            // Bloom filters
 		DeltaEncoder:  delta.NewDeltaEncoder(),            // Delta encoding
 		AdaptiveIndex: NewAdaptiveIndexManager(),          // Adaptive indexing
@@ -259,7 +260,7 @@ func main() {
 		ShardCluster:  NewShardCluster(4, 2),              // 4 shards, 2x replication
 		UseExtreme:    useExtreme,
 	}
-	s.IndexQueue.server = s // Set server reference
+	s.IndexQueue.SetStore(serverIndexStore{s: s}) // wire persistence (server now ready)
 
 	// Start early health-only HTTP server so clients can poll readiness during init.
 	// This server is shut down gracefully before the main HTTP server starts.
