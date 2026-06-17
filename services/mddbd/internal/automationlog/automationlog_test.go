@@ -1,4 +1,4 @@
-package main
+package automationlog
 
 import (
 	"fmt"
@@ -10,14 +10,14 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-func setupLogStoreTest(t *testing.T, ttl time.Duration) (*AutomationLogStore, func()) {
+func setupLogStoreTest(t *testing.T, ttl time.Duration) (*Store, func()) {
 	t.Helper()
 	dir := t.TempDir()
 	db, err := bolt.Open(filepath.Join(dir, "test.db"), 0600, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	ls := NewAutomationLogStore(db, ttl)
+	ls := NewStore(db, ttl)
 	if err := ls.EnsureBucket(); err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +32,7 @@ func TestAutomationLogStore_EnsureBucket(t *testing.T) {
 	}
 	defer func() { _ = db.Close() }()
 
-	ls := NewAutomationLogStore(db, 24*time.Hour)
+	ls := NewStore(db, 24*time.Hour)
 
 	// Bucket should not exist yet
 	err = db.View(func(tx *bolt.Tx) error {
@@ -74,7 +74,7 @@ func TestAutomationLogStore_LogAndList(t *testing.T) {
 	defer cleanup()
 
 	// Write 3 entries with small delays to ensure ordering
-	entries := []AutomationLogEntry{
+	entries := []Entry{
 		{RuleID: "rule1", RuleName: "Rule One", RuleType: "trigger", Status: "success", HTTPStatus: 200, DurationMs: 50, Attempt: 1},
 		{RuleID: "rule2", RuleName: "Rule Two", RuleType: "cron", Status: "error", HTTPStatus: 500, DurationMs: 120, Error: "timeout", Attempt: 1},
 		{RuleID: "rule3", RuleName: "Rule Three", RuleType: "trigger", Status: "skipped", HTTPStatus: 0, DurationMs: 0, Attempt: 1},
@@ -142,7 +142,7 @@ func TestAutomationLogStore_Pagination(t *testing.T) {
 	// Write 10 entries with small delays
 	for i := 0; i < 10; i++ {
 		time.Sleep(1 * time.Millisecond)
-		entry := AutomationLogEntry{
+		entry := Entry{
 			RuleID:   fmt.Sprintf("rule-%d", i),
 			RuleName: fmt.Sprintf("Rule %d", i),
 			RuleType: "trigger",
@@ -155,7 +155,7 @@ func TestAutomationLogStore_Pagination(t *testing.T) {
 	}
 
 	// Paginate with limit=3
-	var allEntries []AutomationLogEntry
+	var allEntries []Entry
 	cursor := ""
 	pages := 0
 
@@ -211,7 +211,7 @@ func TestAutomationLogStore_FilterByRuleID(t *testing.T) {
 	ruleIDs := []string{"alpha", "beta", "alpha", "gamma", "alpha"}
 	for i, rid := range ruleIDs {
 		time.Sleep(1 * time.Millisecond)
-		entry := AutomationLogEntry{
+		entry := Entry{
 			RuleID:   rid,
 			RuleName: fmt.Sprintf("Rule %d", i),
 			RuleType: "trigger",
@@ -264,7 +264,7 @@ func TestAutomationLogStore_FilterByStatus(t *testing.T) {
 	statuses := []string{"success", "error", "success", "skipped", "error", "success"}
 	for i, s := range statuses {
 		time.Sleep(1 * time.Millisecond)
-		entry := AutomationLogEntry{
+		entry := Entry{
 			RuleID:   fmt.Sprintf("rule-%d", i),
 			RuleName: fmt.Sprintf("Rule %d", i),
 			RuleType: "trigger",
@@ -335,7 +335,7 @@ func TestAutomationLogStore_Count(t *testing.T) {
 	}
 	for i, td := range testData {
 		time.Sleep(1 * time.Millisecond)
-		entry := AutomationLogEntry{
+		entry := Entry{
 			RuleID:   td.ruleID,
 			RuleName: fmt.Sprintf("Rule %d", i),
 			RuleType: "trigger",
@@ -430,7 +430,7 @@ func TestAutomationLogStore_Cleanup(t *testing.T) {
 	defer cleanup()
 
 	// Write an entry
-	entry := AutomationLogEntry{
+	entry := Entry{
 		RuleID:   "rule1",
 		RuleName: "Test Rule",
 		RuleType: "trigger",
@@ -471,7 +471,7 @@ func TestAutomationLogStore_CleanupPreservesFresh(t *testing.T) {
 	defer cleanup()
 
 	// Write an entry
-	entry := AutomationLogEntry{
+	entry := Entry{
 		RuleID:   "rule1",
 		RuleName: "Test Rule",
 		RuleType: "trigger",

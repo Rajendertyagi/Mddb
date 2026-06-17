@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"mddb/internal/automationlog"
 	"mddb/internal/httpclient"
 	"mddb/internal/sentiment"
 	"mddb/internal/storage"
@@ -131,7 +132,7 @@ func (am *AutomationManager) evaluateSingleTrigger(trigger *AutomationRule, doc 
 	webhook := am.GetWebhook(trigger.WebhookID)
 	if webhook == nil || !webhook.Enabled {
 		if am.logStore != nil {
-			_ = am.logStore.Log(AutomationLogEntry{
+			_ = am.logStore.Log(automationlog.Entry{
 				Timestamp: time.Now().Unix(),
 				RuleID:    trigger.ID,
 				RuleName:  trigger.Name,
@@ -439,7 +440,7 @@ type CronPayloadCron struct {
 }
 
 // fireCronWebhook sends a cron payload to a webhook URL.
-func fireCronWebhook(webhook *AutomationRule, cronID, cronName string, logStore *AutomationLogStore) {
+func fireCronWebhook(webhook *AutomationRule, cronID, cronName string, logStore *automationlog.Store) {
 	start := time.Now()
 
 	payload := CronPayload{
@@ -522,7 +523,7 @@ func fireCronWebhook(webhook *AutomationRule, cronID, cronName string, logStore 
 	}
 
 	if logStore != nil {
-		_ = logStore.Log(AutomationLogEntry{
+		_ = logStore.Log(automationlog.Entry{
 			Timestamp:  start.Unix(),
 			RuleID:     cronID,
 			RuleName:   cronName,
@@ -539,7 +540,7 @@ func fireCronWebhook(webhook *AutomationRule, cronID, cronName string, logStore 
 }
 
 // fireAutomationWebhook sends the trigger payload to a webhook URL.
-func fireAutomationWebhook(webhook *AutomationRule, trigger *AutomationRule, doc *storage.Doc, collection string, score float64, sentimentScore float64, logStore *AutomationLogStore) {
+func fireAutomationWebhook(webhook *AutomationRule, trigger *AutomationRule, doc *storage.Doc, collection string, score float64, sentimentScore float64, logStore *automationlog.Store) {
 	start := time.Now()
 
 	payload := TriggerPayload{
@@ -626,7 +627,7 @@ func fireAutomationWebhook(webhook *AutomationRule, trigger *AutomationRule, doc
 	}
 
 	if logStore != nil {
-		_ = logStore.Log(AutomationLogEntry{
+		_ = logStore.Log(automationlog.Entry{
 			Timestamp:  start.Unix(),
 			RuleID:     trigger.ID,
 			RuleName:   trigger.Name,

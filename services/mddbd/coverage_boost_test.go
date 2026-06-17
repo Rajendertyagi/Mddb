@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mddb/internal/automationlog"
 	"mddb/internal/binlog"
 	"mddb/internal/fts"
 	"mddb/internal/vector"
@@ -363,7 +364,7 @@ func TestAutomationManagerSetLogStore(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
 	am := NewAutomationManager(db)
-	ls := NewAutomationLogStore(db, 24*time.Hour)
+	ls := automationlog.NewStore(db, 24*time.Hour)
 	am.SetLogStore(ls)
 }
 

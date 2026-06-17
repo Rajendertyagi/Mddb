@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"io"
+	"mddb/internal/automationlog"
 	"mddb/internal/storage"
 	"time"
 )
@@ -567,10 +568,10 @@ type MCPAutomationListResponse struct {
 
 // MCPAutomationLogListResponse represents list of automation logs.
 type MCPAutomationLogListResponse struct {
-	Logs       []AutomationLogEntry `json:"logs"`
-	Total      int                  `json:"total"`
-	NextCursor string               `json:"nextCursor,omitempty"`
-	HasMore    bool                 `json:"hasMore"`
+	Logs       []automationlog.Entry `json:"logs"`
+	Total      int                   `json:"total"`
+	NextCursor string                `json:"nextCursor,omitempty"`
+	HasMore    bool                  `json:"hasMore"`
 }
 
 // --- Collection Config MCP Types ---

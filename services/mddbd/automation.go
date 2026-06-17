@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"mddb/internal/automationlog"
 	"mddb/internal/binlog"
 	"strings"
 	"sync"
@@ -56,7 +57,7 @@ type AutomationManager struct {
 	rules    []AutomationRule
 	binlog   *binlog.Binlog
 	server   *Server
-	logStore *AutomationLogStore
+	logStore *automationlog.Store
 }
 
 // NewAutomationManager creates a new automation manager.
@@ -77,7 +78,7 @@ func (am *AutomationManager) SetServer(s *Server) {
 }
 
 // SetLogStore sets the automation log store for recording webhook executions.
-func (am *AutomationManager) SetLogStore(ls *AutomationLogStore) {
+func (am *AutomationManager) SetLogStore(ls *automationlog.Store) {
 	am.logStore = ls
 }
 

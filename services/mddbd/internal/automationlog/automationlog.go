@@ -1,4 +1,4 @@
-package main
+package automationlog
 
 import (
 	"crypto/rand"
@@ -15,8 +15,8 @@ import (
 
 var bucketAutomationLog = []byte("automation_log")
 
-// AutomationLogEntry represents a single automation execution log record.
-type AutomationLogEntry struct {
+// Entry represents a single automation execution log record.
+type Entry struct {
 	ID         string `json:"id"`
 	Timestamp  int64  `json:"timestamp"`
 	RuleID     string `json:"ruleId"`
@@ -31,16 +31,16 @@ type AutomationLogEntry struct {
 	Attempt    int    `json:"attempt"` // 1-based retry attempt
 }
 
-// AutomationLogStore persists and queries automation execution logs in BoltDB.
-type AutomationLogStore struct {
+// Store persists and queries automation execution logs in BoltDB.
+type Store struct {
 	db     *bolt.DB
 	ttl    time.Duration
 	stopCh chan struct{}
 }
 
-// NewAutomationLogStore creates a new log store with the given TTL retention.
-func NewAutomationLogStore(db *bolt.DB, ttl time.Duration) *AutomationLogStore {
-	return &AutomationLogStore{
+// NewStore creates a new log store with the given TTL retention.
+func NewStore(db *bolt.DB, ttl time.Duration) *Store {
+	return &Store{
 		db:     db,
 		ttl:    ttl,
 		stopCh: make(chan struct{}),
@@ -48,7 +48,7 @@ func NewAutomationLogStore(db *bolt.DB, ttl time.Duration) *AutomationLogStore {
 }
 
 // EnsureBucket creates the automation_log bucket if it doesn't exist.
-func (ls *AutomationLogStore) EnsureBucket() error {
+func (ls *Store) EnsureBucket() error {
 	return ls.db.Update(func(tx *bolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists(bucketAutomationLog)
 		return err
@@ -56,7 +56,7 @@ func (ls *AutomationLogStore) EnsureBucket() error {
 }
 
 // Log writes a single log entry. Called inline after webhook fire.
-func (ls *AutomationLogStore) Log(entry AutomationLogEntry) error {
+func (ls *Store) Log(entry Entry) error {
 	if entry.ID == "" {
 		entry.ID = automationLogID()
 	}
@@ -78,7 +78,7 @@ func (ls *AutomationLogStore) Log(entry AutomationLogEntry) error {
 
 // List returns log entries ordered newest-first with cursor-based pagination.
 // Pass cursor="" for the first page. Returns entries, nextCursor, error.
-func (ls *AutomationLogStore) List(limit int, cursor string, ruleID string, status string) ([]AutomationLogEntry, string, error) {
+func (ls *Store) List(limit int, cursor string, ruleID string, status string) ([]Entry, string, error) {
 	if limit <= 0 {
 		limit = 50
 	}
@@ -86,7 +86,7 @@ func (ls *AutomationLogStore) List(limit int, cursor string, ruleID string, stat
 		limit = 500
 	}
 
-	var entries []AutomationLogEntry
+	var entries []Entry
 	var nextCursor string
 
 	err := ls.db.View(func(tx *bolt.Tx) error {
@@ -116,7 +116,7 @@ func (ls *AutomationLogStore) List(limit int, cursor string, ruleID string, stat
 		}
 
 		for ; k != nil; k, v = c.Prev() {
-			var entry AutomationLogEntry
+			var entry Entry
 			if err := json.Unmarshal(v, &entry); err != nil {
 				continue
 			}
@@ -148,14 +148,14 @@ func (ls *AutomationLogStore) List(limit int, cursor string, ruleID string, stat
 	}
 
 	if entries == nil {
-		entries = []AutomationLogEntry{}
+		entries = []Entry{}
 	}
 
 	return entries, nextCursor, nil
 }
 
 // Count returns the total number of log entries, optionally filtered.
-func (ls *AutomationLogStore) Count(ruleID string, status string) (int, error) {
+func (ls *Store) Count(ruleID string, status string) (int, error) {
 	var count int
 	err := ls.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(bucketAutomationLog)
@@ -171,7 +171,7 @@ func (ls *AutomationLogStore) Count(ruleID string, status string) (int, error) {
 
 		// Slow path: iterate and filter
 		return b.ForEach(func(k, v []byte) error {
-			var entry AutomationLogEntry
+			var entry Entry
 			if err := json.Unmarshal(v, &entry); err != nil {
 				return nil
 			}
@@ -189,7 +189,7 @@ func (ls *AutomationLogStore) Count(ruleID string, status string) (int, error) {
 }
 
 // StartCleanup starts a background goroutine that removes expired log entries.
-func (ls *AutomationLogStore) StartCleanup(interval time.Duration) {
+func (ls *Store) StartCleanup(interval time.Duration) {
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
@@ -209,7 +209,7 @@ func (ls *AutomationLogStore) StartCleanup(interval time.Duration) {
 }
 
 // Stop signals the cleanup goroutine to stop.
-func (ls *AutomationLogStore) Stop() {
+func (ls *Store) Stop() {
 	select {
 	case <-ls.stopCh:
 		// already closed
@@ -219,7 +219,7 @@ func (ls *AutomationLogStore) Stop() {
 }
 
 // cleanup removes all log entries older than ls.ttl.
-func (ls *AutomationLogStore) cleanup() {
+func (ls *Store) cleanup() {
 	cutoffNano := time.Now().Add(-ls.ttl).UnixNano()
 	cutoffKey := fmt.Sprintf("%020d|", cutoffNano)
 

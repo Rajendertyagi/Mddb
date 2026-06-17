@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"mddb/internal/automationlog"
 	"mddb/internal/fts"
 	"mddb/internal/storage"
 	pb "mddb/proto"
@@ -42,7 +43,7 @@ func newTestGRPCServerFull(t *testing.T) (*GRPCServer, *Server, func()) {
 	}
 
 	// AutomationLogStore
-	s.AutomationLogStore = NewAutomationLogStore(s.DB, 24*time.Hour)
+	s.AutomationLogStore = automationlog.NewStore(s.DB, 24*time.Hour)
 	if err := s.AutomationLogStore.EnsureBucket(); err != nil {
 		cleanup()
 		t.Fatal(err)

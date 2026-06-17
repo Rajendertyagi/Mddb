@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"mddb/internal/audit"
+	"mddb/internal/automationlog"
 	"mddb/internal/binlog"
 	"mddb/internal/cache"
 	"mddb/internal/compression"
@@ -115,7 +116,7 @@ type Server struct {
 	SynonymManager     *fts.SynonymManager       // Synonym dictionaries for FTS
 	StopWordManager    *fts.StopWordManager      // Per-collection custom stop words for FTS
 	AutomationManager  *AutomationManager        // Automation: triggers, crons, webhook targets
-	AutomationLogStore *AutomationLogStore       // Automation execution logs
+	AutomationLogStore *automationlog.Store      // Automation execution logs
 	CronScheduler      *CronScheduler            // Cron scheduler for automation
 	CollectionManager  *CollectionManager        // Per-collection attributes (type, description, icon, etc.)
 	CurationManager    *CurationManager          // FTS/Hybrid curation rules: pinned + hidden results per query
@@ -544,11 +545,11 @@ func main() {
 		// Initialize automation log store
 		if env("MDDB_AUTOMATION_LOGS", "enable") != "disable" {
 			logTTLStr := env("MDDB_AUTOMATION_LOGS_TTL", "7d")
-			logTTL, err := ParseDurationString(logTTLStr)
+			logTTL, err := automationlog.ParseDurationString(logTTLStr)
 			if err != nil {
 				log.Fatalf("Invalid MDDB_AUTOMATION_LOGS_TTL: %v", err)
 			}
-			s.AutomationLogStore = NewAutomationLogStore(db, logTTL)
+			s.AutomationLogStore = automationlog.NewStore(db, logTTL)
 			if err := s.AutomationLogStore.EnsureBucket(); err != nil {
 				log.Fatal(err)
 			}
