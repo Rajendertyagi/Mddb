@@ -160,11 +160,24 @@ make build
 
 ### Development with Go Workspace
 
-MDDB is a Go monorepo with multiple modules (`services/mddbd`, `services/mddb-cli`, `tools/bench`). A [`go.work`](go.work) file at the repo root enables Go workspace mode for local development:
+MDDB is a Go monorepo with multiple modules (`services/mddbd`, `services/mddb-cli`, `clients/go/mddb`, `tools/bench`). A [`go.work`](go.work) file at the repo root enables Go workspace mode for local development:
 
 - **Cross-module refactoring** — renaming a symbol in `services/mddbd` immediately updates references in `services/mddb-cli` via `gopls`.
 - **Unified build** — `go build ./services/mddbd/... ./services/mddb-cli/... ./tools/bench/...` from the repo root.
 - **IDE "goto definition"** works across module boundaries without opening each module separately.
+
+#### `services/mddbd` internal package structure (GO-015)
+
+The daemon was refactored from one flat ~58k-LOC `package main` into importable, independently-testable `internal/` packages. Server-independent leaves and dependency-inverted subsystems now live behind compilation boundaries:
+
+| Area | Packages |
+|---|---|
+| Storage & docs | `internal/storage` (the `Doc` type, key builders, proto conversion), `internal/binlog` (replication log), `internal/compression`, `internal/delta` |
+| Search | `internal/fts` (full-text), `internal/vector` (ANN/embeddings/SIMD), `internal/geo`, `internal/spell`, `internal/embedding` |
+| Subsystems | `internal/cache`, `internal/metrics` (inverted via `StatsProvider`), `internal/indexqueue` (inverted via `Store`), `internal/ttl` (inverted via `Reaper`), `internal/encryption`, `internal/webhooks`, `internal/automationlog`, `internal/schema`, `internal/temporal`, `internal/audit` |
+| Shared utilities | `internal/envconf`, `internal/sliceutil`, `internal/httpclient` (pooled SSRF-safe client), `internal/wikitext`, `internal/sentiment` |
+
+HTTP/gRPC/MCP/GraphQL handlers stay in `package main` as thin transport over these packages. The HTTP API client is a separate shared module, [`clients/go/mddb`](clients/go/mddb/) (`mddb-client`), consumed by `mddb-cli` and external Go integrations.
 
 **CI runs in module-isolation mode** (`GOWORK=off` in [`.github/workflows/test.yml`](.github/workflows/test.yml) and [`release.yml`](.github/workflows/release.yml)) so each module builds and tests independently. This catches missing `require` entries that workspace mode would transparently resolve from sibling modules.
 
