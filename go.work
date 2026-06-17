@@ -22,6 +22,7 @@ go 1.26
 toolchain go1.26.4
 
 use (
+	./clients/go/mddb
 	./services/mddb-cli
 	./services/mddbd
 	./test
