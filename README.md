@@ -221,11 +221,21 @@ High-performance clients generated from Protocol Buffers:
 
 | Library | Language | Location | Description |
 |---------|----------|----------|-------------|
-| **Go Client** | Go | `services/mddbd/proto/` | Native Go gRPC stubs |
+| **Go HTTP client** | Go | [`clients/go/mddb/`](clients/go/mddb/) | Official HTTP/JSON SDK — shared by `mddb-cli` and external Go integrations |
+| **Go gRPC stubs** | Go | `services/mddbd/proto/` | Native Go gRPC stubs |
 | **Python gRPC** | Python | `clients/python/` | Generated Python gRPC client |
 | **Node.js gRPC** | Node.js | `clients/nodejs/` | Uses `@grpc/grpc-js` |
 
 Proto definitions at `proto/mddb.proto` - generate clients for any language supported by protobuf.
+
+The Go HTTP SDK is a standalone module (`mddb-client`); import it directly:
+
+```go
+import mddb "mddb-client" // replace => ./clients/go/mddb in the monorepo
+
+c := mddb.New("http://localhost:11023", mddb.WithAPIKey(os.Getenv("MDDB_API_KEY")))
+doc, err := c.Add(ctx, mddb.AddRequest{Collection: "blog", Key: "hello", Lang: "en", ContentMD: "# Hi"})
+```
 
 ### Docker Images ([Docker Hub](https://hub.docker.com/r/tradik/mddb))
 

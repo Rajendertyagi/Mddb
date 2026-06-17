@@ -10,6 +10,7 @@ on:
     paths:
       - 'services/mddbd/**'
       - 'services/mddb-cli/**'
+      - 'clients/go/mddb/**'
       - 'proto/**'
       - 'buf.yaml'
       - 'buf.gen.yaml'
@@ -23,6 +24,7 @@ on:
     paths:
       - 'services/mddbd/**'
       - 'services/mddb-cli/**'
+      - 'clients/go/mddb/**'
       - 'proto/**'
       - 'buf.yaml'
       - 'buf.gen.yaml'
@@ -68,6 +70,20 @@ jobs:
         working-directory: services/mddbd
         run: go test -v -race -coverprofile=coverage.out ./...
 
+      # GO-015: the shared Go client SDK (used by mddb-cli) and the CLI itself
+      # build/test standalone under GOWORK=off, catching API drift against the
+      # server's HTTP contract.
+      - name: Test shared Go client
+        working-directory: clients/go/mddb
+        run: go test -race ./...
+
+      - name: Build & test mddb-cli
+        working-directory: services/mddb-cli
+        run: |
+          go mod tidy
+          go build ./...
+          go test ./...
+
       - name: Upload coverage
         uses: codecov/codecov-action@v5
         with:
@@ -94,7 +110,7 @@ jobs:
       # enforced. Fails listing the offenders; `make fmt` fixes them locally.
       - name: Check gofmt formatting
         run: |
-          UNFORMATTED=$(gofmt -s -l services/ tools/ test/)
+          UNFORMATTED=$(gofmt -s -l services/ tools/ test/ clients/go/)
           if [ -n "$UNFORMATTED" ]; then
             echo "::error::Files not gofmt-formatted (run 'make fmt'):"
             echo "$UNFORMATTED"
@@ -107,6 +123,13 @@ jobs:
         with:
           version: latest
           working-directory: services/mddbd
+          args: --timeout=5m
+
+      - name: Run golangci-lint (shared Go client)
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
+          working-directory: clients/go/mddb
           args: --timeout=5m
 
   proto:

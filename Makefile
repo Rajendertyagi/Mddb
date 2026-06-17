@@ -66,6 +66,8 @@ dev-shell-panel: ## Open shell in MDDB panel container
 test: ## Run all tests
 	@echo "🧪 Running backend tests..."
 	cd services/mddbd && go test -v -timeout 5m ./...
+	cd clients/go/mddb && go test -timeout 5m ./...
+	cd services/mddb-cli && go test -timeout 5m ./...
 	@echo "✅ Tests passed!"
 
 test-coverage: ## Run tests with coverage
@@ -77,16 +79,17 @@ test-coverage: ## Run tests with coverage
 lint: ## Run linter
 	@echo "🔍 Running linter..."
 	cd services/mddbd && golangci-lint run --timeout 5m
+	cd clients/go/mddb && golangci-lint run --timeout 5m
 	@echo "✅ Linting passed!"
 
 fmt: ## Format Go code (all modules)
 	@echo "🎨 Formatting Go code..."
-	gofmt -s -w services/ tools/ test/
+	gofmt -s -w services/ tools/ test/ clients/go/
 	@echo "✅ Code formatted!"
 
 fmt-check: ## Fail if any Go file is not gofmt-formatted (GO-012 — CI gate)
 	@echo "🎨 Checking Go formatting..."
-	@UNFORMATTED=$$(gofmt -s -l services/ tools/ test/); \
+	@UNFORMATTED=$$(gofmt -s -l services/ tools/ test/ clients/go/); \
 	if [ -n "$$UNFORMATTED" ]; then \
 		echo "❌ Files not gofmt-formatted (run 'make fmt'):"; \
 		echo "$$UNFORMATTED"; \
@@ -97,12 +100,14 @@ fmt-check: ## Fail if any Go file is not gofmt-formatted (GO-012 — CI gate)
 vet: ## Run go vet
 	@echo "🔍 Running go vet..."
 	cd services/mddbd && go vet ./...
+	cd clients/go/mddb && go vet ./...
 	cd services/mddb-cli && go vet ./...
 	@echo "✅ go vet passed!"
 
 sec: ## Run security scanner (gosec)
 	@echo "🔒 Running security scan..."
 	cd services/mddbd && gosec -quiet -exclude-generated -exclude=G115 ./...
+	cd clients/go/mddb && gosec -quiet -exclude-generated -exclude=G115 ./...
 	cd services/mddb-cli && gosec -quiet -exclude-generated -exclude=G115 ./...
 	@echo "✅ Security scan passed!"
 

@@ -1,11 +1,10 @@
 package main
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,6 +12,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	mddb "mddb-client"
 )
 
 var (
@@ -23,65 +24,20 @@ var (
 	token      string // JWT token for authentication
 )
 
-type Client struct {
-	BaseURL string
-	Client  *http.Client
-}
-
-func NewClient(baseURL string) *Client {
-	return &Client{
-		BaseURL: baseURL,
-		Client: &http.Client{
-			Timeout: 30 * time.Second,
-		},
-	}
-}
-
-func (c *Client) request(method, path string, body interface{}) ([]byte, error) {
-	var reqBody io.Reader
-	if body != nil {
-		data, err := json.Marshal(body)
-		if err != nil {
-			return nil, err
-		}
-		reqBody = bytes.NewReader(data)
-		if verbose {
-			fmt.Fprintf(os.Stderr, "Request: %s\n", string(data))
-		}
-	}
-
-	req, err := http.NewRequest(method, c.BaseURL+path, reqBody)
-	if err != nil {
-		return nil, err
-	}
-
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-
-	// Add authentication headers
+// newClient builds the shared MDDB Go client (clients/go/mddb) from the CLI's
+// global flags. The CLI no longer carries its own HTTP transport (GO-015 — the
+// duplicated client/request implementation was removed in favour of the SDK).
+func newClient() *mddb.Client {
+	opts := []mddb.Option{}
 	if apiKey != "" {
-		req.Header.Set("X-API-Key", apiKey)
+		opts = append(opts, mddb.WithAPIKey(apiKey))
 	} else if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
+		opts = append(opts, mddb.WithToken(token))
 	}
-
-	resp, err := c.Client.Do(req)
-	if err != nil {
-		return nil, err
+	if verbose {
+		opts = append(opts, mddb.WithVerbose(os.Stderr))
 	}
-	defer func() { _ = resp.Body.Close() }()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("server error (%d): %s", resp.StatusCode, string(respBody))
-	}
-
-	return respBody, nil
+	return mddb.New(serverURL, opts...)
 }
 
 func fileExists(path string) bool {
@@ -175,7 +131,7 @@ Reads content from stdin or file.`,
 				}
 			}
 
-			client := NewClient(serverURL)
+			client := newClient()
 			body := map[string]interface{}{
 				"collection": collection,
 				"key":        key,
@@ -184,7 +140,7 @@ Reads content from stdin or file.`,
 				"contentMd":  content,
 			}
 
-			resp, err := client.request("POST", "/v1/add", body)
+			resp, err := client.Do(context.Background(), "POST", "/v1/add", body)
 			if err != nil {
 				return err
 			}
@@ -229,7 +185,7 @@ Reads content from stdin or file.`,
 				}
 			}
 
-			client := NewClient(serverURL)
+			client := newClient()
 			body := map[string]interface{}{
 				"collection": collection,
 				"key":        key,
@@ -237,7 +193,7 @@ Reads content from stdin or file.`,
 				"env":        env,
 			}
 
-			resp, err := client.request("POST", "/v1/get", body)
+			resp, err := client.Do(context.Background(), "POST", "/v1/get", body)
 			if err != nil {
 				return err
 			}
@@ -302,7 +258,7 @@ Reads content from stdin or file.`,
 				}
 			}
 
-			client := NewClient(serverURL)
+			client := newClient()
 			body := map[string]interface{}{
 				"collection": collection,
 				"filterMeta": filterMeta,
@@ -312,7 +268,7 @@ Reads content from stdin or file.`,
 				"offset":     offset,
 			}
 
-			resp, err := client.request("POST", "/v1/search", body)
+			resp, err := client.Do(context.Background(), "POST", "/v1/search", body)
 			if err != nil {
 				return err
 			}
@@ -373,14 +329,14 @@ Reads content from stdin or file.`,
 				}
 			}
 
-			client := NewClient(serverURL)
+			client := newClient()
 			body := map[string]interface{}{
 				"collection": collection,
 				"filterMeta": filterMeta,
 				"format":     format,
 			}
 
-			resp, err := client.request("POST", "/v1/export", body)
+			resp, err := client.Do(context.Background(), "POST", "/v1/export", body)
 			if err != nil {
 				return err
 			}
@@ -414,8 +370,8 @@ Reads content from stdin or file.`,
 				filename = args[0]
 			}
 
-			client := NewClient(serverURL)
-			resp, err := client.request("GET", fmt.Sprintf("/v1/backup?to=%s", filename), nil)
+			client := newClient()
+			resp, err := client.Do(context.Background(), "GET", fmt.Sprintf("/v1/backup?to=%s", filename), nil)
 			if err != nil {
 				return err
 			}
@@ -443,9 +399,9 @@ Reads content from stdin or file.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			filename := args[0]
 
-			client := NewClient(serverURL)
+			client := newClient()
 			body := map[string]string{"from": filename}
-			resp, err := client.request("POST", "/v1/restore", body)
+			resp, err := client.Do(context.Background(), "POST", "/v1/restore", body)
 			if err != nil {
 				return err
 			}
@@ -475,14 +431,14 @@ Reads content from stdin or file.`,
 			keepRevs, _ := cmd.Flags().GetInt("keep")
 			dropCache, _ := cmd.Flags().GetBool("drop-cache")
 
-			client := NewClient(serverURL)
+			client := newClient()
 			body := map[string]interface{}{
 				"collection": collection,
 				"keepRevs":   keepRevs,
 				"dropCache":  dropCache,
 			}
 
-			resp, err := client.request("POST", "/v1/truncate", body)
+			resp, err := client.Do(context.Background(), "POST", "/v1/truncate", body)
 			if err != nil {
 				return err
 			}
@@ -507,8 +463,8 @@ Reads content from stdin or file.`,
 		Long:  `Display database statistics including collection counts, revisions, and size.`,
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client := NewClient(serverURL)
-			resp, err := client.request("GET", "/v1/stats", nil)
+			client := newClient()
+			resp, err := client.Do(context.Background(), "GET", "/v1/stats", nil)
 			if err != nil {
 				return err
 			}
@@ -583,7 +539,7 @@ Reads content from stdin or file.`,
 				}
 			}
 
-			client := NewClient(serverURL)
+			client := newClient()
 			body := map[string]interface{}{
 				"collection":     collection,
 				"query":          query,
@@ -595,7 +551,7 @@ Reads content from stdin or file.`,
 				body["filterMeta"] = filterMeta
 			}
 
-			resp, err := client.request("POST", "/v1/vector-search", body)
+			resp, err := client.Do(context.Background(), "POST", "/v1/vector-search", body)
 			if err != nil {
 				return err
 			}
@@ -666,13 +622,13 @@ Reads content from stdin or file.`,
 			collection := args[0]
 			force, _ := cmd.Flags().GetBool("force")
 
-			client := NewClient(serverURL)
+			client := newClient()
 			body := map[string]interface{}{
 				"collection": collection,
 				"force":      force,
 			}
 
-			resp, err := client.request("POST", "/v1/vector-reindex", body)
+			resp, err := client.Do(context.Background(), "POST", "/v1/vector-reindex", body)
 			if err != nil {
 				return err
 			}
@@ -713,8 +669,8 @@ Reads content from stdin or file.`,
 		Long:  `Display embedding provider info and per-collection embedding statistics.`,
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client := NewClient(serverURL)
-			resp, err := client.request("GET", "/v1/vector-stats", nil)
+			client := newClient()
+			resp, err := client.Do(context.Background(), "GET", "/v1/vector-stats", nil)
 			if err != nil {
 				return err
 			}
@@ -789,7 +745,7 @@ Reads content from stdin or file.`,
 				}
 			}
 
-			client := NewClient(serverURL)
+			client := newClient()
 			body := map[string]interface{}{
 				"collection": collection,
 				"url":        url,
@@ -805,7 +761,7 @@ Reads content from stdin or file.`,
 				body["ttl"] = ttl
 			}
 
-			resp, err := client.request("POST", "/v1/import-url", body)
+			resp, err := client.Do(context.Background(), "POST", "/v1/import-url", body)
 			if err != nil {
 				return err
 			}
@@ -836,7 +792,7 @@ Reads content from stdin or file.`,
 			collection, key, lang := args[0], args[1], args[2]
 			ttl, _ := cmd.Flags().GetInt64("ttl")
 
-			client := NewClient(serverURL)
+			client := newClient()
 			body := map[string]interface{}{
 				"collection": collection,
 				"key":        key,
@@ -844,7 +800,7 @@ Reads content from stdin or file.`,
 				"ttl":        ttl,
 			}
 
-			resp, err := client.request("POST", "/v1/set-ttl", body)
+			resp, err := client.Do(context.Background(), "POST", "/v1/set-ttl", body)
 			if err != nil {
 				return err
 			}
@@ -878,14 +834,14 @@ Reads content from stdin or file.`,
 				return fmt.Errorf("--query flag is required")
 			}
 
-			client := NewClient(serverURL)
+			client := newClient()
 			body := map[string]interface{}{
 				"collection": collection,
 				"query":      query,
 				"limit":      limit,
 			}
 
-			resp, err := client.request("POST", "/v1/fts", body)
+			resp, err := client.Do(context.Background(), "POST", "/v1/fts", body)
 			if err != nil {
 				return err
 			}
@@ -953,7 +909,7 @@ Reads content from stdin or file.`,
 
 			events := strings.Split(eventsStr, ",")
 
-			client := NewClient(serverURL)
+			client := newClient()
 			body := map[string]interface{}{
 				"url":    url,
 				"events": events,
@@ -962,7 +918,7 @@ Reads content from stdin or file.`,
 				body["collection"] = collection
 			}
 
-			resp, err := client.request("POST", "/v1/webhooks", body)
+			resp, err := client.Do(context.Background(), "POST", "/v1/webhooks", body)
 			if err != nil {
 				return err
 			}
@@ -989,8 +945,8 @@ Reads content from stdin or file.`,
 		Use:   "list",
 		Short: "List webhooks",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client := NewClient(serverURL)
-			resp, err := client.request("GET", "/v1/webhooks", nil)
+			client := newClient()
+			resp, err := client.Do(context.Background(), "GET", "/v1/webhooks", nil)
 			if err != nil {
 				return err
 			}
@@ -1026,9 +982,9 @@ Reads content from stdin or file.`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
-			client := NewClient(serverURL)
+			client := newClient()
 			body := map[string]interface{}{"id": id}
-			resp, err := client.request("POST", "/v1/webhooks/delete", body)
+			resp, err := client.Do(context.Background(), "POST", "/v1/webhooks/delete", body)
 			if err != nil {
 				return err
 			}
@@ -1062,13 +1018,13 @@ Reads content from stdin or file.`,
 				return fmt.Errorf("--collection and --schema flags are required")
 			}
 
-			client := NewClient(serverURL)
+			client := newClient()
 			body := map[string]interface{}{
 				"collection": collection,
 				"schema":     schema,
 			}
 
-			resp, err := client.request("POST", "/v1/schema/set", body)
+			resp, err := client.Do(context.Background(), "POST", "/v1/schema/set", body)
 			if err != nil {
 				return err
 			}
@@ -1094,12 +1050,12 @@ Reads content from stdin or file.`,
 				return fmt.Errorf("--collection flag is required")
 			}
 
-			client := NewClient(serverURL)
+			client := newClient()
 			body := map[string]interface{}{
 				"collection": collection,
 			}
 
-			resp, err := client.request("POST", "/v1/schema/get", body)
+			resp, err := client.Do(context.Background(), "POST", "/v1/schema/get", body)
 			if err != nil {
 				return err
 			}
@@ -1134,12 +1090,12 @@ Reads content from stdin or file.`,
 				return fmt.Errorf("--collection flag is required")
 			}
 
-			client := NewClient(serverURL)
+			client := newClient()
 			body := map[string]interface{}{
 				"collection": collection,
 			}
 
-			resp, err := client.request("POST", "/v1/schema/delete", body)
+			resp, err := client.Do(context.Background(), "POST", "/v1/schema/delete", body)
 			if err != nil {
 				return err
 			}
@@ -1158,10 +1114,10 @@ Reads content from stdin or file.`,
 		Use:   "list",
 		Short: "List all schemas",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client := NewClient(serverURL)
+			client := newClient()
 			body := map[string]interface{}{}
 
-			resp, err := client.request("POST", "/v1/schema/list", body)
+			resp, err := client.Do(context.Background(), "POST", "/v1/schema/list", body)
 			if err != nil {
 				return err
 			}
@@ -1215,13 +1171,13 @@ Reads content from stdin or file.`,
 				return fmt.Errorf("invalid JSON for --meta: %w", err)
 			}
 
-			client := NewClient(serverURL)
+			client := newClient()
 			body := map[string]interface{}{
 				"collection": collection,
 				"meta":       meta,
 			}
 
-			resp, err := client.request("POST", "/v1/validate", body)
+			resp, err := client.Do(context.Background(), "POST", "/v1/validate", body)
 			if err != nil {
 				return err
 			}
@@ -1263,13 +1219,13 @@ Reads content from stdin or file.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			username, password := args[0], args[1]
 
-			client := NewClient(serverURL)
+			client := newClient()
 			body := map[string]interface{}{
 				"username": username,
 				"password": password,
 			}
 
-			resp, err := client.request("POST", "/v1/auth/login", body)
+			resp, err := client.Do(context.Background(), "POST", "/v1/auth/login", body)
 			if err != nil {
 				return fmt.Errorf("login failed: %w", err)
 			}
@@ -1313,7 +1269,7 @@ Reads content from stdin or file.`,
 				return fmt.Errorf("authentication required: use --token flag or mddb-cli login first")
 			}
 
-			client := NewClient(serverURL)
+			client := newClient()
 			body := map[string]interface{}{
 				"description": description,
 			}
@@ -1321,7 +1277,7 @@ Reads content from stdin or file.`,
 				body["expiresAt"] = expiresAt
 			}
 
-			resp, err := client.request("POST", "/v1/auth/api-key", body)
+			resp, err := client.Do(context.Background(), "POST", "/v1/auth/api-key", body)
 			if err != nil {
 				return fmt.Errorf("failed to create API key: %w", err)
 			}
@@ -1367,8 +1323,8 @@ Reads content from stdin or file.`,
 				return fmt.Errorf("authentication required: use --token flag or mddb-cli login first")
 			}
 
-			client := NewClient(serverURL)
-			resp, err := client.request("GET", "/v1/auth/api-keys", nil)
+			client := newClient()
+			resp, err := client.Do(context.Background(), "GET", "/v1/auth/api-keys", nil)
 			if err != nil {
 				return fmt.Errorf("failed to list API keys: %w", err)
 			}
@@ -1426,8 +1382,8 @@ Reads content from stdin or file.`,
 				return fmt.Errorf("authentication required: use --token flag or mddb-cli login first")
 			}
 
-			client := NewClient(serverURL)
-			resp, err := client.request("DELETE", "/v1/auth/api-keys/"+keyHash, nil)
+			client := newClient()
+			resp, err := client.Do(context.Background(), "DELETE", "/v1/auth/api-keys/"+keyHash, nil)
 			if err != nil {
 				return fmt.Errorf("failed to delete API key: %w", err)
 			}
@@ -1459,7 +1415,7 @@ Examples:
 			query := args[0]
 			variables, _ := cmd.Flags().GetString("variables")
 
-			client := NewClient(serverURL)
+			client := newClient()
 
 			body := map[string]interface{}{
 				"query": query,
@@ -1473,7 +1429,7 @@ Examples:
 				body["variables"] = vars
 			}
 
-			resp, err := client.request("POST", "/graphql", body)
+			resp, err := client.Do(context.Background(), "POST", "/graphql", body)
 			if err != nil {
 				return err
 			}
