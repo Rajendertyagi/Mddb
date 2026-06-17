@@ -136,3 +136,33 @@ func mustJSON(v any) string {
 	b, _ := json.Marshal(v)
 	return string(b)
 }
+
+func TestDisabledEncryptorAccessors(t *testing.T) {
+	t.Setenv("MDDB_ENCRYPTION_KEY", "")
+	e, _ := NewEncryptor() // no key -> disabled
+	if e.Enabled() {
+		t.Fatal("expected disabled encryptor")
+	}
+	if e.PrimaryKeyID() != 0 {
+		t.Errorf("disabled PrimaryKeyID = %d, want 0", e.PrimaryKeyID())
+	}
+	if ids := e.PreviousKeyIDs(); ids != nil {
+		t.Errorf("disabled PreviousKeyIDs = %v, want nil", ids)
+	}
+	if _, err := e.decryptV1([]byte("anything")); err == nil {
+		t.Error("decryptV1 on a disabled encryptor must error")
+	}
+}
+
+func TestDecryptV1ErrorBranches(t *testing.T) {
+	e := encWithKeys(t, genKey(t), "1", "")
+	// Too short to hold magic + nonce.
+	if _, err := e.decryptV1([]byte("short")); err == nil {
+		t.Error("decryptV1 on a too-short payload must error")
+	}
+	// Correct length but garbage ciphertext -> AEAD open fails.
+	bad := append(append([]byte{}, MagicV1...), make([]byte, NonceLen+16)...)
+	if _, err := e.decryptV1(bad); err == nil {
+		t.Error("decryptV1 on garbage ciphertext must error")
+	}
+}

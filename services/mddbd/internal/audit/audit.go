@@ -239,11 +239,17 @@ func (a *AuditManager) trimmer() {
 		case <-a.stopCh:
 			return
 		case <-ticker.C:
-			cutoff := time.Now().Add(-time.Duration(a.retentionDays) * 24 * time.Hour).UnixNano()
-			if err := a.PurgeOlderThan(cutoff); err != nil {
-				log.Printf("audit: trim failed: %v", err)
-			}
+			a.trimOnce()
 		}
+	}
+}
+
+// trimOnce purges events older than the retention window. Extracted from the
+// hourly trimmer loop so it can be exercised directly in tests.
+func (a *AuditManager) trimOnce() {
+	cutoff := time.Now().Add(-time.Duration(a.retentionDays) * 24 * time.Hour).UnixNano()
+	if err := a.PurgeOlderThan(cutoff); err != nil {
+		log.Printf("audit: trim failed: %v", err)
 	}
 }
 
