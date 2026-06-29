@@ -1,7 +1,7 @@
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
-import { walk } from '../src/walker';
+import { walk } from '../src/walker.js';
 
 async function writeTree(root: string, files: Record<string, string>): Promise<void> {
   for (const [rel, content] of Object.entries(files)) {

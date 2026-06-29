@@ -8,7 +8,7 @@ import {
   buildMeta,
   deriveKey,
   slugifyPath,
-} from '../src/document';
+} from '../src/document.js';
 
 describe('slugifyPath', () => {
   it('lowercases and replaces unsafe characters', () => {

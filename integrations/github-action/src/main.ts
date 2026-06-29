@@ -1,8 +1,9 @@
+import { fileURLToPath } from 'node:url';
 import * as core from '@actions/core';
-import { readInputs, type ActionInputs } from './inputs';
-import { walk, type WalkedFile } from './walker';
-import { buildDocument } from './document';
-import { MddbClient, MddbHttpError } from './client';
+import { readInputs, type ActionInputs } from './inputs.js';
+import { walk, type WalkedFile } from './walker.js';
+import { buildDocument } from './document.js';
+import { MddbClient, MddbHttpError } from './client.js';
 
 export interface RunResult {
   scanned: number;
@@ -153,7 +154,7 @@ function finalise(result: RunResult, inputs: ActionInputs): RunResult {
 }
 
 /* istanbul ignore next */
-if (require.main === module) {
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   run().catch((err: unknown) => {
     const message = err instanceof Error ? err.message : String(err);
     core.setFailed(message);

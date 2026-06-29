@@ -12,6 +12,7 @@
     "directory": "integrations/github-action"
   },
   "main": "dist/index.js",
+  "type": "module",
   "engines": {
     "node": ">=24"
   },
@@ -20,13 +21,13 @@
     "lint": "eslint src __tests__ --ext .ts",
     "format": "prettier --write \"src/**/*.ts\" \"__tests__/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"__tests__/**/*.ts\"",
-    "test": "jest",
-    "test:coverage": "jest --coverage",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
+    "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
     "all": "npm run format:check && npm run lint && npm run test:coverage && npm run build"
   },
   "dependencies": {
-    "@actions/core": "^1.11.1",
-    "@actions/glob": "^0.5.0"
+    "@actions/core": "^3.0.1",
+    "@actions/glob": "^0.7.0"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
