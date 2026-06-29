@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"mddb/internal/binlog"
 	"strings"
 	"sync"
 	"time"
@@ -50,7 +51,7 @@ type CurationManager struct {
 	mu        sync.RWMutex
 	byID      map[string]*CurationRule
 	byColl    map[string][]*CurationRule // collection -> rules
-	binlog    *Binlog
+	binlog    *binlog.Binlog
 	marshaler func(v any) ([]byte, error) // override for tests
 }
 
@@ -66,7 +67,7 @@ func NewCurationManager(db *bolt.DB) *CurationManager {
 }
 
 // SetBinlog wires replication logging.
-func (cm *CurationManager) SetBinlog(bl *Binlog) { cm.binlog = bl }
+func (cm *CurationManager) SetBinlog(bl *binlog.Binlog) { cm.binlog = bl }
 
 // EnsureBucket is called once during server startup.
 func (cm *CurationManager) EnsureBucket() error {
@@ -157,7 +158,7 @@ func (cm *CurationManager) Set(rule *CurationRule) error {
 	}
 
 	if cm.binlog != nil {
-		_ = cm.binlog.Append(&BinlogEntry{Type: BinlogPut, BucketName: "curation", Key: copyBytes(key), Value: copyBytes(val)})
+		_ = cm.binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogPut, BucketName: "curation", Key: CopyBytes(key), Value: CopyBytes(val)})
 	}
 
 	cm.mu.Lock()
@@ -226,7 +227,7 @@ func (cm *CurationManager) Delete(id string) error {
 		return err
 	}
 	if cm.binlog != nil {
-		_ = cm.binlog.Append(&BinlogEntry{Type: BinlogDelete, BucketName: "curation", Key: copyBytes(key)})
+		_ = cm.binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogDelete, BucketName: "curation", Key: CopyBytes(key)})
 	}
 	cm.mu.Lock()
 	if prev, ok := cm.byID[id]; ok {

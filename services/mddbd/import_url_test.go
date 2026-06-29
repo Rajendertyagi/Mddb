@@ -453,7 +453,7 @@ func TestFetchURL_LargeResponse(t *testing.T) {
 
 func TestFetchURL_WithFrontmatter(t *testing.T) {
 	mdContent := `---
-title: Remote Doc
+title: Remote storage.Doc
 tags: go, test
 ---
 # Remote Document
@@ -475,7 +475,7 @@ Body content.`
 	if meta == nil {
 		t.Fatal("expected non-nil meta from fetched content")
 	}
-	if !reflect.DeepEqual(meta["title"], []string{"Remote Doc"}) {
+	if !reflect.DeepEqual(meta["title"], []string{"Remote storage.Doc"}) {
 		t.Errorf("title: got %v", meta["title"])
 	}
 	if body != "# Remote Document\n\nBody content." {

@@ -4,6 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"mddb/internal/fts"
+	"mddb/internal/geo"
+	"mddb/internal/storage"
+	"mddb/internal/vector"
 	"net/http"
 	"sort"
 	"time"
@@ -51,14 +55,14 @@ type HybridGeoFilter struct {
 
 // HybridSearchResultItem represents a single hybrid search result.
 type HybridSearchResultItem struct {
-	Document       Doc      `json:"document"`
-	CombinedScore  float64  `json:"combinedScore"`
-	FTSScore       float64  `json:"ftsScore"`
-	VectorScore    float64  `json:"vectorScore"`
-	DistanceMeters float64  `json:"distanceMeters,omitempty"`
-	MatchedTerms   []string `json:"matchedTerms,omitempty"`
-	Rank           int      `json:"rank"`
-	Pinned         bool     `json:"pinned,omitempty"` // set by curation rules (v2.9.14+)
+	Document       storage.Doc `json:"document"`
+	CombinedScore  float64     `json:"combinedScore"`
+	FTSScore       float64     `json:"ftsScore"`
+	VectorScore    float64     `json:"vectorScore"`
+	DistanceMeters float64     `json:"distanceMeters,omitempty"`
+	MatchedTerms   []string    `json:"matchedTerms,omitempty"`
+	Rank           int         `json:"rank"`
+	Pinned         bool        `json:"pinned,omitempty"` // set by curation rules (v2.9.14+)
 }
 
 // HybridSearchResponse represents the response from hybrid search.
@@ -149,7 +153,7 @@ func (s *Server) handleHybridSearch(w http.ResponseWriter, r *http.Request) {
 			bad(w, errors.New("geo index not ready"))
 			return
 		}
-		if !validLatLng(req.Geo.Lat, req.Geo.Lng) || req.Geo.RadiusMeters <= 0 {
+		if !geo.ValidLatLng(req.Geo.Lat, req.Geo.Lng) || req.Geo.RadiusMeters <= 0 {
 			bad(w, errors.New("invalid geo filter: lat/lng/radiusMeters"))
 			return
 		}
@@ -274,7 +278,7 @@ func (s *Server) handleHybridSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(req.FacetBy) > 0 && len(items) > 0 {
-		docs := make([]Doc, len(items))
+		docs := make([]storage.Doc, len(items))
 		for i, it := range items {
 			docs[i] = it.Document
 		}
@@ -304,23 +308,23 @@ func (s *Server) handleHybridSearch(w http.ResponseWriter, r *http.Request) {
 }
 
 // runFTSSearch executes the FTS portion of hybrid search.
-func (s *Server) runFTSSearch(req HybridSearchRequest) ([]FTSResult, error) {
+func (s *Server) runFTSSearch(req HybridSearchRequest) ([]fts.FTSResult, error) {
 	if s.FTSIndex == nil {
 		return nil, nil
 	}
 
 	// Per-query stemming/synonym control
-	origStemmer := s.FTSIndex.stemmer
-	origSynonyms := s.FTSIndex.synonymManager
+	origStemmer := s.FTSIndex.Stemmer()
+	origSynonyms := s.FTSIndex.SynonymManager()
 	if req.DisableStem {
-		s.FTSIndex.stemmer = nil
+		s.FTSIndex.SetStemmer(nil)
 	}
 	if req.DisableSynonyms {
-		s.FTSIndex.synonymManager = nil
+		s.FTSIndex.SetSynonymManager(nil)
 	}
 	defer func() {
-		s.FTSIndex.stemmer = origStemmer
-		s.FTSIndex.synonymManager = origSynonyms
+		s.FTSIndex.SetStemmer(origStemmer)
+		s.FTSIndex.SetSynonymManager(origSynonyms)
 	}()
 
 	// Pre-filter by metadata if provided
@@ -340,7 +344,7 @@ func (s *Server) runFTSSearch(req HybridSearchRequest) ([]FTSResult, error) {
 
 	tokens := s.FTSIndex.TokenizeQueryLang(req.Collection, req.Query, req.Lang)
 
-	var results []FTSResult
+	var results []fts.FTSResult
 	var err error
 
 	switch req.Algorithm {
@@ -389,7 +393,7 @@ func (s *Server) runFTSSearch(req HybridSearchRequest) ([]FTSResult, error) {
 }
 
 // runVectorSearch executes the vector portion of hybrid search.
-func (s *Server) runVectorSearch(ctx context.Context, req HybridSearchRequest) ([]VectorResult, error) {
+func (s *Server) runVectorSearch(ctx context.Context, req HybridSearchRequest) ([]vector.VectorResult, error) {
 	if s.Embedding == nil || len(s.VectorSearchers) == 0 {
 		return nil, nil
 	}
@@ -417,9 +421,9 @@ func (s *Server) runVectorSearch(ctx context.Context, req HybridSearchRequest) (
 		searchTopK = 20
 	}
 
-	metric := ResolveSimilarity(req.DistanceMetric)
+	metric := vector.ResolveSimilarity(req.DistanceMetric)
 
-	var results []VectorResult
+	var results []vector.VectorResult
 	if len(req.FilterMeta) > 0 {
 		allowedIDs := s.getDocIDsByMeta(req.Collection, req.FilterMeta)
 		if len(allowedIDs) == 0 {
@@ -430,13 +434,13 @@ func (s *Server) runVectorSearch(ctx context.Context, req HybridSearchRequest) (
 		results = searcher.Search(req.Collection, queryVector, searchTopK, req.Threshold, metric)
 	}
 
-	results = DeduplicateChunkResults(results)
+	results = vector.DeduplicateChunkResults(results)
 	return results, nil
 }
 
 // mergeAlpha combines FTS and vector results using alpha blending.
 // combined = alpha * normalizedFTS + (1-alpha) * vectorScore
-func mergeAlpha(ftsResults []FTSResult, vectorResults []VectorResult, alpha float64, topK int) []HybridSearchResultItem {
+func mergeAlpha(ftsResults []fts.FTSResult, vectorResults []vector.VectorResult, alpha float64, topK int) []HybridSearchResultItem {
 	// Normalize FTS scores to 0-1 range
 	var ftsMin, ftsMax float64
 	if len(ftsResults) > 0 {
@@ -490,7 +494,7 @@ func mergeAlpha(ftsResults []FTSResult, vectorResults []VectorResult, alpha floa
 	for docID, e := range combined {
 		combinedScore := (1-alpha)*e.ftsScore + alpha*e.vectorScore
 		results = append(results, HybridSearchResultItem{
-			Document:      Doc{ID: docID},
+			Document:      storage.Doc{ID: docID},
 			CombinedScore: combinedScore,
 			FTSScore:      e.ftsScore,
 			VectorScore:   e.vectorScore,
@@ -510,7 +514,7 @@ func mergeAlpha(ftsResults []FTSResult, vectorResults []VectorResult, alpha floa
 
 // mergeRRF combines FTS and vector results using Reciprocal Rank Fusion.
 // score = 1/(k + rank_fts) + 1/(k + rank_vector)
-func mergeRRF(ftsResults []FTSResult, vectorResults []VectorResult, rrfK int, topK int) []HybridSearchResultItem {
+func mergeRRF(ftsResults []fts.FTSResult, vectorResults []vector.VectorResult, rrfK int, topK int) []HybridSearchResultItem {
 	type combinedEntry struct {
 		rrfScore     float64
 		ftsScore     float64
@@ -543,7 +547,7 @@ func mergeRRF(ftsResults []FTSResult, vectorResults []VectorResult, rrfK int, to
 	results := make([]HybridSearchResultItem, 0, len(combined))
 	for docID, e := range combined {
 		results = append(results, HybridSearchResultItem{
-			Document:      Doc{ID: docID},
+			Document:      storage.Doc{ID: docID},
 			CombinedScore: e.rrfScore,
 			FTSScore:      e.ftsScore,
 			VectorScore:   e.vectorScore,
@@ -571,7 +575,7 @@ func (s *Server) loadHybridDocs(collection string, items []HybridSearchResultIte
 		}
 		rank := 0
 		for _, item := range items {
-			v := bDocs.Get(kDoc(collection, item.Document.ID))
+			v := bDocs.Get(storage.DocKey(collection, item.Document.ID))
 			if v == nil {
 				continue
 			}

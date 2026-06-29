@@ -10,7 +10,7 @@ import (
 	pb "mddb/proto"
 )
 
-// GO-002: the DocumentCache (5-min TTL) feeds the gRPC Get path. Writes and
+// GO-002: the cache.DocumentCache (5-min TTL) feeds the gRPC Get path. Writes and
 // deletes through the shared Server.addDocument / deleteDocumentInternal (used
 // by HTTP/MCP/GraphQL) must keep that cache coherent, otherwise gRPC Get serves
 // stale or already-deleted documents for up to the TTL.

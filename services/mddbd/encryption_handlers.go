@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"mddb/internal/audit"
 	"net/http"
 	"strings"
 
@@ -73,7 +74,7 @@ func (s *Server) handleEncryptionRotate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if s.AuditManager != nil {
-		s.AuditManager.Record(AuditEvent{
+		s.AuditManager.Record(audit.AuditEvent{
 			Action:     "encryption.rotation_requested",
 			Resource:   "encryption",
 			Collection: req.Collection,

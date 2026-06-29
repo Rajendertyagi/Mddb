@@ -11,7 +11,7 @@ import (
 	json "github.com/goccy/go-json"
 )
 
-// mockEmbedding is a minimal EmbeddingProvider for testing.
+// mockEmbedding is a minimal embedding.Provider for testing.
 type mockEmbedding struct {
 	dims  int
 	model string

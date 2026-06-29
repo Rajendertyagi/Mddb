@@ -6,8 +6,11 @@ import (
 	"sync"
 	"time"
 
-	bolt "go.etcd.io/bbolt"
+	"mddb/internal/binlog"
+	"mddb/internal/storage"
 	proto "mddb/proto"
+
+	bolt "go.etcd.io/bbolt"
 )
 
 // BatchProcessor handles batch document processing
@@ -30,10 +33,10 @@ func NewBatchProcessor(server *Server, maxWorkers int) *BatchProcessor {
 // ProcessedDoc represents a processed document ready for storage
 type ProcessedDoc struct {
 	DocID        string
-	Doc          Doc
+	Doc          storage.Doc
 	Buf          []byte
 	Meta         map[string][]string
-	Existing     Doc
+	Existing     storage.Doc
 	IsUpdate     bool
 	SaveRevision bool
 	Error        error
@@ -134,10 +137,10 @@ func (bp *BatchProcessor) processDocument(collection string, batchDoc *proto.Bat
 	result.DocID = docID
 
 	// Load existing (in read transaction)
-	existing := Doc{}
+	existing := storage.Doc{}
 	err := bp.server.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(bp.server.BucketNames.Docs)
-		if v := bDocs.Get(kDoc(collection, docID)); v != nil {
+		if v := bDocs.Get(storage.DocKey(collection, docID)); v != nil {
 			existingDoc, err := unmarshalDoc(v)
 			if err != nil {
 				return err
@@ -161,7 +164,7 @@ func (bp *BatchProcessor) processDocument(collection string, batchDoc *proto.Bat
 		added = now
 	}
 
-	doc := Doc{
+	doc := storage.Doc{
 		ID: docID, Key: batchDoc.Key, Lang: batchDoc.Lang, Meta: meta,
 		ContentMD: batchDoc.ContentMd, AddedAt: added, UpdatedAt: now,
 	}
@@ -187,7 +190,7 @@ func (bp *BatchProcessor) commitBatch(collection string, processed []*ProcessedD
 	resp := &proto.AddBatchResponse{}
 	committed := make([]*ProcessedDoc, 0, len(processed))
 
-	var bo BinlogOps
+	var bo binlog.BinlogOps
 	// Single transaction for all documents
 	err := bp.server.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(bp.server.BucketNames.Docs)
@@ -204,7 +207,7 @@ func (bp *BatchProcessor) commitBatch(collection string, processed []*ProcessedD
 			}
 
 			// Store document
-			docKey := kDoc(collection, p.DocID)
+			docKey := storage.DocKey(collection, p.DocID)
 			if err := bDocs.Put(docKey, p.Buf); err != nil {
 				resp.Failed++
 				resp.Errors = append(resp.Errors, fmt.Sprintf("%s: put error: %v", p.Doc.Key, err))
@@ -213,7 +216,7 @@ func (bp *BatchProcessor) commitBatch(collection string, processed []*ProcessedD
 			bo.Put("docs", docKey, p.Buf)
 
 			// Store key index
-			byKeyK := kByKey(collection, p.Doc.Key, p.Doc.Lang)
+			byKeyK := storage.ByKeyKey(collection, p.Doc.Key, p.Doc.Lang)
 			if err := bByK.Put(byKeyK, []byte(p.DocID)); err != nil {
 				resp.Failed++
 				resp.Errors = append(resp.Errors, fmt.Sprintf("%s: bykey error: %v", p.Doc.Key, err))
@@ -227,7 +230,7 @@ func (bp *BatchProcessor) commitBatch(collection string, processed []*ProcessedD
 				if p.Existing.ID != "" && p.Existing.Meta != nil {
 					for mk, vals := range p.Existing.Meta {
 						for _, mv := range vals {
-							prefix := append(kMetaKeyPrefix(collection, mk, mv), []byte(p.Existing.ID)...)
+							prefix := append(storage.MetaKeyPrefix(collection, mk, mv), []byte(p.Existing.ID)...)
 							_ = bIdx.Delete(prefix)
 							bo.Delete("idxmeta", prefix)
 						}
@@ -237,7 +240,7 @@ func (bp *BatchProcessor) commitBatch(collection string, processed []*ProcessedD
 				// Add new indices
 				for mk, vals := range p.Doc.Meta {
 					for _, mv := range vals {
-						key := append(kMetaKeyPrefix(collection, mk, mv), []byte(p.Doc.ID)...)
+						key := append(storage.MetaKeyPrefix(collection, mk, mv), []byte(p.Doc.ID)...)
 						if err := bIdx.Put(key, []byte("1")); err != nil {
 							resp.Failed++
 							resp.Errors = append(resp.Errors, fmt.Sprintf("%s: index error: %v", p.Doc.Key, err))
@@ -250,7 +253,7 @@ func (bp *BatchProcessor) commitBatch(collection string, processed []*ProcessedD
 
 			// Revision (optional - only if requested)
 			if p.SaveRevision {
-				rkey := append(kRevPrefix(collection, p.Doc.ID), []byte(fmt.Sprintf("%020d", now))...)
+				rkey := append(storage.RevPrefix(collection, p.Doc.ID), []byte(fmt.Sprintf("%020d", now))...)
 				if err := bRev.Put(rkey, p.Buf); err != nil {
 					resp.Failed++
 					resp.Errors = append(resp.Errors, fmt.Sprintf("%s: revision error: %v", p.Doc.Key, err))

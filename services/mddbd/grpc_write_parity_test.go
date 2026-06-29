@@ -4,8 +4,10 @@ import (
 	"context"
 	"testing"
 
-	bolt "go.etcd.io/bbolt"
+	"mddb/internal/storage"
 	pb "mddb/proto"
+
+	bolt "go.etcd.io/bbolt"
 )
 
 // GO-001 parity tests: a document written over gRPC must be indistinguishable
@@ -55,7 +57,7 @@ func TestGRPCAdd_MetaIndexParity(t *testing.T) {
 	found := false
 	err := s.DB.View(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket(s.BucketNames.IdxMeta)
-		mkey := append(kMetaKeyPrefix("blog", "author", "alice"), []byte(docID)...)
+		mkey := append(storage.MetaKeyPrefix("blog", "author", "alice"), []byte(docID)...)
 		found = bIdx.Get(mkey) != nil
 		return nil
 	})

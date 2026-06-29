@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"mddb/internal/sliceutil"
+	"mddb/internal/storage"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -25,7 +27,7 @@ func TestMainHandleImportURL_Success(t *testing.T) {
 
 	// Start a local server that serves markdown content
 	mdContent := `---
-title: Remote Doc
+title: Remote storage.Doc
 author: Alice
 ---
 # Remote Document
@@ -47,7 +49,7 @@ Body content here.`
 		t.Fatalf("expected 200, got %d; body=%s", rec.Code, rec.Body.String())
 	}
 
-	var doc Doc
+	var doc storage.Doc
 	if err := json.Unmarshal(rec.Body.Bytes(), &doc); err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +83,7 @@ func TestMainHandleImportURL_WithExplicitKey(t *testing.T) {
 		t.Fatalf("expected 200, got %d; body=%s", rec.Code, rec.Body.String())
 	}
 
-	var doc Doc
+	var doc storage.Doc
 	_ = json.Unmarshal(rec.Body.Bytes(), &doc)
 	if doc.Key != "custom-key" {
 		t.Errorf("expected key=custom-key, got %s", doc.Key)
@@ -193,7 +195,7 @@ func TestMainHandleImportURL_WithTTL(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 
-	var doc Doc
+	var doc storage.Doc
 	_ = json.Unmarshal(rec.Body.Bytes(), &doc)
 	if doc.ExpiresAt == 0 {
 		t.Error("expected non-zero expiresAt with TTL")
@@ -227,7 +229,7 @@ Body`
 		t.Fatalf("expected 200, got %d; body=%s", rec.Code, rec.Body.String())
 	}
 
-	var doc Doc
+	var doc storage.Doc
 	_ = json.Unmarshal(rec.Body.Bytes(), &doc)
 
 	// Request meta should override frontmatter for "category"
@@ -266,7 +268,7 @@ func TestMainHandleSetTTL_Success(t *testing.T) {
 		t.Fatalf("expected 200, got %d; body=%s", rec.Code, rec.Body.String())
 	}
 
-	var doc Doc
+	var doc storage.Doc
 	_ = json.Unmarshal(rec.Body.Bytes(), &doc)
 	if doc.ExpiresAt == 0 {
 		t.Error("expected non-zero expiresAt after setting TTL")
@@ -304,7 +306,7 @@ func TestMainHandleSetTTL_ClearTTL(t *testing.T) {
 		t.Fatalf("expected 200, got %d; body=%s", rec.Code, rec.Body.String())
 	}
 
-	var doc Doc
+	var doc storage.Doc
 	_ = json.Unmarshal(rec.Body.Bytes(), &doc)
 	if doc.ExpiresAt != 0 {
 		t.Errorf("expected expiresAt=0 after clearing TTL, got %d", doc.ExpiresAt)
@@ -1072,7 +1074,7 @@ func TestMainHandleSearch_SortByUpdatedAtAsc(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 
-	var docs []Doc
+	var docs []storage.Doc
 	_ = json.Unmarshal(rec.Body.Bytes(), &docs)
 	if len(docs) != 2 {
 		t.Fatalf("expected 2, got %d", len(docs))
@@ -1101,7 +1103,7 @@ func TestMainHandleSearch_SortByUpdatedAtDesc(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 
-	var docs []Doc
+	var docs []storage.Doc
 	_ = json.Unmarshal(rec.Body.Bytes(), &docs)
 	if len(docs) != 2 {
 		t.Fatalf("expected 2, got %d", len(docs))
@@ -1130,7 +1132,7 @@ func TestMainHandleSearch_SortByKeyDesc(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 
-	var docs []Doc
+	var docs []storage.Doc
 	_ = json.Unmarshal(rec.Body.Bytes(), &docs)
 	if len(docs) != 3 {
 		t.Fatalf("expected 3, got %d", len(docs))
@@ -1157,7 +1159,7 @@ func TestMainHandleSearch_PaginationOffsetBeyondTotal(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 
-	var docs []Doc
+	var docs []storage.Doc
 	_ = json.Unmarshal(rec.Body.Bytes(), &docs)
 	if len(docs) != 0 {
 		t.Errorf("expected 0 docs with offset beyond total, got %d", len(docs))
@@ -1339,7 +1341,7 @@ func TestMainHandleDelete_InvalidJSON(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestMainSortDocs(t *testing.T) {
-	docs := []Doc{
+	docs := []storage.Doc{
 		{Key: "c", AddedAt: 3, UpdatedAt: 1},
 		{Key: "a", AddedAt: 1, UpdatedAt: 3},
 		{Key: "b", AddedAt: 2, UpdatedAt: 2},
@@ -1401,9 +1403,9 @@ func TestMainUnique(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		result := unique(tc.in)
+		result := sliceutil.Unique(tc.in)
 		if len(result) != tc.out {
-			t.Errorf("unique(%v): expected %d, got %d", tc.in, tc.out, len(result))
+			t.Errorf("sliceutil.Unique(%v): expected %d, got %d", tc.in, tc.out, len(result))
 		}
 	}
 }
@@ -1527,7 +1529,7 @@ func TestMainAddDocument_WithMetadata(t *testing.T) {
 		"tags":     {"go", "database"},
 		"category": {"tech"},
 	}
-	doc, isNew, err := s.addDocument("blog", "meta-doc", "en", meta, "# Meta Doc", 0, true)
+	doc, isNew, err := s.addDocument("blog", "meta-doc", "en", meta, "# Meta storage.Doc", 0, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1590,7 +1592,7 @@ func TestMainDeleteDocumentInternal_Success(t *testing.T) {
 	// Verify gone from docs bucket
 	var found bool
 	_ = s.DB.View(func(tx *bolt.Tx) error {
-		if tx.Bucket([]byte("docs")).Get(kDoc("blog", genID("blog", "del-me", "en"))) != nil {
+		if tx.Bucket([]byte("docs")).Get(storage.DocKey("blog", genID("blog", "del-me", "en"))) != nil {
 			found = true
 		}
 		return nil
@@ -1623,7 +1625,7 @@ func TestMainHandleGet_ExpiredDocument(t *testing.T) {
 
 	// Add a document with TTL in the past
 	docID := genID("temp", "expired", "en")
-	doc := Doc{
+	doc := storage.Doc{
 		ID:        docID,
 		Key:       "expired",
 		Lang:      "en",
@@ -1636,8 +1638,8 @@ func TestMainHandleGet_ExpiredDocument(t *testing.T) {
 	_ = s.DB.Update(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bByK := tx.Bucket([]byte("bykey"))
-		_ = bDocs.Put(kDoc("temp", docID), buf)
-		_ = bByK.Put(kByKey("temp", "expired", "en"), []byte(docID))
+		_ = bDocs.Put(storage.DocKey("temp", docID), buf)
+		_ = bByK.Put(storage.ByKeyKey("temp", "expired", "en"), []byte(docID))
 		return nil
 	})
 
@@ -1669,7 +1671,7 @@ func TestMainHandleSearch_FiltersExpiredDocs(t *testing.T) {
 
 	// Add an expired doc directly
 	docID := genID("temp", "expired", "en")
-	doc := Doc{
+	doc := storage.Doc{
 		ID:        docID,
 		Key:       "expired",
 		Lang:      "en",
@@ -1680,7 +1682,7 @@ func TestMainHandleSearch_FiltersExpiredDocs(t *testing.T) {
 	}
 	buf, _ := marshalDoc(&doc)
 	_ = s.DB.Update(func(tx *bolt.Tx) error {
-		return tx.Bucket([]byte("docs")).Put(kDoc("temp", docID), buf)
+		return tx.Bucket([]byte("docs")).Put(storage.DocKey("temp", docID), buf)
 	})
 
 	payload := SearchRequest{Collection: "temp"}
@@ -1690,7 +1692,7 @@ func TestMainHandleSearch_FiltersExpiredDocs(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 
-	var docs []Doc
+	var docs []storage.Doc
 	_ = json.Unmarshal(rec.Body.Bytes(), &docs)
 	if len(docs) != 1 {
 		t.Errorf("expected 1 doc (expired should be filtered), got %d", len(docs))
@@ -1774,17 +1776,17 @@ func TestMainEnsureBuckets(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestMainKeyBuilders(t *testing.T) {
-	if string(kDoc("blog", "id1")) != "doc|blog|id1" {
-		t.Errorf("kDoc: got %q", string(kDoc("blog", "id1")))
+	if string(storage.DocKey("blog", "id1")) != "doc|blog|id1" {
+		t.Errorf("kDoc: got %q", string(storage.DocKey("blog", "id1")))
 	}
-	if string(kByKey("blog", "key1", "en")) != "bykey|blog|key1|en" {
-		t.Errorf("kByKey: got %q", string(kByKey("blog", "key1", "en")))
+	if string(storage.ByKeyKey("blog", "key1", "en")) != "bykey|blog|key1|en" {
+		t.Errorf("kByKey: got %q", string(storage.ByKeyKey("blog", "key1", "en")))
 	}
-	if string(kRevPrefix("blog", "id1")) != "rev|blog|id1|" {
-		t.Errorf("kRevPrefix: got %q", string(kRevPrefix("blog", "id1")))
+	if string(storage.RevPrefix("blog", "id1")) != "rev|blog|id1|" {
+		t.Errorf("kRevPrefix: got %q", string(storage.RevPrefix("blog", "id1")))
 	}
-	if string(kMetaKeyPrefix("blog", "author", "alice")) != "meta|blog|author|alice|" {
-		t.Errorf("kMetaKeyPrefix: got %q", string(kMetaKeyPrefix("blog", "author", "alice")))
+	if string(storage.MetaKeyPrefix("blog", "author", "alice")) != "meta|blog|author|alice|" {
+		t.Errorf("kMetaKeyPrefix: got %q", string(storage.MetaKeyPrefix("blog", "author", "alice")))
 	}
 }
 
@@ -1818,7 +1820,7 @@ func TestMainHandleSearch_MetaFilterExcludesExpired(t *testing.T) {
 
 	// Add an expired doc with the same meta directly
 	docID := genID("blog", "expired-meta", "en")
-	doc := Doc{
+	doc := storage.Doc{
 		ID:        docID,
 		Key:       "expired-meta",
 		Lang:      "en",
@@ -1832,9 +1834,9 @@ func TestMainHandleSearch_MetaFilterExcludesExpired(t *testing.T) {
 	_ = s.DB.Update(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		bIdx := tx.Bucket([]byte("idxmeta"))
-		_ = bDocs.Put(kDoc("blog", docID), buf)
+		_ = bDocs.Put(storage.DocKey("blog", docID), buf)
 		// Add meta index entry
-		mkey := append(kMetaKeyPrefix("blog", "tag", "go"), []byte(docID)...)
+		mkey := append(storage.MetaKeyPrefix("blog", "tag", "go"), []byte(docID)...)
 		_ = bIdx.Put(mkey, []byte("1"))
 		return nil
 	})
@@ -1849,7 +1851,7 @@ func TestMainHandleSearch_MetaFilterExcludesExpired(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 
-	var docs []Doc
+	var docs []storage.Doc
 	_ = json.Unmarshal(rec.Body.Bytes(), &docs)
 	if len(docs) != 1 {
 		t.Errorf("expected 1 doc (expired filtered), got %d", len(docs))
@@ -1887,7 +1889,7 @@ func TestMainAddDocument_MetadataUpdateReindex(t *testing.T) {
 		FilterMeta: map[string][]string{"tag": {"rust"}},
 	}
 	rec := doRequest(t, s.handleSearch, payload)
-	var docs []Doc
+	var docs []storage.Doc
 	_ = json.Unmarshal(rec.Body.Bytes(), &docs)
 	if len(docs) != 0 {
 		t.Errorf("expected 0 docs with old tag 'rust', got %d", len(docs))
@@ -1899,7 +1901,7 @@ func TestMainAddDocument_MetadataUpdateReindex(t *testing.T) {
 		FilterMeta: map[string][]string{"tag": {"python"}},
 	}
 	rec2 := doRequest(t, s.handleSearch, payload2)
-	var docs2 []Doc
+	var docs2 []storage.Doc
 	_ = json.Unmarshal(rec2.Body.Bytes(), &docs2)
 	if len(docs2) != 1 {
 		t.Errorf("expected 1 doc with new tag 'python', got %d", len(docs2))
@@ -1987,7 +1989,7 @@ func TestMainHandleAdd_LargeContent(t *testing.T) {
 	if getRec.Code != http.StatusOK {
 		t.Fatalf("expected 200 on get, got %d", getRec.Code)
 	}
-	var doc Doc
+	var doc storage.Doc
 	_ = json.Unmarshal(getRec.Body.Bytes(), &doc)
 	if len(doc.ContentMD) != len(largeContent) {
 		t.Errorf("expected content length %d, got %d", len(largeContent), len(doc.ContentMD))
@@ -2056,7 +2058,7 @@ func TestMainHandleSearch_SortByAddedAtAsc(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 
-	var docs []Doc
+	var docs []storage.Doc
 	_ = json.Unmarshal(rec.Body.Bytes(), &docs)
 	if len(docs) != 2 {
 		t.Fatalf("expected 2, got %d", len(docs))

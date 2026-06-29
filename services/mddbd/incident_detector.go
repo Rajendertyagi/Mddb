@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"mddb/internal/webhooks"
 	"net/http"
 	"os"
 	"runtime/debug"
@@ -12,23 +13,13 @@ import (
 	"time"
 )
 
-// Incident event names fired on the existing WebhookManager so
-// operators can subscribe with standard /v1/webhooks registrations.
-const (
-	EventAuthFailureBurst   = "security.auth_failure_burst"
-	EventRateLimitExceeded  = "security.rate_limit_exceeded"
-	EventReplicationLagHigh = "ops.replication_lag_high"
-	EventPanicRecovered     = "ops.panic_recovered"
-	EventDiskUsageHigh      = "ops.disk_usage_high"
-)
-
 // AuthFailureTracker counts authentication failures per IP/user over
 // a sliding window and fires security.auth_failure_burst when a key
 // crosses the configured threshold. The counter resets once the
 // window elapses — the same actor can only trigger again after a
 // cool-down period to avoid webhook storms.
 type AuthFailureTracker struct {
-	wm        *WebhookManager
+	wm        *webhooks.WebhookManager
 	threshold int
 	window    time.Duration
 	cooldown  time.Duration
@@ -45,7 +36,7 @@ type authFailureBucket struct {
 // NewAuthFailureTracker reads configuration from env and returns a
 // tracker. threshold<=0 or no WebhookManager means the tracker is a
 // no-op.
-func NewAuthFailureTracker(wm *WebhookManager) *AuthFailureTracker {
+func NewAuthFailureTracker(wm *webhooks.WebhookManager) *AuthFailureTracker {
 	t := &AuthFailureTracker{
 		wm:     wm,
 		counts: make(map[string]*authFailureBucket),
@@ -89,7 +80,7 @@ func (t *AuthFailureTracker) Record(actor, ip string) bool {
 	t.mu.Unlock()
 
 	if fire {
-		t.wm.FireEvent(EventAuthFailureBurst, map[string]interface{}{
+		t.wm.FireEvent(webhooks.EventAuthFailureBurst, map[string]interface{}{
 			"actor":     actor,
 			"ip":        ip,
 			"count":     t.threshold,
@@ -103,7 +94,7 @@ func (t *AuthFailureTracker) Record(actor, ip string) bool {
 // PanicRecoveryMiddleware wraps an HTTP handler with a defer+recover
 // so a crashed handler returns 500 instead of terminating the
 // process, emits a structured log line, and fires ops.panic_recovered.
-func PanicRecoveryMiddleware(wm *WebhookManager, next http.Handler) http.Handler {
+func PanicRecoveryMiddleware(wm *webhooks.WebhookManager, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			rec := recover()
@@ -113,7 +104,7 @@ func PanicRecoveryMiddleware(wm *WebhookManager, next http.Handler) http.Handler
 			stack := string(debug.Stack())
 			log.Printf("panic recovered on %s %s: %v\n%s", r.Method, r.URL.Path, rec, stack) //nolint:gosec // G706: method/path are already validated by net/http router; safe to log
 			if wm != nil {
-				wm.FireEvent(EventPanicRecovered, map[string]interface{}{
+				wm.FireEvent(webhooks.EventPanicRecovered, map[string]interface{}{
 					"method": r.Method,
 					"path":   r.URL.Path,
 					"panic":  asString(rec),
@@ -151,7 +142,7 @@ type lagSource interface {
 // A single firing per breach period (cool-down) prevents event
 // storms on sustained lag.
 type ReplicationLagMonitor struct {
-	wm          *WebhookManager
+	wm          *webhooks.WebhookManager
 	rc          lagSource
 	thresholdMs int64
 	interval    time.Duration
@@ -163,7 +154,7 @@ type ReplicationLagMonitor struct {
 
 // NewReplicationLagMonitor builds a monitor from env. Returns nil
 // when replication is disabled or no webhook manager is wired.
-func NewReplicationLagMonitor(wm *WebhookManager, rc lagSource) *ReplicationLagMonitor {
+func NewReplicationLagMonitor(wm *webhooks.WebhookManager, rc lagSource) *ReplicationLagMonitor {
 	if wm == nil || rc == nil {
 		return nil
 	}
@@ -231,7 +222,7 @@ func (m *ReplicationLagMonitor) check() {
 		return
 	}
 	m.lastFire.Store(now)
-	m.wm.FireEvent(EventReplicationLagHigh, map[string]interface{}{
+	m.wm.FireEvent(webhooks.EventReplicationLagHigh, map[string]interface{}{
 		"lagMs":       lag,
 		"thresholdMs": m.thresholdMs,
 	})
@@ -240,7 +231,7 @@ func (m *ReplicationLagMonitor) check() {
 // DiskUsageMonitor polls filesystem usage at the DB path and fires
 // ops.disk_usage_high when the used-percentage exceeds the threshold.
 type DiskUsageMonitor struct {
-	wm        *WebhookManager
+	wm        *webhooks.WebhookManager
 	path      string
 	threshold float64 // 0..1
 	interval  time.Duration
@@ -252,7 +243,7 @@ type DiskUsageMonitor struct {
 
 // NewDiskUsageMonitor builds a monitor watching the given path.
 // Returns nil when no webhook manager is wired or the path is empty.
-func NewDiskUsageMonitor(wm *WebhookManager, path string) *DiskUsageMonitor {
+func NewDiskUsageMonitor(wm *webhooks.WebhookManager, path string) *DiskUsageMonitor {
 	if wm == nil || path == "" {
 		return nil
 	}
@@ -324,7 +315,7 @@ func (m *DiskUsageMonitor) check() {
 		return
 	}
 	m.lastFire.Store(now)
-	m.wm.FireEvent(EventDiskUsageHigh, map[string]interface{}{
+	m.wm.FireEvent(webhooks.EventDiskUsageHigh, map[string]interface{}{
 		"path":         m.path,
 		"usedBytes":    used,
 		"totalBytes":   total,

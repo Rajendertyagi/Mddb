@@ -1,6 +1,8 @@
 package main
 
 import (
+	"mddb/internal/storage"
+
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -145,7 +147,7 @@ type pinnedHybrid struct {
 	Position int
 }
 
-// loadPinnedFTS resolves each pin to a concrete Doc and returns a slice
+// loadPinnedFTS resolves each pin to a concrete storage.Doc and returns a slice
 // aligned 1:1 with the input (but skipping docs that can't be found). A
 // mistyped pin key is silently ignored so it doesn't break every search.
 func (s *Server) loadPinnedFTS(collection string, pins []pinResolved) []pinnedFTS {
@@ -204,12 +206,12 @@ func (s *Server) loadPinnedHybrid(collection string, pins []pinResolved) []pinne
 // resolvePinnedDoc looks up a document by key (+ optional lang). With no
 // lang the first hit under the bykey prefix wins — acceptable for the
 // single-language case where Key is already unique.
-func resolvePinnedDoc(bDocs, bByK *bolt.Bucket, collection string, p pinResolved) (Doc, bool) {
+func resolvePinnedDoc(bDocs, bByK *bolt.Bucket, collection string, p pinResolved) (storage.Doc, bool) {
 	var docID string
 	if p.Lang != "" {
-		v := bByK.Get(kByKey(collection, p.Key, p.Lang))
+		v := bByK.Get(storage.ByKeyKey(collection, p.Key, p.Lang))
 		if v == nil {
-			return Doc{}, false
+			return storage.Doc{}, false
 		}
 		docID = string(v)
 	} else {
@@ -220,19 +222,19 @@ func resolvePinnedDoc(bDocs, bByK *bolt.Bucket, collection string, p pinResolved
 			break
 		}
 		if docID == "" {
-			return Doc{}, false
+			return storage.Doc{}, false
 		}
 	}
-	v := bDocs.Get(kDoc(collection, docID))
+	v := bDocs.Get(storage.DocKey(collection, docID))
 	if v == nil {
-		return Doc{}, false
+		return storage.Doc{}, false
 	}
 	docPtr, err := loadDoc(v)
 	if err != nil {
-		return Doc{}, false
+		return storage.Doc{}, false
 	}
 	if docPtr.ExpiresAt > 0 && docPtr.ExpiresAt < currentUnix() {
-		return Doc{}, false
+		return storage.Doc{}, false
 	}
 	return *docPtr, true
 }

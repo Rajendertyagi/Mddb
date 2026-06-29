@@ -9,6 +9,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"mddb/internal/automationlog"
+	"mddb/internal/fts"
+	"mddb/internal/storage"
 	pb "mddb/proto"
 )
 
@@ -19,14 +22,14 @@ func newTestGRPCServerFull(t *testing.T) (*GRPCServer, *Server, func()) {
 	gs, s, cleanup := newTestGRPCServer(t)
 
 	// SynonymManager
-	s.SynonymManager = NewSynonymManager(s.DB)
+	s.SynonymManager = fts.NewSynonymManager(s.DB)
 	if err := s.SynonymManager.EnsureBucket(); err != nil {
 		cleanup()
 		t.Fatal(err)
 	}
 
 	// StopWordManager
-	s.StopWordManager = NewStopWordManager(s.DB)
+	s.StopWordManager = fts.NewStopWordManager(s.DB)
 	if err := s.StopWordManager.EnsureBucket(); err != nil {
 		cleanup()
 		t.Fatal(err)
@@ -40,7 +43,7 @@ func newTestGRPCServerFull(t *testing.T) (*GRPCServer, *Server, func()) {
 	}
 
 	// AutomationLogStore
-	s.AutomationLogStore = NewAutomationLogStore(s.DB, 24*time.Hour)
+	s.AutomationLogStore = automationlog.NewStore(s.DB, 24*time.Hour)
 	if err := s.AutomationLogStore.EnsureBucket(); err != nil {
 		cleanup()
 		t.Fatal(err)
@@ -79,7 +82,7 @@ func TestGRPCDeleteDocument_Success(t *testing.T) {
 	var found bool
 	_ = gs.server.DB.View(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(gs.server.BucketNames.Docs)
-		if bDocs.Get(kDoc("blog", docID)) != nil {
+		if bDocs.Get(storage.DocKey("blog", docID)) != nil {
 			found = true
 		}
 		return nil
@@ -268,7 +271,7 @@ func TestGRPCGetMetaKeys_Success(t *testing.T) {
 	docID := genID("blog", "mk1", "en")
 	_ = s.DB.Update(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket(s.BucketNames.IdxMeta)
-		return bIdx.Put(append(kMetaKeyPrefix("blog", "category", "tech"), []byte(docID)...), []byte("1"))
+		return bIdx.Put(append(storage.MetaKeyPrefix("blog", "category", "tech"), []byte(docID)...), []byte("1"))
 	})
 
 	resp, err := gs.GetMetaKeys(context.Background(), &pb.GetMetaKeysRequest{Collection: "blog"})
@@ -555,8 +558,8 @@ func TestGRPCListRevisions_Success(t *testing.T) {
 	kb := &KeyBuilder{}
 	ts1 := int64(1700000001)
 	ts2 := int64(1700000002)
-	doc1 := &Doc{ID: docID, ContentMD: "# V1", Lang: "en", UpdatedAt: ts1}
-	doc2 := &Doc{ID: docID, ContentMD: "# V2", Lang: "en", UpdatedAt: ts2}
+	doc1 := &storage.Doc{ID: docID, ContentMD: "# V1", Lang: "en", UpdatedAt: ts1}
+	doc2 := &storage.Doc{ID: docID, ContentMD: "# V2", Lang: "en", UpdatedAt: ts2}
 	buf1, _ := marshalDoc(doc1)
 	buf2, _ := marshalDoc(doc2)
 

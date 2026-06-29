@@ -7,6 +7,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"mddb/internal/sliceutil"
+	"mddb/internal/storage"
+	"mddb/internal/vector"
 	"net/http"
 	"sort"
 	"strings"
@@ -82,12 +85,12 @@ type MemoryRecallRequest struct {
 
 // MemoryRecallResultItem represents a single recall result.
 type MemoryRecallResultItem struct {
-	Document      Doc     `json:"document"`
-	Score         float64 `json:"score"`
-	Rank          int     `json:"rank"`
-	SessionID     string  `json:"sessionId"`
-	Role          string  `json:"role"`
-	MatchStrategy string  `json:"matchStrategy"` // "semantic", "keyword", "hybrid"
+	Document      storage.Doc `json:"document"`
+	Score         float64     `json:"score"`
+	Rank          int         `json:"rank"`
+	SessionID     string      `json:"sessionId"`
+	Role          string      `json:"role"`
+	MatchStrategy string      `json:"matchStrategy"` // "semantic", "keyword", "hybrid"
 }
 
 // MemoryRecallResponse is the response from a recall query.
@@ -150,8 +153,8 @@ type MemoryHistoryRequest struct {
 
 // MemoryHistoryResponse is the response for session message history.
 type MemoryHistoryResponse struct {
-	Messages []Doc `json:"messages"`
-	Total    int   `json:"total"`
+	Messages []storage.Doc `json:"messages"`
+	Total    int           `json:"total"`
 }
 
 // generateMemoryMessageID creates a unique message identifier.
@@ -240,7 +243,7 @@ func (s *Server) handleMemoryMessageAdd(w http.ResponseWriter, r *http.Request) 
 		if bByK == nil {
 			return nil
 		}
-		if bByK.Get(kByKey(memorySessionsCollection, req.SessionID, "en")) != nil {
+		if bByK.Get(storage.ByKeyKey(memorySessionsCollection, req.SessionID, "en")) != nil {
 			sessionExists = true
 		}
 		return nil
@@ -294,11 +297,11 @@ func (s *Server) touchSession(sessionID string) {
 		if bDocs == nil || bByK == nil {
 			return nil
 		}
-		docIDBytes := bByK.Get(kByKey(memorySessionsCollection, sessionID, "en"))
+		docIDBytes := bByK.Get(storage.ByKeyKey(memorySessionsCollection, sessionID, "en"))
 		if docIDBytes == nil {
 			return nil
 		}
-		v := bDocs.Get(kDoc(memorySessionsCollection, string(docIDBytes)))
+		v := bDocs.Get(storage.DocKey(memorySessionsCollection, string(docIDBytes)))
 		if v == nil {
 			return nil
 		}
@@ -311,7 +314,7 @@ func (s *Server) touchSession(sessionID string) {
 		if err != nil {
 			return err
 		}
-		return bDocs.Put(kDoc(memorySessionsCollection, string(docIDBytes)), buf)
+		return bDocs.Put(storage.DocKey(memorySessionsCollection, string(docIDBytes)), buf)
 	})
 }
 
@@ -386,7 +389,7 @@ func (s *Server) getSessionIDsForUser(userID string) []string {
 		if bIdx == nil {
 			return nil
 		}
-		prefix := kMetaKeyPrefix(memorySessionsCollection, "userId", userID)
+		prefix := storage.MetaKeyPrefix(memorySessionsCollection, "userId", userID)
 		c := bIdx.Cursor()
 		for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
 			docID := string(k[len(prefix):])
@@ -424,17 +427,17 @@ func (s *Server) memoryRecallSemantic(ctx context.Context, query string, topK in
 		searchTopK = 20
 	}
 
-	metric := ResolveSimilarity("cosine")
+	metric := vector.ResolveSimilarity("cosine")
 	allowedIDs := s.getDocIDsByMeta(memoryMessagesCollection, filterMeta)
 
-	var vResults []VectorResult
+	var vResults []vector.VectorResult
 	if len(allowedIDs) > 0 {
 		vResults = searcher.SearchWithFilter(memoryMessagesCollection, queryVec, searchTopK, threshold, allowedIDs, metric)
 	} else if len(filterMeta) == 0 {
 		vResults = searcher.Search(memoryMessagesCollection, queryVec, searchTopK, threshold, metric)
 	}
 
-	vResults = DeduplicateChunkResults(vResults)
+	vResults = vector.DeduplicateChunkResults(vResults)
 	if len(vResults) > topK {
 		vResults = vResults[:topK]
 	}
@@ -496,7 +499,7 @@ func (s *Server) memoryRecallHybrid(ctx context.Context, query string, topK int,
 	type fusedEntry struct {
 		docID    string
 		rrfScore float64
-		doc      Doc
+		doc      storage.Doc
 		session  string
 		role     string
 	}
@@ -553,7 +556,7 @@ func (s *Server) memoryRecallHybrid(ctx context.Context, query string, topK int,
 }
 
 // loadRecallResults loads full documents from vector results.
-func (s *Server) loadRecallResults(vResults []VectorResult, includeContent bool, strategy string) []MemoryRecallResultItem {
+func (s *Server) loadRecallResults(vResults []vector.VectorResult, includeContent bool, strategy string) []MemoryRecallResultItem {
 	var results []MemoryRecallResultItem
 	_ = s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
@@ -561,7 +564,7 @@ func (s *Server) loadRecallResults(vResults []VectorResult, includeContent bool,
 			return nil
 		}
 		for rank, vr := range vResults {
-			v := bDocs.Get(kDoc(memoryMessagesCollection, vr.DocID))
+			v := bDocs.Get(storage.DocKey(memoryMessagesCollection, vr.DocID))
 			if v == nil {
 				continue
 			}
@@ -588,14 +591,14 @@ func (s *Server) loadRecallResults(vResults []VectorResult, includeContent bool,
 }
 
 // loadDocByID loads a single document by collection and docID.
-func (s *Server) loadDocByID(collection, docID string, includeContent bool) *Doc {
-	var doc *Doc
+func (s *Server) loadDocByID(collection, docID string, includeContent bool) *storage.Doc {
+	var doc *storage.Doc
 	_ = s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs == nil {
 			return nil
 		}
-		v := bDocs.Get(kDoc(collection, docID))
+		v := bDocs.Get(storage.DocKey(collection, docID))
 		if v == nil {
 			return nil
 		}
@@ -721,13 +724,13 @@ func (s *Server) handleMemorySessionsList(w http.ResponseWriter, r *http.Request
 			for mk, mvals := range filterMeta {
 				var ids []string
 				for _, mv := range mvals {
-					prefix := kMetaKeyPrefix(memorySessionsCollection, mk, mv)
+					prefix := storage.MetaKeyPrefix(memorySessionsCollection, mk, mv)
 					c := bIdx.Cursor()
 					for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
 						ids = append(ids, string(k[len(prefix):]))
 					}
 				}
-				ids = unique(ids)
+				ids = sliceutil.Unique(ids)
 				sets = append(sets, ids)
 			}
 			docIDs = intersect(sets...)
@@ -742,7 +745,7 @@ func (s *Server) handleMemorySessionsList(w http.ResponseWriter, r *http.Request
 		}
 
 		for _, docID := range docIDs {
-			v := bDocs.Get(kDoc(memorySessionsCollection, docID))
+			v := bDocs.Get(storage.DocKey(memorySessionsCollection, docID))
 			if v == nil {
 				continue
 			}
@@ -840,8 +843,8 @@ func (s *Server) handleMemoryHistory(w http.ResponseWriter, r *http.Request) {
 }
 
 // loadSessionMessages loads all messages for a session, ordered chronologically.
-func (s *Server) loadSessionMessages(sessionID string, limit, offset int) []Doc {
-	var messages []Doc
+func (s *Server) loadSessionMessages(sessionID string, limit, offset int) []storage.Doc {
+	var messages []storage.Doc
 	_ = s.DBView(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
 		if bDocs == nil {
@@ -889,7 +892,7 @@ func (s *Server) countSessionMessages(sessionID string) int {
 		if bIdx == nil {
 			return nil
 		}
-		prefix := kMetaKeyPrefix(memoryMessagesCollection, "sessionId", sessionID)
+		prefix := storage.MetaKeyPrefix(memoryMessagesCollection, "sessionId", sessionID)
 		c := bIdx.Cursor()
 		for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
 			count++

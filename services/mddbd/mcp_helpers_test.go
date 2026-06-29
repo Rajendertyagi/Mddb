@@ -116,28 +116,6 @@ func TestMcpGetBool(t *testing.T) {
 	}
 }
 
-func TestMetrics_IncOp_DisabledIsNoop(t *testing.T) {
-	m := NewMetrics(nil, false)
-	m.IncOp("a", "b")
-	m.IncOp("a", "b")
-	if v := m.opsCount["a|b"]; v != 0 {
-		t.Errorf("disabled metrics should not record, got %d", v)
-	}
-}
-
-func TestMetrics_IncOp_EnabledRecords(t *testing.T) {
-	m := NewMetrics(nil, true)
-	m.IncOp("op", "ok")
-	m.IncOp("op", "ok")
-	m.IncOp("op", "fail")
-	if v := m.opsCount["op|ok"]; v != 2 {
-		t.Errorf("op|ok = %d, want 2", v)
-	}
-	if v := m.opsCount["op|fail"]; v != 1 {
-		t.Errorf("op|fail = %d, want 1", v)
-	}
-}
-
 func TestMcpGetPrompt(t *testing.T) {
 	ctx := context.Background()
 

@@ -8,8 +8,9 @@ import (
 	"testing"
 	"time"
 
-	json "github.com/goccy/go-json"
 	proto "mddb/proto"
+
+	json "github.com/goccy/go-json"
 )
 
 // submitOneDoc wires the single-document flow used by the HTTP handler tests.

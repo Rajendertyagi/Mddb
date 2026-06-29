@@ -1,6 +1,11 @@
 package main
 
 import (
+	"mddb/internal/automationlog"
+	"mddb/internal/binlog"
+	"mddb/internal/fts"
+	"mddb/internal/vector"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -10,644 +15,9 @@ import (
 // 1. fts_stemmer.go — Porter stemmer helper functions
 // ---------------------------------------------------------------------------
 
-func TestIsConsonant(t *testing.T) {
-	tests := []struct {
-		name string
-		word string
-		idx  int
-		want bool
-	}{
-		{"vowel_a", "apple", 0, false},
-		{"vowel_e", "hello", 1, false},
-		{"vowel_i", "bit", 1, false},
-		{"vowel_o", "top", 1, false},
-		{"vowel_u", "cup", 1, false},
-		{"consonant_b", "bat", 0, true},
-		{"consonant_t", "bat", 2, true},
-		{"y_at_start", "yes", 0, true},
-		{"y_after_consonant", "byte", 1, false},
-		{"y_after_vowel", "day", 2, true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := isConsonant([]byte(tt.word), tt.idx)
-			if got != tt.want {
-				t.Errorf("isConsonant(%q, %d) = %v, want %v", tt.word, tt.idx, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestMeasure(t *testing.T) {
-	tests := []struct {
-		word string
-		want int
-	}{
-		{"", 0},
-		{"a", 0},        // V
-		{"b", 0},        // C
-		{"ab", 1},       // VC = (VC){1}
-		{"tr", 0},       // CC
-		{"tree", 0},     // CCVV
-		{"trouble", 1},  // CC V C V C V = (VC){1}
-		{"oats", 1},     // V C V C
-		{"trees", 1},    // CC V V C
-		{"troubles", 2}, // CC V C V C V C
-	}
-	for _, tt := range tests {
-		t.Run(tt.word, func(t *testing.T) {
-			got := measure([]byte(tt.word))
-			if got != tt.want {
-				t.Errorf("measure(%q) = %d, want %d", tt.word, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestHasVowel(t *testing.T) {
-	tests := []struct {
-		word string
-		want bool
-	}{
-		{"bcd", false},
-		{"abc", true},
-		{"xyz", true}, // y after x (consonant) is a vowel
-		{"yell", true},
-		{"", false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.word, func(t *testing.T) {
-			got := hasVowel([]byte(tt.word))
-			if got != tt.want {
-				t.Errorf("hasVowel(%q) = %v, want %v", tt.word, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestEndsWithDouble(t *testing.T) {
-	tests := []struct {
-		word string
-		want bool
-	}{
-		{"fall", true},
-		{"miss", true},
-		{"buzz", true},
-		{"cat", false},
-		{"a", false},
-		{"", false},
-		{"bee", false}, // ee are vowels, not consonants
-	}
-	for _, tt := range tests {
-		t.Run(tt.word, func(t *testing.T) {
-			got := endsWithDouble([]byte(tt.word))
-			if got != tt.want {
-				t.Errorf("endsWithDouble(%q) = %v, want %v", tt.word, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestEndsCVC(t *testing.T) {
-	tests := []struct {
-		word string
-		want bool
-	}{
-		{"hop", true},  // h-o-p, CVC, p not w/x/y
-		{"lov", true},  // l-o-v, CVC
-		{"bow", false}, // ends with w
-		{"box", false}, // ends with x
-		{"boy", false}, // ends with y
-		{"ab", false},  // too short
-		{"a", false},   // too short
-		{"", false},    // empty
-		{"oat", false}, // o is vowel at position 0, a is vowel at 1 => not CVC
-		{"bat", true},  // b-a-t CVC
-		{"pet", true},  // p-e-t CVC
-	}
-	for _, tt := range tests {
-		t.Run(tt.word, func(t *testing.T) {
-			got := endsCVC([]byte(tt.word))
-			if got != tt.want {
-				t.Errorf("endsCVC(%q) = %v, want %v", tt.word, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestHasSuffix(t *testing.T) {
-	tests := []struct {
-		word   string
-		suffix string
-		want   bool
-	}{
-		{"running", "ing", true},
-		{"running", "run", false},
-		{"ed", "ed", true},
-		{"a", "ab", false},
-		{"", "x", false},
-		{"test", "", true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.word+"_"+tt.suffix, func(t *testing.T) {
-			got := hasSuffix([]byte(tt.word), tt.suffix)
-			if got != tt.want {
-				t.Errorf("hasSuffix(%q, %q) = %v, want %v", tt.word, tt.suffix, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestRemoveSuffix(t *testing.T) {
-	tests := []struct {
-		word string
-		n    int
-		want string
-	}{
-		{"running", 3, "runn"},
-		{"tested", 2, "test"},
-		{"abc", 0, "abc"},
-		{"abc", 3, ""},
-	}
-	for _, tt := range tests {
-		t.Run(tt.word, func(t *testing.T) {
-			got := string(removeSuffix([]byte(tt.word), tt.n))
-			if got != tt.want {
-				t.Errorf("removeSuffix(%q, %d) = %q, want %q", tt.word, tt.n, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestStep1a(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"caresses", "caress"}, // SSES -> SS
-		{"ponies", "poni"},     // IES -> I
-		{"caress", "caress"},   // SS -> SS
-		{"cats", "cat"},        // S -> (remove)
-		{"cat", "cat"},         // no suffix
-	}
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := string(step1a([]byte(tt.input)))
-			if got != tt.want {
-				t.Errorf("step1a(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestStep1b(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"feed", "feed"},          // EED with m=0 -> unchanged
-		{"agreed", "agree"},       // EED with m>0 -> EE
-		{"plastered", "plaster"},  // ED with vowel in stem
-		{"bled", "bled"},          // ED without vowel in stem
-		{"motoring", "motor"},     // ING with vowel in stem
-		{"sing", "sing"},          // ING without vowel in stem
-		{"conflated", "conflate"}, // ED -> stem ends "at" -> add e
-		{"troubled", "trouble"},   // ED -> stem ends with double (ll) but l is exempt
-		{"hopping", "hop"},        // ING -> stem ends with double (pp) -> remove last
-		{"filing", "file"},        // ING -> m=1, CVC -> add e
-	}
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := string(step1b([]byte(tt.input)))
-			if got != tt.want {
-				t.Errorf("step1b(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestStep1c(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"happy", "happi"}, // Y with vowel in stem -> I
-		{"sky", "sky"},     // Y without vowel in stem -> unchanged
-		{"cat", "cat"},     // no Y suffix
-	}
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := string(step1c([]byte(tt.input)))
-			if got != tt.want {
-				t.Errorf("step1c(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestStep2(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"relational", "relate"},     // ational -> ate
-		{"conditional", "condition"}, // tional -> tion
-		{"valenci", "valence"},       // enci -> ence
-		{"hesitanci", "hesitance"},   // anci -> ance
-		{"digitizer", "digitize"},    // izer -> ize
-		{"formalli", "formal"},       // alli -> al
-		{"cat", "cat"},               // no matching suffix
-		// m=0 stem should not apply
-		{"ational", "ational"}, // stem "at" has m=0
-	}
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := string(step2([]byte(tt.input)))
-			if got != tt.want {
-				t.Errorf("step2(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestStep3(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"triplicate", "triplic"},   // icate -> ic
-		{"formative", "form"},       // ative -> ""
-		{"formalize", "formal"},     // alize -> al
-		{"electriciti", "electric"}, // iciti -> ic
-		{"electrical", "electric"},  // ical -> ic
-		{"hopeful", "hope"},         // ful -> ""
-		{"goodness", "good"},        // ness -> ""
-		{"cat", "cat"},              // no matching suffix
-	}
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := string(step3([]byte(tt.input)))
-			if got != tt.want {
-				t.Errorf("step3(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestStep4(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"revival", "reviv"},      // al with m>1
-		{"allowance", "allow"},    // ance with m>1
-		{"inference", "infer"},    // ence with m>1
-		{"adjustable", "adjust"},  // able with m>1
-		{"adoption", "adopt"},     // ion with t preceding, m>1
-		{"impression", "impress"}, // ion with s preceding, m>1
-		{"activate", "activ"},     // ate with m>1
-		{"cat", "cat"},            // no matching suffix
-	}
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := string(step4([]byte(tt.input)))
-			if got != tt.want {
-				t.Errorf("step4(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestStep5a(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"probate", "probat"}, // m>1, remove e
-		{"rate", "rate"},      // m=1, CVC -> keep e
-		{"cease", "ceas"},     // m>1
-		{"cat", "cat"},        // no e suffix
-	}
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := string(step5a([]byte(tt.input)))
-			if got != tt.want {
-				t.Errorf("step5a(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestStep5b(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"controll", "control"}, // m>1, double l -> single l
-		{"roll", "roll"},        // m=1 -> unchanged
-		{"cat", "cat"},          // no double ending
-	}
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := string(step5b([]byte(tt.input)))
-			if got != tt.want {
-				t.Errorf("step5b(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
 // ---------------------------------------------------------------------------
 // 2. schema.go — validation functions
 // ---------------------------------------------------------------------------
-
-func TestParseSchema(t *testing.T) {
-	t.Run("valid_schema", func(t *testing.T) {
-		raw := `{"required":["title"],"properties":{"title":{"type":"string"},"count":{"type":"integer"}}}`
-		schema, err := parseSchema(raw)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if schema == nil {
-			t.Fatal("schema should not be nil")
-			return
-		}
-		if len(schema.Required) != 1 || schema.Required[0] != "title" {
-			t.Errorf("expected required=[title], got %v", schema.Required)
-		}
-		if schema.Raw != raw {
-			t.Error("Raw field not preserved")
-		}
-	})
-
-	t.Run("invalid_json", func(t *testing.T) {
-		_, err := parseSchema("{not valid json")
-		if err == nil {
-			t.Fatal("expected error for invalid JSON")
-		}
-		if !strings.Contains(err.Error(), "invalid JSON") {
-			t.Errorf("expected 'invalid JSON' in error, got: %v", err)
-		}
-	})
-
-	t.Run("invalid_pattern", func(t *testing.T) {
-		_, err := parseSchema(`{"properties":{"tag":{"pattern":"[invalid"}}}`)
-		if err == nil {
-			t.Fatal("expected error for invalid regex pattern")
-		}
-		if !strings.Contains(err.Error(), "invalid pattern") {
-			t.Errorf("expected 'invalid pattern' in error, got: %v", err)
-		}
-	})
-
-	t.Run("invalid_type", func(t *testing.T) {
-		_, err := parseSchema(`{"properties":{"field":{"type":"array"}}}`)
-		if err == nil {
-			t.Fatal("expected error for unsupported type")
-		}
-		if !strings.Contains(err.Error(), "unsupported type") {
-			t.Errorf("expected 'unsupported type' in error, got: %v", err)
-		}
-	})
-
-	t.Run("negative_minItems", func(t *testing.T) {
-		_, err := parseSchema(`{"properties":{"tags":{"minItems":-1}}}`)
-		if err == nil {
-			t.Fatal("expected error for negative minItems")
-		}
-		if !strings.Contains(err.Error(), "minItems") {
-			t.Errorf("expected 'minItems' in error, got: %v", err)
-		}
-	})
-
-	t.Run("negative_maxItems", func(t *testing.T) {
-		_, err := parseSchema(`{"properties":{"tags":{"maxItems":-2}}}`)
-		if err == nil {
-			t.Fatal("expected error for negative maxItems")
-		}
-		if !strings.Contains(err.Error(), "maxItems") {
-			t.Errorf("expected 'maxItems' in error, got: %v", err)
-		}
-	})
-
-	t.Run("valid_all_types", func(t *testing.T) {
-		for _, typ := range []string{"string", "number", "integer", "boolean"} {
-			_, err := parseSchema(`{"properties":{"f":{"type":"` + typ + `"}}}`)
-			if err != nil {
-				t.Errorf("type %q should be valid, got error: %v", typ, err)
-			}
-		}
-	})
-
-	t.Run("valid_pattern", func(t *testing.T) {
-		_, err := parseSchema(`{"properties":{"email":{"pattern":"^[a-z]+@[a-z]+\\.[a-z]+$"}}}`)
-		if err != nil {
-			t.Fatalf("valid pattern should not error: %v", err)
-		}
-	})
-
-	t.Run("enum_property", func(t *testing.T) {
-		schema, err := parseSchema(`{"properties":{"status":{"enum":["draft","published"]}}}`)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		prop := schema.Properties["status"]
-		if len(prop.Enum) != 2 {
-			t.Errorf("expected 2 enum values, got %d", len(prop.Enum))
-		}
-	})
-}
-
-func TestValidateMeta(t *testing.T) {
-	t.Run("required_field_missing", func(t *testing.T) {
-		schema := &MetaSchema{Required: []string{"title"}}
-		err := validateMeta(schema, map[string][]string{})
-		if err == nil {
-			t.Fatal("expected error for missing required field")
-		}
-		if !strings.Contains(err.Error(), "missing required field") {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
-
-	t.Run("required_field_present", func(t *testing.T) {
-		schema := &MetaSchema{Required: []string{"title"}}
-		err := validateMeta(schema, map[string][]string{"title": {"Hello"}})
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
-
-	t.Run("required_field_empty_values", func(t *testing.T) {
-		schema := &MetaSchema{Required: []string{"title"}}
-		err := validateMeta(schema, map[string][]string{"title": {}})
-		if err == nil {
-			t.Fatal("expected error for required field with empty values")
-		}
-	})
-
-	t.Run("type_validation_number_valid", func(t *testing.T) {
-		schema := &MetaSchema{
-			Properties: map[string]PropertySchema{
-				"count": {Type: "number"},
-			},
-		}
-		err := validateMeta(schema, map[string][]string{"count": {"3.14"}})
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
-
-	t.Run("type_validation_number_invalid", func(t *testing.T) {
-		schema := &MetaSchema{
-			Properties: map[string]PropertySchema{
-				"count": {Type: "number"},
-			},
-		}
-		err := validateMeta(schema, map[string][]string{"count": {"abc"}})
-		if err == nil {
-			t.Fatal("expected error for invalid number")
-		}
-	})
-
-	t.Run("enum_validation_valid", func(t *testing.T) {
-		schema := &MetaSchema{
-			Properties: map[string]PropertySchema{
-				"status": {Enum: []string{"draft", "published"}},
-			},
-		}
-		err := validateMeta(schema, map[string][]string{"status": {"draft"}})
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
-
-	t.Run("enum_validation_invalid", func(t *testing.T) {
-		schema := &MetaSchema{
-			Properties: map[string]PropertySchema{
-				"status": {Enum: []string{"draft", "published"}},
-			},
-		}
-		err := validateMeta(schema, map[string][]string{"status": {"archived"}})
-		if err == nil {
-			t.Fatal("expected error for invalid enum value")
-		}
-		if !strings.Contains(err.Error(), "not in allowed values") {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
-
-	t.Run("pattern_validation_valid", func(t *testing.T) {
-		schema := &MetaSchema{
-			Properties: map[string]PropertySchema{
-				"code": {Pattern: "^[A-Z]{3}$"},
-			},
-		}
-		err := validateMeta(schema, map[string][]string{"code": {"ABC"}})
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
-
-	t.Run("pattern_validation_invalid", func(t *testing.T) {
-		schema := &MetaSchema{
-			Properties: map[string]PropertySchema{
-				"code": {Pattern: "^[A-Z]{3}$"},
-			},
-		}
-		err := validateMeta(schema, map[string][]string{"code": {"abc"}})
-		if err == nil {
-			t.Fatal("expected error for pattern mismatch")
-		}
-		if !strings.Contains(err.Error(), "does not match pattern") {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
-
-	t.Run("minItems_violation", func(t *testing.T) {
-		schema := &MetaSchema{
-			Properties: map[string]PropertySchema{
-				"tags": {MinItems: 2},
-			},
-		}
-		err := validateMeta(schema, map[string][]string{"tags": {"one"}})
-		if err == nil {
-			t.Fatal("expected error for minItems violation")
-		}
-		if !strings.Contains(err.Error(), "minimum") {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
-
-	t.Run("maxItems_violation", func(t *testing.T) {
-		schema := &MetaSchema{
-			Properties: map[string]PropertySchema{
-				"tags": {MaxItems: 1},
-			},
-		}
-		err := validateMeta(schema, map[string][]string{"tags": {"one", "two"}})
-		if err == nil {
-			t.Fatal("expected error for maxItems violation")
-		}
-		if !strings.Contains(err.Error(), "maximum") {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
-
-	t.Run("missing_property_skipped", func(t *testing.T) {
-		schema := &MetaSchema{
-			Properties: map[string]PropertySchema{
-				"optional": {Type: "integer"},
-			},
-		}
-		err := validateMeta(schema, map[string][]string{})
-		if err != nil {
-			t.Errorf("absent non-required field should be skipped: %v", err)
-		}
-	})
-
-	t.Run("no_errors_returns_nil", func(t *testing.T) {
-		schema := &MetaSchema{}
-		err := validateMeta(schema, map[string][]string{"anything": {"value"}})
-		if err != nil {
-			t.Errorf("expected nil error, got: %v", err)
-		}
-	})
-}
-
-func TestValidateType(t *testing.T) {
-	tests := []struct {
-		name    string
-		key     string
-		value   string
-		typ     string
-		wantErr bool
-	}{
-		{"string_always_valid", "f", "hello", "string", false},
-		{"number_valid_int", "f", "42", "number", false},
-		{"number_valid_float", "f", "3.14", "number", false},
-		{"number_invalid", "f", "abc", "number", true},
-		{"integer_valid", "f", "42", "integer", false},
-		{"integer_invalid_float", "f", "3.14", "integer", true},
-		{"integer_invalid_string", "f", "abc", "integer", true},
-		{"boolean_true", "f", "true", "boolean", false},
-		{"boolean_false", "f", "false", "boolean", false},
-		{"boolean_invalid", "f", "yes", "boolean", true},
-		{"boolean_invalid_1", "f", "1", "boolean", true},
-		{"unknown_type_valid", "f", "anything", "unknown", false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := validateType(tt.key, tt.value, tt.typ)
-			if tt.wantErr && result == "" {
-				t.Error("expected error string, got empty")
-			}
-			if !tt.wantErr && result != "" {
-				t.Errorf("expected no error, got: %s", result)
-			}
-		})
-	}
-}
 
 func TestContains(t *testing.T) {
 	tests := []struct {
@@ -664,9 +34,9 @@ func TestContains(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := contains(tt.slice, tt.val)
+			got := slices.Contains(tt.slice, tt.val)
 			if got != tt.want {
-				t.Errorf("contains(%v, %q) = %v, want %v", tt.slice, tt.val, got, tt.want)
+				t.Errorf("slices.Contains(%v, %q) = %v, want %v", tt.slice, tt.val, got, tt.want)
 			}
 		})
 	}
@@ -713,51 +83,6 @@ func TestMatchStringRange(t *testing.T) {
 // ---------------------------------------------------------------------------
 // 4. fts_wildcard.go — wildcardMatch
 // ---------------------------------------------------------------------------
-
-func TestWildcardMatchCoverage(t *testing.T) {
-	tests := []struct {
-		pattern string
-		text    string
-		want    bool
-	}{
-		{"*", "anything", true},
-		{"*", "", true},
-		{"?", "a", true},
-		{"?", "", false},
-		{"?", "ab", false},
-		{"hello", "hello", true},
-		{"hello", "world", false},
-		{"hel*", "hello", true},
-		{"hel*", "help", true},
-		{"hel*", "he", false},
-		{"*lo", "hello", true},
-		{"*lo", "lo", true},
-		{"*lo", "low", false},
-		{"h?llo", "hello", true},
-		{"h?llo", "hallo", true},
-		{"h?llo", "hllo", false},
-		{"h*o", "hello", true},
-		{"h*o", "ho", true},
-		{"h*o", "hey", false},
-		{"*a*b*", "aXYZb", true},
-		{"*a*b*", "xaxbx", true},
-		{"*a*b*", "xyz", false},
-		{"", "", true},
-		{"", "a", false},
-		{"**", "abc", true},
-		{"a*b*c", "abc", true},
-		{"a*b*c", "aXbYc", true},
-		{"a*b*c", "aXbY", false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.pattern+"_"+tt.text, func(t *testing.T) {
-			got := wildcardMatch(tt.pattern, tt.text)
-			if got != tt.want {
-				t.Errorf("wildcardMatch(%q, %q) = %v, want %v", tt.pattern, tt.text, got, tt.want)
-			}
-		})
-	}
-}
 
 // ---------------------------------------------------------------------------
 // 5. aggregation.go — weekNumber, itoa
@@ -984,7 +309,7 @@ func TestCollectionManagerSetBinlog(t *testing.T) {
 	if cm.binlog != nil {
 		t.Fatal("binlog should be nil initially")
 	}
-	bl := &Binlog{}
+	bl := &binlog.Binlog{}
 	cm.SetBinlog(bl)
 	if cm.binlog != bl {
 		t.Error("SetBinlog did not set the binlog")
@@ -1016,22 +341,22 @@ func TestAsyncIOWaitAllNoPending(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // 10. Additional coverage: FTS setters, CollectionManager.LoadAll,
-//     BloomFilter, BinlogEntryType.String, etc.
+//     BloomFilter, binlog.BinlogEntryType.String, etc.
 // ---------------------------------------------------------------------------
 
 func TestFTSSetSynonymManager(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	sm := NewSynonymManager(db)
+	idx := fts.NewFTSIndex(db)
+	sm := fts.NewSynonymManager(db)
 	idx.SetSynonymManager(sm)
 }
 
 func TestFTSSetStopWordManager(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	swm := NewStopWordManager(db)
+	idx := fts.NewFTSIndex(db)
+	swm := fts.NewStopWordManager(db)
 	idx.SetStopWordManager(swm)
 }
 
@@ -1039,7 +364,7 @@ func TestAutomationManagerSetLogStore(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
 	am := NewAutomationManager(db)
-	ls := NewAutomationLogStore(db, 24*time.Hour)
+	ls := automationlog.NewStore(db, 24*time.Hour)
 	am.SetLogStore(ls)
 }
 
@@ -1072,19 +397,19 @@ func TestCollectionManagerLoadAll(t *testing.T) {
 
 func TestBinlogEntryTypeString(t *testing.T) {
 	tests := []struct {
-		t    BinlogEntryType
+		t    binlog.BinlogEntryType
 		want string
 	}{
-		{BinlogPut, "Put"},
-		{BinlogDelete, "Delete"},
-		{BinlogDeleteBucket, "DeleteBucket"},
-		{BinlogCheckpoint, "Checkpoint"},
-		{BinlogEntryType(99), "Unknown(99)"},
+		{binlog.BinlogPut, "Put"},
+		{binlog.BinlogDelete, "Delete"},
+		{binlog.BinlogDeleteBucket, "DeleteBucket"},
+		{binlog.BinlogCheckpoint, "Checkpoint"},
+		{binlog.BinlogEntryType(99), "Unknown(99)"},
 	}
 	for _, tc := range tests {
 		got := tc.t.String()
 		if got != tc.want {
-			t.Errorf("BinlogEntryType(%d).String() = %q, want %q", tc.t, got, tc.want)
+			t.Errorf("binlog.BinlogEntryType(%d).String() = %q, want %q", tc.t, got, tc.want)
 		}
 	}
 }
@@ -1118,8 +443,8 @@ func TestBloomFilterStats(t *testing.T) {
 func TestFTSSearchEmptyQueryCovBoost(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	results, err := idx.Search("col1", "", 10)
@@ -1134,8 +459,8 @@ func TestFTSSearchEmptyQueryCovBoost(t *testing.T) {
 func TestFTSIndexAndSearchCovBoost(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 
 	// Index some documents
@@ -1176,10 +501,10 @@ func TestFTSIndexAndSearchCovBoost(t *testing.T) {
 func TestFTSSearchWithLangCovBoost(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
-	reg := NewLangRegistry("en")
-	RegisterDefaultLanguages(reg)
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
+	reg := fts.NewLangRegistry("en")
+	fts.RegisterDefaultLanguages(reg)
 	idx.SetLangRegistry(reg)
 	_ = idx.EnsureBuckets()
 
@@ -1198,8 +523,8 @@ func TestFTSSearchWithLangCovBoost(t *testing.T) {
 func TestFTSRemoveNonExistentCovBoost(t *testing.T) {
 	db := openTestDB(t)
 	defer func() { _ = db.Close() }()
-	idx := NewFTSIndex(db)
-	idx.SetStemmer(NewPorterStemmer())
+	idx := fts.NewFTSIndex(db)
+	idx.SetStemmer(fts.NewPorterStemmer())
 	_ = idx.EnsureBuckets()
 	if err := idx.Remove("col", "nonexistent"); err != nil {
 		t.Fatal(err)
@@ -1271,9 +596,9 @@ func TestZeroCopyManagerStreamCopyCovBoost(t *testing.T) {
 }
 
 func TestSIMDProcessorVectorizedCompare(t *testing.T) {
-	sp := NewSIMDProcessor()
+	sp := vector.NewSIMDProcessor()
 	if sp == nil {
-		t.Fatal("nil SIMDProcessor")
+		t.Fatal("nil vector.SIMDProcessor")
 		return
 	}
 	data := [][]byte{
@@ -1289,9 +614,9 @@ func TestSIMDProcessorVectorizedCompare(t *testing.T) {
 }
 
 func TestSIMDProcessorVectorizedSearch(t *testing.T) {
-	sp := NewSIMDProcessor()
+	sp := vector.NewSIMDProcessor()
 	if sp == nil {
-		t.Fatal("nil SIMDProcessor")
+		t.Fatal("nil vector.SIMDProcessor")
 		return
 	}
 	// Use a single byte pattern to avoid chunk-boundary splits
@@ -1303,9 +628,9 @@ func TestSIMDProcessorVectorizedSearch(t *testing.T) {
 }
 
 func TestSIMDProcessorVectorizedSum(t *testing.T) {
-	sp := NewSIMDProcessor()
+	sp := vector.NewSIMDProcessor()
 	if sp == nil {
-		t.Fatal("nil SIMDProcessor")
+		t.Fatal("nil vector.SIMDProcessor")
 		return
 	}
 	data := []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
@@ -1316,9 +641,9 @@ func TestSIMDProcessorVectorizedSum(t *testing.T) {
 }
 
 func TestSIMDProcessorVectorizedFilter(t *testing.T) {
-	sp := NewSIMDProcessor()
+	sp := vector.NewSIMDProcessor()
 	if sp == nil {
-		t.Fatal("nil SIMDProcessor")
+		t.Fatal("nil vector.SIMDProcessor")
 		return
 	}
 	data := [][]byte{[]byte("ab"), []byte("abc"), []byte("a"), []byte("abcd")}
@@ -1329,9 +654,9 @@ func TestSIMDProcessorVectorizedFilter(t *testing.T) {
 }
 
 func TestSIMDProcessorVectorizedMap(t *testing.T) {
-	sp := NewSIMDProcessor()
+	sp := vector.NewSIMDProcessor()
 	if sp == nil {
-		t.Fatal("nil SIMDProcessor")
+		t.Fatal("nil vector.SIMDProcessor")
 		return
 	}
 	data := [][]byte{[]byte("hello"), []byte("world")}
@@ -1347,9 +672,9 @@ func TestSIMDProcessorVectorizedMap(t *testing.T) {
 }
 
 func TestSIMDProcessorParallelSort(t *testing.T) {
-	sp := NewSIMDProcessor()
+	sp := vector.NewSIMDProcessor()
 	if sp == nil {
-		t.Fatal("nil SIMDProcessor")
+		t.Fatal("nil vector.SIMDProcessor")
 		return
 	}
 	data := [][]byte{[]byte("cherry"), []byte("apple"), []byte("banana")}
@@ -1360,9 +685,9 @@ func TestSIMDProcessorParallelSort(t *testing.T) {
 }
 
 func TestSIMDProcessorStats(t *testing.T) {
-	sp := NewSIMDProcessor()
+	sp := vector.NewSIMDProcessor()
 	if sp == nil {
-		t.Fatal("nil SIMDProcessor")
+		t.Fatal("nil vector.SIMDProcessor")
 		return
 	}
 	stats := sp.Stats()

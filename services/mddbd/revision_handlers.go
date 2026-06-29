@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"mddb/internal/storage"
 	"net/http"
 	"sort"
 	"strconv"
@@ -81,7 +82,7 @@ func (s *Server) handleRevisions(w http.ResponseWriter, r *http.Request) {
 			return nil
 		}
 
-		prefix := kRevPrefix(req.Collection, docID)
+		prefix := storage.RevPrefix(req.Collection, docID)
 		c := bRev.Cursor()
 		for k, v := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = c.Next() {
 			// Extract timestamp from key suffix (last part after final |)
@@ -162,9 +163,9 @@ func (s *Server) handleRevisionRestore(w http.ResponseWriter, r *http.Request) {
 
 	// Load the specific revision
 	tsKey := fmt.Sprintf("%020d", req.Timestamp)
-	revKey := append(kRevPrefix(req.Collection, docID), []byte(tsKey)...)
+	revKey := append(storage.RevPrefix(req.Collection, docID), []byte(tsKey)...)
 
-	var revDoc *Doc
+	var revDoc *storage.Doc
 	err := s.DBView(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket([]byte("rev"))
 		if bRev == nil {

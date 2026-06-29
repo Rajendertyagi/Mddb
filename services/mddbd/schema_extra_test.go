@@ -1,16 +1,18 @@
 package main
 
 import (
+	"mddb/internal/schema"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 
 	bolt "go.etcd.io/bbolt"
 )
 
-// schemaExtraTestServer creates a minimal Server with SchemaManager for HTTP handler tests.
+// schemaExtraTestServer creates a minimal Server with schema.SchemaManager for HTTP handler tests.
 func schemaExtraTestServer(t *testing.T) (*Server, func()) {
 	t.Helper()
 	f, err := os.CreateTemp("", "schema_extra_*.db")
@@ -42,7 +44,7 @@ func schemaExtraTestServer(t *testing.T) (*Server, func()) {
 		t.Fatal(err)
 	}
 
-	s.SchemaManager = NewSchemaManager(db)
+	s.SchemaManager = schema.NewSchemaManager(db)
 	if err := s.SchemaManager.EnsureBucket(); err != nil {
 		_ = db.Close()
 		_ = os.Remove(f.Name())
@@ -387,171 +389,36 @@ func TestHandleValidate_InvalidBody(t *testing.T) {
 // Test: parseSchema edge cases
 // ---------------------------------------------------------------------------
 
-func TestParseSchema_ValidEmpty(t *testing.T) {
-	schema, err := parseSchema(`{}`)
-	if err != nil {
-		t.Fatalf("expected no error for empty schema, got: %v", err)
-	}
-	if schema == nil {
-		t.Fatal("expected non-nil schema")
-	}
-}
-
-func TestParseSchema_InvalidMinItems(t *testing.T) {
-	// minItems with negative value - note: JSON will parse negative into int
-	// The check is minItems < 0
-	_, err := parseSchema(`{"properties":{"tags":{"minItems":-1}}}`)
-	if err == nil {
-		t.Error("expected error for negative minItems")
-	}
-}
-
-func TestParseSchema_InvalidMaxItems(t *testing.T) {
-	_, err := parseSchema(`{"properties":{"tags":{"maxItems":-1}}}`)
-	if err == nil {
-		t.Error("expected error for negative maxItems")
-	}
-}
-
 // ---------------------------------------------------------------------------
 // Test: validateType edge cases
 // ---------------------------------------------------------------------------
-
-func TestValidateType_StringAlwaysValid(t *testing.T) {
-	msg := validateType("field", "anything", "string")
-	if msg != "" {
-		t.Errorf("string type should always be valid, got: %s", msg)
-	}
-}
-
-func TestValidateType_NumberValid(t *testing.T) {
-	msg := validateType("field", "3.14", "number")
-	if msg != "" {
-		t.Errorf("3.14 should be valid number, got: %s", msg)
-	}
-}
-
-func TestValidateType_NumberInvalid(t *testing.T) {
-	msg := validateType("field", "abc", "number")
-	if msg == "" {
-		t.Error("abc should not be valid number")
-	}
-}
-
-func TestValidateType_IntegerValid(t *testing.T) {
-	msg := validateType("field", "42", "integer")
-	if msg != "" {
-		t.Errorf("42 should be valid integer, got: %s", msg)
-	}
-}
-
-func TestValidateType_IntegerInvalid(t *testing.T) {
-	msg := validateType("field", "3.14", "integer")
-	if msg == "" {
-		t.Error("3.14 should not be valid integer")
-	}
-}
-
-func TestValidateType_BooleanValid(t *testing.T) {
-	for _, val := range []string{"true", "false"} {
-		msg := validateType("field", val, "boolean")
-		if msg != "" {
-			t.Errorf("%s should be valid boolean, got: %s", val, msg)
-		}
-	}
-}
-
-func TestValidateType_BooleanInvalid(t *testing.T) {
-	msg := validateType("field", "yes", "boolean")
-	if msg == "" {
-		t.Error("yes should not be valid boolean")
-	}
-}
 
 // ---------------------------------------------------------------------------
 // Test: contains helper
 // ---------------------------------------------------------------------------
 
 func TestContains_Found(t *testing.T) {
-	if !contains([]string{"a", "b", "c"}, "b") {
+	if !slices.Contains([]string{"a", "b", "c"}, "b") {
 		t.Error("expected true")
 	}
 }
 
 func TestContains_NotFound(t *testing.T) {
-	if contains([]string{"a", "b", "c"}, "d") {
+	if slices.Contains([]string{"a", "b", "c"}, "d") {
 		t.Error("expected false")
 	}
 }
 
 func TestContains_EmptySlice(t *testing.T) {
-	if contains([]string{}, "a") {
+	if slices.Contains([]string{}, "a") {
 		t.Error("expected false for empty slice")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// Test: SchemaManager SetBinlog
+// Test: schema.SchemaManager SetBinlog
 // ---------------------------------------------------------------------------
-
-func TestSchemaManagerSetBinlog(t *testing.T) {
-	sm, cleanup := newTestSchemaManager(t)
-	defer cleanup()
-
-	sm.SetBinlog(nil)
-	if sm.binlog != nil {
-		t.Error("expected nil binlog")
-	}
-}
 
 // ---------------------------------------------------------------------------
 // Test: validateMeta with multiple property rules combined
 // ---------------------------------------------------------------------------
-
-func TestValidateMeta_CombinedRules(t *testing.T) {
-	schema := &MetaSchema{
-		Required: []string{"status", "priority"},
-		Properties: map[string]PropertySchema{
-			"status":   {Enum: []string{"draft", "published"}},
-			"priority": {Type: "integer", MinItems: 1, MaxItems: 1},
-			"tags":     {MinItems: 1, MaxItems: 3},
-		},
-	}
-
-	// Valid
-	err := validateMeta(schema, map[string][]string{
-		"status":   {"draft"},
-		"priority": {"5"},
-		"tags":     {"go", "test"},
-	})
-	if err != nil {
-		t.Errorf("expected valid, got: %v", err)
-	}
-
-	// Missing required
-	err = validateMeta(schema, map[string][]string{
-		"status": {"draft"},
-	})
-	if err == nil {
-		t.Error("expected error for missing priority")
-	}
-
-	// Invalid enum
-	err = validateMeta(schema, map[string][]string{
-		"status":   {"deleted"},
-		"priority": {"5"},
-	})
-	if err == nil {
-		t.Error("expected error for invalid enum value")
-	}
-
-	// Too many tags
-	err = validateMeta(schema, map[string][]string{
-		"status":   {"draft"},
-		"priority": {"5"},
-		"tags":     {"a", "b", "c", "d"},
-	})
-	if err == nil {
-		t.Error("expected error for too many tags")
-	}
-}

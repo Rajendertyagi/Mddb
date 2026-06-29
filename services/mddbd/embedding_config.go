@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"mddb/internal/binlog"
+	"mddb/internal/embedding"
 	"net/http"
 	"strings"
 	"time"
@@ -25,7 +27,7 @@ type EmbeddingConfig struct {
 
 // SaveEmbeddingConfig saves an embedding configuration to the database
 func (s *Server) SaveEmbeddingConfig(config *EmbeddingConfig) error {
-	var bo BinlogOps
+	var bo binlog.BinlogOps
 	err := s.DBUpdate(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte("embedding_configs"))
 		if bucket == nil {
@@ -134,7 +136,7 @@ func (s *Server) DeleteEmbeddingConfig(id string) error {
 		return bucket.Delete(key)
 	})
 	if err == nil && s.Binlog != nil {
-		_ = s.Binlog.Append(&BinlogEntry{Type: BinlogDelete, BucketName: "embedding_configs", Key: copyBytes(key)})
+		_ = s.Binlog.Append(&binlog.BinlogEntry{Type: binlog.BinlogDelete, BucketName: "embedding_configs", Key: CopyBytes(key)})
 	}
 	return err
 }
@@ -404,16 +406,16 @@ func (s *Server) InitializeEmbeddingFromConfig(config *EmbeddingConfig) {
 		return
 	}
 
-	var emb EmbeddingProvider
+	var emb embedding.Provider
 	switch config.Provider {
 	case "openai":
-		emb = NewOpenAIEmbeddingProvider(config.APIKey, "https://api.openai.com/v1", config.Model, config.Dimensions)
+		emb = embedding.NewOpenAIProvider(config.APIKey, "https://api.openai.com/v1", config.Model, config.Dimensions)
 	case "ollama":
-		emb = NewOllamaEmbeddingProvider(config.APIURL, config.Model, config.Dimensions)
+		emb = embedding.NewOllamaProvider(config.APIURL, config.Model, config.Dimensions)
 	case "cohere":
-		emb = NewCohereEmbeddingProvider(config.APIKey, config.APIURL, config.Model, config.Dimensions)
+		emb = embedding.NewCohereProvider(config.APIKey, config.APIURL, config.Model, config.Dimensions)
 	case "voyage":
-		emb = NewVoyageEmbeddingProvider(config.APIKey, config.APIURL, config.Model, config.Dimensions)
+		emb = embedding.NewVoyageProvider(config.APIKey, config.APIURL, config.Model, config.Dimensions)
 	default:
 		return
 	}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"mddb/internal/audit"
 	"net/http"
 	"os"
 	"strings"
@@ -110,7 +111,7 @@ func (am *AuthManager) auditAuth(r *http.Request, actor, action, result, detail 
 	}
 	ip := ClientIP(r)
 	if am.server.AuditManager != nil {
-		am.server.AuditManager.Record(AuditEvent{
+		am.server.AuditManager.Record(audit.AuditEvent{
 			Actor:     actor,
 			Action:    action,
 			Resource:  r.URL.Path,

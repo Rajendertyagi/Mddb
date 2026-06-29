@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"mddb/internal/binlog"
+	"mddb/internal/storage"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -16,7 +18,7 @@ import (
 // collect all keys under the prefix, then delete the oldest (total-keep) of
 // them; cursor mutation during iteration is avoided intentionally, since
 // bucket.Delete mid-iteration can skip entries.
-func trimRevisions(tx *bolt.Tx, bo *BinlogOps, collection, docID string, keep int) error {
+func trimRevisions(tx *bolt.Tx, bo *binlog.BinlogOps, collection, docID string, keep int) error {
 	if keep <= 0 {
 		return nil
 	}
@@ -25,7 +27,7 @@ func trimRevisions(tx *bolt.Tx, bo *BinlogOps, collection, docID string, keep in
 		return nil
 	}
 
-	prefix := kRevPrefix(collection, docID)
+	prefix := storage.RevPrefix(collection, docID)
 	c := bRev.Cursor()
 
 	var keys [][]byte

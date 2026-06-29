@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mddb/internal/envconf"
 	"net/http"
 	"os"
 
@@ -124,17 +125,17 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 
 		switch provider {
 		case "openai":
-			apiURL = envDefault("MDDB_EMBEDDING_API_URL", "https://api.openai.com/v1")
-			model = envDefault("MDDB_EMBEDDING_MODEL", "text-embedding-3-small")
-			dimensions = envDefaultInt("MDDB_EMBEDDING_DIMENSIONS", 1536)
+			apiURL = envconf.String("MDDB_EMBEDDING_API_URL", "https://api.openai.com/v1")
+			model = envconf.String("MDDB_EMBEDDING_MODEL", "text-embedding-3-small")
+			dimensions = envconf.Int("MDDB_EMBEDDING_DIMENSIONS", 1536)
 		case "ollama":
-			apiURL = envDefault("MDDB_EMBEDDING_API_URL", "http://localhost:11434")
-			model = envDefault("MDDB_EMBEDDING_MODEL", "nomic-embed-text")
-			dimensions = envDefaultInt("MDDB_EMBEDDING_DIMENSIONS", 768)
+			apiURL = envconf.String("MDDB_EMBEDDING_API_URL", "http://localhost:11434")
+			model = envconf.String("MDDB_EMBEDDING_MODEL", "nomic-embed-text")
+			dimensions = envconf.Int("MDDB_EMBEDDING_DIMENSIONS", 768)
 		case "voyage":
-			apiURL = envDefault("MDDB_EMBEDDING_API_URL", "https://api.voyageai.com/v1")
-			model = envDefault("MDDB_EMBEDDING_MODEL", "voyage-3")
-			dimensions = envDefaultInt("MDDB_EMBEDDING_DIMENSIONS", 1024)
+			apiURL = envconf.String("MDDB_EMBEDDING_API_URL", "https://api.voyageai.com/v1")
+			model = envconf.String("MDDB_EMBEDDING_MODEL", "voyage-3")
+			dimensions = envconf.Int("MDDB_EMBEDDING_DIMENSIONS", 1024)
 		}
 
 		response.VectorConfig = &VectorConfig{
@@ -147,8 +148,8 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add chunk configuration
-	chunkEnabled := envDefault("MDDB_EMBEDDING_CHUNK_ENABLED", "true") == "true"
-	chunkSize := envDefaultInt("MDDB_EMBEDDING_CHUNK_SIZE", 1500)
+	chunkEnabled := envconf.String("MDDB_EMBEDDING_CHUNK_ENABLED", "true") == "true"
+	chunkSize := envconf.Int("MDDB_EMBEDDING_CHUNK_SIZE", 1500)
 	response.ChunkConfig = &ChunkConfig{
 		Enabled:   chunkEnabled,
 		ChunkSize: chunkSize,

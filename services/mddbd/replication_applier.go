@@ -2,6 +2,9 @@ package main
 
 import (
 	"log"
+	"mddb/internal/binlog"
+	"mddb/internal/cache"
+	"mddb/internal/vector"
 	"strings"
 	"sync/atomic"
 
@@ -20,7 +23,7 @@ func NewReplicationApplier(s *Server) *ReplicationApplier {
 }
 
 // Apply applies a single binlog entry to the local database.
-func (ra *ReplicationApplier) Apply(entry *BinlogEntry) error {
+func (ra *ReplicationApplier) Apply(entry *binlog.BinlogEntry) error {
 	err := ra.server.DBUpdate(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte(entry.BucketName))
 		if err != nil {
@@ -28,13 +31,13 @@ func (ra *ReplicationApplier) Apply(entry *BinlogEntry) error {
 		}
 
 		switch entry.Type {
-		case BinlogPut:
+		case binlog.BinlogPut:
 			return bucket.Put(entry.Key, entry.Value)
-		case BinlogDelete:
+		case binlog.BinlogDelete:
 			return bucket.Delete(entry.Key)
-		case BinlogDeleteBucket:
+		case binlog.BinlogDeleteBucket:
 			return tx.DeleteBucket([]byte(entry.BucketName))
-		case BinlogCheckpoint:
+		case binlog.BinlogCheckpoint:
 			// No-op, just a marker
 			return nil
 		}
@@ -53,20 +56,20 @@ func (ra *ReplicationApplier) Apply(entry *BinlogEntry) error {
 }
 
 // ApplyBatch applies multiple binlog entries in a single BoltDB transaction for efficiency.
-func (ra *ReplicationApplier) ApplyBatch(entries []*BinlogEntry) error {
+func (ra *ReplicationApplier) ApplyBatch(entries []*binlog.BinlogEntry) error {
 	if len(entries) == 0 {
 		return nil
 	}
 
 	err := ra.server.DBUpdate(func(tx *bolt.Tx) error {
 		for _, entry := range entries {
-			if entry.Type == BinlogDeleteBucket {
+			if entry.Type == binlog.BinlogDeleteBucket {
 				if err := tx.DeleteBucket([]byte(entry.BucketName)); err != nil {
 					log.Printf("Replication applier: failed to delete bucket %s: %v", entry.BucketName, err)
 				}
 				continue
 			}
-			if entry.Type == BinlogCheckpoint {
+			if entry.Type == binlog.BinlogCheckpoint {
 				continue
 			}
 
@@ -76,11 +79,11 @@ func (ra *ReplicationApplier) ApplyBatch(entries []*BinlogEntry) error {
 			}
 
 			switch entry.Type {
-			case BinlogPut:
+			case binlog.BinlogPut:
 				if err := bucket.Put(entry.Key, entry.Value); err != nil {
 					return err
 				}
-			case BinlogDelete:
+			case binlog.BinlogDelete:
 				if err := bucket.Delete(entry.Key); err != nil {
 					return err
 				}
@@ -113,7 +116,7 @@ func (ra *ReplicationApplier) SetLastAppliedLSN(lsn uint64) {
 }
 
 // updateInMemoryState updates in-memory caches and indices based on the replicated bucket
-func (ra *ReplicationApplier) updateInMemoryState(entry *BinlogEntry) {
+func (ra *ReplicationApplier) updateInMemoryState(entry *binlog.BinlogEntry) {
 	switch entry.BucketName {
 	case "vectors":
 		ra.applyVector(entry)
@@ -146,13 +149,13 @@ func (ra *ReplicationApplier) updateInMemoryState(entry *BinlogEntry) {
 }
 
 // applyVector updates the in-memory vector index
-func (ra *ReplicationApplier) applyVector(entry *BinlogEntry) {
+func (ra *ReplicationApplier) applyVector(entry *binlog.BinlogEntry) {
 	if ra.server.VectorIndex == nil {
 		return
 	}
 
 	// Parse key: vec|collection|docID
-	parts := splitKey(entry.Key)
+	parts := vector.SplitKey(entry.Key)
 	if len(parts) < 3 {
 		return
 	}
@@ -160,26 +163,26 @@ func (ra *ReplicationApplier) applyVector(entry *BinlogEntry) {
 	docID := parts[2]
 
 	switch entry.Type {
-	case BinlogPut:
-		rec, err := unmarshalEmbeddingRecord(entry.Value)
+	case binlog.BinlogPut:
+		rec, err := vector.UnmarshalEmbeddingRecord(entry.Value)
 		if err != nil {
 			log.Printf("Replication applier: failed to unmarshal embedding: %v", err)
 			return
 		}
 		ra.server.VectorIndex.Add(collection, docID, rec.Vector)
-	case BinlogDelete:
+	case binlog.BinlogDelete:
 		ra.server.VectorIndex.Remove(collection, docID)
 	}
 }
 
 // invalidateDocCache removes the replicated document from the read caches.
 //
-// GO-002: the cache is keyed by BuildCacheKey(collection, key, lang). The doc
+// GO-002: the cache is keyed by cache.BuildCacheKey(collection, key, lang). The doc
 // key is `doc|<collection>|<docID>` where docID itself is `collection|key|lang`,
-// so a naive split (splitKey) over-splits and the previous `collection|docID`
+// so a naive split (vector.SplitKey) over-splits and the previous `collection|docID`
 // key never matched anything. We SplitN to recover collection + the full docID,
 // and for Put entries unmarshal the doc to build the exact write-path key.
-func (ra *ReplicationApplier) invalidateDocCache(entry *BinlogEntry) {
+func (ra *ReplicationApplier) invalidateDocCache(entry *binlog.BinlogEntry) {
 	parts := strings.SplitN(string(entry.Key), "|", 3)
 	if len(parts) < 3 {
 		return
@@ -188,13 +191,13 @@ func (ra *ReplicationApplier) invalidateDocCache(entry *BinlogEntry) {
 	docID := parts[2] // collection|key|lang (already lowercased)
 
 	// Default to the docID form (correct when key/lang are lowercase, the
-	// common case); for Put entries derive the exact BuildCacheKey from the
+	// common case); for Put entries derive the exact cache.BuildCacheKey from the
 	// doc itself so original-case keys match too.
 	cacheKey := docID
 	if len(entry.Value) > 0 {
 		// loadDoc auto-detects JSON / protobuf+compression / encryption.
 		if doc, err := loadDoc(entry.Value); err == nil {
-			cacheKey = BuildCacheKey(collection, doc.Key, doc.Lang)
+			cacheKey = cache.BuildCacheKey(collection, doc.Key, doc.Lang)
 		}
 	}
 

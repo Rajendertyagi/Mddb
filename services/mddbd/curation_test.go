@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mddb/internal/storage"
 	"path/filepath"
 	"testing"
 
@@ -220,13 +221,13 @@ func TestCollectPinsAndHides_MergeDedup(t *testing.T) {
 
 func TestSplicePinnedFTS_InsertsAtPosition(t *testing.T) {
 	base := []FTSResultWithDoc{
-		{Document: Doc{Key: "o1"}, Score: 3},
-		{Document: Doc{Key: "o2"}, Score: 2},
-		{Document: Doc{Key: "o3"}, Score: 1},
+		{Document: storage.Doc{Key: "o1"}, Score: 3},
+		{Document: storage.Doc{Key: "o2"}, Score: 2},
+		{Document: storage.Doc{Key: "o3"}, Score: 1},
 	}
 	pinned := []pinnedFTS{
-		{Result: FTSResultWithDoc{Document: Doc{Key: "p1"}, Pinned: true}, Position: 1},
-		{Result: FTSResultWithDoc{Document: Doc{Key: "p2"}, Pinned: true}, Position: 3},
+		{Result: FTSResultWithDoc{Document: storage.Doc{Key: "p1"}, Pinned: true}, Position: 1},
+		{Result: FTSResultWithDoc{Document: storage.Doc{Key: "p2"}, Pinned: true}, Position: 3},
 	}
 	got := splicePinnedFTS(base, pinned)
 	wantKeys := []string{"p1", "o1", "p2", "o2", "o3"}
@@ -241,9 +242,9 @@ func TestSplicePinnedFTS_InsertsAtPosition(t *testing.T) {
 }
 
 func TestSplicePinnedFTS_AppendWithPositionZero(t *testing.T) {
-	base := []FTSResultWithDoc{{Document: Doc{Key: "o1"}}}
+	base := []FTSResultWithDoc{{Document: storage.Doc{Key: "o1"}}}
 	pinned := []pinnedFTS{
-		{Result: FTSResultWithDoc{Document: Doc{Key: "p1"}, Pinned: true}, Position: 0},
+		{Result: FTSResultWithDoc{Document: storage.Doc{Key: "p1"}, Pinned: true}, Position: 0},
 	}
 	got := splicePinnedFTS(base, pinned)
 	if len(got) != 2 || got[0].Document.Key != "o1" || got[1].Document.Key != "p1" {
@@ -255,7 +256,7 @@ func TestSplicePinnedFTS_EmptyInputs(t *testing.T) {
 	if got := splicePinnedFTS(nil, nil); len(got) != 0 {
 		t.Errorf("expected empty, got %v", got)
 	}
-	base := []FTSResultWithDoc{{Document: Doc{Key: "o"}}}
+	base := []FTSResultWithDoc{{Document: storage.Doc{Key: "o"}}}
 	if got := splicePinnedFTS(base, nil); len(got) != 1 {
 		t.Errorf("no pins should pass base through, got %d", len(got))
 	}

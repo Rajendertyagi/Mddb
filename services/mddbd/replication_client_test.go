@@ -1,6 +1,10 @@
 package main
 
 import (
+	"mddb/internal/cache"
+	"mddb/internal/schema"
+	"mddb/internal/vector"
+	"mddb/internal/webhooks"
 	"os"
 	"testing"
 	"time"
@@ -33,7 +37,7 @@ func newTestServerForReplClient(t *testing.T) (*Server, func()) {
 			Rev:     []byte("rev"),
 			ByKey:   []byte("bykey"),
 		},
-		Cache: NewDocumentCache(100, 60),
+		Cache: cache.NewDocumentCache(100, 60),
 	}
 
 	if err := s.ensureBuckets(); err != nil {
@@ -323,16 +327,16 @@ func TestReplicationClientRebuildInMemoryState(t *testing.T) {
 	defer cleanup()
 
 	// Set up subsystems
-	s.VectorStore = NewVectorStore(s.DB)
-	s.VectorIndex = NewVectorIndex()
-	s.VectorSearchers = map[string]VectorSearcher{
+	s.VectorStore = vector.NewVectorStore(s.DB)
+	s.VectorIndex = vector.NewVectorIndex()
+	s.VectorSearchers = map[string]vector.VectorSearcher{
 		"flat": s.VectorIndex,
 	}
-	s.WebhookManager = NewWebhookManager(s.DB)
+	s.WebhookManager = webhooks.NewWebhookManager(s.DB)
 	_ = s.WebhookManager.EnsureBucket()
-	s.SchemaManager = NewSchemaManager(s.DB)
+	s.SchemaManager = schema.NewSchemaManager(s.DB)
 	_ = s.SchemaManager.EnsureBucket()
-	s.Cache = NewDocumentCache(100, 60)
+	s.Cache = cache.NewDocumentCache(100, 60)
 
 	rc := NewReplicationClient(s, ReplicationClientConfig{
 		LeaderAddr: "localhost:9090",
@@ -350,7 +354,7 @@ func TestReplicationClientRebuildInMemoryState(t *testing.T) {
 		t.Error("expected WebhookManager to be rebuilt")
 	}
 	if s.SchemaManager == nil {
-		t.Error("expected SchemaManager to be rebuilt")
+		t.Error("expected schema.SchemaManager to be rebuilt")
 	}
 	if s.Cache == nil {
 		t.Error("expected Cache to be rebuilt")

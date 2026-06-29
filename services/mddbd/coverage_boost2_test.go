@@ -1,7 +1,7 @@
 package main
 
 import (
-	"math"
+	"mddb/internal/vector"
 	"strings"
 	"testing"
 )
@@ -351,70 +351,41 @@ func TestExtractPDFTextEscaped(t *testing.T) {
 func TestCosineSimilarityCB2(t *testing.T) {
 	a := []float32{1, 0, 0}
 	b := []float32{0, 1, 0}
-	sim := cosineSimilarity(a, b)
+	sim := vector.CosineSimilarity(a, b)
 	if sim > 0.01 || sim < -0.01 {
 		t.Errorf("orthogonal: got %f, want ~0", sim)
 	}
-	same := cosineSimilarity(a, a)
+	same := vector.CosineSimilarity(a, a)
 	if same < 0.99 {
 		t.Errorf("identical: got %f, want ~1", same)
 	}
 	// Empty/mismatched
-	if cosineSimilarity(nil, nil) != 0 {
+	if vector.CosineSimilarity(nil, nil) != 0 {
 		t.Error("nil should return 0")
 	}
-	if cosineSimilarity([]float32{1}, []float32{1, 2}) != 0 {
+	if vector.CosineSimilarity([]float32{1}, []float32{1, 2}) != 0 {
 		t.Error("mismatched lengths should return 0")
 	}
 	// Zero vectors
-	if cosineSimilarity([]float32{0, 0}, []float32{1, 1}) != 0 {
+	if vector.CosineSimilarity([]float32{0, 0}, []float32{1, 1}) != 0 {
 		t.Error("zero vector should return 0")
 	}
 }
 
-func TestDotProductSimilarity(t *testing.T) {
-	a := []float32{1, 2, 3}
-	b := []float32{4, 5, 6}
-	got := dotProductSimilarity(a, b)
-	want := float32(32) // 1*4 + 2*5 + 3*6
-	if math.Abs(float64(got-want)) > 0.01 {
-		t.Errorf("got %f, want %f", got, want)
-	}
-	if dotProductSimilarity(nil, nil) != 0 {
-		t.Error("nil should return 0")
-	}
-}
-
-func TestEuclideanSimilarity(t *testing.T) {
-	a := []float32{0, 0}
-	b := []float32{0, 0}
-	sim := euclideanSimilarity(a, b)
-	if sim < 0.99 {
-		t.Errorf("same point: got %f, want ~1", sim)
-	}
-	far := euclideanSimilarity([]float32{0, 0}, []float32{100, 100})
-	if far > 0.1 {
-		t.Errorf("far points: got %f, want <0.1", far)
-	}
-	if euclideanSimilarity(nil, nil) != 0 {
-		t.Error("nil should return 0")
-	}
-}
-
 func TestResolveSimilarity(t *testing.T) {
-	fn := ResolveSimilarity("dot_product")
+	fn := vector.ResolveSimilarity("dot_product")
 	if fn == nil {
 		t.Fatal("dot_product should resolve")
 	}
-	fn = ResolveSimilarity("euclidean")
+	fn = vector.ResolveSimilarity("euclidean")
 	if fn == nil {
 		t.Fatal("euclidean should resolve")
 	}
-	fn = ResolveSimilarity("cosine")
+	fn = vector.ResolveSimilarity("cosine")
 	if fn == nil {
 		t.Fatal("cosine (default) should resolve")
 	}
-	fn = ResolveSimilarity("")
+	fn = vector.ResolveSimilarity("")
 	if fn == nil {
 		t.Fatal("empty should resolve to default")
 	}
@@ -430,20 +401,20 @@ func TestBaseDocIDCB2(t *testing.T) {
 		{"", ""},
 	}
 	for _, tc := range tests {
-		if got := baseDocID(tc.in); got != tc.want {
-			t.Errorf("baseDocID(%q) = %q, want %q", tc.in, got, tc.want)
+		if got := vector.BaseDocID(tc.in); got != tc.want {
+			t.Errorf("vector.BaseDocID(%q) = %q, want %q", tc.in, got, tc.want)
 		}
 	}
 }
 
 func TestDeduplicateChunkResultsCB2(t *testing.T) {
-	results := []VectorResult{
+	results := []vector.VectorResult{
 		{DocID: "doc1#0", Score: 0.9},
 		{DocID: "doc1#1", Score: 0.95},
 		{DocID: "doc2#0", Score: 0.8},
 		{DocID: "doc2#1", Score: 0.7},
 	}
-	deduped := DeduplicateChunkResults(results)
+	deduped := vector.DeduplicateChunkResults(results)
 	if len(deduped) != 2 {
 		t.Fatalf("expected 2, got %d", len(deduped))
 	}
@@ -455,7 +426,7 @@ func TestDeduplicateChunkResultsCB2(t *testing.T) {
 		t.Errorf("second should be doc2@0.8, got %s@%f", deduped[1].DocID, deduped[1].Score)
 	}
 	// Empty input
-	if len(DeduplicateChunkResults(nil)) != 0 {
+	if len(vector.DeduplicateChunkResults(nil)) != 0 {
 		t.Error("nil should return empty")
 	}
 }
@@ -463,23 +434,6 @@ func TestDeduplicateChunkResultsCB2(t *testing.T) {
 // ---------------------------------------------------------------------------
 // metrics.go — pure helper functions
 // ---------------------------------------------------------------------------
-
-func TestNormalizePathCB2(t *testing.T) {
-	tests := []struct {
-		in, want string
-	}{
-		{"/v1/docs", "/v1/docs"},
-		{"/health", "/health"},
-		{"/metrics", "/metrics"},
-		{"/random", "/other"},
-		{"/api/foo", "/other"},
-	}
-	for _, tc := range tests {
-		if got := normalizePath(tc.in); got != tc.want {
-			t.Errorf("normalizePath(%q) = %q, want %q", tc.in, got, tc.want)
-		}
-	}
-}
 
 func TestExtractCollectionCB2(t *testing.T) {
 	tests := []struct {
@@ -492,8 +446,8 @@ func TestExtractCollectionCB2(t *testing.T) {
 		{[]byte("one|only"), "only"},
 	}
 	for _, tc := range tests {
-		if got := extractCollection(tc.in); got != tc.want {
-			t.Errorf("extractCollection(%q) = %q, want %q", tc.in, got, tc.want)
+		if got := metricsExtractCollection(tc.in); got != tc.want {
+			t.Errorf("metricsExtractCollection(%q) = %q, want %q", tc.in, got, tc.want)
 		}
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"mddb/internal/geo"
 	pb "mddb/proto"
 
 	"google.golang.org/grpc/codes"
@@ -15,13 +16,13 @@ import (
 // is shared with many existing tests, so we don't touch it.
 func enableGeoOnTestServer(t *testing.T, s *Server) {
 	t.Helper()
-	s.GeoStore = NewGeoStore(s.DB)
+	s.GeoStore = geo.NewGeoStore(s.DB)
 	if err := s.GeoStore.EnsureBucket(); err != nil {
 		t.Fatal(err)
 	}
-	s.GeoIndex = NewGeoIndex()
+	s.GeoIndex = geo.NewGeoIndex()
 	s.GeoIndex.SetReady()
-	s.GeoHashIndex = NewGeoHashIndex()
+	s.GeoHashIndex = geo.NewGeoHashIndex()
 	s.GeoHashIndex.SetReady()
 }
 
@@ -96,9 +97,9 @@ func TestGRPCGeoSearch_Empty(t *testing.T) {
 func TestGRPCGeoSearch_IndexNotReady(t *testing.T) {
 	gs, s, cleanup := newTestGRPCServer(t)
 	defer cleanup()
-	s.GeoStore = NewGeoStore(s.DB)
+	s.GeoStore = geo.NewGeoStore(s.DB)
 	_ = s.GeoStore.EnsureBucket()
-	s.GeoIndex = NewGeoIndex()
+	s.GeoIndex = geo.NewGeoIndex()
 	// do not call SetReady()
 	_, err := gs.GeoSearch(context.Background(), &pb.GeoSearchRequest{
 		Collection:   "v",
@@ -218,8 +219,8 @@ func TestGRPCGeoEncode_DefaultPrecision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp.Precision != geohashMaxPrecision {
-		t.Errorf("default precision=%d, want %d", resp.Precision, geohashMaxPrecision)
+	if resp.Precision != geo.GeohashMaxPrecision {
+		t.Errorf("default precision=%d, want %d", resp.Precision, geo.GeohashMaxPrecision)
 	}
 }
 

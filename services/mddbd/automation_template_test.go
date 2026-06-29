@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mddb/internal/storage"
 	"testing"
 )
 
@@ -82,7 +83,7 @@ func TestBuildTriggerVars(t *testing.T) {
 	trigger := &AutomationRule{ID: "tr1", Name: "My Trigger"}
 
 	t.Run("with document", func(t *testing.T) {
-		doc := &Doc{
+		doc := &storage.Doc{
 			ID:        "doc123",
 			Key:       "test-doc",
 			Lang:      "en",
@@ -181,8 +182,8 @@ func TestExpandWebhookURLAndHeaders(t *testing.T) {
 
 	url := "https://example.com/{{collection}}/{{doc.id}}"
 	headers := map[string]string{
-		"X-Doc-Key":    "{{doc.key}}",
-		"Content-Type": "application/json",
+		"X-storage.Doc-Key": "{{doc.key}}",
+		"Content-Type":      "application/json",
 	}
 
 	expandedURL, expandedHeaders := expandWebhookURLAndHeaders(url, headers, vars)
@@ -190,8 +191,8 @@ func TestExpandWebhookURLAndHeaders(t *testing.T) {
 	if expandedURL != "https://example.com/blog/abc" {
 		t.Errorf("expandedURL = %q, want %q", expandedURL, "https://example.com/blog/abc")
 	}
-	if expandedHeaders["X-Doc-Key"] != "my-post" {
-		t.Errorf("X-Doc-Key = %q, want %q", expandedHeaders["X-Doc-Key"], "my-post")
+	if expandedHeaders["X-storage.Doc-Key"] != "my-post" {
+		t.Errorf("X-storage.Doc-Key = %q, want %q", expandedHeaders["X-storage.Doc-Key"], "my-post")
 	}
 	if expandedHeaders["Content-Type"] != "application/json" {
 		t.Errorf("Content-Type = %q, want %q", expandedHeaders["Content-Type"], "application/json")

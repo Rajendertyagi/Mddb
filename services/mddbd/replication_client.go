@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"mddb/internal/vector"
 	proto "mddb/proto"
 )
 
@@ -338,7 +339,7 @@ func (rc *ReplicationClient) replaceDatabase(snapshotPath string) error {
 // MUST be called while holding the restore write lock (see requestSnapshot):
 // it reads the freshly swapped rc.server.DB and re-points the caches/managers.
 // The managers and cache are reloaded IN PLACE (same pointers) so concurrent
-// readers of Server.WebhookManager / SchemaManager / Cache never see a swapped
+// readers of Server.WebhookManager / schema.SchemaManager / Cache never see a swapped
 // field (GO-004). The manager reload helpers use their own (lowercase) db
 // handle, not DBView/DBUpdate, so they don't re-enter the restore lock.
 func (rc *ReplicationClient) rebuildInMemoryState() {
@@ -346,25 +347,25 @@ func (rc *ReplicationClient) rebuildInMemoryState() {
 	// rebuilt asynchronously (loadVectorIndex acquires the restore read lock via
 	// DBView, so it waits until this restore releases the write lock).
 	if rc.server.VectorIndex != nil && rc.server.VectorStore != nil {
-		rc.server.VectorStore = NewVectorStore(rc.server.DB)
+		rc.server.VectorStore = vector.NewVectorStore(rc.server.DB)
 		go rc.server.loadVectorIndex()
 	}
 
 	// Reload webhooks in place.
 	if rc.server.WebhookManager != nil {
-		if err := rc.server.WebhookManager.reload(rc.server.DB); err != nil {
+		if err := rc.server.WebhookManager.Reload(rc.server.DB); err != nil {
 			log.Printf("Replication: webhook reload after snapshot failed: %v", err)
 		}
 	}
 
 	// Reload schemas in place.
 	if rc.server.SchemaManager != nil {
-		if err := rc.server.SchemaManager.reload(rc.server.DB); err != nil {
+		if err := rc.server.SchemaManager.Reload(rc.server.DB); err != nil {
 			log.Printf("Replication: schema reload after snapshot failed: %v", err)
 		}
 	}
 
-	// Reset the document cache in place — same DocumentCache (and its single
+	// Reset the document cache in place — same cache.DocumentCache (and its single
 	// cleanup goroutine), contents cleared. Avoids both the Server.Cache pointer
 	// race and the per-restore goroutine leak of allocating a fresh cache.
 	if rc.server.Cache != nil {

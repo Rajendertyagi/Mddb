@@ -12,6 +12,8 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"mddb/internal/binlog"
+	"mddb/internal/cache"
 	proto "mddb/proto"
 )
 
@@ -42,7 +44,7 @@ func authedReplCtx(t *testing.T, secret string) context.Context {
 }
 
 // replTestServer creates a Server with a Binlog for replication server tests.
-func replTestServer(t *testing.T) (*Server, *Binlog, func()) {
+func replTestServer(t *testing.T) (*Server, *binlog.Binlog, func()) {
 	t.Helper()
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "repl_srv.db")
@@ -62,7 +64,7 @@ func replTestServer(t *testing.T) (*Server, *Binlog, func()) {
 			Rev:     []byte("rev"),
 			ByKey:   []byte("bykey"),
 		},
-		Cache:           NewDocumentCache(100, 60),
+		Cache:           cache.NewDocumentCache(100, 60),
 		ReplicationRole: "leader",
 	}
 
@@ -71,7 +73,7 @@ func replTestServer(t *testing.T) (*Server, *Binlog, func()) {
 		t.Fatal(err)
 	}
 
-	bl, err := NewBinlog(dbPath, BinlogConfig{
+	bl, err := binlog.NewBinlog(dbPath, binlog.BinlogConfig{
 		Path:    filepath.Join(dir, "test.binlog"),
 		MaxSize: 10 * 1024 * 1024,
 		MaxAge:  time.Hour,
@@ -121,8 +123,8 @@ func TestReplicationStatus_Basic(t *testing.T) {
 	rs := NewReplicationServer(s)
 
 	// Append some entries to the binlog
-	_ = bl.Append(&BinlogEntry{Type: BinlogPut, BucketName: "docs", Key: []byte("k1"), Value: []byte("v1")})
-	_ = bl.Append(&BinlogEntry{Type: BinlogPut, BucketName: "docs", Key: []byte("k2"), Value: []byte("v2")})
+	_ = bl.Append(&binlog.BinlogEntry{Type: binlog.BinlogPut, BucketName: "docs", Key: []byte("k1"), Value: []byte("v1")})
+	_ = bl.Append(&binlog.BinlogEntry{Type: binlog.BinlogPut, BucketName: "docs", Key: []byte("k2"), Value: []byte("v2")})
 
 	resp, err := rs.ReplicationStatus(context.Background(), &proto.ReplicationStatusRequest{})
 	if err != nil {
@@ -430,10 +432,10 @@ func TestStreamBinlog_Unauthenticated(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestEntryToProtoRoundtrip_AllTypes(t *testing.T) {
-	types := []BinlogEntryType{BinlogPut, BinlogDelete, BinlogDeleteBucket, BinlogCheckpoint}
+	types := []binlog.BinlogEntryType{binlog.BinlogPut, binlog.BinlogDelete, binlog.BinlogDeleteBucket, binlog.BinlogCheckpoint}
 
 	for _, tp := range types {
-		entry := &BinlogEntry{
+		entry := &binlog.BinlogEntry{
 			LSN:        100,
 			Type:       tp,
 			Timestamp:  time.Now().Unix(),
@@ -476,7 +478,7 @@ func TestReplicationStatus_FollowerLag(t *testing.T) {
 
 	// Append several entries
 	for i := 0; i < 10; i++ {
-		_ = bl.Append(&BinlogEntry{Type: BinlogPut, BucketName: "docs", Key: []byte("k"), Value: []byte("v")})
+		_ = bl.Append(&binlog.BinlogEntry{Type: binlog.BinlogPut, BucketName: "docs", Key: []byte("k"), Value: []byte("v")})
 	}
 
 	currentLSN := bl.CurrentLSN()
@@ -520,7 +522,7 @@ func TestReplServer_BinlogFileCreated(t *testing.T) {
 	defer func() { _ = db.Close() }()
 
 	binlogPath := filepath.Join(dir, "check.binlog")
-	bl, err := NewBinlog(dbPath, BinlogConfig{Path: binlogPath})
+	bl, err := binlog.NewBinlog(dbPath, binlog.BinlogConfig{Path: binlogPath})
 	if err != nil {
 		t.Fatal(err)
 	}

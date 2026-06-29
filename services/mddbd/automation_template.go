@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"mddb/internal/storage"
 	"strings"
 	"time"
 )
@@ -16,7 +17,7 @@ func ExpandTemplate(template string, vars map[string]string) string {
 }
 
 // BuildTriggerVars builds a template variable map for trigger webhook expansion.
-func BuildTriggerVars(webhook *AutomationRule, trigger *AutomationRule, doc *Doc, collection string, score float64, sentimentScore float64) map[string]string {
+func BuildTriggerVars(webhook *AutomationRule, trigger *AutomationRule, doc *storage.Doc, collection string, score float64, sentimentScore float64) map[string]string {
 	vars := map[string]string{
 		"collection":   collection,
 		"event":        "trigger.matched",

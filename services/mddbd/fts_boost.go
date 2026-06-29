@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mddb/internal/fts"
 	"sort"
 	"strings"
 )
@@ -80,11 +81,11 @@ func docMultiplier(groups []boostGroup, docID string) float64 {
 	return m
 }
 
-// applyBoostFTS rewrites FTSResult scores in-place using the given boost
+// applyBoostFTS rewrites fts.FTSResult scores in-place using the given boost
 // configuration and re-sorts the slice by descending score. It is safe to
 // call with a nil or empty boost map — in that case the slice is returned
 // unchanged.
-func (s *Server) applyBoostFTS(collection string, results []FTSResult, boost map[string]float64) []FTSResult {
+func (s *Server) applyBoostFTS(collection string, results []fts.FTSResult, boost map[string]float64) []fts.FTSResult {
 	groups := s.buildBoostLookup(collection, boost)
 	if len(groups) == 0 || len(results) == 0 {
 		return results

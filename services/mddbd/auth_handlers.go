@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"mddb/internal/audit"
 	"net/http"
 	"strings"
 	"time"
@@ -103,7 +104,7 @@ func (s *Server) handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		ip := ClientIP(r)
 		if s.AuditManager != nil {
-			s.AuditManager.Record(AuditEvent{
+			s.AuditManager.Record(audit.AuditEvent{
 				Actor:     req.Username,
 				Action:    "auth.login",
 				Resource:  r.URL.Path,
@@ -129,7 +130,7 @@ func (s *Server) handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.AuditManager != nil {
-		s.AuditManager.Record(AuditEvent{
+		s.AuditManager.Record(audit.AuditEvent{
 			Actor:     user.Username,
 			Action:    "auth.login",
 			Resource:  r.URL.Path,

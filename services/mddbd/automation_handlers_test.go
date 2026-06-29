@@ -3,6 +3,10 @@ package main
 import (
 	"bytes"
 	"io"
+	"mddb/internal/binlog"
+	"mddb/internal/cache"
+	"mddb/internal/fts"
+	"mddb/internal/storage"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -33,7 +37,7 @@ func newTestServerForAutomation(t *testing.T) (*Server, func()) {
 			Rev:     []byte("rev"),
 			ByKey:   []byte("bykey"),
 		},
-		Cache: NewDocumentCache(100, 60),
+		Cache: cache.NewDocumentCache(100, 60),
 	}
 
 	if err := s.ensureBuckets(); err != nil {
@@ -42,7 +46,7 @@ func newTestServerForAutomation(t *testing.T) (*Server, func()) {
 	}
 
 	// Set up FTSIndex
-	s.FTSIndex = NewFTSIndex(db)
+	s.FTSIndex = fts.NewFTSIndex(db)
 	if err := s.FTSIndex.EnsureBuckets(); err != nil {
 		_ = db.Close()
 		t.Fatal(err)
@@ -404,13 +408,13 @@ func TestEvaluateTriggers_NoTriggers(t *testing.T) {
 	s, cleanup := newTestServerForAutomation(t)
 	defer cleanup()
 
-	s.AutomationManager.EvaluateTriggers("blog", Doc{ID: "doc1"}, "insert")
+	s.AutomationManager.EvaluateTriggers("blog", storage.Doc{ID: "doc1"}, "insert")
 }
 
 func TestEvaluateTriggers_NoServer(t *testing.T) {
 	am, cleanup := setupAutomationTest(t)
 	defer cleanup()
-	am.EvaluateTriggers("blog", Doc{ID: "doc1"}, "insert")
+	am.EvaluateTriggers("blog", storage.Doc{ID: "doc1"}, "insert")
 }
 
 func TestEvalFTS_NoIndex(t *testing.T) {
@@ -419,7 +423,7 @@ func TestEvalFTS_NoIndex(t *testing.T) {
 	s.FTSIndex = nil
 
 	trigger := &AutomationRule{SearchType: "fts", Query: "test", Collection: "blog", Threshold: 0}
-	score, matched := s.AutomationManager.evalFTS(trigger, &Doc{ID: "doc1"})
+	score, matched := s.AutomationManager.evalFTS(trigger, &storage.Doc{ID: "doc1"})
 	if matched {
 		t.Error("expected no match when FTSIndex is nil")
 	}
@@ -437,7 +441,7 @@ func TestEvalFTS_Match(t *testing.T) {
 	}
 
 	trigger := &AutomationRule{SearchType: "fts", Query: "golang", Collection: "blog", Threshold: 0}
-	score, matched := s.AutomationManager.evalFTS(trigger, &Doc{ID: "doc1"})
+	score, matched := s.AutomationManager.evalFTS(trigger, &storage.Doc{ID: "doc1"})
 	if !matched {
 		t.Error("expected match for indexed document")
 	}
@@ -455,7 +459,7 @@ func TestEvalFTS_NoMatch(t *testing.T) {
 	}
 
 	trigger := &AutomationRule{SearchType: "fts", Query: "golang", Collection: "blog", Threshold: 0}
-	score, matched := s.AutomationManager.evalFTS(trigger, &Doc{ID: "doc999"})
+	score, matched := s.AutomationManager.evalFTS(trigger, &storage.Doc{ID: "doc999"})
 	if matched {
 		t.Error("expected no match for non-indexed document")
 	}
@@ -473,7 +477,7 @@ func TestEvalFTS_ThresholdNotMet(t *testing.T) {
 	}
 
 	trigger := &AutomationRule{SearchType: "fts", Query: "golang", Collection: "blog", Threshold: 999}
-	score, matched := s.AutomationManager.evalFTS(trigger, &Doc{ID: "doc1"})
+	score, matched := s.AutomationManager.evalFTS(trigger, &storage.Doc{ID: "doc1"})
 	if matched {
 		t.Error("expected no match when threshold too high")
 	}
@@ -487,7 +491,7 @@ func TestEvalVector_NoEmbedding(t *testing.T) {
 	defer cleanup()
 
 	trigger := &AutomationRule{SearchType: "vector", Query: "test", Collection: "blog", Threshold: 50}
-	score, matched := s.AutomationManager.evalVector(trigger, &Doc{ID: "doc1"})
+	score, matched := s.AutomationManager.evalVector(trigger, &storage.Doc{ID: "doc1"})
 	if matched {
 		t.Error("expected no match when Embedding is nil")
 	}
@@ -637,7 +641,7 @@ func TestEvaluateSingleTrigger_NoServer(t *testing.T) {
 	defer cleanup()
 
 	trigger := &AutomationRule{SearchType: "fts"}
-	am.evaluateSingleTrigger(trigger, &Doc{ID: "doc1"})
+	am.evaluateSingleTrigger(trigger, &storage.Doc{ID: "doc1"})
 }
 
 func TestEvaluateSingleTrigger_WebhookNotFound(t *testing.T) {
@@ -654,7 +658,7 @@ func TestEvaluateSingleTrigger_WebhookNotFound(t *testing.T) {
 		Threshold:  0,
 		WebhookID:  "nonexistent",
 	}
-	s.AutomationManager.evaluateSingleTrigger(trigger, &Doc{ID: "doc1"})
+	s.AutomationManager.evaluateSingleTrigger(trigger, &storage.Doc{ID: "doc1"})
 }
 
 func TestEvaluateTriggers_FTSMatch(t *testing.T) {
@@ -669,7 +673,7 @@ func TestEvaluateTriggers_FTSMatch(t *testing.T) {
 		SearchType: "fts", Query: "golang", Threshold: 0, WebhookID: wh.ID, Enabled: true,
 	})
 
-	s.AutomationManager.EvaluateTriggers("blog", Doc{ID: "doc1"}, "insert")
+	s.AutomationManager.EvaluateTriggers("blog", storage.Doc{ID: "doc1"}, "insert")
 }
 
 // --- Webhook Firing Tests ---
@@ -697,7 +701,7 @@ func TestFireAutomationWebhook(t *testing.T) {
 		ID:   "tr1",
 		Name: "Test Trigger",
 	}
-	doc := &Doc{ID: "doc1", ContentMD: "test content"}
+	doc := &storage.Doc{ID: "doc1", ContentMD: "test content"}
 
 	fireAutomationWebhook(webhook, trigger, doc, "blog", 85.5, 0, nil)
 
@@ -948,7 +952,7 @@ func TestAutomationSetBinlog(t *testing.T) {
 
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "test.db")
-	bl, err := NewBinlog(dbPath, BinlogConfig{})
+	bl, err := binlog.NewBinlog(dbPath, binlog.BinlogConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -971,7 +975,7 @@ func TestAutomationCreateWithBinlog(t *testing.T) {
 	}
 	defer func() { _ = db.Close() }()
 
-	bl, err := NewBinlog(dbPath, BinlogConfig{})
+	bl, err := binlog.NewBinlog(dbPath, binlog.BinlogConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -998,7 +1002,7 @@ func TestAutomationDeleteWithBinlog(t *testing.T) {
 	}
 	defer func() { _ = db.Close() }()
 
-	bl, err := NewBinlog(dbPath, BinlogConfig{})
+	bl, err := binlog.NewBinlog(dbPath, binlog.BinlogConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -6,8 +6,12 @@ import (
 	"sync"
 	"time"
 
-	bolt "go.etcd.io/bbolt"
+	"mddb/internal/binlog"
+	"mddb/internal/cache"
+	"mddb/internal/storage"
 	proto "mddb/proto"
+
+	bolt "go.etcd.io/bbolt"
 )
 
 // FinalBatchProcessor - FINAL optimized batch processor
@@ -172,7 +176,7 @@ func (fbp *FinalBatchProcessor) processDocumentFast(collection string, batchDoc 
 		added = now
 	}
 
-	doc := Doc{
+	doc := storage.Doc{
 		ID: docID, Key: batchDoc.Key, Lang: batchDoc.Lang, Meta: meta,
 		ContentMD: batchDoc.ContentMd, AddedAt: added, UpdatedAt: now,
 	}
@@ -197,7 +201,7 @@ func (fbp *FinalBatchProcessor) commitBatch(collection string, processed []*Proc
 
 	// bo records ops for trimRevisions; the extreme path does not flush a
 	// binlog, but the trim deletes are durable in-transaction regardless.
-	var bo BinlogOps
+	var bo binlog.BinlogOps
 
 	err := fbp.server.DBUpdate(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(fbp.server.BucketNames.Docs)
@@ -305,7 +309,7 @@ func (fbp *FinalBatchProcessor) commitBatch(collection string, processed []*Proc
 			}
 
 			// Update cache
-			cacheKey := BuildCacheKey(collection, p.Doc.Key, p.Doc.Lang)
+			cacheKey := cache.BuildCacheKey(collection, p.Doc.Key, p.Doc.Lang)
 			if fbp.server.UseExtreme && fbp.server.LockFreeCache != nil {
 				fbp.server.LockFreeCache.Set(cacheKey, p.Buf)
 			} else {

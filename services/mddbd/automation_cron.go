@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"mddb/internal/automationlog"
 	"sync"
 	"time"
 
@@ -90,7 +91,7 @@ func (cs *CronScheduler) addEntry(cronRule AutomationRule) {
 		if currentWebhook == nil || !currentWebhook.Enabled {
 			log.Printf("cron %s: webhook %s disabled or deleted, skipping", ruleID, webhookID)
 			if cs.server.AutomationLogStore != nil {
-				_ = cs.server.AutomationLogStore.Log(AutomationLogEntry{
+				_ = cs.server.AutomationLogStore.Log(automationlog.Entry{
 					Timestamp: time.Now().Unix(),
 					RuleID:    ruleID,
 					RuleName:  cronRule.Name,

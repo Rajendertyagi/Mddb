@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"mddb/internal/storage"
 	"path/filepath"
 	"testing"
 
@@ -31,7 +32,7 @@ func seedRevs(t *testing.T, db *bolt.DB, coll, docID string, count int) {
 	if err := db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("rev"))
 		for i := 0; i < count; i++ {
-			rkey := append(kRevPrefix(coll, docID), []byte(fmt.Sprintf("%020d", int64(1000+i)))...)
+			rkey := append(storage.RevPrefix(coll, docID), []byte(fmt.Sprintf("%020d", int64(1000+i)))...)
 			if err := b.Put(rkey, []byte(fmt.Sprintf("v%d", i))); err != nil {
 				return err
 			}
@@ -46,7 +47,7 @@ func countRevs(t *testing.T, db *bolt.DB, coll, docID string) int {
 	t.Helper()
 	var n int
 	_ = db.View(func(tx *bolt.Tx) error {
-		prefix := kRevPrefix(coll, docID)
+		prefix := storage.RevPrefix(coll, docID)
 		c := tx.Bucket([]byte("rev")).Cursor()
 		for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
 			n++
@@ -100,7 +101,7 @@ func TestTrimRevisions_DropsOldest(t *testing.T) {
 
 	// Verify the two remaining revs are the newest (ts 1003, 1004).
 	_ = db.View(func(tx *bolt.Tx) error {
-		prefix := kRevPrefix("blog", "doc1")
+		prefix := storage.RevPrefix("blog", "doc1")
 		c := tx.Bucket([]byte("rev")).Cursor()
 		remaining := make([][]byte, 0, 2)
 		for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {

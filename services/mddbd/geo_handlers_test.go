@@ -3,6 +3,9 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"mddb/internal/cache"
+	"mddb/internal/geo"
+	"mddb/internal/storage"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -34,20 +37,20 @@ func newTestServerForGeo(t *testing.T) (*Server, func()) {
 			Rev:     []byte("rev"),
 			ByKey:   []byte("bykey"),
 		},
-		Cache: NewDocumentCache(100, 60),
+		Cache: cache.NewDocumentCache(100, 60),
 	}
 	if err := s.ensureBuckets(); err != nil {
 		_ = db.Close()
 		t.Fatal(err)
 	}
-	s.GeoStore = NewGeoStore(db)
+	s.GeoStore = geo.NewGeoStore(db)
 	if err := s.GeoStore.EnsureBucket(); err != nil {
 		_ = db.Close()
 		t.Fatal(err)
 	}
-	s.GeoIndex = NewGeoIndex()
+	s.GeoIndex = geo.NewGeoIndex()
 	s.GeoIndex.SetReady()
-	s.GeoHashIndex = NewGeoHashIndex()
+	s.GeoHashIndex = geo.NewGeoHashIndex()
 	s.GeoHashIndex.SetReady()
 	return s, func() { _ = db.Close() }
 }
@@ -105,7 +108,7 @@ func TestHandleGeoSearch_IndexNotReady(t *testing.T) {
 	s, cleanup := newTestServerForGeo(t)
 	defer cleanup()
 	// Reset ready flag on a fresh index.
-	s.GeoIndex = NewGeoIndex()
+	s.GeoIndex = geo.NewGeoIndex()
 	body := []byte(`{"collection":"v","lat":52,"lng":13,"radiusMeters":1000}`)
 	req := httptest.NewRequest(http.MethodPost, "/v1/geo-search", bytes.NewReader(body))
 	w := httptest.NewRecorder()
@@ -257,7 +260,7 @@ func seedGeoDocs(t *testing.T, s *Server, collection string, points [][2]float64
 		b := tx.Bucket(s.BucketNames.Docs)
 		for i, p := range points {
 			docID := "d" + string(rune('0'+i))
-			d := Doc{
+			d := storage.Doc{
 				ID:        docID,
 				Key:       docID,
 				Lang:      "en",
@@ -268,7 +271,7 @@ func seedGeoDocs(t *testing.T, s *Server, collection string, points [][2]float64
 			if err != nil {
 				return err
 			}
-			if err := b.Put(kDoc(collection, docID), data); err != nil {
+			if err := b.Put(storage.DocKey(collection, docID), data); err != nil {
 				return err
 			}
 			s.GeoIndex.Add(collection, docID, p[0], p[1])

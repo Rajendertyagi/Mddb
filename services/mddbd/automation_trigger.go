@@ -5,6 +5,10 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"mddb/internal/automationlog"
+	"mddb/internal/httpclient"
+	"mddb/internal/sentiment"
+	"mddb/internal/storage"
 	"net/http"
 	"time"
 
@@ -24,7 +28,7 @@ type TriggerPayload struct {
 	Event          string                `json:"event"` // "trigger.matched"
 	Trigger        TriggerPayloadTrigger `json:"trigger"`
 	Collection     string                `json:"collection"`
-	Document       *Doc                  `json:"document,omitempty"`
+	Document       *storage.Doc          `json:"document,omitempty"`
 	Score          float64               `json:"score"`
 	SentimentScore float64               `json:"sentimentScore,omitempty"`
 	Timestamp      int64                 `json:"timestamp"`
@@ -39,7 +43,7 @@ type TriggerPayloadTrigger struct {
 // EvaluateTriggers checks all enabled triggers for a collection matching the given event.
 // event is one of "insert", "update", "delete" (MySQL-style).
 // Called asynchronously from addDocument() and deleteDocumentInternal().
-func (am *AutomationManager) EvaluateTriggers(collection string, doc Doc, event string) {
+func (am *AutomationManager) EvaluateTriggers(collection string, doc storage.Doc, event string) {
 	triggers := am.EnabledTriggersForEvent(collection, event)
 	if len(triggers) == 0 {
 		return
@@ -54,7 +58,7 @@ func (am *AutomationManager) EvaluateTriggers(collection string, doc Doc, event 
 // evaluateSingleTrigger runs a trigger's conditions and fires webhook if the doc matches.
 // Supports search conditions (FTS/vector/hybrid), sentiment conditions, or both (AND/OR).
 // If no conditions are set, fires unconditionally.
-func (am *AutomationManager) evaluateSingleTrigger(trigger *AutomationRule, doc *Doc) {
+func (am *AutomationManager) evaluateSingleTrigger(trigger *AutomationRule, doc *storage.Doc) {
 	if am.server == nil {
 		return
 	}
@@ -85,7 +89,7 @@ func (am *AutomationManager) evaluateSingleTrigger(trigger *AutomationRule, doc 
 
 	// Evaluate sentiment condition
 	if hasSentiment {
-		sentimentScore = AnalyzeSentiment(doc.ContentMD)
+		sentimentScore = sentiment.AnalyzeSentiment(doc.ContentMD)
 		sentimentMatched = sentimentScore >= trigger.SentimentMin && sentimentScore <= trigger.SentimentMax
 	}
 
@@ -128,7 +132,7 @@ func (am *AutomationManager) evaluateSingleTrigger(trigger *AutomationRule, doc 
 	webhook := am.GetWebhook(trigger.WebhookID)
 	if webhook == nil || !webhook.Enabled {
 		if am.logStore != nil {
-			_ = am.logStore.Log(AutomationLogEntry{
+			_ = am.logStore.Log(automationlog.Entry{
 				Timestamp: time.Now().Unix(),
 				RuleID:    trigger.ID,
 				RuleName:  trigger.Name,
@@ -145,7 +149,7 @@ func (am *AutomationManager) evaluateSingleTrigger(trigger *AutomationRule, doc 
 }
 
 // evalFTS runs FTS search and checks if doc appears in results above threshold.
-func (am *AutomationManager) evalFTS(trigger *AutomationRule, doc *Doc) (float64, bool) {
+func (am *AutomationManager) evalFTS(trigger *AutomationRule, doc *storage.Doc) (float64, bool) {
 	s := am.server
 	if s.FTSIndex == nil {
 		return 0, false
@@ -170,7 +174,7 @@ func (am *AutomationManager) evalFTS(trigger *AutomationRule, doc *Doc) (float64
 }
 
 // evalVector runs vector search and checks if doc appears above threshold.
-func (am *AutomationManager) evalVector(trigger *AutomationRule, doc *Doc) (float64, bool) {
+func (am *AutomationManager) evalVector(trigger *AutomationRule, doc *storage.Doc) (float64, bool) {
 	s := am.server
 	if s.Embedding == nil {
 		return 0, false
@@ -204,7 +208,7 @@ func (am *AutomationManager) evalVector(trigger *AutomationRule, doc *Doc) (floa
 }
 
 // evalHybrid runs hybrid search and checks if doc appears above threshold.
-func (am *AutomationManager) evalHybrid(trigger *AutomationRule, doc *Doc) (float64, bool) {
+func (am *AutomationManager) evalHybrid(trigger *AutomationRule, doc *storage.Doc) (float64, bool) {
 	s := am.server
 
 	// Build a hybrid search request from trigger params
@@ -436,7 +440,7 @@ type CronPayloadCron struct {
 }
 
 // fireCronWebhook sends a cron payload to a webhook URL.
-func fireCronWebhook(webhook *AutomationRule, cronID, cronName string, logStore *AutomationLogStore) {
+func fireCronWebhook(webhook *AutomationRule, cronID, cronName string, logStore *automationlog.Store) {
 	start := time.Now()
 
 	payload := CronPayload{
@@ -491,7 +495,7 @@ func fireCronWebhook(webhook *AutomationRule, cronID, cronName string, logStore 
 			req.Header.Set(k, v)
 		}
 
-		resp, err := NewPooledClientWithTimeout(10 * time.Second).Do(req)
+		resp, err := httpclient.NewPooledClientWithTimeout(10 * time.Second).Do(req)
 		if err != nil {
 			log.Printf("cron %s → webhook %s: attempt %d failed: %v", cronID, webhook.ID, attempt+1, err)
 			lastError = err.Error()
@@ -499,7 +503,7 @@ func fireCronWebhook(webhook *AutomationRule, cronID, cronName string, logStore 
 			continue
 		}
 		lastHTTPStatus = resp.StatusCode
-		drainAndClose(resp.Body)
+		httpclient.DrainAndClose(resp.Body)
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			finalStatus = "success"
@@ -519,7 +523,7 @@ func fireCronWebhook(webhook *AutomationRule, cronID, cronName string, logStore 
 	}
 
 	if logStore != nil {
-		_ = logStore.Log(AutomationLogEntry{
+		_ = logStore.Log(automationlog.Entry{
 			Timestamp:  start.Unix(),
 			RuleID:     cronID,
 			RuleName:   cronName,
@@ -536,7 +540,7 @@ func fireCronWebhook(webhook *AutomationRule, cronID, cronName string, logStore 
 }
 
 // fireAutomationWebhook sends the trigger payload to a webhook URL.
-func fireAutomationWebhook(webhook *AutomationRule, trigger *AutomationRule, doc *Doc, collection string, score float64, sentimentScore float64, logStore *AutomationLogStore) {
+func fireAutomationWebhook(webhook *AutomationRule, trigger *AutomationRule, doc *storage.Doc, collection string, score float64, sentimentScore float64, logStore *automationlog.Store) {
 	start := time.Now()
 
 	payload := TriggerPayload{
@@ -595,7 +599,7 @@ func fireAutomationWebhook(webhook *AutomationRule, trigger *AutomationRule, doc
 			req.Header.Set(k, v)
 		}
 
-		resp, err := NewPooledClientWithTimeout(10 * time.Second).Do(req) // #nosec G704 -- URL from internal webhook config
+		resp, err := httpclient.NewPooledClientWithTimeout(10 * time.Second).Do(req) // #nosec G704 -- URL from internal webhook config
 		if err != nil {
 			log.Printf("trigger %s → webhook %s: attempt %d failed: %v", trigger.ID, webhook.ID, attempt+1, err) // #nosec G706 -- internal log
 			lastError = err.Error()
@@ -603,7 +607,7 @@ func fireAutomationWebhook(webhook *AutomationRule, trigger *AutomationRule, doc
 			continue
 		}
 		lastHTTPStatus = resp.StatusCode
-		drainAndClose(resp.Body)
+		httpclient.DrainAndClose(resp.Body)
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			finalStatus = "success"
@@ -623,7 +627,7 @@ func fireAutomationWebhook(webhook *AutomationRule, trigger *AutomationRule, doc
 	}
 
 	if logStore != nil {
-		_ = logStore.Log(AutomationLogEntry{
+		_ = logStore.Log(automationlog.Entry{
 			Timestamp:  start.Unix(),
 			RuleID:     trigger.ID,
 			RuleName:   trigger.Name,

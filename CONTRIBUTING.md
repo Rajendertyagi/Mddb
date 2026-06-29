@@ -2,14 +2,15 @@
 
 Thank you for your interest in contributing to MDDB! This guide will help you get started.
 
-Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md).
+Be respectful and constructive in all project interactions. Report conduct or
+security concerns to **security@tradik.com**.
 
 ## Prerequisites
 
 - [Go 1.26+](https://golang.org/dl/)
 - [Make](https://www.gnu.org/software/make/)
 - [Protocol Buffers compiler](https://grpc.io/docs/protoc-installation/) (only if modifying `proto/mddb.proto`)
-- [Node.js 18+](https://nodejs.org/) (only for `mddb-panel` changes)
+- [Node.js 24+](https://nodejs.org/) (only for `mddb-panel` changes)
 
 ## Project Structure
 

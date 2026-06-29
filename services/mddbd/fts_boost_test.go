@@ -2,6 +2,8 @@ package main
 
 import (
 	"math"
+	"mddb/internal/fts"
+	"mddb/internal/storage"
 	"testing"
 
 	bolt "go.etcd.io/bbolt"
@@ -88,7 +90,7 @@ func TestApplyBoostFTS_NoBoost(t *testing.T) {
 	s, cleanup := newTestServer(t)
 	defer cleanup()
 
-	results := []FTSResult{
+	results := []fts.FTSResult{
 		{DocID: "a", Score: 1.0},
 		{DocID: "b", Score: 2.0},
 	}
@@ -105,7 +107,7 @@ func TestApplyBoostFTS_PositiveBoost(t *testing.T) {
 	seedMeta(t, s, "posts", "a", "tag", "breed")
 	seedMeta(t, s, "posts", "b", "tag", "other")
 
-	results := []FTSResult{
+	results := []fts.FTSResult{
 		{DocID: "a", Score: 1.0},
 		{DocID: "b", Score: 2.0},
 	}
@@ -126,7 +128,7 @@ func TestApplyBoostFTS_NegativeDemotes(t *testing.T) {
 	seedMeta(t, s, "posts", "a", "tag", "spam")
 	seedMeta(t, s, "posts", "b", "tag", "ham")
 
-	results := []FTSResult{
+	results := []fts.FTSResult{
 		{DocID: "a", Score: 10.0},
 		{DocID: "b", Score: 2.0},
 	}
@@ -143,7 +145,7 @@ func TestApplyBoostFTS_SkipsInvalidKeys(t *testing.T) {
 	defer cleanup()
 
 	seedMeta(t, s, "posts", "a", "tag", "x")
-	results := []FTSResult{{DocID: "a", Score: 1.0}}
+	results := []fts.FTSResult{{DocID: "a", Score: 1.0}}
 
 	got := s.applyBoostFTS("posts", results, map[string]float64{
 		"malformed": 5.0,
@@ -161,7 +163,7 @@ func TestApplyBoostFTS_ZeroFactorNoop(t *testing.T) {
 	defer cleanup()
 
 	seedMeta(t, s, "posts", "a", "tag", "x")
-	results := []FTSResult{{DocID: "a", Score: 7.0}}
+	results := []fts.FTSResult{{DocID: "a", Score: 7.0}}
 	got := s.applyBoostFTS("posts", results, map[string]float64{"tag:x": 0.0})
 	if got[0].Score != 7.0 {
 		t.Errorf("zero factor must be noop, got %v", got[0].Score)
@@ -177,9 +179,9 @@ func TestApplyBoostHybrid_ResortsAndRanks(t *testing.T) {
 	seedMeta(t, s, "posts", "c", "pri", "high")
 
 	items := []HybridSearchResultItem{
-		{Document: Doc{ID: "b"}, CombinedScore: 0.9, Rank: 1},
-		{Document: Doc{ID: "a"}, CombinedScore: 0.5, Rank: 2},
-		{Document: Doc{ID: "c"}, CombinedScore: 0.3, Rank: 3},
+		{Document: storage.Doc{ID: "b"}, CombinedScore: 0.9, Rank: 1},
+		{Document: storage.Doc{ID: "a"}, CombinedScore: 0.5, Rank: 2},
+		{Document: storage.Doc{ID: "c"}, CombinedScore: 0.3, Rank: 3},
 	}
 	got := s.applyBoostHybrid("posts", items, map[string]float64{"pri:high": 3.0})
 
@@ -205,7 +207,7 @@ func TestApplyBoostHybrid_EmptyInputs(t *testing.T) {
 	if got := s.applyBoostHybrid("c", nil, map[string]float64{"k:v": 2.0}); got != nil {
 		t.Errorf("expected nil for nil input, got %v", got)
 	}
-	items := []HybridSearchResultItem{{Document: Doc{ID: "x"}, CombinedScore: 1.0}}
+	items := []HybridSearchResultItem{{Document: storage.Doc{ID: "x"}, CombinedScore: 1.0}}
 	got := s.applyBoostHybrid("c", items, nil)
 	if len(got) != 1 || got[0].CombinedScore != 1.0 {
 		t.Errorf("expected unchanged, got %+v", got)
@@ -218,7 +220,7 @@ func seedMeta(t *testing.T, s *Server, collection, docID, metaKey, metaValue str
 	t.Helper()
 	err := s.DB.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("idxmeta"))
-		key := append(kMetaKeyPrefix(collection, metaKey, metaValue), []byte(docID)...)
+		key := append(storage.MetaKeyPrefix(collection, metaKey, metaValue), []byte(docID)...)
 		return b.Put(key, []byte{1})
 	})
 	if err != nil {

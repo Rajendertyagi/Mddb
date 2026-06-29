@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mddb/internal/storage"
 	"testing"
 )
 
@@ -9,14 +10,14 @@ func TestComputeFacets_Empty(t *testing.T) {
 	if got != nil {
 		t.Fatalf("expected nil result for empty docs, got %v", got)
 	}
-	got = computeFacets([]Doc{{ID: "a"}}, nil, 0)
+	got = computeFacets([]storage.Doc{{ID: "a"}}, nil, 0)
 	if got != nil {
 		t.Fatalf("expected nil result for empty facetBy, got %v", got)
 	}
 }
 
 func TestComputeFacets_CountsAndOrdering(t *testing.T) {
-	docs := []Doc{
+	docs := []storage.Doc{
 		{ID: "1", Meta: map[string][]string{"category": {"tech"}, "lang": {"en"}}},
 		{ID: "2", Meta: map[string][]string{"category": {"tech"}, "lang": {"en"}}},
 		{ID: "3", Meta: map[string][]string{"category": {"blog"}, "lang": {"pl"}}},
@@ -49,7 +50,7 @@ func TestComputeFacets_CountsAndOrdering(t *testing.T) {
 }
 
 func TestComputeFacets_MaxPerKey(t *testing.T) {
-	docs := []Doc{
+	docs := []storage.Doc{
 		{ID: "1", Meta: map[string][]string{"t": {"a"}}},
 		{ID: "2", Meta: map[string][]string{"t": {"b"}}},
 		{ID: "3", Meta: map[string][]string{"t": {"c"}}},
@@ -61,7 +62,7 @@ func TestComputeFacets_MaxPerKey(t *testing.T) {
 }
 
 func TestComputeFacets_IgnoresEmptyKeys(t *testing.T) {
-	docs := []Doc{{ID: "1", Meta: map[string][]string{"x": {"v"}}}}
+	docs := []storage.Doc{{ID: "1", Meta: map[string][]string{"x": {"v"}}}}
 	got := computeFacets(docs, []string{"", "x"}, 0)
 	if _, bad := got[""]; bad {
 		t.Error("empty facet key must be ignored")
@@ -72,7 +73,7 @@ func TestComputeFacets_IgnoresEmptyKeys(t *testing.T) {
 }
 
 func TestComputeFacets_MissingKeyProducesEmptyBucket(t *testing.T) {
-	docs := []Doc{{ID: "1", Meta: map[string][]string{"x": {"v"}}}}
+	docs := []storage.Doc{{ID: "1", Meta: map[string][]string{"x": {"v"}}}}
 	got := computeFacets(docs, []string{"missing"}, 0)
 	// We want the key present in the map so UI renders a stable groups list.
 	if _, ok := got["missing"]; !ok {
@@ -85,7 +86,7 @@ func TestComputeFacets_MissingKeyProducesEmptyBucket(t *testing.T) {
 
 func TestComputeFacets_StableTieBreak(t *testing.T) {
 	// Two values with the same count → alphabetical tie-break.
-	docs := []Doc{
+	docs := []storage.Doc{
 		{ID: "1", Meta: map[string][]string{"t": {"b"}}},
 		{ID: "2", Meta: map[string][]string{"t": {"a"}}},
 	}

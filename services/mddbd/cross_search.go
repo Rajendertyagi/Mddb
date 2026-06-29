@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"errors"
+	"mddb/internal/storage"
+	"mddb/internal/vector"
 	"net/http"
 	"sort"
 	"strings"
@@ -29,10 +31,10 @@ type CrossSearchRequest struct {
 
 // CrossSearchResultItem represents a single cross-collection search result.
 type CrossSearchResultItem struct {
-	Collection string  `json:"collection"`
-	Document   Doc     `json:"document"`
-	Score      float32 `json:"score"`
-	Rank       int     `json:"rank"`
+	Collection string      `json:"collection"`
+	Document   storage.Doc `json:"document"`
+	Score      float32     `json:"score"`
+	Rank       int         `json:"rank"`
 }
 
 // CrossSearchResponse represents the response from cross-collection search.
@@ -135,7 +137,7 @@ func (s *Server) handleCrossSearch(w http.ResponseWriter, r *http.Request) {
 		topK = 10
 	}
 
-	metric := ResolveSimilarity(req.DistanceMetric)
+	metric := vector.ResolveSimilarity(req.DistanceMetric)
 	metricName := req.DistanceMetric
 	if metricName == "" {
 		metricName = "cosine"
@@ -150,12 +152,12 @@ func (s *Server) handleCrossSearch(w http.ResponseWriter, r *http.Request) {
 	// Search each target collection and collect results
 	type taggedResult struct {
 		collection string
-		result     VectorResult
+		result     vector.VectorResult
 	}
 	var allTagged []taggedResult
 
 	for _, coll := range req.TargetCollections {
-		var results []VectorResult
+		var results []vector.VectorResult
 		if len(req.FilterMeta) > 0 {
 			allowedIDs := s.getDocIDsByMeta(coll, req.FilterMeta)
 			if len(allowedIDs) == 0 {
@@ -165,7 +167,7 @@ func (s *Server) handleCrossSearch(w http.ResponseWriter, r *http.Request) {
 		} else {
 			results = searcher.Search(coll, queryVector, searchTopK, req.Threshold, metric)
 		}
-		results = DeduplicateChunkResults(results)
+		results = vector.DeduplicateChunkResults(results)
 		for _, vr := range results {
 			allTagged = append(allTagged, taggedResult{collection: coll, result: vr})
 		}
@@ -192,7 +194,7 @@ func (s *Server) handleCrossSearch(w http.ResponseWriter, r *http.Request) {
 			return nil
 		}
 		for rank, tr := range allTagged {
-			v := bDocs.Get(kDoc(tr.collection, tr.result.DocID))
+			v := bDocs.Get(storage.DocKey(tr.collection, tr.result.DocID))
 			if v == nil {
 				continue
 			}

@@ -4,6 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"mddb/internal/embedding"
+	"mddb/internal/envconf"
+	"mddb/internal/metrics"
+	vec "mddb/internal/vector"
 	"sync"
 	"time"
 )
@@ -17,27 +21,27 @@ type EmbeddingJob struct {
 
 // EmbeddingWorker processes embedding jobs asynchronously.
 type EmbeddingWorker struct {
-	provider     EmbeddingProvider
-	vectorStore  *VectorStore
-	vectorIndex  *VectorIndex
+	provider     embedding.Provider
+	vectorStore  *vec.VectorStore
+	vectorIndex  *vec.VectorIndex
 	jobs         chan EmbeddingJob
 	wg           sync.WaitGroup
 	stopCh       chan struct{}
 	chunkSize    int
 	chunkEnabled bool
-	metrics      *Metrics
+	metrics      *metrics.Metrics
 }
 
 // NewEmbeddingWorker creates a new background embedding worker.
-func NewEmbeddingWorker(provider EmbeddingProvider, store *VectorStore, index *VectorIndex, bufferSize int) *EmbeddingWorker {
+func NewEmbeddingWorker(provider embedding.Provider, store *vec.VectorStore, index *vec.VectorIndex, bufferSize int) *EmbeddingWorker {
 	return &EmbeddingWorker{
 		provider:     provider,
 		vectorStore:  store,
 		vectorIndex:  index,
 		jobs:         make(chan EmbeddingJob, bufferSize),
 		stopCh:       make(chan struct{}),
-		chunkSize:    envDefaultInt("MDDB_EMBEDDING_CHUNK_SIZE", 1500),
-		chunkEnabled: envDefault("MDDB_EMBEDDING_CHUNK_ENABLED", "true") == "true",
+		chunkSize:    envconf.Int("MDDB_EMBEDDING_CHUNK_SIZE", 1500),
+		chunkEnabled: envconf.String("MDDB_EMBEDDING_CHUNK_ENABLED", "true") == "true",
 	}
 }
 
@@ -91,7 +95,7 @@ func (w *EmbeddingWorker) worker(id int) {
 }
 
 func (w *EmbeddingWorker) processJob(job EmbeddingJob) {
-	contentHash := ContentHash(job.ContentMD)
+	contentHash := vec.ContentHash(job.ContentMD)
 
 	// Check if content already has a matching embedding
 	existing, err := w.vectorStore.Get(job.Collection, job.DocID)
@@ -112,7 +116,7 @@ func (w *EmbeddingWorker) processJob(job EmbeddingJob) {
 	}
 
 	// Generate embedding for each chunk
-	var chunkEmbeddings []ChunkEmbedding
+	var chunkEmbeddings []vec.ChunkEmbedding
 	for i, chunk := range chunks {
 		var vector []float32
 		var embedErr error
@@ -135,7 +139,7 @@ func (w *EmbeddingWorker) processJob(job EmbeddingJob) {
 			return
 		}
 
-		chunkEmbeddings = append(chunkEmbeddings, ChunkEmbedding{
+		chunkEmbeddings = append(chunkEmbeddings, vec.ChunkEmbedding{
 			ChunkIndex: i,
 			Vector:     vector,
 		})

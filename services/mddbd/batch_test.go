@@ -7,6 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"mddb/internal/cache"
+	"mddb/internal/indexqueue"
+	"mddb/internal/storage"
 	proto "mddb/proto"
 
 	bolt "go.etcd.io/bbolt"
@@ -59,11 +62,11 @@ func newTestServerForBatch(t *testing.T) (*Server, func()) {
 			Rev:     []byte("rev"),
 			ByKey:   []byte("bykey"),
 		},
-		Cache: NewDocumentCache(100, 60),
+		Cache: cache.NewDocumentCache(100, 60),
 	}
 
 	// Set up IndexQueue so batch update can enqueue reindex jobs
-	srv.IndexQueue = NewIndexQueue(srv, 2)
+	srv.IndexQueue = indexqueue.NewIndexQueue(serverIndexStore{s: srv}, 2)
 
 	cleanup := func() {
 		srv.IndexQueue.Shutdown()
@@ -156,7 +159,7 @@ func TestBatchProcessor_AddSingleDocument(t *testing.T) {
 	docID := genID("blog", "post1", "en")
 	err = srv.DB.View(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
-		v := bDocs.Get(kDoc("blog", docID))
+		v := bDocs.Get(storage.DocKey("blog", docID))
 		if v == nil {
 			t.Error("document not found in docs bucket")
 		}
@@ -222,13 +225,13 @@ func TestBatchProcessor_AddWithMeta(t *testing.T) {
 		bIdx := tx.Bucket([]byte("idxmeta"))
 
 		// Check tag=go index
-		key := append(kMetaKeyPrefix("blog", "tag", "go"), []byte(docID)...)
+		key := append(storage.MetaKeyPrefix("blog", "tag", "go"), []byte(docID)...)
 		if v := bIdx.Get(key); v == nil {
 			t.Error("expected index entry for tag=go")
 		}
 
 		// Check author=alice index
-		key2 := append(kMetaKeyPrefix("blog", "author", "alice"), []byte(docID)...)
+		key2 := append(storage.MetaKeyPrefix("blog", "author", "alice"), []byte(docID)...)
 		if v := bIdx.Get(key2); v == nil {
 			t.Error("expected index entry for author=alice")
 		}
@@ -259,7 +262,7 @@ func TestBatchProcessor_AddWithRevision(t *testing.T) {
 
 	// Verify revision stored
 	docID := genID("blog", "post1", "en")
-	revPrefix := kRevPrefix("blog", docID)
+	revPrefix := storage.RevPrefix("blog", docID)
 	revCount := 0
 	err = srv.DB.View(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket([]byte("rev"))
@@ -344,7 +347,7 @@ func TestBatchProcessor_UpdateExistingDocument(t *testing.T) {
 	docID := genID("blog", "post1", "en")
 	err = srv.DB.View(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
-		v := bDocs.Get(kDoc("blog", docID))
+		v := bDocs.Get(storage.DocKey("blog", docID))
 		if v == nil {
 			t.Error("document not found after update")
 			return nil
@@ -380,7 +383,7 @@ func TestBatchProcessor_ByKeyIndex(t *testing.T) {
 	// Verify bykey index
 	err = srv.DB.View(func(tx *bolt.Tx) error {
 		bByK := tx.Bucket([]byte("bykey"))
-		byKeyK := kByKey("site", "homepage", "en_US")
+		byKeyK := storage.ByKeyKey("site", "homepage", "en_US")
 		v := bByK.Get(byKeyK)
 		if v == nil {
 			t.Error("bykey index not created")
@@ -484,7 +487,7 @@ func TestFinalBatchProcessor_AddDocuments(t *testing.T) {
 		docID := genID("blog", key, "en")
 		err = srv.DB.View(func(tx *bolt.Tx) error {
 			bDocs := tx.Bucket([]byte("docs"))
-			if v := bDocs.Get(kDoc("blog", docID)); v == nil {
+			if v := bDocs.Get(storage.DocKey("blog", docID)); v == nil {
 				t.Errorf("document %s not found in docs bucket", key)
 			}
 			return nil
@@ -496,7 +499,7 @@ func TestFinalBatchProcessor_AddDocuments(t *testing.T) {
 
 	// Verify revision stored for p3
 	docID := genID("blog", "p3", "fr")
-	revPrefix := kRevPrefix("blog", docID)
+	revPrefix := storage.RevPrefix("blog", docID)
 	revCount := 0
 	err = srv.DB.View(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket([]byte("rev"))
@@ -589,7 +592,7 @@ func TestFinalBatchProcessor_CacheUpdate(t *testing.T) {
 	}
 
 	// Verify document was cached
-	cacheKey := BuildCacheKey("blog", "cached", "en")
+	cacheKey := cache.BuildCacheKey("blog", "cached", "en")
 	data, found := srv.Cache.Get(cacheKey)
 	if !found {
 		t.Error("document not found in cache after batch add")
@@ -689,7 +692,7 @@ func TestBatchUpdater_UpdateExistingDocuments(t *testing.T) {
 	docID1 := genID("blog", "post1", "en")
 	err = srv.DB.View(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
-		v := bDocs.Get(kDoc("blog", docID1))
+		v := bDocs.Get(storage.DocKey("blog", docID1))
 		if v == nil {
 			t.Error("post1 not found after update")
 			return nil
@@ -794,7 +797,7 @@ func TestBatchUpdater_WithRevision(t *testing.T) {
 
 	// Verify revision exists
 	docID := genID("blog", "post1", "en")
-	revPrefix := kRevPrefix("blog", docID)
+	revPrefix := storage.RevPrefix("blog", docID)
 	revCount := 0
 	err = srv.DB.View(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket([]byte("rev"))
@@ -840,7 +843,7 @@ func TestBatchUpdater_CacheUpdate(t *testing.T) {
 	}
 
 	// Verify cache was updated
-	cacheKey := BuildCacheKey("test", "cacheTest", "en")
+	cacheKey := cache.BuildCacheKey("test", "cacheTest", "en")
 	data, found := srv.Cache.Get(cacheKey)
 	if !found {
 		t.Error("updated document not in cache")
@@ -943,19 +946,19 @@ func TestBatchDeleter_DeleteExistingDocuments(t *testing.T) {
 	docID1 := genID("blog", "post1", "en")
 	err = srv.DB.View(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket([]byte("docs"))
-		if v := bDocs.Get(kDoc("blog", docID1)); v != nil {
+		if v := bDocs.Get(storage.DocKey("blog", docID1)); v != nil {
 			t.Error("post1 should be deleted from docs bucket")
 		}
 
 		// Verify bykey index removed
 		bByK := tx.Bucket([]byte("bykey"))
-		if v := bByK.Get(kByKey("blog", "post1", "en")); v != nil {
+		if v := bByK.Get(storage.ByKeyKey("blog", "post1", "en")); v != nil {
 			t.Error("bykey index for post1 should be removed")
 		}
 
 		// Verify metadata index removed
 		bIdx := tx.Bucket([]byte("idxmeta"))
-		metaKey := append(kMetaKeyPrefix("blog", "tag", "go"), []byte(docID1)...)
+		metaKey := append(storage.MetaKeyPrefix("blog", "tag", "go"), []byte(docID1)...)
 		if v := bIdx.Get(metaKey); v != nil {
 			t.Error("metadata index for post1 tag=go should be removed")
 		}
@@ -1038,7 +1041,7 @@ func TestBatchDeleter_CacheInvalidation(t *testing.T) {
 	}
 
 	// Verify it is in cache
-	cacheKey := BuildCacheKey("test", "cached", "en")
+	cacheKey := cache.BuildCacheKey("test", "cached", "en")
 	_, found := srv.Cache.Get(cacheKey)
 	if !found {
 		t.Fatal("document should be in cache after add")
@@ -1077,7 +1080,7 @@ func TestBatchDeleter_DeleteWithRevisions(t *testing.T) {
 
 	// Verify revision exists
 	docID := genID("blog", "rev-doc", "en")
-	revPrefix := kRevPrefix("blog", docID)
+	revPrefix := storage.RevPrefix("blog", docID)
 	revCount := 0
 	_ = srv.DB.View(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket([]byte("rev"))

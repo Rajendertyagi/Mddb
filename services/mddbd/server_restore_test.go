@@ -1,6 +1,9 @@
 package main
 
 import (
+	"mddb/internal/cache"
+	"mddb/internal/schema"
+	"mddb/internal/webhooks"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -128,9 +131,9 @@ func TestDocumentCacheClose_StopsCleanupGoroutine(t *testing.T) {
 	runtime.GC()
 	before := runtime.NumGoroutine()
 
-	caches := make([]*DocumentCache, 0, 50)
+	caches := make([]*cache.DocumentCache, 0, 50)
 	for i := 0; i < 50; i++ {
-		caches = append(caches, NewDocumentCache(10, 60))
+		caches = append(caches, cache.NewDocumentCache(10, 60))
 	}
 	for _, c := range caches {
 		c.Close()
@@ -150,7 +153,7 @@ func TestDocumentCacheClose_StopsCleanupGoroutine(t *testing.T) {
 // TestDocumentCacheClear_ResetsContents covers the in-place reset the restore
 // uses instead of allocating a new cache.
 func TestDocumentCacheClear_ResetsContents(t *testing.T) {
-	c := NewDocumentCache(10, 60)
+	c := cache.NewDocumentCache(10, 60)
 	defer c.Close()
 	c.Set("a", []byte("1"))
 	c.Set("b", []byte("2"))
@@ -174,13 +177,13 @@ func TestRebuildInMemoryState_InPlace(t *testing.T) {
 	db := openDocsDB(t, filepath.Join(dir, "base.db"))
 	t.Cleanup(func() { _ = db.Close() })
 
-	cache := NewDocumentCache(10, 60)
+	cache := cache.NewDocumentCache(10, 60)
 	t.Cleanup(cache.Close)
-	sm := NewSchemaManager(db)
+	sm := schema.NewSchemaManager(db)
 	if err := sm.EnsureBucket(); err != nil {
 		t.Fatal(err)
 	}
-	wm := NewWebhookManager(db)
+	wm := webhooks.NewWebhookManager(db)
 	if err := wm.EnsureBucket(); err != nil {
 		t.Fatal(err)
 	}
@@ -200,7 +203,7 @@ func TestRebuildInMemoryState_InPlace(t *testing.T) {
 		t.Error("Cache pointer was swapped (expected in-place Clear)")
 	}
 	if s.SchemaManager != sm {
-		t.Error("SchemaManager pointer was swapped (expected in-place reload)")
+		t.Error("schema.SchemaManager pointer was swapped (expected in-place reload)")
 	}
 	if s.WebhookManager != wm {
 		t.Error("WebhookManager pointer was swapped (expected in-place reload)")
@@ -215,7 +218,7 @@ func TestRebuildInMemoryState_InPlace(t *testing.T) {
 func TestSchemaManagerReload_RepointsDB(t *testing.T) {
 	dir := t.TempDir()
 	db1 := openDocsDB(t, filepath.Join(dir, "1.db"))
-	sm := NewSchemaManager(db1)
+	sm := schema.NewSchemaManager(db1)
 	if err := sm.EnsureBucket(); err != nil {
 		t.Fatal(err)
 	}
@@ -227,7 +230,7 @@ func TestSchemaManagerReload_RepointsDB(t *testing.T) {
 	// A second DB with no schemas — after reload, the blog schema must be gone.
 	db2 := openDocsDB(t, filepath.Join(dir, "2.db"))
 	t.Cleanup(func() { _ = db2.Close() })
-	if err := sm.reload(db2); err != nil {
+	if err := sm.Reload(db2); err != nil {
 		t.Fatalf("reload: %v", err)
 	}
 	if _, found := sm.Get("blog"); found {

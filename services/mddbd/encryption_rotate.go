@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"mddb/internal/audit"
+	"mddb/internal/encryption"
 	"sync"
 	"time"
 
@@ -42,7 +44,7 @@ type RotationJob struct {
 // the existing job's ID.
 type RotationManager struct {
 	server    *Server
-	encryptor *Encryptor
+	encryptor *encryption.Encryptor
 	mu        sync.Mutex
 	jobs      map[string]*RotationJob
 	current   *RotationJob // running job, if any
@@ -50,7 +52,7 @@ type RotationManager struct {
 
 // NewRotationManager wires the manager. Encryptor must be non-nil
 // because rotation is meaningless without it.
-func NewRotationManager(s *Server, e *Encryptor) *RotationManager {
+func NewRotationManager(s *Server, e *encryption.Encryptor) *RotationManager {
 	return &RotationManager{
 		server:    s,
 		encryptor: e,
@@ -131,13 +133,13 @@ func (rm *RotationManager) Status() (*RotationStatus, error) {
 
 // classifyEntry tallies one stored value into a CollectionStat.
 func classifyEntry(v []byte, primary byte, cs *CollectionStat) {
-	switch ciphertextVersion(v) {
+	switch encryption.CiphertextVersion(v) {
 	case 0:
 		cs.Plaintext++
 	case 1:
 		cs.WithLegacy++ // V1 always treated as "needs migration"
 	case 2:
-		id, ok := ciphertextKeyID(v)
+		id, ok := encryption.CiphertextKeyID(v)
 		if !ok {
 			cs.UnknownKey++
 			return
@@ -361,7 +363,7 @@ func (rm *RotationManager) processOne(bucket string, key []byte) (bool, error) {
 	}
 
 	var needs bool
-	switch ciphertextVersion(val) {
+	switch encryption.CiphertextVersion(val) {
 	case 0:
 		return false, nil // plaintext — leave alone (collection may not be encrypted)
 	case 1:
@@ -436,7 +438,7 @@ func (rm *RotationManager) audit(action string, job *RotationJob) {
 		"errors":      job.Errors,
 	})
 	rm.mu.Unlock()
-	rm.server.AuditManager.Record(AuditEvent{
+	rm.server.AuditManager.Record(audit.AuditEvent{
 		Action:   action,
 		Resource: "encryption",
 		Result:   "ok",

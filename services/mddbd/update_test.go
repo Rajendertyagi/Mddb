@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mddb/internal/storage"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -27,7 +28,7 @@ func TestHandleUpdate(t *testing.T) {
 			t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 		}
 
-		var doc Doc
+		var doc storage.Doc
 		if err := json.Unmarshal(w.Body.Bytes(), &doc); err != nil {
 			t.Fatal(err)
 		}
@@ -52,7 +53,7 @@ func TestHandleUpdate(t *testing.T) {
 			t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 		}
 
-		var doc Doc
+		var doc storage.Doc
 		if err := json.Unmarshal(w.Body.Bytes(), &doc); err != nil {
 			t.Fatal(err)
 		}
@@ -76,7 +77,7 @@ func TestHandleUpdate(t *testing.T) {
 			t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 		}
 
-		var doc Doc
+		var doc storage.Doc
 		if err := json.Unmarshal(w.Body.Bytes(), &doc); err != nil {
 			t.Fatal(err)
 		}
@@ -103,7 +104,7 @@ func TestHandleUpdate(t *testing.T) {
 			t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 		}
 
-		var doc Doc
+		var doc storage.Doc
 		if err := json.Unmarshal(w.Body.Bytes(), &doc); err != nil {
 			t.Fatal(err)
 		}
@@ -171,7 +172,7 @@ func TestHandleUpdate(t *testing.T) {
 			t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 		}
 
-		var doc Doc
+		var doc storage.Doc
 		if err := json.Unmarshal(w.Body.Bytes(), &doc); err != nil {
 			t.Fatal(err)
 		}

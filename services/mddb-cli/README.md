@@ -2,6 +2,8 @@
 
 A command-line client for MDDB (Markdown Database), providing an interface similar to `mysql-client` for managing markdown documents.
 
+> Built on the shared Go SDK [`clients/go/mddb`](../../clients/go/mddb/) (`mddb-client`) — the CLI no longer carries its own HTTP client. Reuse the same SDK in your own Go programs.
+
 ## Installation
 
 ### Build from Source

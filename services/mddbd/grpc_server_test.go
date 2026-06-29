@@ -11,13 +11,22 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"mddb/internal/cache"
+	"mddb/internal/fts"
+	"mddb/internal/indexqueue"
+	"mddb/internal/metrics"
+	"mddb/internal/schema"
+	"mddb/internal/storage"
+	"mddb/internal/ttl"
+	"mddb/internal/vector"
+	"mddb/internal/webhooks"
 	pb "mddb/proto"
 )
 
 // newTestGRPCServer creates a fully-initialised GRPCServer suitable for tests.
 // It opens a temp BoltDB, creates all required buckets, and wires up the
 // subsystems that gRPC methods depend on (Cache, FTSIndex, IndexQueue,
-// SchemaManager, WebhookManager, VectorStore, VectorIndex, TTLManager, Metrics).
+// schema.SchemaManager, WebhookManager, VectorStore, VectorIndex, TTLManager, Metrics).
 // The returned cleanup function must be deferred by the caller.
 func newTestGRPCServer(t *testing.T) (*GRPCServer, *Server, func()) {
 	t.Helper()
@@ -38,8 +47,8 @@ func newTestGRPCServer(t *testing.T) (*GRPCServer, *Server, func()) {
 			Rev:     []byte("rev"),
 			ByKey:   []byte("bykey"),
 		},
-		Cache:         NewDocumentCache(100, 60),
-		LockFreeCache: NewLockFreeCache(100, 60),
+		Cache:         cache.NewDocumentCache(100, 60),
+		LockFreeCache: cache.NewLockFreeCache(100, 60),
 	}
 
 	// Create all required buckets
@@ -62,39 +71,39 @@ func newTestGRPCServer(t *testing.T) (*GRPCServer, *Server, func()) {
 	}
 
 	// IndexQueue
-	s.IndexQueue = NewIndexQueue(s, 2)
+	s.IndexQueue = indexqueue.NewIndexQueue(serverIndexStore{s: s}, 2)
 
 	// VectorStore & VectorIndex
-	s.VectorStore = NewVectorStore(db)
+	s.VectorStore = vector.NewVectorStore(db)
 	if err := s.VectorStore.EnsureBucket(); err != nil {
 		_ = db.Close()
 		t.Fatal(err)
 	}
-	s.VectorIndex = NewVectorIndex()
+	s.VectorIndex = vector.NewVectorIndex()
 	s.VectorIndex.SetReady()
-	s.VectorSearchers = map[string]VectorSearcher{
+	s.VectorSearchers = map[string]vector.VectorSearcher{
 		"flat": s.VectorIndex,
 	}
 
 	// TTL
-	s.TTLManager = NewTTLManager(db, s)
+	s.TTLManager = ttl.NewTTLManager(db, serverTTLReaper{s: s})
 	if err := s.TTLManager.EnsureBuckets(); err != nil {
 		_ = db.Close()
 		t.Fatal(err)
 	}
 
 	// FTS
-	s.FTSIndex = NewFTSIndex(db)
+	s.FTSIndex = fts.NewFTSIndex(db)
 	if err := s.FTSIndex.EnsureBuckets(); err != nil {
 		_ = db.Close()
 		t.Fatal(err)
 	}
-	langReg := NewLangRegistry("en")
-	RegisterDefaultLanguages(langReg)
+	langReg := fts.NewLangRegistry("en")
+	fts.RegisterDefaultLanguages(langReg)
 	s.FTSIndex.SetLangRegistry(langReg)
 
 	// Webhooks
-	s.WebhookManager = NewWebhookManager(db)
+	s.WebhookManager = webhooks.NewWebhookManager(db)
 	if err := s.WebhookManager.EnsureBucket(); err != nil {
 		_ = db.Close()
 		t.Fatal(err)
@@ -105,7 +114,7 @@ func newTestGRPCServer(t *testing.T) (*GRPCServer, *Server, func()) {
 	}
 
 	// Schema
-	s.SchemaManager = NewSchemaManager(db)
+	s.SchemaManager = schema.NewSchemaManager(db)
 	if err := s.SchemaManager.EnsureBucket(); err != nil {
 		_ = db.Close()
 		t.Fatal(err)
@@ -116,7 +125,7 @@ func newTestGRPCServer(t *testing.T) (*GRPCServer, *Server, func()) {
 	}
 
 	// Metrics (disabled)
-	s.Metrics = NewMetrics(s, false)
+	s.Metrics = metrics.NewMetrics(false, &serverMetricsStats{s: s})
 
 	gs := NewGRPCServer(s)
 
@@ -151,7 +160,7 @@ func addDocViaGRPC(t *testing.T, gs *GRPCServer, coll, key, lang, content string
 // a simple docID without pipes allows Search to correctly look up the doc.
 func addDocForSearch(t *testing.T, s *Server, coll, docID, key, lang, content string, meta map[string][]string) {
 	t.Helper()
-	doc := Doc{
+	doc := storage.Doc{
 		ID:        docID,
 		Key:       key,
 		Lang:      lang,
@@ -166,7 +175,7 @@ func addDocForSearch(t *testing.T, s *Server, coll, docID, key, lang, content st
 	}
 	err = s.DB.Update(func(tx *bolt.Tx) error {
 		bDocs := tx.Bucket(s.BucketNames.Docs)
-		return bDocs.Put(kDoc(coll, docID), buf)
+		return bDocs.Put(storage.DocKey(coll, docID), buf)
 	})
 	if err != nil {
 		t.Fatalf("addDocForSearch put: %v", err)
@@ -315,7 +324,7 @@ func TestGRPCAdd_WithRevision(t *testing.T) {
 	_ = s.DB.View(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket(s.BucketNames.Rev)
 		c := bRev.Cursor()
-		prefix := kRevPrefix("blog", genID("blog", "rev-doc", "en"))
+		prefix := storage.RevPrefix("blog", genID("blog", "rev-doc", "en"))
 		for k, _ := c.Seek(prefix); k != nil && len(k) >= len(prefix) && string(k[:len(prefix)]) == string(prefix); k, _ = c.Next() {
 			revCount++
 		}
@@ -539,8 +548,8 @@ func TestGRPCSearch_WithMetaFilter(t *testing.T) {
 	// Manually add meta index entries so the filter path works
 	_ = s.DB.Update(func(tx *bolt.Tx) error {
 		bIdx := tx.Bucket(s.BucketNames.IdxMeta)
-		_ = bIdx.Put(append(kMetaKeyPrefix("blog", "category", "tech"), []byte("id-p1")...), []byte("1"))
-		_ = bIdx.Put(append(kMetaKeyPrefix("blog", "category", "cooking"), []byte("id-p2")...), []byte("1"))
+		_ = bIdx.Put(append(storage.MetaKeyPrefix("blog", "category", "tech"), []byte("id-p1")...), []byte("1"))
+		_ = bIdx.Put(append(storage.MetaKeyPrefix("blog", "category", "cooking"), []byte("id-p2")...), []byte("1"))
 		return nil
 	})
 
@@ -802,7 +811,7 @@ func TestGRPCTruncate_Success(t *testing.T) {
 	// Manually insert revisions with distinct timestamps to guarantee
 	// multiple revision keys (the gRPC Add method uses time.Now().Unix()
 	// which may produce the same second across rapid calls).
-	doc := Doc{ID: docID, Key: "truncdoc", Lang: "en", ContentMD: "v"}
+	doc := storage.Doc{ID: docID, Key: "truncdoc", Lang: "en", ContentMD: "v"}
 	for i := 0; i < 5; i++ {
 		doc.UpdatedAt = int64(1000 + i)
 		buf, err := marshalDoc(&doc)
@@ -819,7 +828,7 @@ func TestGRPCTruncate_Success(t *testing.T) {
 	// Also ensure a doc exists in docs bucket so Truncate can find docIDs
 	docBuf, _ := marshalDoc(&doc)
 	_ = s.DB.Update(func(tx *bolt.Tx) error {
-		return tx.Bucket(s.BucketNames.Docs).Put(kDoc("blog", docID), docBuf)
+		return tx.Bucket(s.BucketNames.Docs).Put(storage.DocKey("blog", docID), docBuf)
 	})
 
 	// Verify revisions exist
@@ -827,7 +836,7 @@ func TestGRPCTruncate_Success(t *testing.T) {
 	_ = s.DB.View(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket(s.BucketNames.Rev)
 		c := bRev.Cursor()
-		prefix := kRevPrefix("blog", docID)
+		prefix := storage.RevPrefix("blog", docID)
 		for k, _ := c.Seek(prefix); k != nil && len(k) >= len(prefix) && string(k[:len(prefix)]) == string(prefix); k, _ = c.Next() {
 			revCountBefore++
 		}
@@ -854,7 +863,7 @@ func TestGRPCTruncate_Success(t *testing.T) {
 	_ = s.DB.View(func(tx *bolt.Tx) error {
 		bRev := tx.Bucket(s.BucketNames.Rev)
 		c := bRev.Cursor()
-		prefix := kRevPrefix("blog", docID)
+		prefix := storage.RevPrefix("blog", docID)
 		for k, _ := c.Seek(prefix); k != nil && len(k) >= len(prefix) && string(k[:len(prefix)]) == string(prefix); k, _ = c.Next() {
 			revCountAfter++
 		}
@@ -1750,8 +1759,8 @@ func TestGRPCVectorSearch_IndexNotReady(t *testing.T) {
 	defer cleanup()
 
 	// Create a new index that is NOT ready
-	s.VectorIndex = NewVectorIndex() // ready defaults to false
-	s.VectorSearchers = map[string]VectorSearcher{
+	s.VectorIndex = vector.NewVectorIndex() // ready defaults to false
+	s.VectorSearchers = map[string]vector.VectorSearcher{
 		"flat": s.VectorIndex,
 	}
 
@@ -1953,7 +1962,7 @@ func TestGRPCExport_Unimplemented(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestDocToProto(t *testing.T) {
-	doc := &Doc{
+	doc := &storage.Doc{
 		ID:        "test-id",
 		Key:       "mykey",
 		Lang:      "en",
@@ -1999,7 +2008,7 @@ func TestDocToProto(t *testing.T) {
 }
 
 func TestDocToProto_NilMeta(t *testing.T) {
-	doc := &Doc{
+	doc := &storage.Doc{
 		ID:   "test",
 		Key:  "k",
 		Lang: "en",

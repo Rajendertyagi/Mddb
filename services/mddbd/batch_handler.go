@@ -8,8 +8,10 @@ import (
 	"strings"
 	"time"
 
-	json "github.com/goccy/go-json"
+	"mddb/internal/temporal"
 	proto "mddb/proto"
+
+	json "github.com/goccy/go-json"
 )
 
 // ---- HTTP types for /v1/add-batch ----
@@ -166,9 +168,9 @@ func (s *Server) firePostBatchHooks(collection string, processed []*ProcessedDoc
 
 		// Temporal tracking — parity with the single-doc path (GO-001).
 		if s.TemporalManager != nil {
-			et := EventUpdate
+			et := temporal.EventUpdate
 			if !p.IsUpdate {
-				et = EventCreate
+				et = temporal.EventCreate
 			}
 			s.TemporalManager.RecordAsync(collection, p.DocID, et, "")
 		}
