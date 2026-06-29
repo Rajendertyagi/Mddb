@@ -16,6 +16,14 @@ type APIKey struct {
 	CreatedAt   int64  `json:"createdAt"`
 }
 
+type AddBatchDocumentInput struct {
+	Key          string       `json:"key"`
+	Lang         string       `json:"lang"`
+	ContentMd    string       `json:"contentMd"`
+	Meta         []*MetaInput `json:"meta,omitempty"`
+	SaveRevision *bool        `json:"saveRevision,omitempty"`
+}
+
 type AddDocumentInput struct {
 	Collection string       `json:"collection"`
 	Key        string       `json:"key"`
@@ -28,6 +36,13 @@ type AddDocumentInput struct {
 type AuthPayload struct {
 	Token     string `json:"token"`
 	ExpiresAt int64  `json:"expiresAt"`
+}
+
+type BatchAddResult struct {
+	Added   int      `json:"added"`
+	Updated int      `json:"updated"`
+	Failed  int      `json:"failed"`
+	Errors  []string `json:"errors,omitempty"`
 }
 
 type CollectionStats struct {
@@ -100,6 +115,37 @@ type GroupPermission struct {
 	Read       bool   `json:"read"`
 	Write      bool   `json:"write"`
 	Admin      bool   `json:"admin"`
+}
+
+type IngestDocumentInput struct {
+	URL                *string      `json:"url,omitempty"`
+	Key                *string      `json:"key,omitempty"`
+	Lang               string       `json:"lang"`
+	ContentMd          string       `json:"contentMd"`
+	Meta               []*MetaInput `json:"meta,omitempty"`
+	ExtractFrontmatter *bool        `json:"extractFrontmatter,omitempty"`
+	ScrapedAt          *int         `json:"scrapedAt,omitempty"`
+	Scraper            *string      `json:"scraper,omitempty"`
+	TTL                *int         `json:"ttl,omitempty"`
+}
+
+type IngestOptionsInput struct {
+	SkipDuplicates          *bool `json:"skipDuplicates,omitempty"`
+	SkipEmbeddings          *bool `json:"skipEmbeddings,omitempty"`
+	SkipFts                 *bool `json:"skipFts,omitempty"`
+	SkipWebhooks            *bool `json:"skipWebhooks,omitempty"`
+	AutoConfigureCollection *bool `json:"autoConfigureCollection,omitempty"`
+	SaveRevision            *bool `json:"saveRevision,omitempty"`
+}
+
+type IngestResult struct {
+	Added      int      `json:"added"`
+	Updated    int      `json:"updated"`
+	Skipped    int      `json:"skipped"`
+	Failed     int      `json:"failed"`
+	Errors     []string `json:"errors,omitempty"`
+	Collection string   `json:"collection"`
+	DurationMs int      `json:"durationMs"`
 }
 
 type MetaInput struct {
@@ -243,54 +289,6 @@ type Webhook struct {
 	Events     []string `json:"events"`
 	Collection string   `json:"collection"`
 	CreatedAt  int64    `json:"createdAt"`
-}
-
-// --- Batch & Ingest models (added manually for v2.9.2) ---
-
-type AddBatchDocumentInput struct {
-	Key          string       `json:"key"`
-	Lang         string       `json:"lang"`
-	ContentMd    string       `json:"contentMd"`
-	Meta         []*MetaInput `json:"meta,omitempty"`
-	SaveRevision *bool        `json:"saveRevision,omitempty"`
-}
-
-type BatchAddResult struct {
-	Added   int      `json:"added"`
-	Updated int      `json:"updated"`
-	Failed  int      `json:"failed"`
-	Errors  []string `json:"errors,omitempty"`
-}
-
-type IngestDocumentInput struct {
-	URL                *string      `json:"url,omitempty"`
-	Key                *string      `json:"key,omitempty"`
-	Lang               string       `json:"lang"`
-	ContentMd          string       `json:"contentMd"`
-	Meta               []*MetaInput `json:"meta,omitempty"`
-	ExtractFrontmatter *bool        `json:"extractFrontmatter,omitempty"`
-	ScrapedAt          *int         `json:"scrapedAt,omitempty"`
-	Scraper            *string      `json:"scraper,omitempty"`
-	TTL                *int         `json:"ttl,omitempty"`
-}
-
-type IngestOptionsInput struct {
-	SkipDuplicates          *bool `json:"skipDuplicates,omitempty"`
-	SkipEmbeddings          *bool `json:"skipEmbeddings,omitempty"`
-	SkipFts                 *bool `json:"skipFts,omitempty"`
-	SkipWebhooks            *bool `json:"skipWebhooks,omitempty"`
-	AutoConfigureCollection *bool `json:"autoConfigureCollection,omitempty"`
-	SaveRevision            *bool `json:"saveRevision,omitempty"`
-}
-
-type IngestResult struct {
-	Added      int      `json:"added"`
-	Updated    int      `json:"updated"`
-	Skipped    int      `json:"skipped"`
-	Failed     int      `json:"failed"`
-	Errors     []string `json:"errors,omitempty"`
-	Collection string   `json:"collection"`
-	DurationMs int      `json:"durationMs"`
 }
 
 type Permission string
