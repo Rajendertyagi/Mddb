@@ -6,17 +6,11 @@
 // otherwise `import` statements blow up with SyntaxError. We also map .mjs to
 // the ts-jest transform.
 const ESM_NODE_MODULES = [
+  // d3 ships every submodule as ESM-only ("type":"module"); @grafana/data@13
+  // reaches several (d3-scale-chromatic via fieldColor, etc.). Match the whole
+  // family in one rule so a new submodule never reintroduces the SyntaxError.
   'd3',
-  'd3-array',
-  'd3-color',
-  'd3-format',
-  'd3-interpolate',
-  'd3-path',
-  'd3-scale',
-  'd3-shape',
-  'd3-time',
-  'd3-time-format',
-  'd3-timer',
+  'd3-[a-z0-9-]+',
   'internmap',
   'delaunator',
   'robust-predicates',
@@ -27,6 +21,9 @@ const ESM_NODE_MODULES = [
   'uuid',
   'nanoid',
   'memoize-one',
+  // @grafana/data@13 renders markdown via marked (ESM-only, "type":"module").
+  'marked',
+  'marked-mangle',
 ].join('|');
 
 module.exports = {
