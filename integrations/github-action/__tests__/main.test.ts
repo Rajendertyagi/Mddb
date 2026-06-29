@@ -1,21 +1,34 @@
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
-import * as core from '@actions/core';
-import { run, type RunDependencies } from '../src/main';
-import { MddbClient, MddbHttpError } from '../src/client';
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import type { RunDependencies } from '../src/main.js';
+import type { MddbClient } from '../src/client.js';
 
-jest.mock('@actions/core');
+// @actions/core is ESM-only (v3); mock it as a module, then import the units under
+// test dynamically so they pick up the mock (unstable_mockModule is not hoisted).
+const mockCore = {
+  getInput: jest.fn<(name: string) => string>(),
+  setOutput: jest.fn<(name: string, value: string) => void>(),
+  setFailed: jest.fn<(message: string) => void>(),
+  warning: jest.fn<(message: string) => void>(),
+  info: jest.fn<(message: string) => void>(),
+};
+jest.unstable_mockModule('@actions/core', () => mockCore);
 
-const mockCore = core as jest.Mocked<typeof core>;
+const { run } = await import('../src/main.js');
+const { MddbHttpError } = await import('../src/client.js');
 
 function stubInputs(values: Record<string, string>): void {
   mockCore.getInput.mockImplementation((name: string) => values[name] ?? '');
 }
 
+type AsyncVoidMock = jest.Mock<(...args: unknown[]) => Promise<void>>;
+const asyncMock = (): AsyncVoidMock => jest.fn<(...args: unknown[]) => Promise<void>>();
+
 interface FakeClient {
-  ping: jest.Mock;
-  addDocument: jest.Mock;
+  ping: AsyncVoidMock;
+  addDocument: AsyncVoidMock;
 }
 
 function buildDeps(
@@ -50,7 +63,7 @@ describe('run', () => {
     await fs.writeFile(file, '# Hi', 'utf8');
     stubInputs({ collection: 'docs' });
 
-    const client: FakeClient = { ping: jest.fn(), addDocument: jest.fn() };
+    const client: FakeClient = { ping: asyncMock(), addDocument: asyncMock() };
     const deps = buildDeps(client, [{ absolutePath: file, relativePath: 'a.md', size: 4 }]);
 
     const result = await run(deps);
@@ -69,9 +82,8 @@ describe('run', () => {
     stubInputs({ collection: 'docs', concurrency: '1' });
 
     const client: FakeClient = {
-      ping: jest.fn(),
-      addDocument: jest
-        .fn()
+      ping: asyncMock(),
+      addDocument: asyncMock()
         .mockResolvedValueOnce(undefined)
         .mockRejectedValueOnce(new Error('boom')),
     };
@@ -92,8 +104,8 @@ describe('run', () => {
     stubInputs({ collection: 'docs', 'fail-on-error': 'false' });
 
     const client: FakeClient = {
-      ping: jest.fn(),
-      addDocument: jest.fn().mockRejectedValue(new Error('boom')),
+      ping: asyncMock(),
+      addDocument: asyncMock().mockRejectedValue(new Error('boom')),
     };
     const deps = buildDeps(client, [{ absolutePath: file, relativePath: 'a.md', size: 1 }]);
 
@@ -110,8 +122,8 @@ describe('run', () => {
 
     const secretBody = 'SECRET-token=vk_should_never_be_logged';
     const client: FakeClient = {
-      ping: jest.fn(),
-      addDocument: jest.fn().mockRejectedValue(new MddbHttpError('HTTP 500', 500, secretBody)),
+      ping: asyncMock(),
+      addDocument: asyncMock().mockRejectedValue(new MddbHttpError('HTTP 500', 500, secretBody)),
     };
     const deps = buildDeps(client, [{ absolutePath: file, relativePath: 'a.md', size: 1 }]);
 
@@ -125,7 +137,7 @@ describe('run', () => {
 
   it('returns immediately when no files match', async () => {
     stubInputs({ collection: 'docs' });
-    const client: FakeClient = { ping: jest.fn(), addDocument: jest.fn() };
+    const client: FakeClient = { ping: asyncMock(), addDocument: asyncMock() };
     const deps = buildDeps(client, []);
     const result = await run(deps);
     expect(result).toEqual({ scanned: 0, added: 0, failed: 0 });
@@ -138,7 +150,7 @@ describe('run', () => {
     await fs.writeFile(file, 'a', 'utf8');
     stubInputs({ collection: 'docs', 'dry-run': 'true' });
 
-    const client: FakeClient = { ping: jest.fn(), addDocument: jest.fn() };
+    const client: FakeClient = { ping: asyncMock(), addDocument: asyncMock() };
     const deps = buildDeps(client, [{ absolutePath: file, relativePath: 'a.md', size: 1 }]);
 
     const result = await run(deps);
@@ -154,7 +166,7 @@ describe('run', () => {
       relativePath: `f${i}.md`,
       size: 1,
     }));
-    const client: FakeClient = { ping: jest.fn(), addDocument: jest.fn() };
+    const client: FakeClient = { ping: asyncMock(), addDocument: asyncMock() };
     const deps = buildDeps(client, files);
     const result = await run(deps);
     expect(result.scanned).toBe(25);

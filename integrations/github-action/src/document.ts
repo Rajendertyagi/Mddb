@@ -1,7 +1,7 @@
 import * as crypto from 'node:crypto';
 import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
-import type { KeyStrategy } from './inputs';
+import type { KeyStrategy } from './inputs.js';
 
 export interface MddbDocument {
   collection: string;

@@ -6,7 +6,7 @@ import {
   parseInteger,
   readInputs,
   splitPatterns,
-} from '../src/inputs';
+} from '../src/inputs.js';
 
 describe('parseBool', () => {
   it('returns the fallback for an empty string', () => {

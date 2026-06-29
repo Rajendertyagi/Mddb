@@ -1,5 +1,5 @@
-import { MddbClient, MddbHttpError } from '../src/client';
-import type { MddbDocument } from '../src/document';
+import { MddbClient, MddbHttpError } from '../src/client.js';
+import type { MddbDocument } from '../src/document.js';
 
 type FetchArgs = Parameters<typeof fetch>;
 

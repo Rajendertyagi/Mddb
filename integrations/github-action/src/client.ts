@@ -1,5 +1,5 @@
 import * as https from 'node:https';
-import type { MddbDocument } from './document';
+import type { MddbDocument } from './document.js';
 
 export interface MddbClientOptions {
   baseUrl: string;

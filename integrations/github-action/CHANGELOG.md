@@ -2,6 +2,16 @@
 
 All notable changes to the `integrations/github-action` package are documented in this file. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Migrated the action to **ESM** (`"type": "module"`) so it can consume the now ESM-only `@actions/core` v3 and `@actions/glob` v0.7.
+- Bumped `@actions/core` 1.x → 3.0.1 and `@actions/glob` 0.5 → 0.7.
+- `tsconfig` `module`/`moduleResolution` → `NodeNext`; relative imports use explicit `.js` specifiers; the CommonJS entry guard (`require.main === module`) is replaced with the ESM-native `import.meta.url` check.
+- Test tooling moved to ESM: ts-jest ESM preset under `--experimental-vm-modules`, `@actions/core` mocked via `jest.unstable_mockModule`; `jest.config` / `eslint.config` renamed to `.cjs`.
+- Rebuilt the committed `dist/` as an ESM bundle (no behaviour change — same inputs/outputs).
+
 ## [0.1.0] — 2026-05-20
 
 ### Added
