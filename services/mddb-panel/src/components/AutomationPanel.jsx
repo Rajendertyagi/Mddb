@@ -11,7 +11,6 @@ import {
   ToggleLeft,
   ToggleRight,
   ChevronDown,
-  ChevronRight,
 } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
@@ -68,7 +67,6 @@ export default function AutomationPanel() {
   // Separate state for all rules (not affected by tab filter) — used for dropdowns and tab counts
   const [allRules, setAllRules] = useState([]);
   const [allWebhooks, setAllWebhooks] = useState([]);
-  const [allTriggers, setAllTriggers] = useState([]);
 
   // Add form state
   const [showAddForm, setShowAddForm] = useState(false);
@@ -116,7 +114,6 @@ export default function AutomationPanel() {
       const all = Array.isArray(data) ? data : data.rules || [];
       setAllRules(all);
       setAllWebhooks(all.filter((r) => r.type === 'webhook'));
-      setAllTriggers(all.filter((r) => r.type === 'trigger'));
     } catch (err) {
       console.error('Failed to load dropdown data:', err);
     }

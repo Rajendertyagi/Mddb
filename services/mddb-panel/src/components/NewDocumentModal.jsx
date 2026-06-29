@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Plus, AlertCircle, Check } from 'lucide-react';
+import { X, Plus, AlertCircle } from 'lucide-react';
 import mddbClient from '../lib/mddb-client';
 import MarkdownEditor from './MarkdownEditor';
 

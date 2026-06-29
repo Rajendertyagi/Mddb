@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, FileText, Upload, File } from 'lucide-react';
+import { X, FileText, Upload } from 'lucide-react';
 import mddbClient from '../lib/mddb-client';
 
 const SUPPORTED_EXTENSIONS = ['.md', '.txt', '.html', '.htm', '.pdf', '.docx', '.odt', '.rtf', '.yaml', '.yml', '.log', '.lex', '.tex', '.latex'];

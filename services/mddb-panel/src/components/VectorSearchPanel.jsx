@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Search, RotateCcw, FileText, Tag, AlertCircle, Terminal, Ban } from 'lucide-react';
+import { Search, RotateCcw, AlertCircle, Terminal, Ban } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
 import CommandModal from './CommandModal';
