@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Brain, Plus, Edit, Trash2, CheckCircle, XCircle, Star, X } from 'lucide-react';
+import { Brain, Plus, Edit, Trash2, Star, X } from 'lucide-react';
 import mddbClient from '../lib/mddb-client';
 
 export default function EmbeddingModelsPanel() {
@@ -252,13 +252,9 @@ export default function EmbeddingModelsPanel() {
         <EmbeddingConfigModal
           onClose={() => setShowCreateModal(false)}
           onSave={async (config) => {
-            try {
-              await mddbClient.createEmbeddingConfig(config);
-              setShowCreateModal(false);
-              await loadConfigs();
-            } catch (err) {
-              throw err;
-            }
+            await mddbClient.createEmbeddingConfig(config);
+            setShowCreateModal(false);
+            await loadConfigs();
           }}
         />
       )}
@@ -272,14 +268,10 @@ export default function EmbeddingModelsPanel() {
             setSelectedConfig(null);
           }}
           onSave={async (config) => {
-            try {
-              await mddbClient.updateEmbeddingConfig(selectedConfig.id, config);
-              setShowEditModal(false);
-              setSelectedConfig(null);
-              await loadConfigs();
-            } catch (err) {
-              throw err;
-            }
+            await mddbClient.updateEmbeddingConfig(selectedConfig.id, config);
+            setShowEditModal(false);
+            setSelectedConfig(null);
+            await loadConfigs();
           }}
         />
       )}

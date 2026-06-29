@@ -17,11 +17,9 @@ const TABS = [
   { id: 'openwebui', label: 'Open WebUI', desc: 'Open WebUI RAG pipeline model' },
 ];
 
-function generateConfig(tabId, grpcAddr, httpAddr, mcpAddr) {
-  const grpc = grpcAddr || 'localhost:11024';
+function generateConfig(tabId, httpAddr, mcpAddr) {
   const http = httpAddr || 'http://localhost:11023';
   const mcp = mcpAddr || 'http://localhost:9000';
-  const grpcHost = grpc.startsWith(':') ? `localhost${grpc}` : grpc;
   const httpBase = http.startsWith(':') ? `http://localhost${http}` : http;
   const mcpBase = mcp.startsWith(':') ? `http://localhost${mcp}` : mcp;
 
@@ -448,11 +446,10 @@ export default function MCPConfigPanel() {
     }
   };
 
-  const grpcAddr = config?.protocols?.grpc?.addr || config?.grpcAddr || ':11024';
   const httpAddr = config?.protocols?.http?.addr || config?.httpAddr || ':11023';
   const mcpAddr = config?.protocols?.mcp?.addr || ':9000';
   const host = domain || window.location.hostname || 'localhost';
-  const tabConfig = generateConfig(activeTab, `${host}${grpcAddr}`, `http://${host}${httpAddr}`, `http://${host}${mcpAddr}`);
+  const tabConfig = generateConfig(activeTab, `http://${host}${httpAddr}`, `http://${host}${mcpAddr}`);
 
   // For MCP tab, prefer the live server config if available
   const displayContent = activeTab === 'mcp' && mcpYaml ? mcpYaml : (showAlt && tabConfig.alt ? tabConfig.alt.content : tabConfig.content);

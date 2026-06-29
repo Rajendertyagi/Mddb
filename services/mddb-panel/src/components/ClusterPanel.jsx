@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Network, RefreshCw, Server, Activity, Database, Clock, Wifi, WifiOff } from 'lucide-react';
+import { Network, RefreshCw, Activity, Database, Clock, Wifi, WifiOff } from 'lucide-react';
 import mddbClient from '../lib/mddb-client';
 
 const POLL_INTERVAL = 5000; // 5 seconds

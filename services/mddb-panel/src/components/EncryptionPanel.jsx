@@ -32,7 +32,6 @@ export default function EncryptionPanel() {
 
   useEffect(() => {
     refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const startRotation = async () => {

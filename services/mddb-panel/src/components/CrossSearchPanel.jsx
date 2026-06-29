@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Search, Shuffle, AlertCircle, FileText, Tag, Ban } from 'lucide-react';
+import { Search, Shuffle, AlertCircle, Ban } from 'lucide-react';
 import { useStore } from '../lib/store';
 import mddbClient from '../lib/mddb-client';
 

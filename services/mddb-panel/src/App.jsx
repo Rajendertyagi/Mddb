@@ -61,7 +61,7 @@ function App() {
   // SSE: real-time document change notifications
   const { connected: sseConnected, lastEvent: sseLastEvent } = useSSE({
     enabled: isAuthenticated || !needsAuth,
-    onEvent: (event) => {
+    onEvent: () => {
       // Trigger auto-refresh of document list
       setSSERefreshKey((k) => k + 1);
     },
