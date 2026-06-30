@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Dependency maintenance (Dependabot sweep)** — merged the open dependency PRs after resolving each one's real breakage rather than rubber-stamping:
+  - **`gqlgen` 0.17.91 → 0.17.93** ([#86](https://github.com/tradik/mddb/pull/86)) — `graphql.DeferredGroup` changed (removed `Label`, added `Defers`), so the committed `services/mddbd/graphql/generated.go` was **regenerated** against the new version.
+  - **Docker base images** ([#87](https://github.com/tradik/mddb/pull/87)) — `grafana/grafana` 13.0.1 → 13.1.0, `alpine` 3.23 → 3.24; the Airbyte connector was kept on `python:3.13-slim` (declined the 3.14 bump — `airbyte-cdk>=7,<8` requires Python `<3.14`).
+  - **`eslint` 9 → 10** ([#94](https://github.com/tradik/mddb/pull/94)) for the Grafana datasource.
+  - **`@grafana/data` 11 → 13** ([#95](https://github.com/tradik/mddb/pull/95)) — extended the jest ts-jest transform allowlist (`marked` + the whole `d3` family are ESM-only) and added `integrations/grafana-datasource/.npmrc` `legacy-peer-deps` (eslint-plugin-react's declared peer range still caps at eslint 9, though it works with 10 at runtime).
+  - **npm minor-patch group across 4 integration dirs** ([#97](https://github.com/tradik/mddb/pull/97)) — kept `@actions/glob` on the CJS `^0.5` line (0.7 is ESM-only) and rebuilt the github-action bundle.
+  - **`cargo` minor-patch** for `mddb-chat` ([#81](https://github.com/tradik/mddb/pull/81)).
+- **`integrations/github-action` migrated to ESM** ([#100](https://github.com/tradik/mddb/pull/100)) — adopts the ESM-only `@actions/core` v3 and `@actions/glob` v0.7 (the bumps deferred from [#75](https://github.com/tradik/mddb/pull/75) / #97): `"type":"module"`, tsconfig `NodeNext`, `.js` import specifiers, `import.meta.url` entry guard, ts-jest ESM tests with `jest.unstable_mockModule`, configs renamed to `.cjs`, and a rebuilt deterministic ESM `dist/`. See [its changelog](integrations/github-action/CHANGELOG.md).
+
+### Fixed
+- **`services/mddb-panel` — ESLint was unrunnable** ([#99](https://github.com/tradik/mddb/pull/99)) — ESLint 9 requires a flat `eslint.config.js` and the package had none, so `npm run lint` always failed. Added the flat config (JS recommended + react/hooks/refresh) and cleared the 51 real errors it surfaced on never-linted code: ~12 dead icon imports, a dead gRPC-config chain in `MCPConfigPanel`, write-only `allTriggers` state, and two rethrow-only `try/catch` blocks. Lint now exits clean (`react-hooks/exhaustive-deps` kept advisory).
+
 ## [2.10.1] - 2026-06-17
 
 ### Fixed
