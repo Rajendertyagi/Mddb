@@ -1,5 +1,13 @@
 package main
 
+// Shared schema descriptions for the token-saving projection controls
+// (issue #102), reused across search_documents / semantic_search /
+// full_text_search so the wording stays in one place.
+const (
+	mcpIncludeContentDesc = "(v2.10.2+) Include the document body (content_md) in each hit. Default true; set false to cut token usage on metadata-only lookups."
+	mcpFieldsDesc         = "(v2.10.2+) Restrict returned meta to these keys (e.g. [\"name\",\"currentVersion\"]); each hit keeps id, key and the listed meta. The document body follows include_content (set include_content=false to also drop it). Empty = all meta."
+)
+
 // mcpBuiltinTools returns the full builtin MCP tool catalog. Partitioned into
 // core + advanced groups (GO-015) to keep any single function manageable.
 func mcpBuiltinTools() []MCPTool {
@@ -32,11 +40,13 @@ func mcpBuiltinToolsCore() []MCPTool {
 			InputSchema: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
-					"collection":  map[string]interface{}{"type": "string"},
-					"filter_meta": map[string]interface{}{"type": "object"},
-					"sort":        map[string]interface{}{"type": "string"},
-					"limit":       map[string]interface{}{"type": "integer"},
-					"offset":      map[string]interface{}{"type": "integer"},
+					"collection":      map[string]interface{}{"type": "string"},
+					"filter_meta":     map[string]interface{}{"type": "object"},
+					"sort":            map[string]interface{}{"type": "string"},
+					"limit":           map[string]interface{}{"type": "integer"},
+					"offset":          map[string]interface{}{"type": "integer"},
+					"include_content": map[string]interface{}{"type": "boolean", "description": mcpIncludeContentDesc},
+					"fields":          map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}, "description": mcpFieldsDesc},
 				},
 				"required": []string{"collection"},
 			},
@@ -97,6 +107,8 @@ func mcpBuiltinToolsCore() []MCPTool {
 					"filter_meta":     map[string]interface{}{"type": "object", "description": "Optional metadata filter to combine with semantic search"},
 					"algorithm":       map[string]interface{}{"type": "string", "description": "Vector search algorithm: flat (exact, default), hnsw (approximate), ivf (clustered), pq (compressed)"},
 					"distance_metric": map[string]interface{}{"type": "string", "description": "Distance metric: cosine (default), dot_product, euclidean"},
+					"include_content": map[string]interface{}{"type": "boolean", "description": mcpIncludeContentDesc},
+					"fields":          map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}, "description": mcpFieldsDesc},
 				},
 				"required": []string{"collection", "query"},
 			},
@@ -165,6 +177,8 @@ func mcpBuiltinToolsCore() []MCPTool {
 					"boost":            map[string]interface{}{"type": "object", "description": "Per-query score multiplier keyed by \"metaKey:metaValue\" (e.g. {\"tag:featured\":5.0,\"status:archived\":-2.0}). Positive boosts, negative demotes; combined multiplicatively."},
 					"facet_by":         map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}, "description": "(v2.9.14+) Metadata keys to aggregate into response.facets (e.g. [\"category\",\"lang\"])."},
 					"facet_max_values": map[string]interface{}{"type": "integer", "description": "(v2.9.14+) Cap per-key bucket count; 0 = unlimited."},
+					"include_content":  map[string]interface{}{"type": "boolean", "description": mcpIncludeContentDesc},
+					"fields":           map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}, "description": mcpFieldsDesc},
 				},
 				"required": []string{"collection", "query"},
 			},

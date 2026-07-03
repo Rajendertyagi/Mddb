@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.10.2] - 2026-07-03
+
+### Added
+- **MCP search — field projection + honored `includeContent` to cut client token usage** ([#102](https://github.com/tradik/mddb/issues/102)) — the MCP search tools returned the **entire document per hit** (all `meta` keys **and** the full `contentMd` body) with no way to project fields or drop the content, inflating client token usage by ~5–30× on narrow, high-frequency lookups (e.g. a `versions` service that only needs `name` + `currentVersion`). Two gaps are now closed on the MCP read path, both strictly opt-in and backward compatible:
+  - **`includeContent` is now wired end-to-end.** The field existed on `MCPCustomToolDefs` but was never copied into the merged args and never read by the tool handlers, so `includeContent: false` in YAML was silently ignored. It is now merged for **every** search action (`semantic_search`, `search_documents`, `full_text_search`) and honored — when `false`, `contentMd` is omitted from each hit. Defaults to `true`, preserving today's output.
+  - **New `fields` projection.** A `fields: [...]` list (on `custom_tools` defaults **and** as a per-call arg on the built-in `search_documents` / `full_text_search` / `semantic_search` tools) restricts the returned `meta` to the listed keys, reducing each hit to `id`, `key` and the requested `meta.<field>` keys. Empty/unset = full `meta` (unchanged).
+  - Implemented as a client-agnostic post-processing step (`services/mddbd/mcp_projection.go`) applied to the marshaled response, so there is **no change to storage, indexing, or the REST endpoints** — purely additive on the MCP read path. Result: `version_check` drops from ~266 → ~40 response tokens, an 8-hit `batch_version_check` from ~4.5k → ~600. New unit + handler tests cover projection and content omission at 100%; `docs/CUSTOM-TOOLS.md` and the MCP config panel document the two options.
+
 ### Changed
 - **Dependency maintenance (Dependabot sweep)** — merged the open dependency PRs after resolving each one's real breakage rather than rubber-stamping:
   - **`gqlgen` 0.17.91 → 0.17.93** ([#86](https://github.com/tradik/mddb/pull/86)) — `graphql.DeferredGroup` changed (removed `Label`, added `Defers`), so the committed `services/mddbd/graphql/generated.go` was **regenerated** against the new version.

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 // MCPToolServer provides tool and resource call dispatch.
@@ -241,6 +242,57 @@ func mcpGetBool(m map[string]interface{}, key string) bool {
 		return v
 	}
 	return false
+}
+
+// mcpCoerceBool interprets a JSON value as a boolean, tolerating the string
+// ("true"/"false"/"yes"/"no"/"1"/"0") and numeric (1/0) forms that some LLM
+// clients emit instead of a real JSON bool. Returns the parsed value and
+// whether the input was recognized as a boolean at all. Used for token-control
+// flags (e.g. include_content) where silently ignoring a stringified bool would
+// be a footgun.
+func mcpCoerceBool(v interface{}) (val bool, ok bool) {
+	switch t := v.(type) {
+	case bool:
+		return t, true
+	case string:
+		switch strings.ToLower(strings.TrimSpace(t)) {
+		case "true", "1", "yes":
+			return true, true
+		case "false", "0", "no":
+			return false, true
+		}
+	case float64:
+		return t != 0, true
+	}
+	return false, false
+}
+
+// mcpGetStringSlice reads a JSON array of strings into a []string. It also
+// accepts a single string (wrapped into a one-element slice) and a native
+// []string (as produced by YAML custom-tool defaults). Returns nil when the
+// key is absent or holds no strings.
+func mcpGetStringSlice(m map[string]interface{}, key string) []string {
+	switch v := m[key].(type) {
+	case []string:
+		return v
+	case []interface{}:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				out = append(out, s)
+			}
+		}
+		if len(out) == 0 {
+			return nil
+		}
+		return out
+	case string:
+		if v == "" {
+			return nil
+		}
+		return []string{v}
+	}
+	return nil
 }
 
 func mcpGetMetaMap(m map[string]interface{}, key string) map[string][]string {
