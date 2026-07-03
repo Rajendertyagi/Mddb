@@ -887,6 +887,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: services/mddb-cli/go.sum
+
+      - name: Vendor dependencies (self-contained snap build)
+        working-directory: services/mddb-cli
+        env:
+          GOWORK: "off"
+        run: |
+          # GO-015: mddb-cli pins the shared client via a local
+          # `replace mddb-client => ../../clients/go/mddb`, which is NOT visible
+          # inside the snapcraft build sandbox (source: . copies only this dir),
+          # so the sandbox `go build` failed with "replacement directory
+          # ../../clients/go/mddb does not exist". Vendor here in the full
+          # checkout (where the shared module exists) so the snap builds
+          # self-contained — `go build` then uses vendor/ with no path resolution.
+          go mod vendor
+
       - name: Build snap
         id: build
         uses: snapcore/action-build@v1

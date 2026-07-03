@@ -1,6 +1,6 @@
 name: mddb-cli
 title: MDDB CLI
-version: "2.10.0"
+version: "2.10.2"
 summary: Command-line client for MDDB Markdown Database
 description: |
   mddb is the official command-line interface for MDDB (Markdown Database).
@@ -35,4 +35,7 @@ parts:
       - GOFLAGS: "-trimpath"
     override-build: |
       cd $CRAFT_PART_SRC
-      go build -ldflags="-s -w -X main.Version=${CRAFT_PROJECT_VERSION}" -o $CRAFT_PART_INSTALL/bin/mddb .
+      # -mod=vendor: mddb-cli pins the shared client via a local replace that is
+      # not present in the sandbox; the release workflow vendors deps beforehand
+      # so the build is self-contained (see .github/workflows/release.yml).
+      go build -mod=vendor -ldflags="-s -w -X main.Version=${CRAFT_PROJECT_VERSION}" -o $CRAFT_PART_INSTALL/bin/mddb .
