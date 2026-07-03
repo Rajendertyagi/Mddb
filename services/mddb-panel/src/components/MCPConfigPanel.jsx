@@ -54,6 +54,11 @@ custom_tools:
       collection: "docs"
       limit: 10
       algorithm: "bm25"
+      # Token-saving projection (v2.10.2+): drop the body and return only
+      # the meta keys you need. includeContent defaults true; fields empty
+      # returns all meta. Both cut client token usage on narrow lookups.
+      includeContent: false
+      fields: ["title", "url", "category"]
     parameters:
       - name: "query"
         type: "string"

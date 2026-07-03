@@ -42,8 +42,25 @@ func (s *MCPToolServer) toolSearchDocuments(ctx context.Context, args map[string
 		return "", err
 	}
 
+	includeContent, fields := mcpProjectionArgs(args)
+	if mcpProjectionActive(fields, includeContent) {
+		data, _ := json.MarshalIndent(projectSearchResult(resp, fields, includeContent), "", "  ")
+		return string(data), nil
+	}
+
 	data, _ := json.MarshalIndent(resp, "", "  ")
 	return string(data), nil
+}
+
+// mcpProjectionArgs reads the shared projection controls from tool args:
+// include_content (default true, preserving today's full-content output) and
+// fields (empty = all meta keys).
+func mcpProjectionArgs(args map[string]interface{}) (includeContent bool, fields []string) {
+	includeContent = true
+	if v, ok := mcpCoerceBool(args["include_content"]); ok {
+		includeContent = v
+	}
+	return includeContent, mcpGetStringSlice(args, "fields")
 }
 
 func (s *MCPToolServer) toolDeleteDocument(ctx context.Context, args map[string]interface{}) (string, error) {
@@ -177,11 +194,12 @@ func (s *MCPToolServer) toolRestore(ctx context.Context, args map[string]interfa
 }
 
 func (s *MCPToolServer) toolSemanticSearch(ctx context.Context, args map[string]interface{}) (string, error) {
+	includeContent, fields := mcpProjectionArgs(args)
 	req := &MCPVectorSearchRequest{
 		Collection:     mcpGetString(args, "collection"),
 		Query:          mcpGetString(args, "query"),
 		TopK:           mcpGetInt(args, "top_k"),
-		IncludeContent: true,
+		IncludeContent: includeContent,
 		FilterMeta:     mcpGetMetaMap(args, "filter_meta"),
 		Algorithm:      mcpGetString(args, "algorithm"),
 		DistanceMetric: mcpGetString(args, "distance_metric"),
@@ -194,6 +212,11 @@ func (s *MCPToolServer) toolSemanticSearch(ctx context.Context, args map[string]
 	resp, err := s.client.VectorSearch(ctx, req)
 	if err != nil {
 		return "", err
+	}
+
+	if mcpProjectionActive(fields, includeContent) {
+		data, _ := json.MarshalIndent(projectVectorResult(resp, fields, includeContent), "", "  ")
+		return string(data), nil
 	}
 
 	data, _ := json.MarshalIndent(resp, "", "  ")
@@ -277,6 +300,12 @@ func (s *MCPToolServer) toolFTSSearch(ctx context.Context, args map[string]inter
 	resp, err := s.client.FTSSearch(ctx, req)
 	if err != nil {
 		return "", err
+	}
+
+	includeContent, fields := mcpProjectionArgs(args)
+	if mcpProjectionActive(fields, includeContent) {
+		data, _ := json.MarshalIndent(projectFTSResult(resp, fields, includeContent), "", "  ")
+		return string(data), nil
 	}
 
 	data, _ := json.MarshalIndent(resp, "", "  ")

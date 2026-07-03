@@ -27,6 +27,9 @@ type MCPCustomToolDefs struct {
 	Offset         int                 `yaml:"offset"`
 	FilterMeta     map[string][]string `yaml:"filterMeta"`
 	Query          string              `yaml:"query"`
+	// Fields restricts the returned meta keys to the listed names (empty = all).
+	// Applies to semantic_search, search_documents and full_text_search.
+	Fields []string `yaml:"fields"`
 }
 
 // MCPCustomToolParam defines a parameter exposed to the AI.
@@ -99,46 +102,77 @@ func (s *MCPToolServer) mcpCallCustomTool(ctx context.Context, ct MCPCustomToolC
 		merged["query"] = d.Query
 	}
 
-	switch ct.Action {
-	case "semantic_search":
-		if d.TopK > 0 {
-			merged["top_k"] = float64(d.TopK)
-		}
-		if d.Threshold > 0 {
-			merged["threshold"] = d.Threshold
-		}
-		if d.FilterMeta != nil {
-			merged["filter_meta"] = mcpMetaToInterface(d.FilterMeta)
-		}
-	case "search_documents":
-		if d.Sort != "" {
-			merged["sort"] = d.Sort
-		}
-		if d.Asc != nil {
-			merged["asc"] = *d.Asc
-		}
-		if d.Limit > 0 {
-			merged["limit"] = float64(d.Limit)
-		}
-		if d.Offset > 0 {
-			merged["offset"] = float64(d.Offset)
-		}
-		if d.FilterMeta != nil {
-			merged["filter_meta"] = mcpMetaToInterface(d.FilterMeta)
-		}
-	case "full_text_search":
-		if d.Limit > 0 {
-			merged["limit"] = float64(d.Limit)
-		}
-	default:
-		return "", fmt.Errorf("unknown custom tool action: %s", ct.Action)
+	if err := mcpMergeActionDefaults(ct.Action, d, merged); err != nil {
+		return "", err
 	}
+	mcpMergeProjectionDefaults(d, merged)
 
 	for k, v := range userArgs {
 		merged[k] = v
 	}
 
 	return s.mcpCallTool(ctx, ct.Action, merged)
+}
+
+// mcpMergeActionDefaults fills action-specific default arguments into merged.
+func mcpMergeActionDefaults(action string, d MCPCustomToolDefs, merged map[string]interface{}) error {
+	switch action {
+	case "semantic_search":
+		mcpMergeSemanticDefaults(d, merged)
+	case "search_documents":
+		mcpMergeSearchDocDefaults(d, merged)
+	case "full_text_search":
+		if d.Limit > 0 {
+			merged["limit"] = float64(d.Limit)
+		}
+	default:
+		return fmt.Errorf("unknown custom tool action: %s", action)
+	}
+	return nil
+}
+
+// mcpMergeSemanticDefaults fills semantic_search default arguments into merged.
+func mcpMergeSemanticDefaults(d MCPCustomToolDefs, merged map[string]interface{}) {
+	if d.TopK > 0 {
+		merged["top_k"] = float64(d.TopK)
+	}
+	if d.Threshold > 0 {
+		merged["threshold"] = d.Threshold
+	}
+	if d.FilterMeta != nil {
+		merged["filter_meta"] = mcpMetaToInterface(d.FilterMeta)
+	}
+}
+
+// mcpMergeSearchDocDefaults fills search_documents default arguments into merged.
+func mcpMergeSearchDocDefaults(d MCPCustomToolDefs, merged map[string]interface{}) {
+	if d.Sort != "" {
+		merged["sort"] = d.Sort
+	}
+	if d.Asc != nil {
+		merged["asc"] = *d.Asc
+	}
+	if d.Limit > 0 {
+		merged["limit"] = float64(d.Limit)
+	}
+	if d.Offset > 0 {
+		merged["offset"] = float64(d.Offset)
+	}
+	if d.FilterMeta != nil {
+		merged["filter_meta"] = mcpMetaToInterface(d.FilterMeta)
+	}
+}
+
+// mcpMergeProjectionDefaults wires the token-saving projection controls
+// (includeContent + fields) shared by every search action, so a custom tool
+// can drop the document body and/or restrict returned meta keys via YAML.
+func mcpMergeProjectionDefaults(d MCPCustomToolDefs, merged map[string]interface{}) {
+	if d.IncludeContent != nil {
+		merged["include_content"] = *d.IncludeContent
+	}
+	if len(d.Fields) > 0 {
+		merged["fields"] = d.Fields
+	}
 }
 
 func mcpMetaToInterface(meta map[string][]string) map[string]interface{} {

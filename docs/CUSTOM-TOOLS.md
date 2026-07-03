@@ -85,13 +85,45 @@ All defaults are optional. User-provided arguments override defaults.
 | `collection` | string | all | Target collection |
 | `topK` | int | semantic_search | Max results |
 | `threshold` | float | semantic_search | Minimum similarity score (0-1) |
-| `includeContent` | bool | semantic_search | Include document content in results |
+| `includeContent` | bool | all | Include the document body (`contentMd`) in each hit. **Default `true`**; set `false` to drop the body on metadata-only lookups (v2.10.2+) |
+| `fields` | list of string | all | Restrict returned meta to the listed keys; each hit keeps `id`, `key` and the requested `meta.<field>` keys. The body follows `includeContent` (pair with `includeContent: false` to drop it too). **Empty = all meta** (v2.10.2+) |
 | `sort` | string | search_documents | Sort field (addedAt, updatedAt) |
 | `asc` | bool | search_documents | Sort ascending (default false) |
 | `limit` | int | search_documents, full_text_search | Max results |
 | `offset` | int | search_documents | Pagination offset |
 | `filterMeta` | object | semantic_search, search_documents | Metadata filter |
 | `query` | string | semantic_search, full_text_search | Default query (usually overridden) |
+
+### Cutting client token usage (`includeContent` + `fields`)
+
+For narrow, high-frequency lookups the default response is expensive: every hit
+ships **all** meta keys **and** the full `contentMd` body, and each result is
+re-sent on subsequent conversation turns. `includeContent: false` drops the body
+and `fields: [...]` projects the meta down to just the keys you need — together
+they cut client token usage by roughly 5–30× on lookup-style tools. Both are
+strictly opt-in and backward compatible: unset `includeContent` defaults to
+`true` and empty `fields` returns everything, so existing tools are unchanged.
+
+```yaml
+- name: version_check
+  description: "Check the current version of a package"
+  action: full_text_search              # read-only, so allowed in MDDB_MCP_MODE=read
+  defaults:
+    collection: versions
+    limit: 1
+    includeContent: false                 # drop the changelog body
+    fields: [name, currentVersion, versionChangedAt, dockerImage]
+  parameters:
+    - name: query
+      type: string
+      required: true
+```
+
+With this config each hit is reduced to `id`, `key` and the four requested meta
+keys — e.g. `version_check` drops from ~266 to ~40 response tokens, and a 8-hit
+batch lookup from ~4.5k to ~600. Both options also work as per-call arguments
+(`include_content`, `fields`) on the built-in `search_documents`,
+`full_text_search` and `semantic_search` tools.
 
 ### Parameters
 
