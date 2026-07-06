@@ -165,6 +165,24 @@ func TestMcpProjectionArgs(t *testing.T) {
 	if !reflect.DeepEqual(fields, []string{"name", "currentVersion"}) {
 		t.Errorf("fields=%v", fields)
 	}
+
+	// GO-019: fields without an explicit include_content drops the body —
+	// that's the whole point of a fields projection.
+	ic, _ = mcpProjectionArgs(map[string]interface{}{
+		"fields": []interface{}{"name"},
+	})
+	if ic {
+		t.Error("fields without include_content must default to include=false (GO-019)")
+	}
+
+	// Explicit include_content=true still wins over the fields default.
+	ic, _ = mcpProjectionArgs(map[string]interface{}{
+		"include_content": true,
+		"fields":          []interface{}{"name"},
+	})
+	if !ic {
+		t.Error("explicit include_content=true must override the fields default")
+	}
 }
 
 // --- projectMeta ---------------------------------------------------------

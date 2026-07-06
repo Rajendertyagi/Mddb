@@ -274,6 +274,9 @@ func (c *DirectClient) Search(ctx context.Context, req *MCPSearchRequest) (*MCPS
 				if d.ExpiresAt > 0 && d.ExpiresAt < time.Now().Unix() {
 					continue
 				}
+				if !req.IncludeContent {
+					d.ContentMD = "" // GO-022: don't carry a body the caller discards
+				}
 				rows = append(rows, row{*d})
 			}
 		} else {
@@ -307,6 +310,9 @@ func (c *DirectClient) Search(ctx context.Context, req *MCPSearchRequest) (*MCPS
 				}
 				if d.ExpiresAt > 0 && d.ExpiresAt < time.Now().Unix() {
 					continue
+				}
+				if !req.IncludeContent {
+					d.ContentMD = "" // GO-022: don't carry a body the caller discards
 				}
 				rows = append(rows, row{*d})
 			}

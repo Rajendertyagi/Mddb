@@ -89,8 +89,9 @@ func (s *MCPToolServer) readSearchResource(ctx context.Context, uri *url.URL) (s
 
 	query := uri.Query()
 	req := &MCPSearchRequest{
-		Collection: collection,
-		FilterMeta: make(map[string][]string),
+		Collection:     collection,
+		FilterMeta:     make(map[string][]string),
+		IncludeContent: true,
 	}
 
 	for k, v := range query {

@@ -483,6 +483,9 @@ func (c *DirectClient) FTSSearch(ctx context.Context, req *MCPFTSSearchRequest) 
 			if docPtr.ExpiresAt > 0 && docPtr.ExpiresAt < time.Now().Unix() {
 				continue
 			}
+			if !req.IncludeContent {
+				docPtr.ContentMD = "" // GO-022: don't carry a body the caller discards
+			}
 			resp.Results = append(resp.Results, MCPFTSResult{
 				Document:     docToMCPDocument(*docPtr),
 				Score:        res.Score,
