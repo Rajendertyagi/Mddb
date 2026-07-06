@@ -93,7 +93,8 @@ final class Admin {
 			<h1><?php esc_html_e( 'MDDB Sync', 'mddb-sync' ); ?></h1>
 			<form method="post" action="options.php">
 				<?php settings_fields( 'mddb_sync' ); ?>
-				<table class="form-table" role="presentation">
+				<?php // No presentation role: the row headers (<th scope="row">) convey real label→field relationships (Web:S5258). ?>
+				<table class="form-table">
 					<tr>
 						<th scope="row"><label for="mddb_sync_url"><?php esc_html_e( 'MDDB URL', 'mddb-sync' ); ?></label></th>
 						<td>

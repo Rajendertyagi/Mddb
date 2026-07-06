@@ -81,55 +81,64 @@ class Translations {
 		if ( $slug === '' || $sourceId <= 0 ) {
 			return false;
 		}
-
 		if ( $this->polylangActive() ) {
-			pll_set_post_language( $postId, $slug );
-			$translations = function_exists( 'pll_get_post_translations' )
-				? pll_get_post_translations( $sourceId )
-				: [];
-			if ( ! is_array( $translations ) ) {
-				$translations = [];
-			}
-			$sourceLang = function_exists( 'pll_get_post_language' )
-				? (string) pll_get_post_language( $sourceId, 'slug' )
-				: '';
-			if ( $sourceLang !== '' ) {
-				$translations[ $sourceLang ] = $sourceId;
-			}
-			$translations[ $slug ] = $postId;
-			if ( function_exists( 'pll_save_post_translations' ) ) {
-				pll_save_post_translations( $translations );
-			}
-			return true;
+			return $this->linkViaPolylang( $postId, $slug, $sourceId );
 		}
-
 		if ( $this->wpmlActive() ) {
-			$elementType = $this->wpmlElementType( $sourceId );
-			// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- third-party WPML filters/actions.
-			$trid       = apply_filters( 'wpml_element_trid', null, $sourceId, $elementType );
-			$sourceLang = apply_filters(
-				'wpml_element_language_code',
+			return $this->linkViaWpml( $postId, $slug, $sourceId );
+		}
+		return false;
+	}
+
+	private function linkViaPolylang( int $postId, string $slug, int $sourceId ): bool {
+		pll_set_post_language( $postId, $slug );
+		$translations = function_exists( 'pll_get_post_translations' )
+			? pll_get_post_translations( $sourceId )
+			: [];
+		if ( ! is_array( $translations ) ) {
+			$translations = [];
+		}
+		$sourceLang = function_exists( 'pll_get_post_language' )
+			? (string) pll_get_post_language( $sourceId, 'slug' )
+			: '';
+		if ( $sourceLang !== '' ) {
+			$translations[ $sourceLang ] = $sourceId;
+		}
+		$translations[ $slug ] = $postId;
+		if ( function_exists( 'pll_save_post_translations' ) ) {
+			pll_save_post_translations( $translations );
+		}
+		return true;
+	}
+
+	private function linkViaWpml( int $postId, string $slug, int $sourceId ): bool {
+		$elementType = $this->wpmlElementType( $sourceId );
+		// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- third-party WPML filters/actions.
+		// apply_filters_ref_array keeps the extra WPML filter arguments out of
+		// apply_filters' variadic tail (php:S930 flags the arity mismatch).
+		$trid       = apply_filters_ref_array( 'wpml_element_trid', [ null, $sourceId, $elementType ] );
+		$sourceLang = apply_filters_ref_array(
+			'wpml_element_language_code',
+			[
 				null,
 				[
 					'element_id'   => $sourceId,
 					'element_type' => $elementType,
-				]
-			);
-			do_action(
-				'wpml_set_element_language_details',
-				[
-					'element_id'           => $postId,
-					'element_type'         => $elementType,
-					'trid'                 => $trid,
-					'language_code'        => $slug,
-					'source_language_code' => is_string( $sourceLang ) ? $sourceLang : null,
-				]
-			);
-			// phpcs:enable
-			return true;
-		}
-
-		return false;
+				],
+			]
+		);
+		do_action(
+			'wpml_set_element_language_details',
+			[
+				'element_id'           => $postId,
+				'element_type'         => $elementType,
+				'trid'                 => $trid,
+				'language_code'        => $slug,
+				'source_language_code' => is_string( $sourceLang ) ? $sourceLang : null,
+			]
+		);
+		// phpcs:enable
+		return true;
 	}
 
 	/**

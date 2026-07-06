@@ -72,39 +72,13 @@ class Publisher {
 			return $existing;
 		}
 
-		$postarr = [
-			'post_type'   => $type,
-			'post_status' => $status,
-		];
-
-		if ( isset( $payload['title'] ) && is_string( $payload['title'] ) ) {
-			$postarr['post_title'] = sanitize_text_field( $payload['title'] );
-		} elseif ( $existing === null ) {
-			return new \WP_Error( 'mddb_publish_no_title', 'A title is required when creating a post.', [ 'status' => 400 ] );
-		}
-
-		$content = $this->contentFrom( $payload );
-		if ( $content !== null ) {
-			$postarr['post_content'] = $content;
-		}
-		if ( isset( $payload['slug'] ) && is_string( $payload['slug'] ) && $payload['slug'] !== '' ) {
-			$postarr['post_name'] = sanitize_title( $payload['slug'] );
-		}
-		if ( isset( $payload['excerpt'] ) && is_string( $payload['excerpt'] ) ) {
-			$postarr['post_excerpt'] = sanitize_text_field( $payload['excerpt'] );
-		}
-		if ( isset( $payload['author'] ) && (int) $payload['author'] > 0 ) {
-			$postarr['post_author'] = (int) $payload['author'];
-		}
-
-		$dateError = $this->applyDate( $postarr, $payload, $status );
-		if ( is_wp_error( $dateError ) ) {
-			return $dateError;
+		$postarr = $this->buildPostarr( $payload, $existing, $type, $status );
+		if ( is_wp_error( $postarr ) ) {
+			return $postarr;
 		}
 
 		if ( $existing instanceof \WP_Post ) {
-			$postarr['ID'] = (int) $existing->ID;
-			$result        = wp_update_post( wp_slash( $postarr ), true );
+			$result = wp_update_post( wp_slash( $postarr ), true );
 		} else {
 			$result = wp_insert_post( wp_slash( $postarr ), true );
 		}
@@ -197,6 +171,51 @@ class Publisher {
 	}
 
 	/**
+	 * Assemble the wp_insert_post/wp_update_post argument array from the
+	 * payload's scalar fields (title, content, slug, excerpt, author, date).
+	 *
+	 * @param array<string,mixed> $payload
+	 * @param \WP_Post|null       $existing
+	 * @return array<string,mixed>|\WP_Error
+	 */
+	private function buildPostarr( array $payload, $existing, string $type, string $status ) {
+		$postarr = [
+			'post_type'   => $type,
+			'post_status' => $status,
+		];
+
+		if ( isset( $payload['title'] ) && is_string( $payload['title'] ) ) {
+			$postarr['post_title'] = sanitize_text_field( $payload['title'] );
+		} elseif ( $existing === null ) {
+			return new \WP_Error( 'mddb_publish_no_title', 'A title is required when creating a post.', [ 'status' => 400 ] );
+		}
+
+		$content = $this->contentFrom( $payload );
+		if ( $content !== null ) {
+			$postarr['post_content'] = $content;
+		}
+		if ( isset( $payload['slug'] ) && is_string( $payload['slug'] ) && $payload['slug'] !== '' ) {
+			$postarr['post_name'] = sanitize_title( $payload['slug'] );
+		}
+		if ( isset( $payload['excerpt'] ) && is_string( $payload['excerpt'] ) ) {
+			$postarr['post_excerpt'] = sanitize_text_field( $payload['excerpt'] );
+		}
+		if ( isset( $payload['author'] ) && (int) $payload['author'] > 0 ) {
+			$postarr['post_author'] = (int) $payload['author'];
+		}
+		if ( $existing instanceof \WP_Post ) {
+			$postarr['ID'] = (int) $existing->ID;
+		}
+
+		$dateError = $this->applyDate( $postarr, $payload, $status );
+		if ( is_wp_error( $dateError ) ) {
+			return $dateError;
+		}
+
+		return $postarr;
+	}
+
+	/**
 	 * Locate the post targeted by the payload: explicit `id` wins, then
 	 * `type` + `slug`. Returns null when nothing matches (create path).
 	 *
@@ -278,6 +297,17 @@ class Publisher {
 	 * @param array<string,mixed> $payload
 	 */
 	private function assignTaxonomies( int $postId, array $payload ): void {
+		foreach ( $this->taxonomyMap( $payload ) as $taxonomy => $terms ) {
+			// An explicitly provided empty list clears the taxonomy.
+			wp_set_object_terms( $postId, $this->termIds( $terms, $taxonomy ), $taxonomy, false );
+		}
+	}
+
+	/**
+	 * @param array<string,mixed> $payload
+	 * @return array<string,array<int,mixed>>
+	 */
+	private function taxonomyMap( array $payload ): array {
 		$map = [];
 		if ( isset( $payload['tags'] ) && is_array( $payload['tags'] ) ) {
 			$map['post_tag'] = $payload['tags'];
@@ -285,28 +315,35 @@ class Publisher {
 		if ( isset( $payload['categories'] ) && is_array( $payload['categories'] ) ) {
 			$map['category'] = $payload['categories'];
 		}
-		if ( isset( $payload['taxonomies'] ) && is_array( $payload['taxonomies'] ) ) {
-			foreach ( $payload['taxonomies'] as $taxonomy => $terms ) {
-				if ( is_string( $taxonomy ) && $taxonomy !== '' && is_array( $terms ) ) {
-					$map[ sanitize_key( $taxonomy ) ] = $terms;
-				}
+		if ( ! isset( $payload['taxonomies'] ) || ! is_array( $payload['taxonomies'] ) ) {
+			return $map;
+		}
+		foreach ( $payload['taxonomies'] as $taxonomy => $terms ) {
+			if ( is_string( $taxonomy ) && $taxonomy !== '' && is_array( $terms ) ) {
+				$map[ sanitize_key( $taxonomy ) ] = $terms;
 			}
 		}
+		return $map;
+	}
 
-		foreach ( $map as $taxonomy => $terms ) {
-			$ids = [];
-			foreach ( $terms as $term ) {
-				if ( ! is_string( $term ) || trim( $term ) === '' ) {
-					continue;
-				}
-				$id = $this->termId( sanitize_text_field( $term ), $taxonomy );
-				if ( $id > 0 ) {
-					$ids[] = $id;
-				}
+	/**
+	 * Resolve term names to IDs, creating missing terms; blank entries skipped.
+	 *
+	 * @param array<int,mixed> $terms
+	 * @return array<int,int>
+	 */
+	private function termIds( array $terms, string $taxonomy ): array {
+		$ids = [];
+		foreach ( $terms as $term ) {
+			if ( ! is_string( $term ) || trim( $term ) === '' ) {
+				continue;
 			}
-			// An explicitly provided empty list clears the taxonomy.
-			wp_set_object_terms( $postId, $ids, $taxonomy, false );
+			$id = $this->termId( sanitize_text_field( $term ), $taxonomy );
+			if ( $id > 0 ) {
+				$ids[] = $id;
+			}
 		}
+		return $ids;
 	}
 
 	private function termId( string $name, string $taxonomy ): int {

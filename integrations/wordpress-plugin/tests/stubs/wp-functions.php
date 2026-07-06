@@ -176,6 +176,12 @@ if ( ! function_exists( 'get_site_transient' ) ) {
 if ( ! function_exists( 'apply_filters' ) ) {
 	function apply_filters( $hook, $value ) { unset( $hook ); return $value; }
 }
+if ( ! function_exists( 'apply_filters_ref_array' ) ) {
+	function apply_filters_ref_array( $hook, $args ) {
+		unset( $hook );
+		return is_array( $args ) && array_key_exists( 0, $args ) ? $args[0] : null;
+	}
+}
 if ( ! function_exists( 'do_action' ) ) {
 	function do_action( ...$args ): void { unset( $args ); }
 }

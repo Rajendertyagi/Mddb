@@ -93,15 +93,15 @@ final class TranslationsTest extends TestCase {
 
 	public function testWpmlLinkPassesTridAndSourceLanguage(): void {
 		Functions\when( 'get_post_type' )->justReturn( 'post' );
-		Functions\when( 'apply_filters' )->alias(
-			static function ( string $hook, $value = null ) {
+		Functions\when( 'apply_filters_ref_array' )->alias(
+			static function ( string $hook, array $args ) {
 				if ( $hook === 'wpml_element_trid' ) {
 					return 77;
 				}
 				if ( $hook === 'wpml_element_language_code' ) {
 					return 'en';
 				}
-				return $value;
+				return $args[0] ?? null;
 			}
 		);
 		Functions\expect( 'do_action' )->once()->with(
