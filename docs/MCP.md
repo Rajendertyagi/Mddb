@@ -73,7 +73,7 @@ curl -X POST http://localhost:9000/mcp \
 | Env Var | Default | Description |
 |---------|---------|-------------|
 | `MDDB_MCP_CONFIG` | — | Path to YAML file with custom tool definitions |
-| `MDDB_MCP_BUILTIN_TOOLS` | `true` | Set to `false` to hide all 77 built-in tools (only custom tools exposed) |
+| `MDDB_MCP_BUILTIN_TOOLS` | `true` | Set to `false` to hide all 79 built-in tools (only custom tools exposed) |
 
 ### API Key Authentication
 
@@ -237,6 +237,45 @@ Queue long-running bulk ingest jobs from LLMs without blocking on the tool call.
 | Tool | Description | Write? |
 |------|-------------|--------|
 | `autocomplete` | Top-N prefix suggestions over the FTS inverted index, ranked by doc frequency; supports field scoping | No |
+
+## WordPress Publishing Tools (v2.11.0+)
+
+Publish straight from MCP into WordPress sites running the [mddb-sync plugin](../integrations/wordpress-plugin/README.md) with **Remote publishing** enabled. Posts and pages, tags/categories/custom taxonomies, post meta ("metafields") and Polylang/WPML language assignment + translation linking are all supported.
+
+| Tool | Description | Write? |
+|------|-------------|--------|
+| `wordpress_publish` | Create or update a post/page (upsert by `post_id`, else `post_type`+`slug`) with content (Markdown or HTML), status, tags, categories, taxonomies, meta and language | Yes |
+| `wordpress_set_status` | Change publishing status: `publish`, `draft`, `pending`, `private`, `future` (with `date`) or `trash` | Yes |
+
+The target site comes from the collection's config — one collection per WordPress site, matching how the sync plugin pushes content in:
+
+```json
+// 1. Pin the WordPress target to the collection (once)
+{"name": "set_collection_config", "arguments": {
+  "collection": "example_com",
+  "wordpress": {"url": "https://example.com", "api_key": "<publish key from Settings → MDDB Sync>"}
+}}
+
+// 2. Publish a post with tags, meta and a language
+{"name": "wordpress_publish", "arguments": {
+  "collection": "example_com",
+  "post_type": "post",
+  "title": "Hello from MDDB",
+  "content_markdown": "# Hello\n\nPublished via MCP.",
+  "status": "publish",
+  "tags": ["mddb", "mcp"],
+  "categories": ["News"],
+  "meta": {"seoTitle": "Hello from MDDB"},
+  "lang": "en_US"
+}}
+
+// 3. Later: unpublish it
+{"name": "wordpress_set_status", "arguments": {"collection": "example_com", "post_id": 123, "status": "draft"}}
+```
+
+The site URL must be `https://` (plain `http://` only for localhost). Both tools also accept explicit `site_url` + `api_key` arguments to skip the collection config. Translations: pass `lang` plus `translation_of: <post id>` to link a new post as a translation via Polylang or WPML.
+
+> **Projection note (v2.11.0, GO-019):** for `search_documents` / `full_text_search` / `semantic_search` / `hybrid_search`, passing `fields` now also drops the document body by default — pass `include_content: true` explicitly to keep it.
 
 ## Memory RAG Tools
 

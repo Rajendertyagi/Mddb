@@ -2,8 +2,8 @@
 /**
  * Plugin Name:       MDDB Sync
  * Plugin URI:        https://github.com/tradik/mddb
- * Description:       Synchronise WordPress posts and pages to an MDDB instance (https://mddb.tradik.com). On save → POST /v1/add; on delete/trash → POST /v1/delete. Detects post language via Polylang/WPML/WP locale.
- * Version:           0.1.1
+ * Description:       Synchronise WordPress posts and pages to an MDDB instance (https://mddb.tradik.com). On save → POST /v1/add; on delete/trash → POST /v1/delete. Detects post language via Polylang/WPML/WP locale. Optional MCP remote publishing via /wp-json/mddb-sync/v1.
+ * Version:           0.2.0
  * Requires at least: 6.2
  * Requires PHP:      8.2
  * Author:            tradik
@@ -21,7 +21,7 @@ declare(strict_types=1);
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'MDDB_SYNC_VERSION', '0.1.1' );
+define( 'MDDB_SYNC_VERSION', '0.2.0' );
 define( 'MDDB_SYNC_PLUGIN_FILE', __FILE__ );
 define( 'MDDB_SYNC_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MDDB_SYNC_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );

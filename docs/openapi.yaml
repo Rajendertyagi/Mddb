@@ -4285,6 +4285,8 @@ paths:
                   type: object
                   additionalProperties: true
                   description: Custom key-value metadata for the collection
+                wordpress:
+                  $ref: "#/components/schemas/WordPressTargetConfig"
                 storageBackend:
                   type: string
                   enum: [ boltdb, memory, s3 ]
@@ -7791,6 +7793,25 @@ components:
             history stays capped even under high write-churn.
           default: 0
           example: 20
+        wordpress:
+          $ref: "#/components/schemas/WordPressTargetConfig"
+
+    WordPressTargetConfig:
+      type: object
+      description: |
+        (v2.11.0+) WordPress remote-publishing target used by the
+        wordpress_publish / wordpress_set_status MCP tools. Points at a site
+        running the mddb-sync plugin with "Remote publishing" enabled.
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          description: Site base URL. Must be https:// (http only for localhost).
+          example: https://blog.example.com
+        apiKey:
+          type: string
+          description: mddb-sync publish key (Settings → MDDB Sync), sent as Authorization Bearer.
 
     StorageConfigDef:
       type: object

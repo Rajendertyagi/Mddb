@@ -191,6 +191,11 @@ func (s *MCPToolServer) mcpCallTool(ctx context.Context, name string, args map[s
 		return s.toolIngest(ctx, args)
 	case "upload_file":
 		return s.toolUploadFile(ctx, args)
+	// WordPress publishing tools
+	case "wordpress_publish":
+		return s.toolWordPressPublish(ctx, args)
+	case "wordpress_set_status":
+		return s.toolWordPressSetStatus(ctx, args)
 	// Memory RAG tools
 	case "memory_start_session":
 		return s.toolMemoryStartSession(ctx, args)

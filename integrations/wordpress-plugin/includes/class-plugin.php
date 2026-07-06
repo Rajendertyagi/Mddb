@@ -31,18 +31,21 @@ final class Plugin {
 	public function boot(): void {
 		load_plugin_textdomain( 'mddb-sync', false, dirname( MDDB_SYNC_PLUGIN_BASENAME ) . '/languages' );
 
-		$options  = new Settings();
-		$language = new Language();
-		$client   = new Client( $options );
-		$mapper   = new Mapper( $language );
-		$sync     = new Sync( $options, $client, $mapper );
-		$bulk     = new Bulk( $options, $sync );
-		$admin    = new Admin( $options, $client, $bulk );
-		$updater  = new Updater( MDDB_SYNC_PLUGIN_BASENAME, $this->version, MDDB_SYNC_GITHUB_REPO );
+		$options   = new Settings();
+		$language  = new Language();
+		$client    = new Client( $options );
+		$mapper    = new Mapper( $language );
+		$sync      = new Sync( $options, $client, $mapper );
+		$bulk      = new Bulk( $options, $sync );
+		$admin     = new Admin( $options, $client, $bulk );
+		$updater   = new Updater( MDDB_SYNC_PLUGIN_BASENAME, $this->version, MDDB_SYNC_GITHUB_REPO );
+		$publisher = new Publisher( $options, new Markdown(), new Translations() );
+		$rest      = new Rest( $options, $publisher );
 
 		$sync->register();
 		$admin->register();
 		$updater->register();
+		$rest->register();
 	}
 
 	/**

@@ -40,4 +40,13 @@ class WP_Error { // phpcs:ignore
 	public function get_error_data() { // phpcs:ignore
 		return $this->data;
 	}
+
+	/**
+	 * @param mixed $data
+	 */
+	public function add_data( $data ): void { // phpcs:ignore
+		if ( is_array( $data ) ) {
+			$this->data = array_replace( $this->data, $data );
+		}
+	}
 }

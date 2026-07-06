@@ -2,7 +2,21 @@
 
 All notable changes to this WordPress plugin are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/); the plugin adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Releases are tagged `wp-vX.Y.Z` in this repository to avoid clashing with `vX.Y.Z` tags used for the core MDDB server.
 
-## [Unreleased]
+## [0.2.0] - 2026-07-06
+
+### Added
+
+- **Remote publishing (MCP → WordPress)** — new opt-in REST namespace `mddb-sync/v1` lets MDDB's MCP tools (`wordpress_publish`, `wordpress_set_status`, MDDB ≥ 2.11.0) publish into this site:
+  - [`includes/class-rest.php`](includes/class-rest.php) — `POST /publish` (create/update posts & pages: title, Markdown or sanitised HTML content, excerpt, status incl. scheduled `future`, author, slug) and `POST /status` (publish/draft/pending/private/future/trash with untrash-on-restore). Both routes are dead until the **Remote publishing** toggle is on AND a publish key is set; every request must present the key as `Authorization: Bearer` (or `X-MDDB-Publish-Key`), compared with `hash_equals`.
+  - [`includes/class-publisher.php`](includes/class-publisher.php) — application layer: post-type allow-list (reuses the plugin's postTypes setting), status validation, upsert by `id` or `type`+`slug`, tags/categories/custom `taxonomies` (terms created on first use), `meta` fields (control-character keys dropped), ISO-8601 date handling for scheduling.
+  - [`includes/class-markdown.php`](includes/class-markdown.php) — dependency-free Markdown→HTML converter (headings, fenced code, lists, blockquotes, links, images, emphasis). Escapes ALL raw HTML before transforming, so `<script>` in Markdown can never reach `post_content`; `contentHtml` payloads go through `wp_kses_post` instead.
+  - [`includes/class-translations.php`](includes/class-translations.php) — write-side multilingual glue: assigns `lang` and links `translationOf` via Polylang (`pll_set_post_language` / `pll_save_post_translations`) or WPML (`wpml_set_element_language_details` with trid + source language). Degrades gracefully when neither is active.
+  - Settings: new `enablePublish` (default **off**) and `publishKey` options with admin UI rows; enabling without a key auto-generates a strong one (`wp_generate_password(43)`).
+  - Published/updated posts flow back to MDDB through the existing `wp_after_insert_post` sync, keeping the collection current.
+
+### Tests
+
+- 134 PHPUnit tests, **93.4 % line coverage** — new suites `MarkdownTest`, `PublisherTest`, `RestTest`, `TranslationsTest` + extended `SettingsTest`; new `WP_REST_Request` stub. phpcs (WordPress security ruleset) and PHPStan level 5 clean.
 
 ### Changed
 

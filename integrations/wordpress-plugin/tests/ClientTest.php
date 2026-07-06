@@ -35,8 +35,7 @@ final class ClientTest extends TestCase {
 		$big = str_repeat( "secret line\n", 200 ); // ~2400 chars, multi-line
 		Functions\when( 'wp_remote_retrieve_body' )->justReturn( $big );
 
-		$m = new \ReflectionMethod( Client::class, 'responseSnippet' );
-		$m->setAccessible( true );
+		$m   = new \ReflectionMethod( Client::class, 'responseSnippet' );
 		$out = $m->invoke( null, [] );
 
 		self::assertLessThanOrEqual( 201, mb_strlen( $out ), 'snippet must be bounded' );

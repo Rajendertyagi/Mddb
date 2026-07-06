@@ -70,6 +70,10 @@ type MCPSearchRequest struct {
 	Asc        bool                `json:"asc,omitempty"`
 	Limit      int                 `json:"limit,omitempty"`
 	Offset     int                 `json:"offset,omitempty"`
+	// IncludeContent=false drops each document's body at the store layer so
+	// projection doesn't pay for content it discards (GO-022). Callers that
+	// want bodies must set it explicitly (the tool layer defaults to true).
+	IncludeContent bool `json:"includeContent,omitempty"`
 }
 
 // MCPSearchResponse represents search result.
@@ -286,6 +290,8 @@ type MCPFTSSearchRequest struct {
 	Fuzzy      int                `json:"fuzzy,omitempty"`
 	Lang       string             `json:"lang,omitempty"`
 	Boost      map[string]float64 `json:"boost,omitempty"`
+	// IncludeContent — see MCPSearchRequest (GO-022).
+	IncludeContent bool `json:"includeContent,omitempty"`
 }
 
 // MCPFTSResult represents a single FTS result.
@@ -585,13 +591,14 @@ type MCPCollectionConfigResponse struct {
 
 // MCPSetCollectionConfigRequest is the request for set_collection_config.
 type MCPSetCollectionConfigRequest struct {
-	Collection   string            `json:"collection"`
-	Type         string            `json:"type,omitempty"`
-	Description  string            `json:"description,omitempty"`
-	Icon         string            `json:"icon,omitempty"`
-	Color        string            `json:"color,omitempty"`
-	CustomMeta   map[string]string `json:"customMeta,omitempty"`
-	MaxRevisions int               `json:"maxRevisions,omitempty"`
+	Collection   string                 `json:"collection"`
+	Type         string                 `json:"type,omitempty"`
+	Description  string                 `json:"description,omitempty"`
+	Icon         string                 `json:"icon,omitempty"`
+	Color        string                 `json:"color,omitempty"`
+	CustomMeta   map[string]string      `json:"customMeta,omitempty"`
+	MaxRevisions int                    `json:"maxRevisions,omitempty"`
+	WordPress    *WordPressTargetConfig `json:"wordpress,omitempty"`
 }
 
 // MCPCollectionConfigListResponse is the response for list_collection_configs.

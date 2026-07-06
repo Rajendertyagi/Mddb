@@ -1166,9 +1166,11 @@ curl -s https://mddb.tradik.com/v1/search \
 
 ---
 
-## 7. WordPress → MDDB (Sync plugin)
+## 7. WordPress ⇄ MDDB (Sync plugin)
 
 [integrations/wordpress-plugin/](https://github.com/tradik/mddb/tree/main/integrations/wordpress-plugin) — first-party WordPress plugin that mirrors **posts** and **pages** (or any public post type) into MDDB. Unlike `wpexporter` (one-shot bulk migration), this plugin keeps the two stores in lock-step: every save / publish / trash / delete in WordPress is reflected in MDDB in real time.
+
+Since plugin 0.2.0 + MDDB 2.11.0 the bridge is **two-way**: the plugin's opt-in `mddb-sync/v1` REST routes let the `wordpress_publish` / `wordpress_set_status` MCP tools create, update and (un)publish posts and pages from any MCP client — tags, categories, custom taxonomies, meta fields and Polylang/WPML translations included. See [MCP.md → WordPress Publishing Tools](MCP.md#wordpress-publishing-tools-v2110).
 
 | Property | Value |
 |---|---|
@@ -1176,12 +1178,13 @@ curl -s https://mddb.tradik.com/v1/search \
 | Release tag prefix | `wp-v` (e.g. `wp-v0.1.0`) — separate from core MDDB `vX.Y.Z` tags |
 | Release asset | `mddb-sync-<version>.zip` attached to each GitHub Release |
 | WP requires | 6.2+ |
-| PHP requires | 8.1+ |
+| PHP requires | 8.2+ |
 
 ### Hooks
 
 - `wp_after_insert_post` → `POST /v1/add` (autosaves & revisions skipped; drafts opt-in).
 - `wp_trash_post` and `before_delete_post` → `POST /v1/delete`.
+- `rest_api_init` → registers `POST /wp-json/mddb-sync/v1/publish` + `/status` (only when Remote publishing is enabled; bearer publish key required).
 - `pre_set_site_transient_update_plugins` + `plugins_api` → self-update channel hitting `repos/tradik/mddb/releases/latest`.
 
 ### Settings (Settings → MDDB Sync)

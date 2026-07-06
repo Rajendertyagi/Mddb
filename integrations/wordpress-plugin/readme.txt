@@ -3,12 +3,12 @@ Contributors: tradik
 Tags: mddb, search, sync, markdown, polylang, wpml
 Requires at least: 6.2
 Tested up to: 6.7
-Requires PHP: 8.1
-Stable tag: 0.1.1
+Requires PHP: 8.2
+Stable tag: 0.2.0
 License: BSD-3-Clause
 License URI: https://opensource.org/licenses/BSD-3-Clause
 
-Synchronise WordPress posts and pages to an MDDB (Markdown Database) instance.
+Synchronise WordPress posts and pages to an MDDB (Markdown Database) instance, with optional MCP remote publishing back into WordPress.
 
 == Description ==
 
@@ -24,6 +24,7 @@ Features:
 * Three key strategies: post-type + ID, post-type + slug, or permalink path.
 * Retry with exponential backoff on 429 / 5xx.
 * Settings → MDDB Sync screen with a "Test connection" button.
+* Optional remote publishing: /wp-json/mddb-sync/v1/publish and /status let MDDB's MCP tools create, update and (un)publish posts/pages — with tags, categories, custom taxonomies, meta fields and Polylang/WPML translations. Off by default, bearer-key protected.
 
 == Installation ==
 
@@ -47,6 +48,12 @@ Yes — the language detector first asks Polylang, then WPML, then falls back to
 The plugin queries GitHub Releases (`repos/tradik/mddb/releases/latest`) once every 12 h. When a newer release ships with a `mddb-sync-<version>.zip` asset, WordPress's standard Dashboard → Updates flow offers it.
 
 == Changelog ==
+
+= 0.2.0 =
+* Remote publishing (opt-in): /wp-json/mddb-sync/v1/publish and /status endpoints for MDDB's MCP tools — create/update posts and pages with tags, categories, custom taxonomies, meta fields, scheduling and Polylang/WPML translations; change publishing status incl. trash/untrash.
+* New settings: "Remote publishing (MCP)" toggle (off by default) and bearer publish key (auto-generated on first enable).
+* Built-in HTML-escaping Markdown converter for contentMarkdown payloads; contentHtml is sanitised with wp_kses_post.
+* PHP support window 8.2–8.5; security hardening for logs, release notes, update ZIP host and https-only endpoint URL.
 
 = 0.1.1 =
 * Mapper now exports every `get_post_meta()` key, every taxonomy attached to the post type, ACF `get_fields()` (namespaced `acf:*`), and normalised SEO fields from Yoast / RankMath / SEOPress.

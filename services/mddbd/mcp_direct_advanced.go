@@ -212,6 +212,9 @@ func (c *DirectClient) GetCollectionConfig(ctx context.Context, collection strin
 
 // SetCollectionConfig updates configuration for a collection via the direct client.
 func (c *DirectClient) SetCollectionConfig(ctx context.Context, req *MCPSetCollectionConfigRequest) error {
+	if err := validateWordPressTarget(req.WordPress); err != nil {
+		return err
+	}
 	cfg := &CollectionConfig{
 		Type:         req.Type,
 		Description:  req.Description,
@@ -219,6 +222,7 @@ func (c *DirectClient) SetCollectionConfig(ctx context.Context, req *MCPSetColle
 		Color:        req.Color,
 		CustomMeta:   req.CustomMeta,
 		MaxRevisions: req.MaxRevisions,
+		WordPress:    req.WordPress,
 	}
 	return c.server.CollectionManager.Set(req.Collection, cfg)
 }
