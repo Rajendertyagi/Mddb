@@ -54,11 +54,36 @@ func hostExempt(host string) bool {
 	return outboundAllowPrivate() || outboundAllowlistHas(host)
 }
 
+// extraDenyCIDRs covers ranges net.IP's predicates miss (SEC-011): RFC 6598
+// CGNAT 100.64.0.0/10 (cloud/k8s fabrics put node & service endpoints there),
+// RFC 6890 192.0.0.0/24, RFC 2544 benchmarking 198.18.0.0/15 and the limited
+// broadcast address.
+var extraDenyCIDRs = func() []*net.IPNet {
+	cidrs := []string{"100.64.0.0/10", "192.0.0.0/24", "198.18.0.0/15", "255.255.255.255/32"}
+	out := make([]*net.IPNet, 0, len(cidrs))
+	for _, c := range cidrs {
+		_, n, err := net.ParseCIDR(c)
+		if err != nil {
+			panic("httpclient: bad deny CIDR " + c) // unreachable: literals above
+		}
+		out = append(out, n)
+	}
+	return out
+}()
+
 // isDisallowedIP reports whether ip is in a range that outbound user requests
 // must not reach.
 func isDisallowedIP(ip net.IP) bool {
-	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() ||
-		ip.IsLinkLocalMulticast() || ip.IsUnspecified()
+	if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() ||
+		ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
+		return true
+	}
+	for _, n := range extraDenyCIDRs {
+		if n.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }
 
 // SafeDialContext is a net.Dialer DialContext that blocks SSRF targets.

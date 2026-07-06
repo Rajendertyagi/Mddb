@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.11.0] - 2026-07-06
+
+### Added
+- **MCP → WordPress publishing** — two new MCP tools close the loop with the `mddb-sync` WordPress plugin (which until now only pushed content *into* MDDB):
+  - **`wordpress_publish`** — create or update a WordPress **post/page** (upsert by `post_id`, else `post_type`+`slug`) with Markdown or sanitised-HTML content, excerpt, status (incl. scheduled `future` with ISO date), author, **tags/categories/custom taxonomies** (terms created on first use), **meta fields**, and **Polylang/WPML language assignment + translation linking** (`lang`, `translation_of`).
+  - **`wordpress_set_status`** — flip publishing status (`publish`, `draft`, `pending`, `private`, `future`, `trash`; untrash-on-restore handled).
+  - The target site is pinned per collection via `set_collection_config` → new `wordpress {url, api_key}` object (also on `PUT /v1/collection-config`; `https://` enforced, `http` only for localhost), or passed explicitly as `site_url`/`api_key`. Built-in MCP tool count: **77 → 79**.
+  - Counterpart: **mddb-sync WordPress plugin 0.2.0** ships the opt-in, bearer-key-protected `mddb-sync/v1` REST routes (`/publish`, `/status`) these tools call — see `integrations/wordpress-plugin/CHANGELOG.md`.
+
+### Changed
+- **`fields` projection now drops the body by default** (GO-019) — `search_documents` / `full_text_search` / `semantic_search` / `hybrid_search` called with `fields: [...]` and no explicit `include_content` no longer return `content_md`, matching the documented "each hit is reduced to id, key and the listed meta" contract and actually realising the advertised token savings. Explicit `include_content: true` restores the old behavior.
+- **Search/FTS skip loading bodies the projection discards** (GO-022) — `MCPSearchRequest`/`MCPFTSSearchRequest` carry `IncludeContent` end-to-end (like semantic search already did), so `include_content: false` stops paying I/O and allocations for content that was thrown away server-side. All other callers (memory tools, MCP resources, GraphQL) explicitly request bodies — output unchanged.
+
+### Security
+- **Custom MCP tools: operator scope is now locked** (SEC-010) — client args can no longer override `collection`, `filter_meta`, `include_content` or `fields` pinned in a custom tool's `defaults`, and only parameters declared under `parameters:` pass through at all. A tool pinned to a public collection with data-minimization can no longer be steered at `collection: secrets` with full bodies.
+- **SSRF deny-list covers CGNAT & friends** (SEC-011) — outbound guard (`webhooks`, `import_url`, automation) now also blocks `100.64.0.0/10` (RFC 6598), `192.0.0.0/24`, `198.18.0.0/15` and `255.255.255.255`.
+- **mddb-panel: 0 prod npm vulnerabilities** (FE-011) — `npm audit fix` cleared 3 high (http-proxy-middleware, path-to-regexp, picomatch ReDoS) + 2 moderate (follow-redirects, qs); build and tests green.
+
+### Fixed
+- **Ring compose obeys the repo compose rules** (OPS-013) — `docker-compose.ring.yml` gained 10 MB log rotation, `deploy.resources` limits/reservations on every service, and per-follower healthchecks on the real ports (`11033`/`11043` — followers were permanently `unhealthy` against the Dockerfile default `11023`).
+- **`mddb-cli` image no longer runs as root** (OPS-017) — runtime stage adds a `mddb` (uid 1000) user + `USER` directive, matching every other shipped image.
+- **golangci-lint SA5011 findings were a stale cache** (GO-023) — verified the flagged test sites already `t.Fatal` in their nil-branches; `golangci-lint cache clean && golangci-lint run` = 0 issues.
+
 ## [2.10.2] - 2026-07-03
 
 ### Added

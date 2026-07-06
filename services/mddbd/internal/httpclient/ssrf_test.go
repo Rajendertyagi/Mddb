@@ -21,9 +21,20 @@ func TestIsDisallowedIP(t *testing.T) {
 		{"192.168.1.1", true},     // RFC1918
 		{"169.254.169.254", true}, // link-local (cloud metadata)
 		{"0.0.0.0", true},         // unspecified
+		// SEC-011: ranges net.IP predicates miss.
+		{"100.64.0.1", true},      // CGNAT lower bound (RFC 6598)
+		{"100.100.10.10", true},   // CGNAT middle (k8s/cloud fabrics)
+		{"100.127.255.254", true}, // CGNAT upper bound
+		{"192.0.0.1", true},       // RFC 6890 protocol assignments
+		{"198.18.0.1", true},      // RFC 2544 benchmarking
+		{"198.19.255.254", true},  // RFC 2544 upper half
+		{"255.255.255.255", true}, // limited broadcast
 		{"8.8.8.8", false},        // public
 		{"1.1.1.1", false},        // public
 		{"93.184.216.34", false},  // public (example.com)
+		{"100.63.255.254", false}, // just below CGNAT — stays public
+		{"100.128.0.1", false},    // just above CGNAT — stays public
+		{"198.17.255.254", false}, // just below benchmarking — public
 	}
 	for _, tt := range tests {
 		t.Run(tt.ip, func(t *testing.T) {

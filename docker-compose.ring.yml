@@ -10,6 +10,31 @@
 #   Panel:      :3000
 
 # ── Reusable anchors (OPS-003: DRY — every mddbd node shares these) ──────────
+# Log rotation + resource tiers (OPS-013: same compose rules as docker-compose.yml).
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-deploy-server: &deploy-server
+  resources:
+    limits:
+      cpus: "2.00"
+      memory: 2G
+    reservations:
+      cpus: "0.50"
+      memory: 512M
+
+x-deploy-small: &deploy-small
+  resources:
+    limits:
+      cpus: "0.50"
+      memory: 256M
+    reservations:
+      cpus: "0.10"
+      memory: 64M
+
 # Build context for all three mddbd nodes (leader + 2 followers).
 x-mddbd-build: &mddbd-build
   context: .
@@ -31,6 +56,14 @@ x-leader-healthy: &leader-healthy
   leader:
     condition: service_healthy
 
+# Healthcheck timings shared by every node; only the probed URL differs
+# (OPS-013: followers listen on 11033/11043, not the Dockerfile default 11023).
+x-healthcheck-defaults: &healthcheck-defaults
+  interval: 10s
+  timeout: 3s
+  retries: 5
+  start_period: 5s
+
 services:
   # ── Leader Node ──────────────────────────────────────────
   leader:
@@ -50,11 +83,11 @@ services:
     volumes:
       - leader-data:/app/data
     healthcheck:
+      <<: *healthcheck-defaults
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:11023/health"]
       interval: 5s
-      timeout: 3s
-      retries: 5
-      start_period: 5s
+    logging: *default-logging
+    deploy: *deploy-server
 
   # ── Follower 1 ──────────────────────────────────────────
   follower-1:
@@ -71,6 +104,11 @@ services:
     volumes:
       - follower1-data:/app/data
     depends_on: *leader-healthy
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:11033/health"]
+    logging: *default-logging
+    deploy: *deploy-server
 
   # ── Follower 2 ──────────────────────────────────────────
   follower-2:
@@ -87,6 +125,11 @@ services:
     volumes:
       - follower2-data:/app/data
     depends_on: *leader-healthy
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:11043/health"]
+    logging: *default-logging
+    deploy: *deploy-server
 
   # ── Panel (dev mode with API proxy to leader) ───────────
   panel:
@@ -100,6 +143,8 @@ services:
     environment:
       MDDB_SERVER: "http://leader:11023"
     depends_on: *leader-healthy
+    logging: *default-logging
+    deploy: *deploy-small
 
 volumes:
   leader-data:
