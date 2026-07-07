@@ -10,7 +10,9 @@ export default defineConfig({
       formats: ['iife'],
     },
     outDir: 'dist',
-    minify: 'esbuild',
+    // vite 8 (rolldown) dropped the bundled esbuild — its native oxc
+    // minifier replaces minify: 'esbuild'.
+    minify: 'oxc',
     rollupOptions: {
       output: {
         entryFileNames: 'mddb-chat.min.js',

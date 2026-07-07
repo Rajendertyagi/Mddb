@@ -81,6 +81,12 @@ updates:
     groups:
       docker-minor-patch:
         update-types: [minor, patch]
+    ignore:
+      # airbyte-cdk (every 7.x release, incl. latest) pins requires-python
+      # <3.14 — the connector cannot move past python:3.13 until the CDK
+      # lifts that cap. Re-check when airbyte-cdk 8 ships.
+      - dependency-name: python
+        versions: [">=3.14"]
 
   # --- GitHub Actions used by all workflows ---
   - package-ecosystem: github-actions
