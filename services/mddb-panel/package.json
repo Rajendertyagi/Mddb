@@ -1,6 +1,6 @@
 {
   "name": "mddb-panel",
-  "version": "2.10.0",
+  "version": "2.11.2",
   "description": "Web admin panel for MDDB - Markdown Database",
   "license": "BSD-3-Clause",
   "type": "module",
@@ -15,7 +15,6 @@
   "dependencies": {
     "date-fns": "^4.4.0",
     "express": "^5.1.0",
-    "graphql": "^17.0.2",
     "http-proxy-middleware": "^4.2.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.23.0",
