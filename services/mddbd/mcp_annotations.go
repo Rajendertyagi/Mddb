@@ -114,6 +114,10 @@ var mcpToolAnnotations = map[string]*MCPToolAnnotations{
 	"vector_reindex": writeOpenWorld(),
 	"fts_reindex":    writeNonIdempotent(),
 
+	// --- WordPress publishing (outbound HTTP to the mddb-sync plugin) ---
+	"wordpress_publish":    writeOpenWorld(),
+	"wordpress_set_status": writeOpenWorld(),
+
 	// --- Destructive, idempotent ---
 	"delete_document":   destructiveIdempotent(),
 	"delete_webhook":    destructiveIdempotent(),

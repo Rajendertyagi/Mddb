@@ -39,6 +39,17 @@ type CollectionConfig struct {
 	// because they are queryable structures — see docs/config.md for the
 	// full threat model.
 	Encrypted bool `json:"encrypted,omitempty"`
+	// WordPress remote-publishing target used by the wordpress_publish /
+	// wordpress_set_status MCP tools. The URL points at a site running the
+	// mddb-sync plugin with "Remote publishing" enabled; APIKey is that
+	// plugin's publish key (sent as Authorization: Bearer).
+	WordPress *WordPressTargetConfig `json:"wordpress,omitempty"`
+}
+
+// WordPressTargetConfig holds the outbound publishing endpoint for a collection.
+type WordPressTargetConfig struct {
+	URL    string `json:"url"`              // site base URL, e.g. https://blog.example.com
+	APIKey string `json:"apiKey,omitempty"` // mddb-sync publish key
 }
 
 // StorageConfigDef holds backend-specific configuration for non-default storage backends.
@@ -194,17 +205,18 @@ func (cm *CollectionManager) ListAll() map[string]*CollectionConfig {
 
 // SetCollectionConfigRequest is the request body for PUT /v1/collection-config.
 type SetCollectionConfigRequest struct {
-	Collection     string            `json:"collection"`
-	Type           string            `json:"type,omitempty"`
-	Description    string            `json:"description,omitempty"`
-	Icon           string            `json:"icon,omitempty"`
-	Color          string            `json:"color,omitempty"`
-	CustomMeta     map[string]string `json:"customMeta,omitempty"`
-	StorageBackend string            `json:"storageBackend,omitempty"` // "boltdb", "memory", "s3"
-	StorageConfig  *StorageConfigDef `json:"storageConfig,omitempty"`
-	Quantization   string            `json:"quantization,omitempty"` // "float32" (default), "int8", "int4"
-	MaxRevisions   int               `json:"maxRevisions,omitempty"` // keep last N revisions per doc (0 = unlimited)
-	Encrypted      bool              `json:"encrypted,omitempty"`    // opt collection into AES-256-GCM at-rest encryption
+	Collection     string                 `json:"collection"`
+	Type           string                 `json:"type,omitempty"`
+	Description    string                 `json:"description,omitempty"`
+	Icon           string                 `json:"icon,omitempty"`
+	Color          string                 `json:"color,omitempty"`
+	CustomMeta     map[string]string      `json:"customMeta,omitempty"`
+	StorageBackend string                 `json:"storageBackend,omitempty"` // "boltdb", "memory", "s3"
+	StorageConfig  *StorageConfigDef      `json:"storageConfig,omitempty"`
+	Quantization   string                 `json:"quantization,omitempty"` // "float32" (default), "int8", "int4"
+	MaxRevisions   int                    `json:"maxRevisions,omitempty"` // keep last N revisions per doc (0 = unlimited)
+	Encrypted      bool                   `json:"encrypted,omitempty"`    // opt collection into AES-256-GCM at-rest encryption
+	WordPress      *WordPressTargetConfig `json:"wordpress,omitempty"`    // outbound publishing target (mddb-sync plugin)
 }
 
 func (s *Server) handleCollectionConfig(w http.ResponseWriter, r *http.Request) {
@@ -301,6 +313,11 @@ func (s *Server) handleCollectionConfigSet(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	if err := validateWordPressTarget(req.WordPress); err != nil {
+		bad(w, err)
+		return
+	}
+
 	cfg := &CollectionConfig{
 		Type:           req.Type,
 		Description:    req.Description,
@@ -312,6 +329,7 @@ func (s *Server) handleCollectionConfigSet(w http.ResponseWriter, r *http.Reques
 		Quantization:   qt,
 		MaxRevisions:   req.MaxRevisions,
 		Encrypted:      req.Encrypted,
+		WordPress:      req.WordPress,
 	}
 	if err := s.CollectionManager.Set(req.Collection, cfg); err != nil {
 		bad(w, err)

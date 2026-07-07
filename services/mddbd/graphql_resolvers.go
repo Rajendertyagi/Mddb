@@ -32,12 +32,13 @@ func (a *GraphQLAdapter) SearchDocuments(ctx context.Context, input gql.SearchIn
 		return nil, err
 	}
 	req := &MCPSearchRequest{
-		Collection: input.Collection,
-		FilterMeta: gql.MapMetaInputToInternal(input.FilterMeta),
-		Sort:       derefString(input.Sort),
-		Asc:        derefBool(input.Asc, true),
-		Limit:      derefInt(input.Limit, 100),
-		Offset:     derefInt(input.Offset, 0),
+		Collection:     input.Collection,
+		FilterMeta:     gql.MapMetaInputToInternal(input.FilterMeta),
+		Sort:           derefString(input.Sort),
+		Asc:            derefBool(input.Asc, true),
+		Limit:          derefInt(input.Limit, 100),
+		Offset:         derefInt(input.Offset, 0),
+		IncludeContent: true,
 	}
 	resp, err := a.mcp.Search(ctx, req)
 	if err != nil {
@@ -374,9 +375,10 @@ func (a *GraphQLAdapter) FullTextSearch(ctx context.Context, input gql.FTSInput)
 		return nil, err
 	}
 	resp, err := a.mcp.FTSSearch(ctx, &MCPFTSSearchRequest{
-		Collection: input.Collection,
-		Query:      input.Query,
-		Limit:      derefInt(input.Limit, 50),
+		Collection:     input.Collection,
+		Query:          input.Query,
+		Limit:          derefInt(input.Limit, 50),
+		IncludeContent: true,
 	})
 	if err != nil {
 		return nil, err

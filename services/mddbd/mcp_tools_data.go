@@ -26,12 +26,17 @@ func (s *MCPToolServer) toolAddDocument(ctx context.Context, args map[string]int
 }
 
 func (s *MCPToolServer) toolSearchDocuments(ctx context.Context, args map[string]interface{}) (string, error) {
+	// Resolve projection controls up-front so the store can skip loading
+	// bodies that the projection would discard anyway (GO-022).
+	includeContent, fields := mcpProjectionArgs(args)
+
 	req := &MCPSearchRequest{
-		Collection: mcpGetString(args, "collection"),
-		FilterMeta: mcpGetMetaMap(args, "filter_meta"),
-		Sort:       mcpGetString(args, "sort"),
-		Limit:      mcpGetInt(args, "limit"),
-		Offset:     mcpGetInt(args, "offset"),
+		Collection:     mcpGetString(args, "collection"),
+		FilterMeta:     mcpGetMetaMap(args, "filter_meta"),
+		Sort:           mcpGetString(args, "sort"),
+		Limit:          mcpGetInt(args, "limit"),
+		Offset:         mcpGetInt(args, "offset"),
+		IncludeContent: includeContent,
 	}
 	if asc, ok := args["asc"].(bool); ok {
 		req.Asc = asc
@@ -42,7 +47,6 @@ func (s *MCPToolServer) toolSearchDocuments(ctx context.Context, args map[string
 		return "", err
 	}
 
-	includeContent, fields := mcpProjectionArgs(args)
 	if mcpProjectionActive(fields, includeContent) {
 		data, _ := json.MarshalIndent(projectSearchResult(resp, fields, includeContent), "", "  ")
 		return string(data), nil
@@ -53,14 +57,17 @@ func (s *MCPToolServer) toolSearchDocuments(ctx context.Context, args map[string
 }
 
 // mcpProjectionArgs reads the shared projection controls from tool args:
-// include_content (default true, preserving today's full-content output) and
-// fields (empty = all meta keys).
+// include_content and fields (empty = all meta keys). When include_content is
+// not provided it defaults to true for full-shape output, but to FALSE when
+// the caller narrowed to specific fields (GO-019): a fields projection exists
+// to cut tokens, so the body must not tag along. Explicit include_content
+// always wins.
 func mcpProjectionArgs(args map[string]interface{}) (includeContent bool, fields []string) {
-	includeContent = true
+	fields = mcpGetStringSlice(args, "fields")
 	if v, ok := mcpCoerceBool(args["include_content"]); ok {
-		includeContent = v
+		return v, fields
 	}
-	return includeContent, mcpGetStringSlice(args, "fields")
+	return len(fields) == 0, fields
 }
 
 func (s *MCPToolServer) toolDeleteDocument(ctx context.Context, args map[string]interface{}) (string, error) {
@@ -287,14 +294,19 @@ func (s *MCPToolServer) toolSetTTL(ctx context.Context, args map[string]interfac
 }
 
 func (s *MCPToolServer) toolFTSSearch(ctx context.Context, args map[string]interface{}) (string, error) {
+	// Resolve projection controls up-front so the store can skip loading
+	// bodies that the projection would discard anyway (GO-022).
+	includeContent, fields := mcpProjectionArgs(args)
+
 	req := &MCPFTSSearchRequest{
-		Collection: mcpGetString(args, "collection"),
-		Query:      mcpGetString(args, "query"),
-		Limit:      mcpGetInt(args, "limit"),
-		Algorithm:  mcpGetString(args, "algorithm"),
-		Fuzzy:      mcpGetInt(args, "fuzzy"),
-		Lang:       mcpGetString(args, "lang"),
-		Boost:      mcpGetFloat64Map(args, "boost"),
+		Collection:     mcpGetString(args, "collection"),
+		Query:          mcpGetString(args, "query"),
+		Limit:          mcpGetInt(args, "limit"),
+		Algorithm:      mcpGetString(args, "algorithm"),
+		Fuzzy:          mcpGetInt(args, "fuzzy"),
+		Lang:           mcpGetString(args, "lang"),
+		Boost:          mcpGetFloat64Map(args, "boost"),
+		IncludeContent: includeContent,
 	}
 
 	resp, err := s.client.FTSSearch(ctx, req)
@@ -302,7 +314,6 @@ func (s *MCPToolServer) toolFTSSearch(ctx context.Context, args map[string]inter
 		return "", err
 	}
 
-	includeContent, fields := mcpProjectionArgs(args)
 	if mcpProjectionActive(fields, includeContent) {
 		data, _ := json.MarshalIndent(projectFTSResult(resp, fields, includeContent), "", "  ")
 		return string(data), nil

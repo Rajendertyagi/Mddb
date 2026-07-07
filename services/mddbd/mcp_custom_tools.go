@@ -90,8 +90,22 @@ func mcpAllTools(customDefs []MCPCustomToolConfig) []MCPTool {
 	return tools
 }
 
-// mcpCallCustomTool merges user-provided args with defaults, then delegates to the built-in tool.
-func (s *MCPToolServer) mcpCallCustomTool(ctx context.Context, ct MCPCustomToolConfig, userArgs map[string]interface{}) (string, error) {
+// mcpCustomToolLockedKeys are the scope/data-minimization controls a custom
+// tool exists to pin down. When the operator sets one of these in Defaults,
+// client args must NOT be able to override it (SEC-010) — otherwise a tool
+// pinned to `collection: public` + `include_content: false` could be called
+// with `collection: secrets` + `include_content: true`.
+var mcpCustomToolLockedKeys = map[string]bool{
+	"collection":      true,
+	"filter_meta":     true,
+	"include_content": true,
+	"fields":          true,
+}
+
+// mcpMergeCustomToolArgs builds the effective argument map for a custom tool:
+// operator defaults first, then user args restricted to the parameters the
+// tool declares, with operator-pinned scope keys locked (SEC-010).
+func mcpMergeCustomToolArgs(ct MCPCustomToolConfig, userArgs map[string]interface{}) (map[string]interface{}, error) {
 	merged := make(map[string]interface{})
 
 	d := ct.Defaults
@@ -103,14 +117,33 @@ func (s *MCPToolServer) mcpCallCustomTool(ctx context.Context, ct MCPCustomToolC
 	}
 
 	if err := mcpMergeActionDefaults(ct.Action, d, merged); err != nil {
-		return "", err
+		return nil, err
 	}
 	mcpMergeProjectionDefaults(d, merged)
 
+	declared := make(map[string]bool, len(ct.Parameters))
+	for _, p := range ct.Parameters {
+		declared[p.Name] = true
+	}
 	for k, v := range userArgs {
+		if _, pinned := merged[k]; pinned && mcpCustomToolLockedKeys[k] {
+			continue // operator-pinned scope wins over the client
+		}
+		if !declared[k] {
+			continue // only declared parameters may pass through
+		}
 		merged[k] = v
 	}
 
+	return merged, nil
+}
+
+// mcpCallCustomTool merges user-provided args with defaults, then delegates to the built-in tool.
+func (s *MCPToolServer) mcpCallCustomTool(ctx context.Context, ct MCPCustomToolConfig, userArgs map[string]interface{}) (string, error) {
+	merged, err := mcpMergeCustomToolArgs(ct, userArgs)
+	if err != nil {
+		return "", err
+	}
 	return s.mcpCallTool(ctx, ct.Action, merged)
 }
 
@@ -211,10 +244,11 @@ func validateMCPCustomTools(tools []MCPCustomToolConfig) error {
 		"get_automation_logs":   true,
 		"get_collection_config": true, "set_collection_config": true, "list_collection_configs": true,
 		"list_curation_rules": true, "create_curation_rule": true, "update_curation_rule": true, "delete_curation_rule": true,
-		"cross_search":     true,
-		"find_duplicates":  true,
-		"ingest_documents": true,
-		"upload_file":      true,
+		"cross_search":      true,
+		"find_duplicates":   true,
+		"ingest_documents":  true,
+		"upload_file":       true,
+		"wordpress_publish": true, "wordpress_set_status": true,
 	}
 	validActions := map[string]bool{
 		"semantic_search": true, "search_documents": true, "full_text_search": true, "fts_languages": true,

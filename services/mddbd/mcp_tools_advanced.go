@@ -45,6 +45,12 @@ func (s *MCPToolServer) toolSetCollectionConfig(ctx context.Context, args map[st
 			}
 		}
 	}
+	if wp, ok := args["wordpress"].(map[string]interface{}); ok {
+		req.WordPress = &WordPressTargetConfig{
+			URL:    mcpGetString(wp, "url"),
+			APIKey: mcpGetString(wp, "api_key"),
+		}
+	}
 	if err := s.client.SetCollectionConfig(ctx, req); err != nil {
 		return "", err
 	}

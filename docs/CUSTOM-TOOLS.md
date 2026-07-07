@@ -78,7 +78,7 @@ custom_tools:
 
 ### Defaults
 
-All defaults are optional. User-provided arguments override defaults.
+All defaults are optional. Declared user parameters override most defaults — **except the scope keys `collection`, `filterMeta`, `includeContent` and `fields`, which are operator-locked once set** (v2.11.0+, SEC-010): a custom tool exists to narrow the surface, so client arguments cannot widen it back.
 
 | Default | Type | Actions | Description |
 |---------|------|---------|-------------|
@@ -147,7 +147,11 @@ AI calls: search_faq(query: "reset password")
   → Returns: vector search results
 ```
 
-User arguments always override defaults. For example, if a custom tool has `defaults.limit: 5` but the user passes `limit: 20`, the value `20` is used.
+Argument merging follows three rules (v2.11.0+, SEC-010):
+
+1. **Only declared parameters pass through.** A client argument whose name is not listed under `parameters` is silently dropped.
+2. **Pinned scope keys are locked.** When `collection`, `filterMeta`, `includeContent` or `fields` is set in `defaults`, a client argument of the same name is ignored — a tool pinned to `collection: public` + `includeContent: false` cannot be called with `collection: secrets` + `include_content: true`.
+3. **Everything else: user wins.** For example, if a custom tool has `defaults.limit: 5`, declares `limit` as a parameter, and the user passes `limit: 20`, the value `20` is used.
 
 ## Validation
 

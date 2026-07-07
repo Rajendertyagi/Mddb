@@ -199,11 +199,12 @@ func (s *MCPToolServer) memoryRecallViaSemantic(ctx context.Context, query strin
 
 func (s *MCPToolServer) memoryRecallViaFTS(ctx context.Context, query string, topK int, filterMeta map[string][]string, includeContent bool) (string, error) {
 	resp, err := s.client.FTSSearch(ctx, &MCPFTSSearchRequest{
-		Collection: memoryMessagesCollection,
-		Query:      query,
-		Limit:      topK,
-		Algorithm:  "bm25",
-		Fuzzy:      1,
+		Collection:     memoryMessagesCollection,
+		Query:          query,
+		Limit:          topK,
+		Algorithm:      "bm25",
+		Fuzzy:          1,
+		IncludeContent: true,
 	})
 	if err != nil {
 		return "", fmt.Errorf("keyword recall failed: %w", err)
@@ -292,9 +293,10 @@ func (s *MCPToolServer) toolMemorySummarize(ctx context.Context, args map[string
 			"sessionId": {sessionID},
 			"type":      {"message"},
 		},
-		Sort:  "addedAt",
-		Asc:   true,
-		Limit: 500,
+		Sort:           "addedAt",
+		Asc:            true,
+		Limit:          500,
+		IncludeContent: true,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch messages: %w", err)
@@ -372,11 +374,12 @@ func (s *MCPToolServer) toolMemoryListSessions(ctx context.Context, args map[str
 	}
 
 	resp, err := s.client.Search(ctx, &MCPSearchRequest{
-		Collection: memorySessionsCollection,
-		FilterMeta: filterMeta,
-		Sort:       sortField,
-		Limit:      limit,
-		Offset:     offset,
+		Collection:     memorySessionsCollection,
+		FilterMeta:     filterMeta,
+		Sort:           sortField,
+		Limit:          limit,
+		Offset:         offset,
+		IncludeContent: true,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to list sessions: %w", err)
@@ -420,10 +423,11 @@ func (s *MCPToolServer) toolMemorySessionHistory(ctx context.Context, args map[s
 			"sessionId": {sessionID},
 			"type":      {"message"},
 		},
-		Sort:   "addedAt",
-		Asc:    true,
-		Limit:  limit,
-		Offset: offset,
+		Sort:           "addedAt",
+		Asc:            true,
+		Limit:          limit,
+		Offset:         offset,
+		IncludeContent: true,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch history: %w", err)

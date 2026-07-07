@@ -93,7 +93,8 @@ final class Admin {
 			<h1><?php esc_html_e( 'MDDB Sync', 'mddb-sync' ); ?></h1>
 			<form method="post" action="options.php">
 				<?php settings_fields( 'mddb_sync' ); ?>
-				<table class="form-table" role="presentation">
+				<?php // No presentation role: the row headers (<th scope="row">) convey real label→field relationships (Web:S5258). ?>
+				<table class="form-table">
 					<tr>
 						<th scope="row"><label for="mddb_sync_url"><?php esc_html_e( 'MDDB URL', 'mddb-sync' ); ?></label></th>
 						<td>
@@ -175,6 +176,30 @@ final class Admin {
 								<option value="<?php echo esc_attr( Settings::KEY_POST_SLUG ); ?>" <?php selected( $values['keyStrategy'], Settings::KEY_POST_SLUG ); ?>><?php esc_html_e( 'Post type + slug (post-hello-world)', 'mddb-sync' ); ?></option>
 								<option value="<?php echo esc_attr( Settings::KEY_PERMALINK ); ?>" <?php selected( $values['keyStrategy'], Settings::KEY_PERMALINK ); ?>><?php esc_html_e( 'Permalink path (2026/05/hello-world)', 'mddb-sync' ); ?></option>
 							</select>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Remote publishing (MCP)', 'mddb-sync' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" name="<?php echo esc_attr( Settings::OPTION_NAME ); ?>[enablePublish]" value="1" <?php checked( ! empty( $values['enablePublish'] ) ); ?> />
+								<?php esc_html_e( 'Allow MDDB MCP tools to publish posts/pages on this site (POST /wp-json/mddb-sync/v1/publish and /status)', 'mddb-sync' ); ?>
+							</label>
+							<p class="description">
+								<?php esc_html_e( 'Off by default. When enabled, every request must present the publish key below as an Authorization: Bearer header. Only the post types ticked above can be published.', 'mddb-sync' ); ?>
+							</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="mddb_sync_publish_key"><?php esc_html_e( 'Publish key', 'mddb-sync' ); ?></label></th>
+						<td>
+							<input type="password" id="mddb_sync_publish_key" class="regular-text"
+								name="<?php echo esc_attr( Settings::OPTION_NAME ); ?>[publishKey]"
+								value="<?php echo esc_attr( (string) ( $values['publishKey'] ?? '' ) ); ?>"
+								autocomplete="off" />
+							<p class="description">
+								<?php esc_html_e( 'Shared secret for inbound publishing. Leave empty and save with the toggle on to auto-generate a strong key. Configure the same key in MDDB via set_collection_config → wordpress {url, api_key}.', 'mddb-sync' ); ?>
+							</p>
 						</td>
 					</tr>
 					<tr>

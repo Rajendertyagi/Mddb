@@ -229,4 +229,41 @@ final class SettingsTest extends TestCase {
 			'ipv6 loopback'  => [ 'http://[::1]:11023', 'http://[::1]:11023' ],
 		];
 	}
+
+	public function testPublishDefaultsAreOffAndKeyless(): void {
+		$defaults = Settings::defaults();
+		self::assertFalse( $defaults['enablePublish'] );
+		self::assertSame( '', $defaults['publishKey'] );
+
+		Functions\when( 'get_option' )->justReturn( [] );
+		$settings = new Settings();
+		self::assertFalse( $settings->publishEnabled() );
+		self::assertSame( '', $settings->publishKey() );
+	}
+
+	public function testSanitizeKeepsProvidedPublishKey(): void {
+		$out = Settings::sanitize(
+			[
+				'enablePublish' => '1',
+				'publishKey'    => '  vk_manual  ',
+			]
+		);
+		self::assertTrue( $out['enablePublish'] );
+		self::assertSame( 'vk_manual', $out['publishKey'] );
+	}
+
+	public function testSanitizeGeneratesKeyWhenEnablingWithoutOne(): void {
+		Functions\when( 'wp_generate_password' )->justReturn( 'vk_generated' );
+
+		$out = Settings::sanitize( [ 'enablePublish' => '1' ] );
+
+		self::assertTrue( $out['enablePublish'] );
+		self::assertSame( 'vk_generated', $out['publishKey'] );
+	}
+
+	public function testSanitizeLeavesKeyEmptyWhenDisabled(): void {
+		$out = Settings::sanitize( [ 'publishKey' => '' ] );
+		self::assertFalse( $out['enablePublish'] );
+		self::assertSame( '', $out['publishKey'] );
+	}
 }

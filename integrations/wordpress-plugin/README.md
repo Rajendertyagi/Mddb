@@ -5,11 +5,12 @@
 [![Coverage](https://img.shields.io/badge/coverage-%E2%89%A590%25-brightgreen)](#testing)
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-blue)](#license)
 
-Synchronises WordPress **posts** and **pages** (and any other public post type) to an [MDDB](https://github.com/tradik/mddb) instance.
+Synchronises WordPress **posts** and **pages** (and any other public post type) to an [MDDB](https://github.com/tradik/mddb) instance — and, since 0.2.0, lets MDDB's MCP tools **publish back into WordPress**.
 
 - **On save / publish** → `POST /v1/add` — upsert by stable key.
 - **On trash / delete** → `POST /v1/delete` — remove the matching MDDB document.
 - **Language detection** → reads from [Polylang](https://wordpress.org/plugins/polylang/), [WPML](https://wpml.org/), or falls back to the site locale.
+- **Remote publishing (opt-in)** → `POST /wp-json/mddb-sync/v1/publish` and `/status` let the `wordpress_publish` / `wordpress_set_status` MCP tools create, update and (un)publish posts and pages — tags, categories, custom taxonomies, meta fields and Polylang/WPML translations included.
 - **Self-updates** from this repository's GitHub Releases (no wp.org slug required).
 
 The plugin is a thin, security-first PHP shim: settings UI, retry-aware HTTP client, hook wiring. No background queue, no JavaScript build step, no dashboard widgets.
@@ -50,6 +51,8 @@ Settings live under **Settings → MDDB Sync** (or `wp-admin/options-general.php
 | **Post types** | `post`, `page` | Any public post type can be toggled. |
 | **Language detection** | Auto | Auto = Polylang → WPML → site locale. Or force one of the three. |
 | **Key strategy** | `posttype-id` | Other options: `posttype-slug` or `permalink path`. |
+| **Remote publishing (MCP)** | ✗ | Enables the `mddb-sync/v1` REST routes below. Off = the routes reject every request. |
+| **Publish key** | _empty_ | Shared secret for inbound publishing. Leave empty and save with the toggle on to auto-generate a strong key. |
 
 The **Test connection** button under the form calls `POST /v1/search` against your MDDB and reports the HTTP status.
 
@@ -78,6 +81,44 @@ The **Test connection** button under the form calls `POST /v1/search` against yo
 ```
 
 `contentMd` runs the post body through the standard `the_content` filter, then strips tags — Shortcodes, blocks, oEmbed etc. all get expanded first so the indexed text matches the rendered page.
+
+---
+
+## Remote publishing (MCP → WordPress)
+
+Off by default. When **Remote publishing** is enabled and a **Publish key** is set, the plugin registers two REST routes under `mddb-sync/v1`. Every request must present the key as `Authorization: Bearer <key>` (or `X-MDDB-Publish-Key` for proxies that strip Authorization); keys are compared with `hash_equals`.
+
+The natural caller is MDDB's built-in MCP server: pin the target once with `set_collection_config` (`wordpress: {url, api_key}`), then use the `wordpress_publish` / `wordpress_set_status` tools — see [docs/MCP.md](../../docs/MCP.md#wordpress-publishing-tools-v2110).
+
+### `POST /wp-json/mddb-sync/v1/publish`
+
+Create or update a post/page. Upserts by `id`, else by `type` + `slug`; creates when nothing matches (then `title` is required).
+
+| Field | Type | Notes |
+|---|---|---|
+| `type` | string | Post type, default `post`. Must be in the plugin's post-type allow-list. |
+| `id` | int | Update an existing post. |
+| `slug` | string | URL slug; also the upsert match key when `id` is absent. |
+| `title` | string | Required when creating. |
+| `contentMarkdown` | string | Markdown body — converted by a built-in, HTML-escaping converter (headings, lists, links, images, code, blockquotes). |
+| `contentHtml` | string | HTML body — sanitised with `wp_kses_post`. Wins over `contentMarkdown`. |
+| `excerpt` | string | Optional excerpt. |
+| `status` | string | `publish`, `draft` (default), `pending`, `private`, `future`. |
+| `date` | string | ISO 8601; required for `future`. |
+| `author` | int | WordPress user ID. |
+| `tags` / `categories` | string[] | Term names; created when missing. |
+| `taxonomies` | object | `{taxonomy: [term names]}` for custom taxonomies. |
+| `meta` | object | Post meta ("metafields"): `{key: value}` — scalars or arrays. |
+| `lang` | string | `pl_PL` / `pl` — assigned via Polylang or WPML. |
+| `translationOf` | int | Post ID this post is a translation of; linked via `pll_save_post_translations` / `wpml_set_element_language_details`. |
+
+Response: `{id, created, type, status, permalink, lang}`.
+
+### `POST /wp-json/mddb-sync/v1/status`
+
+Change publishing status: `{id | type+slug, status, date?}` with `status` ∈ `publish, draft, pending, private, future, trash`. Trash uses `wp_trash_post`; publishing a trashed post untrashes it first. Response: `{id, status, permalink}`.
+
+Published/updated posts flow back to MDDB through the normal `wp_after_insert_post` sync, so the MDDB collection stays current automatically.
 
 ---
 
@@ -114,7 +155,11 @@ integrations/wordpress-plugin/
 │   ├── class-client.php     # POST /v1/add, /v1/delete, /v1/search (probe)
 │   ├── class-language.php   # Polylang / WPML / locale detection
 │   ├── class-mapper.php     # WP_Post → MDDB document
+│   ├── class-markdown.php   # Markdown → HTML (publishing payloads)
+│   ├── class-publisher.php  # MCP publish/status → wp_insert_post & friends
+│   ├── class-rest.php       # mddb-sync/v1 REST routes + bearer auth
 │   ├── class-sync.php       # wp_after_insert_post / before_delete_post / wp_trash_post
+│   ├── class-translations.php # Polylang / WPML language assignment + linking
 │   └── class-updater.php    # GitHub Releases update channel
 ├── tests/                   # PHPUnit + Brain Monkey
 ├── composer.json
@@ -126,7 +171,7 @@ integrations/wordpress-plugin/
 
 ### Testing
 
-48 tests, 92 %+ line coverage. The suite mocks every WordPress function via [Brain Monkey](https://github.com/Brain-WP/BrainMonkey) — no WordPress install needed.
+134 tests, 93 %+ line coverage. The suite mocks every WordPress function via [Brain Monkey](https://github.com/Brain-WP/BrainMonkey) — no WordPress install needed.
 
 CI matrix runs against PHP 8.2, 8.3, 8.4, 8.5. Coverage is enforced ≥90 % on the 8.3 leg.
 
@@ -141,6 +186,7 @@ CI matrix runs against PHP 8.2, 8.3, 8.4, 8.5. Coverage is enforced ≥90 % on t
 | Action | `wp_trash_post` | Same as delete — trash is treated as removal. |
 | Filter | `pre_set_site_transient_update_plugins` | Inject "update available" payload from GitHub. |
 | Filter | `plugins_api` | Provide plugin information for the "View details" popup. |
+| Action | `rest_api_init` | Register the `mddb-sync/v1` publish/status routes (only active with Remote publishing on). |
 | Action | `mddb_sync_error` (emitted) | Triggered with `($tag, WP_Error, $postId)` on every sync failure — wire your own Sentry/Action Scheduler glue here. |
 
 ---

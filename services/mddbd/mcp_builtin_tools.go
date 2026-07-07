@@ -4,8 +4,8 @@ package main
 // (issue #102), reused across search_documents / semantic_search /
 // full_text_search so the wording stays in one place.
 const (
-	mcpIncludeContentDesc = "(v2.10.2+) Include the document body (content_md) in each hit. Default true; set false to cut token usage on metadata-only lookups."
-	mcpFieldsDesc         = "(v2.10.2+) Restrict returned meta to these keys (e.g. [\"name\",\"currentVersion\"]); each hit keeps id, key and the listed meta. The document body follows include_content (set include_content=false to also drop it). Empty = all meta."
+	mcpIncludeContentDesc = "(v2.10.2+) Include the document body (content_md) in each hit. Default: true, or false when fields is set (v2.11.0+, GO-019). Pass explicitly to override either default."
+	mcpFieldsDesc         = "(v2.10.2+) Restrict returned meta to these keys (e.g. [\"name\",\"currentVersion\"]); each hit is reduced to id, key and the listed meta. Since v2.11.0 setting fields also drops the body unless include_content=true is passed explicitly. Empty = all meta."
 )
 
 // mcpBuiltinTools returns the full builtin MCP tool catalog. Partitioned into
@@ -798,6 +798,14 @@ func mcpBuiltinToolsAdvanced() []MCPTool {
 					"color":         map[string]interface{}{"type": "string", "description": "Hex color code (e.g. #3B82F6)"},
 					"custom_meta":   map[string]interface{}{"type": "object", "description": "Custom key-value metadata"},
 					"max_revisions": map[string]interface{}{"type": "integer", "description": "(v2.9.14+) Keep last N revisions per document. 0 (default) = unlimited."},
+					"wordpress": map[string]interface{}{
+						"type":        "object",
+						"description": "(v2.11.0+) WordPress publishing target for wordpress_publish / wordpress_set_status: {url, api_key}. url = site base URL (https), api_key = mddb-sync plugin publish key.",
+						"properties": map[string]interface{}{
+							"url":     map[string]interface{}{"type": "string", "description": "Site base URL, e.g. https://blog.example.com"},
+							"api_key": map[string]interface{}{"type": "string", "description": "mddb-sync publish key (Settings → MDDB Sync)"},
+						},
+					},
 				},
 				"required": []string{"collection"},
 			},
@@ -1092,6 +1100,53 @@ func mcpBuiltinToolsAdvanced() []MCPTool {
 					"offset":     map[string]interface{}{"type": "integer", "description": "Message offset for pagination"},
 				},
 				"required": []string{"session_id"},
+			},
+		},
+		// --- WordPress publishing (v2.11.0+) ---
+		{
+			Name:        "wordpress_publish",
+			Description: "(v2.11.0+) Create or update a WordPress post/page via the mddb-sync plugin, including tags, categories, custom taxonomies, meta fields and Polylang/WPML language assignment. Upserts by post_id, else by post_type + slug. The target site comes from the collection's wordpress config (set_collection_config) or explicit site_url/api_key.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection":       map[string]interface{}{"type": "string", "description": "Collection whose config holds the WordPress target (wordpress {url, api_key})"},
+					"site_url":         map[string]interface{}{"type": "string", "description": "Override: WordPress site base URL (https). Skips the collection config lookup."},
+					"api_key":          map[string]interface{}{"type": "string", "description": "Override: mddb-sync publish key for site_url"},
+					"post_type":        map[string]interface{}{"type": "string", "description": "post (default), page, or any post type allowed in the plugin settings"},
+					"post_id":          map[string]interface{}{"type": "integer", "description": "Existing post ID to update; omit to create (or upsert by slug)"},
+					"slug":             map[string]interface{}{"type": "string", "description": "URL slug; with no post_id an existing post with this slug is updated"},
+					"title":            map[string]interface{}{"type": "string", "description": "Post title (required when creating)"},
+					"content_markdown": map[string]interface{}{"type": "string", "description": "Body as Markdown (converted to HTML by the plugin); ignored when content_html is set"},
+					"content_html":     map[string]interface{}{"type": "string", "description": "Body as HTML (sanitised by the plugin)"},
+					"excerpt":          map[string]interface{}{"type": "string", "description": "Optional excerpt"},
+					"status":           map[string]interface{}{"type": "string", "description": "publish, draft (default), pending, private, future"},
+					"date":             map[string]interface{}{"type": "string", "description": "ISO 8601 publish date; required for status=future"},
+					"author":           map[string]interface{}{"type": "integer", "description": "WordPress author user ID"},
+					"tags":             map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}, "description": "Tag names (created when missing)"},
+					"categories":       map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}, "description": "Category names (created when missing)"},
+					"taxonomies":       map[string]interface{}{"type": "object", "description": "Custom taxonomies: {taxonomy: [term names]}"},
+					"meta":             map[string]interface{}{"type": "object", "description": "Post meta fields: {key: value} (scalars or arrays)"},
+					"lang":             map[string]interface{}{"type": "string", "description": "Language locale or slug (pl_PL / pl) — assigned via Polylang or WPML"},
+					"translation_of":   map[string]interface{}{"type": "integer", "description": "Post ID this post is a translation of (linked via Polylang/WPML)"},
+				},
+			},
+		},
+		{
+			Name:        "wordpress_set_status",
+			Description: "(v2.11.0+) Change the publishing status of a WordPress post/page (publish, draft, pending, private, future, trash) via the mddb-sync plugin. Identify the post by post_id or post_type + slug.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"collection": map[string]interface{}{"type": "string", "description": "Collection whose config holds the WordPress target (wordpress {url, api_key})"},
+					"site_url":   map[string]interface{}{"type": "string", "description": "Override: WordPress site base URL (https). Skips the collection config lookup."},
+					"api_key":    map[string]interface{}{"type": "string", "description": "Override: mddb-sync publish key for site_url"},
+					"post_id":    map[string]interface{}{"type": "integer", "description": "Post ID to change"},
+					"slug":       map[string]interface{}{"type": "string", "description": "Alternative to post_id: post slug"},
+					"post_type":  map[string]interface{}{"type": "string", "description": "Post type for slug lookup (default: post)"},
+					"status":     map[string]interface{}{"type": "string", "description": "publish, draft, pending, private, future, trash"},
+					"date":       map[string]interface{}{"type": "string", "description": "ISO 8601 date; required for status=future"},
+				},
+				"required": []string{"status"},
 			},
 		},
 	}

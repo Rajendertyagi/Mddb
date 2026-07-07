@@ -50,6 +50,10 @@ final class Settings {
 			// Per-taxonomy term-id allow-list. Empty array (or missing key)
 			// for a taxonomy means "no filter — sync any value".
 			'termFilter'     => [],
+			// Inbound MCP publishing (POST /wp-json/mddb-sync/v1/*). Off by
+			// default; requests must bear the publish key when enabled.
+			'enablePublish'  => false,
+			'publishKey'     => '',
 		];
 	}
 
@@ -154,6 +158,14 @@ final class Settings {
 		return $out;
 	}
 
+	public function publishEnabled(): bool {
+		return (bool) ( $this->all()['enablePublish'] ?? false );
+	}
+
+	public function publishKey(): string {
+		return (string) ( $this->all()['publishKey'] ?? '' );
+	}
+
 	public function isConfigured(): bool {
 		return $this->url() !== '';
 	}
@@ -226,6 +238,16 @@ final class Settings {
 		$out['syncOnSave']    = ! empty( $input['syncOnSave'] );
 		$out['syncOnDelete']  = ! empty( $input['syncOnDelete'] );
 		$out['includeDrafts'] = ! empty( $input['includeDrafts'] );
+		$out['enablePublish'] = ! empty( $input['enablePublish'] );
+
+		if ( isset( $input['publishKey'] ) ) {
+			$out['publishKey'] = trim( (string) $input['publishKey'] );
+		}
+		if ( $out['enablePublish'] && $out['publishKey'] === '' && function_exists( 'wp_generate_password' ) ) {
+			// First enable without a key: mint a strong one so the endpoints
+			// are never reachable unauthenticated.
+			$out['publishKey'] = wp_generate_password( 43, false );
+		}
 
 		if ( isset( $input['languageSource'] ) ) {
 			$value = (string) $input['languageSource'];
