@@ -36,6 +36,13 @@ export default [
       // Missing-dependency hints are valuable but need human judgement to fix
       // safely (adding deps can change effect behaviour), so keep them advisory.
       'react-hooks/exhaustive-deps': 'warn',
+      // eslint-plugin-react-hooks 7 ships React-Compiler-derived rules that
+      // flag long-standing patterns (module-scope components, in-place
+      // mutation, setState inside effects). Fixing them safely is a per-case
+      // refactor, so — like exhaustive-deps above — they stay advisory.
+      'react-hooks/static-components': 'warn',
+      'react-hooks/immutability': 'warn',
+      'react-hooks/set-state-in-effect': 'warn',
       'no-unused-vars': [
         'error',
         {

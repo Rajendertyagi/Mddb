@@ -15,10 +15,10 @@
   "dependencies": {
     "date-fns": "^4.4.0",
     "express": "^5.1.0",
-    "http-proxy-middleware": "^3.0.3",
     "graphql": "^16.9.0",
+    "http-proxy-middleware": "^3.0.3",
     "leaflet": "^1.9.4",
-    "lucide-react": "^0.544.0",
+    "lucide-react": "^1.23.0",
     "prismjs": "^1.30.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
@@ -34,15 +34,15 @@
     "@tailwindcss/postcss": "^4.3.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.1.6",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^6.0.3",
     "autoprefixer": "^10.5.2",
     "eslint": "^9.28.0",
     "eslint-plugin-react": "^7.37.2",
-    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
     "postcss": "^8.4.49",
     "tailwindcss": "^4.1.13",
-    "vite": "^6.0.11"
+    "vite": "^8.1.3"
   },
   "engines": {
     "node": ">=24.3.0",

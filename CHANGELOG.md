@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.11.1] - 2026-07-07
+
+### Changed
+- **Consolidated dependency sweep** — the 20 open Dependabot PRs (#104–#123) resolved in one change set, each ecosystem verified (build + tests + lint) instead of rubber-stamped:
+  - **npm / mddb-panel**: `vite` 6.4.3 → **8.1.3** (required `@vitejs/plugin-react` 4.7 → **6.0.3** — the 4.x line has no vite-8 peer range), `lucide-react` 0.544.0 → **1.23.0**, `eslint-plugin-react-hooks` 5.2 → **7.1.1** (its new React-Compiler-derived rules — `static-components`, `immutability`, `set-state-in-effect` — are kept **advisory** like `exhaustive-deps`; 0 errors, warnings preserved as signal). Build, node tests and lint green.
+  - **npm / mddb-chat-widget**: `vite` 6.4.3 → **8.1.3** (rolldown dropped bundled esbuild → `minify: 'esbuild'` migrated to `minify: 'oxc'` in vite.config.ts), `typescript` 5.9.3 → **6.0.3** (tsc clean). 14/14 tests green.
+  - **npm / grafana-datasource**: `react`/`react-dom` 18.3.1 → **19.2.7** + `@types/react` → **19.2.17**, `@grafana/runtime` 11.6.14 → **13.1.0** (now aligned with `@grafana/data`/`@grafana/ui` 13), `webpack-cli` 6 → **7.2.1**, `webpack` → 5.108.4, `@types/node` → **26.1.0**, `prettier` → 3.9.4. Webpack build + 45/45 jest + lint green. Remaining `npm audit` findings live in Grafana's own dev-dep tree (dompurify/js-cookie via react-use) — fixable only by downgrading `@grafana/runtime`, declined.
+  - **npm / chrome-extension**: `@types/chrome` → 0.2.2, `@types/node` → 26.1.0, `prettier` → 3.9.4, `undici` → **8.7.0** + `npm audit fix` (ws) → 0 vulnerabilities; 100/100 tests, lint green.
+  - **npm / github-action**: `@types/node` → 26.1.0, `prettier` → 3.9.4; 62/62 tests, dist bundle rebuilt with ncc.
+  - **Rust / mddb-chat**: `reqwest` 0.12 → **0.13.4**, `prost` 0.13 → **0.14.4**, `tonic-build` 0.12 → **0.14.6** (codegen moved to the new **`tonic-prost-build`** crate + `tonic-prost` runtime; build.rs migrated), `governor` 0.8 → **0.10.4**, `sha2` 0.10 → **0.11** (hmac 0.13: `KeyInit` trait now imported explicitly). cargo build/test/clippy green.
+  - **Go / mddbd + test**: `google.golang.org/grpc` → **1.82.0**, `klauspost/compress` → **1.19.0**, `gqlparser/v2` → 2.5.36. Full mddbd test suite green.
+  - **GitHub Actions**: `actions/checkout` v6 → **v7** (33 uses), `actions/cache` v5 → **v6**.
+  - **Declined: `python:3.14-slim` for the Airbyte connector (#104)** — every published `airbyte-cdk` 7.x (incl. latest 7.23.4) pins `requires-python <3.14`. A dependabot `ignore` rule for `python >=3.14` in that image now stops the weekly re-proposal; revisit when CDK 8 ships.
+
 ## [2.11.0] - 2026-07-06
 
 ### Added

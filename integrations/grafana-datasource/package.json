@@ -37,11 +37,11 @@
   },
   "devDependencies": {
     "@grafana/data": "^13.1.0",
-    "@grafana/runtime": "^11.5.0",
+    "@grafana/runtime": "^13.1.0",
     "@grafana/ui": "^13.1.0",
     "@types/jest": "^30.0.0",
-    "@types/node": "^24.0.0",
-    "@types/react": "^18.3.18",
+    "@types/node": "^26.1.0",
+    "@types/react": "^19.2.17",
     "@typescript-eslint/eslint-plugin": "^8.62.1",
     "@typescript-eslint/parser": "^8.20.0",
     "copy-webpack-plugin": "^14.0.0",
@@ -49,13 +49,13 @@
     "eslint-plugin-react": "^7.37.5",
     "jest": "^30.0.0",
     "jest-environment-jsdom": "^30.0.0",
-    "prettier": "^3.9.3",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "prettier": "^3.9.4",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "ts-jest": "^29.2.5",
     "ts-loader": "^9.6.2",
     "typescript": "^6.0.3",
-    "webpack": "^5.108.3",
-    "webpack-cli": "^6.0.1"
+    "webpack": "^5.108.4",
+    "webpack-cli": "^7.2.1"
   }
 }
