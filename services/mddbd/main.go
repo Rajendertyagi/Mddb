@@ -36,7 +36,7 @@ import (
 )
 
 // VERSION is the current release version of the MDDB server.
-const VERSION = "2.11.1"
+const VERSION = "2.11.2"
 
 // AccessMode defines the database access mode (read, write, or both).
 type AccessMode string
