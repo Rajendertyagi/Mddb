@@ -34,6 +34,13 @@ updates:
     groups:
       npm-minor-patch:
         update-types: [minor, patch]
+    ignore:
+      # eslint-plugin-react (7.37.5, latest) crashes under eslint 10
+      # (usedPropTypes util) and its peer range caps at ^9.7 — the panel
+      # stays on eslint 9 until the plugin ships eslint-10 support. Major-only
+      # ignore, so dirs already on 10 (grafana-datasource) keep minor updates.
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
 
   # --- Python (Airbyte destination) ---
   - package-ecosystem: pip

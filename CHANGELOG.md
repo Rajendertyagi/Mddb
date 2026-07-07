@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.11.2] - 2026-07-07
+
+### Changed
+- **Dependency sweep #2** — the second wave of Dependabot PRs (#126–#131) consolidated and verified:
+  - **npm / mddb-panel**: `graphql` 16.13.1 → **17.0.2**, `urql` 4.2.2 → **5.0.3**, `http-proxy-middleware` 3.0.7 → **4.2.0** (server proxy API unchanged; engines need node ≥22.15 — panel images run node 26). Build, node tests (11/11) and lint green; prod `npm audit` = 0.
+  - **npm / chrome-extension, github-action, grafana-datasource**: `@typescript-eslint/eslint-plugin` (+ `parser` in grafana) → **8.63.0**; lints and full test suites green (100/100, 62/62 + rebuilt dist bundle, 45/45).
+  - **Rust / mddb-chat**: `tower-http` 0.6 → **0.7** (cors + trace features intact); cargo build/test/clippy green.
+  - **Declined: `eslint` 10 for mddb-panel (#131)** — `eslint-plugin-react` 7.37.5 (latest) crashes under eslint 10 (`usedPropTypes` util) and its peer range caps at `^9.7`. Panel stays on eslint **9.39.4**; `@eslint/js` + `globals` are now explicit devDependencies (the flat config imports them directly). A major-only dependabot `ignore` rule stops the weekly re-proposal without blocking eslint 10.x minors in dirs already on 10.
+
 ## [2.11.1] - 2026-07-07
 
 ### Changed
