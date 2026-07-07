@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **mddb-panel Snap build (v2.11.2 release run)** — `npm ci` under the node-22 snap's npm 10 rejected the panel lockfile ("Missing: graphql@16.14.2"): the direct `graphql` dependency (nothing imports it — urql ships its own `@0no-co/graphql.web`, whose optional peer caps at `^16`) produced an invalid dedupe against graphql 17 that npm 11 tolerated and npm 10 refused. The dead dependency is removed, the lockfile is consistent under both npms, and the panel snap version is aligned `2.10.0` → `2.11.2` (package.json + snapcraft.yaml). Panel build, tests and lint green; `npm ci` verified.
+
 ## [2.11.2] - 2026-07-07
 
 ### Changed
