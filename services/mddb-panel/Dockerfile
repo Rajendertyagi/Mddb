@@ -6,8 +6,8 @@ WORKDIR /app
 # Copy package files
 COPY services/mddb-panel/package*.json ./
 
-# Install all dependencies (including dev dependencies)
-RUN npm install
+# Install the exact locked dependency graph without executing package lifecycle scripts.
+RUN npm ci --ignore-scripts
 
 # Copy source code
 COPY services/mddb-panel/ .
@@ -29,8 +29,8 @@ WORKDIR /app
 # Copy package files
 COPY services/mddb-panel/package*.json ./
 
-# Install dependencies
-RUN npm ci
+# Install dependencies without executing package lifecycle scripts.
+RUN npm ci --ignore-scripts
 
 # Copy source code
 COPY services/mddb-panel/ .
@@ -50,8 +50,9 @@ WORKDIR /app
 COPY services/mddb-panel/package*.json ./
 COPY services/mddb-panel/server.js ./
 
-# Install production dependencies only (express, http-proxy-middleware)
-RUN npm ci --omit=dev
+# Install production dependencies only (express, http-proxy-middleware),
+# without executing package lifecycle scripts.
+RUN npm ci --omit=dev --ignore-scripts
 
 # Copy built application
 COPY --from=builder /app/dist ./dist
@@ -64,11 +65,12 @@ EXPOSE 3000
 USER node
 
 # OPS-006: liveness probe so compose can gate dependents (service_healthy) and
-# restart a hung process.
+# restart a hung process. Plain HTTP is intentional and safe here: both targets
+# are loopback addresses inside the container and no traffic leaves its network
+# namespace.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget -q --spider http://127.0.0.1:3000/ \
-    || wget -q --spider 'http://[::1]:3000/' \
-    || exit 1
+    || wget -q --spider 'http://[::1]:3000/' || exit 1 # NOSONAR
 
 # Start production server with reverse proxy
 CMD ["node", "server.js"]
