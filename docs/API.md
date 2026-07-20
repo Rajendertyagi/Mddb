@@ -3011,7 +3011,7 @@ curl http://localhost:11023/v1/system/info
   "os": "linux",
   "arch": "amd64",
   "numCPU": 4,
-  "goVersion": "go1.26.4",
+  "goVersion": "go1.26.5",
   "version": "2.11.3",
   "uptimeSeconds": 3600,
   "memoryTotal": 134217728,

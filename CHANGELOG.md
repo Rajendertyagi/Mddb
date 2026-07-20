@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Go 1.26.5 security patch** — align every Go toolchain, workflow, and Docker base-image pin on 1.26.5, fixing `GO-2026-5856` in the standard library and restoring the monorepo version-consistency guard.
 - **Dependency refresh** — consolidated the open Dependabot updates for Docker, GitHub Actions, Go, Rust, and npm dependencies (#137, #138, #147–#149). TypeScript 7 updates (#140–#143) are declined for now because the current `typescript-eslint` and `ts-jest` peer ranges do not support them; a major-only Dependabot ignore prevents repeated incompatible proposals while preserving TypeScript 6 minor/patch updates.
 
 ### Fixed
