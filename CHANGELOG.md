@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Dependency refresh** — consolidated the open Dependabot updates for Docker, GitHub Actions, Go, Rust, and npm dependencies (#137, #138, #147–#149). TypeScript 7 updates (#140–#143) are declined for now because the current `typescript-eslint` and `ts-jest` peer ranges do not support them; a major-only Dependabot ignore prevents repeated incompatible proposals while preserving TypeScript 6 minor/patch updates.
+
 ### Fixed
+- **Docker panel usability** — publish the floating `panel-latest` image alias, probe both IPv4 and IPv6 loopback addresses in the panel healthcheck, and document that bind-mounted Markdown directories require explicit ingestion (#144–#146).
 - **mddb-panel Snap build (v2.11.2 release run)** — `npm ci` under the node-22 snap's npm 10 rejected the panel lockfile ("Missing: graphql@16.14.2"): the direct `graphql` dependency (nothing imports it — urql ships its own `@0no-co/graphql.web`, whose optional peer caps at `^16`) produced an invalid dedupe against graphql 17 that npm 11 tolerated and npm 10 refused. The dead dependency is removed, the lockfile is consistent under both npms, and the panel snap version is aligned `2.10.0` → `2.11.2` (package.json + snapcraft.yaml). Panel build, tests and lint green; `npm ci` verified.
 
 ## [2.11.2] - 2026-07-07

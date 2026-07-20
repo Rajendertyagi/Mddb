@@ -1117,8 +1117,10 @@ jobs:
           tags: |
             ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:panel-${{ steps.meta.outputs.VERSION_NUM }}
             ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:panel
+            ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:panel-latest
             ${{ env.GHCR_REGISTRY }}/${{ github.repository }}:panel-${{ steps.meta.outputs.VERSION_NUM }}
             ${{ env.GHCR_REGISTRY }}/${{ github.repository }}:panel
+            ${{ env.GHCR_REGISTRY }}/${{ github.repository }}:panel-latest
           labels: |
             org.opencontainers.image.title=MDDB Panel
             org.opencontainers.image.description=Web-based administration panel for MDDB

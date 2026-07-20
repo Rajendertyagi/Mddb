@@ -36,6 +36,10 @@ make docker-up
 docker compose up -d
 ```
 
+> **Importing existing content:** Bind-mounted directories are not indexed
+> automatically. To load existing Markdown files, use
+> [`scripts/load-md-folder.sh`](BULK-IMPORT.md) or the ingest API.
+
 Access:
 - **HTTP API**: http://localhost:11023
 - **gRPC API**: localhost:11024
