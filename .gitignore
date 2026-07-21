@@ -26,6 +26,9 @@ vendor/
 services/mddbd/mddbd
 services/mddbd/mddbd-linux
 services/mddbd/mddbd.exe
+.windsurf/
+.claude/
+.antigravity/
 
 # Database files
 *.db

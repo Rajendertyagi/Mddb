@@ -1,5 +1,5 @@
 # Development Dockerfile with hot reload
-FROM golang:1.26.4-alpine
+FROM golang:1.26.5-alpine
 
 # Install development tools
 RUN apk add --no-cache \
@@ -9,7 +9,7 @@ RUN apk add --no-cache \
     curl
 
 # Install Air for hot reload
-RUN go install github.com/air-verse/air@latest
+RUN go install github.com/air-verse/air@v1.67.1 # NOSONAR -- immutable, explicitly pinned tool version
 
 # Set working directory
 WORKDIR /app

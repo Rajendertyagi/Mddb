@@ -22,7 +22,7 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-  GO_VERSION: "1.26.4"
+  GO_VERSION: "1.26.5"
   # Scan each module in isolation — mirrors the Tests workflow so we catch
   # vulnerabilities reachable from each module's declared deps, not the
   # workspace-merged graph.
@@ -57,7 +57,7 @@ jobs:
           cache-dependency-path: ${{ matrix.module.path }}/go.sum
 
       - name: Install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.6.0 # NOSONAR -- immutable, explicitly pinned tool version
 
       - name: Run govulncheck
         working-directory: ${{ matrix.module.path }}

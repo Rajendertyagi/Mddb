@@ -59,6 +59,10 @@ make dev-start
 make dev-start-with-ollama
 ```
 
+> **Importing existing content:** MDDB does not automatically index bind-mounted
+> directories. Use [`scripts/load-md-folder.sh`](docs/BULK-IMPORT.md) or the ingest
+> API to load existing Markdown files.
+
 **Services started:**
 
 | Service | Port | Image | Description |

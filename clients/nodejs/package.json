@@ -1,6 +1,6 @@
 {
   "name": "@tradik/mddb-client",
-  "version": "2.10.0",
+  "version": "2.11.3",
   "description": "Node.js gRPC client example for MDDB (Markdown Database).",
   "license": "BSD-3-Clause",
   "author": "tradik",

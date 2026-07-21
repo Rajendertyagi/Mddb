@@ -17,7 +17,7 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-  GO_VERSION: '1.26.4'
+  GO_VERSION: '1.26.5'
   DOCKER_HUB_USERNAME: tradik
   IMAGE_NAME: mddb
   GHCR_REGISTRY: ghcr.io
@@ -695,7 +695,7 @@ jobs:
           for bin in mddbd mddb-cli; do
             for plat in darwin-arm64 darwin-amd64 linux-arm64 linux-amd64; do
               f="${bin}-${V}-${plat}.tar.gz"
-              curl -sfL -o "$f" "https://github.com/tradik/mddb/releases/download/${V}/${f}"
+              curl -sfL --proto '=https' --proto-redir '=https' -o "$f" "https://github.com/tradik/mddb/releases/download/${V}/${f}"
               sha=$(sha256sum "$f" | awk '{print $1}')
               key=$(echo "${bin}_${plat}" | tr 'a-z-' 'A-Z_')
               echo "${key}=${sha}" >> $GITHUB_OUTPUT
@@ -1117,8 +1117,10 @@ jobs:
           tags: |
             ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:panel-${{ steps.meta.outputs.VERSION_NUM }}
             ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:panel
+            ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:panel-latest
             ${{ env.GHCR_REGISTRY }}/${{ github.repository }}:panel-${{ steps.meta.outputs.VERSION_NUM }}
             ${{ env.GHCR_REGISTRY }}/${{ github.repository }}:panel
+            ${{ env.GHCR_REGISTRY }}/${{ github.repository }}:panel-latest
           labels: |
             org.opencontainers.image.title=MDDB Panel
             org.opencontainers.image.description=Web-based administration panel for MDDB

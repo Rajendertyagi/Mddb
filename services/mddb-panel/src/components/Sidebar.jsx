@@ -323,7 +323,7 @@ export default function Sidebar({ stats, statsError, onStatsRefresh, onCollapse 
       {/* Version Footer */}
       <div className="px-4 py-2 border-t border-gray-200 text-center">
         <span className="text-[10px] text-gray-400">
-          Server v{config?.version || '...'} · Panel v2.10.0
+          Server v{config?.version || '...'} · Panel v2.11.3
         </span>
       </div>
 

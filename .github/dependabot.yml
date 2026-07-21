@@ -41,6 +41,11 @@ updates:
       # ignore, so dirs already on 10 (grafana-datasource) keep minor updates.
       - dependency-name: eslint
         update-types: ["version-update:semver-major"]
+      # TypeScript 7 is outside the supported peer ranges of the current
+      # typescript-eslint (<6.1) and ts-jest (<7) releases. Keep supported
+      # TypeScript 6 updates until both toolchains declare TS 7 support.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
 
   # --- Python (Airbyte destination) ---
   - package-ecosystem: pip
