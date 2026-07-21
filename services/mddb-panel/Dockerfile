@@ -65,12 +65,10 @@ EXPOSE 3000
 USER node
 
 # OPS-006: liveness probe so compose can gate dependents (service_healthy) and
-# restart a hung process. Plain HTTP is intentional and safe here: both targets
-# are loopback addresses inside the container and no traffic leaves its network
-# namespace.
+# restart a hung process. Try IPv6 first, then fall back to IPv4; both targets
+# are loopback addresses inside the container.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -q --spider http://127.0.0.1:3000/ \
-    || wget -q --spider 'http://[::1]:3000/' || exit 1 # NOSONAR
+  CMD ["node", "-e", "const net=require('net');const check=(host,next)=>{const socket=net.connect(3000,host,()=>{socket.end();process.exit(0)});socket.setTimeout(3000);socket.once('error',next);socket.once('timeout',()=>{socket.destroy();next()})};check('::1',()=>check('127.0.0.1',()=>process.exit(1)))"]
 
 # Start production server with reverse proxy
 CMD ["node", "server.js"]

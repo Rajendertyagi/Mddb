@@ -9,7 +9,7 @@ RUN apk add --no-cache \
     curl
 
 # Install Air for hot reload
-RUN go install github.com/air-verse/air@v1.67.1
+RUN go install github.com/air-verse/air@v1.67.1 # NOSONAR -- immutable, explicitly pinned tool version
 
 # Set working directory
 WORKDIR /app
