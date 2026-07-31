@@ -314,6 +314,87 @@ query {
 }
 ```
 
+### List Webhooks (Admin Only)
+
+Optionally filter by collection:
+
+```graphql
+query {
+  webhooks(collection: "blog") {
+    id
+    url
+    events
+    collection
+    createdAt
+  }
+}
+```
+
+### List Schemas
+
+```graphql
+query {
+  schemas {
+    collection
+    schema
+    enabled
+  }
+}
+```
+
+### List Users (Admin Only)
+
+```graphql
+query {
+  users {
+    username
+    admin
+    createdAt
+  }
+}
+```
+
+### List Groups (Admin Only)
+
+```graphql
+query {
+  groups {
+    name
+    description
+    members
+    createdAt
+  }
+}
+```
+
+### User Permissions (Admin Only)
+
+```graphql
+query {
+  userPermissions(username: "john") {
+    username
+    collection
+    read
+    write
+    admin
+  }
+}
+```
+
+### Group Permissions (Admin Only)
+
+```graphql
+query {
+  groupPermissions(groupName: "editors") {
+    groupName
+    collection
+    read
+    write
+    admin
+  }
+}
+```
+
 ## Mutations
 
 ### Login
@@ -407,6 +488,177 @@ mutation {
 }
 ```
 
+### Add Batch
+
+Add multiple documents to a collection in one request:
+
+```graphql
+mutation {
+  addBatch(
+    collection: "blog"
+    documents: [
+      {
+        key: "post-1"
+        lang: "en"
+        contentMd: "# First Post"
+        meta: [{ key: "status", values: ["published"] }]
+        saveRevision: true
+      }
+      {
+        key: "post-2"
+        lang: "en"
+        contentMd: "# Second Post"
+      }
+    ]
+  ) {
+    added
+    updated
+    failed
+    errors
+  }
+}
+```
+
+### Ingest Documents
+
+Bulk ingest with per-batch options (duplicate skipping, embedding/FTS/webhook control):
+
+```graphql
+mutation {
+  ingestDocuments(
+    collection: "scraped"
+    documents: [
+      {
+        url: "https://example.com/article"
+        key: "article-1"
+        lang: "en"
+        contentMd: "# Scraped Article"
+        meta: [{ key: "source", values: ["crawler"] }]
+        extractFrontmatter: true
+        scraper: "my-crawler"
+        ttl: 86400
+      }
+    ]
+    options: {
+      skipDuplicates: true
+      skipEmbeddings: false
+      skipWebhooks: true
+      autoConfigureCollection: true
+      saveRevision: false
+    }
+  ) {
+    added
+    updated
+    skipped
+    failed
+    errors
+    collection
+    durationMs
+  }
+}
+```
+
+### Set TTL
+
+```graphql
+mutation {
+  setTTL(
+    collection: "cache"
+    key: "session-data"
+    lang: "en"
+    ttl: 3600
+  ) {
+    id
+    expiresAt
+  }
+}
+```
+
+### Import from URL
+
+```graphql
+mutation {
+  importURL(
+    collection: "articles"
+    url: "https://example.com/page.md"
+    key: "imported-page"
+    lang: "en"
+    meta: [{ key: "source", values: ["import"] }]
+    ttl: 86400
+  ) {
+    id
+    key
+    addedAt
+  }
+}
+```
+
+### Register Webhook (Admin Only)
+
+```graphql
+mutation {
+  registerWebhook(input: {
+    url: "https://example.com/hook"
+    events: ["insert", "update", "delete"]
+    collection: "blog"
+  }) {
+    id
+    url
+    events
+    collection
+    createdAt
+  }
+}
+```
+
+### Delete Webhook (Admin Only)
+
+```graphql
+mutation {
+  deleteWebhook(id: "webhook-id")
+}
+```
+
+### Set Schema (Admin Only)
+
+The `schema` argument is a JSON Schema document as a string:
+
+```graphql
+mutation {
+  setSchema(input: {
+    collection: "blog"
+    schema: "{\"required\":[\"author\"],\"properties\":{\"author\":{\"type\":\"string\"}}}"
+  })
+}
+```
+
+### Delete Schema (Admin Only)
+
+```graphql
+mutation {
+  deleteSchema(collection: "blog")
+}
+```
+
+### Validate Document
+
+Validate metadata against a collection's schema without writing:
+
+```graphql
+mutation {
+  validateDocument(
+    collection: "blog"
+    meta: [
+      { key: "author", values: ["John"] }
+      { key: "status", values: ["published"] }
+    ]
+  ) {
+    valid
+    errors
+  }
+}
+```
+
 ## Admin Operations
 
 ### Register User (Admin Only)
@@ -456,12 +708,52 @@ mutation {
 }
 ```
 
+### Update Group
+
+Replaces the group's description and member list:
+
+```graphql
+mutation {
+  updateGroup(
+    name: "editors"
+    description: "Content editors and reviewers"
+    members: ["user1", "user2", "user3"]
+  ) {
+    name
+    description
+    members
+  }
+}
+```
+
+### Delete Group
+
+```graphql
+mutation {
+  deleteGroup(name: "editors")
+}
+```
+
 ### Set Permission
 
 ```graphql
 mutation {
   setPermission(input: {
     username: "john"
+    collection: "blog"
+    read: true
+    write: true
+    admin: false
+  })
+}
+```
+
+### Set Group Permission
+
+```graphql
+mutation {
+  setGroupPermission(input: {
+    groupName: "editors"
     collection: "blog"
     read: true
     write: true
@@ -729,11 +1021,8 @@ query {
 
 The following features are planned for future releases:
 
-- Full document CRUD operations via GraphQL
 - Subscriptions for real-time updates
-- Batch operations (bulk add/delete)
 - Advanced filtering with logical operators
-- Schema validation via GraphQL
 - Rate limiting per user/IP
 - DataLoader for N+1 query prevention
 

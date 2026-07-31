@@ -919,6 +919,62 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /v1/mcp/keys:
+    post:
+      tags:
+        - MCP
+      summary: Create MCP API key
+      description: Create a named API key for MCP clients (admin only). The plaintext key is returned once.
+      operationId: createMCPKey
+      responses:
+        "200":
+          description: Key created (plaintext returned once)
+          content:
+            application/json:
+              schema:
+                type: object
+    get:
+      tags:
+        - MCP
+      summary: List MCP API keys
+      description: List MCP API keys without plaintext values (admin only).
+      operationId: listMCPKeys
+      responses:
+        "200":
+          description: Key list
+          content:
+            application/json:
+              schema:
+                type: object
+    delete:
+      tags:
+        - MCP
+      summary: Delete MCP API key
+      description: Delete an MCP API key by hash (admin only).
+      operationId: deleteMCPKey
+      responses:
+        "200":
+          description: Key deleted
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /v1/mcp/keys/disable:
+    post:
+      tags:
+        - MCP
+      summary: Disable MCP API key
+      description: Disable an MCP API key without deleting it (admin only).
+      operationId: disableMCPKey
+      responses:
+        "200":
+          description: Key disabled
+          content:
+            application/json:
+              schema:
+                type: object
+
   /v1/vector-projection:
     post:
       tags:
@@ -4137,6 +4193,34 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/RotationJob"
+  /v1/encryption/jobs/{id}:
+    get:
+      tags:
+        - Encryption
+      summary: Get a single key-rotation job
+      description: Returns the status and progress of one encryption rotation job by ID.
+      operationId: getEncryptionJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Rotation job ID
+      responses:
+        "200":
+          description: Rotation job status
+          content:
+            application/json:
+              schema:
+                type: object
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /v1/compliance-status:
     get:
       tags:
@@ -5969,7 +6053,7 @@ components:
           example: false
         algorithm:
           type: string
-          enum: [ flat, hnsw, ivf, pq, opq, sq, bq ]
+          enum: [ flat, hnsw, ivf, pq, opq, sq, bq, quantized ]
           description: |
             Search algorithm to use (default "flat").
             - **flat**: Exact brute-force cosine similarity (most accurate, slower for large datasets)
@@ -6390,6 +6474,23 @@ components:
           $ref: "#/components/schemas/SearchStats"
         facets:
           $ref: "#/components/schemas/FacetMap"
+        stemmingActive:
+          type: boolean
+          description: Whether stemming was applied to this query
+        synonymsActive:
+          type: boolean
+          description: Whether synonym expansion was applied to this query
+        fieldWeights:
+          type: object
+          additionalProperties:
+            type: number
+          description: Effective per-field weights used for scoring (BM25F)
+        spellCorrected:
+          type: object
+          nullable: true
+          description: >-
+            Spell-correction info when the collection has spellCorrect enabled
+            and the query was auto-corrected (original and corrected terms).
 
     FacetBucket:
       type: object
@@ -6731,7 +6832,7 @@ components:
           example: 10
         algorithm:
           type: string
-          enum: [ bm25, bm25f ]
+          enum: [ bm25, bm25f, pmisparse ]
           description: FTS algorithm (default "bm25")
           default: bm25
           example: bm25
@@ -6786,6 +6887,33 @@ components:
           description: Metadata filters applied to both FTS and vector results
           example:
             category: [ tutorial ]
+        geo:
+          type: object
+          description: |
+            Optional spatial pre-filter. When set, only documents present in the
+            in-memory geo index AND within `radiusMeters` of the given point are
+            considered by both FTS and vector search; each result then carries a
+            `distanceMeters` value. Required when `sort` is `distance`.
+          required:
+            - lat
+            - lng
+            - radiusMeters
+          properties:
+            lat:
+              type: number
+              format: double
+              description: Latitude of the center point
+              example: 51.5074
+            lng:
+              type: number
+              format: double
+              description: Longitude of the center point
+              example: -0.1278
+            radiusMeters:
+              type: number
+              format: double
+              description: Search radius in meters
+              example: 5000
         includeContent:
           type: boolean
           description: Include document content in results
@@ -6807,6 +6935,10 @@ components:
           type: boolean
           description: Disable synonym expansion for FTS
           default: false
+        lang:
+          type: string
+          description: Language for FTS query tokenization and stemming (e.g. "en", "pl", "de")
+          example: en
         distanceMetric:
           type: string
           enum: [ cosine, dot_product, euclidean ]
@@ -7905,6 +8037,23 @@ components:
           type: object
           additionalProperties: true
           description: Custom key-value metadata for the collection
+        trackAccess:
+          type: boolean
+          description: Record per-read access events for temporal analytics
+        trackHot:
+          type: boolean
+          description: Maintain a hot-documents leaderboard for this collection
+        spellCorrect:
+          type: boolean
+          description: Auto-correct FTS queries using the spell checker
+        spellLang:
+          type: string
+          description: Override language for spell correction (defaults to query language)
+        encrypted:
+          type: boolean
+          description: >-
+            Encrypt documents and revisions of this collection at rest
+            (AES-256-GCM; requires MDDB_ENCRYPTION_KEY on the server)
         storageBackend:
           type: string
           enum: [ boltdb, memory, s3 ]

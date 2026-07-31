@@ -122,7 +122,7 @@ How MDDB compares to other database and content management solutions.
 
 ## vs Vector Databases
 
-### Pinecone / Weaviate / Qdrant
+### Dedicated Vector Database Services
 
 **Advantages of MDDB:**
 - ✅ **All-in-One** - Vectors + metadata + full-text + storage
@@ -141,16 +141,16 @@ How MDDB compares to other database and content management solutions.
 
 ## vs Search Engines
 
-### Elasticsearch
+### Heavyweight Search Engines
 
 **Advantages of MDDB:**
 - ✅ **Zero Configuration** - No cluster setup, no index mappings
 - ✅ **Embedded** - No separate search service
 - ✅ **Simpler** - Single binary vs Java + heap tuning
-- ✅ **Lower Resources** - 50MB RAM vs 2GB+ for Elasticsearch
+- ✅ **Lower Resources** - 50MB RAM vs multiple GB for a JVM-based search cluster
 - ✅ **Built-in Storage** - Documents + search in one place
 
-**When to use Elasticsearch instead:**
+**When to use a heavyweight search engine instead:**
 - Need distributed search across nodes
 - Require advanced text analysis (stemming, synonyms)
 - Building log aggregation (ELK stack)
@@ -218,7 +218,7 @@ Benchmark: 3000 documents, batch inserts
 
 ## Feature Matrix
 
-| Feature | MDDB | MongoDB | PostgreSQL | WordPress | Elasticsearch |
+| Feature | MDDB | MongoDB | PostgreSQL | WordPress | Search Engine* |
 |---------|------|---------|------------|-----------|---------------|
 | **Markdown Native** | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **Embedded** | ✅ | ❌ | ❌ | ❌ | ❌ |
@@ -271,7 +271,7 @@ Choose MDDB when you need:
 - Want thousands of plugins
 - Building traditional websites
 
-**Choose Elasticsearch if:**
+**Choose a heavyweight search engine if:**
 - Need distributed search cluster
 - Building log aggregation system
 - Require advanced text analysis

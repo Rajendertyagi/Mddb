@@ -27,7 +27,7 @@ type PinnedDoc struct {
 
 // CurationRule overrides the ranking of FTS / Hybrid results for specific
 // queries. One rule pins a set of documents to fixed positions and/or hides
-// other documents entirely. Inspired by Typesense curation.
+// other documents entirely.
 //
 // Lifecycle: rules live in a dedicated bolt bucket keyed by ID. The in-memory
 // cache is refreshed on every Set/Delete so readers never need to hit disk

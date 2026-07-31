@@ -43,6 +43,11 @@ Complete reference for all MDDB configuration parameters.
 | `MDDB_PANEL_MODE` | `"internal"` | string | Panel mode: `"internal"` (CORS enabled) or `"external"` (reverse proxy) |
 | `MDDB_CORS_ORIGINS` | `"*"` | string | CORS allowlist (SEC-008): comma-separated exact origins, e.g. `https://app.example.com,https://admin.example.com`. Only a matching request `Origin` is echoed (with `Vary: Origin`); others get no `Access-Control-Allow-Origin`. `*` = wildcard (read-only, no credentials). Takes precedence over `MDDB_CORS_ORIGIN`. |
 | `MDDB_CORS_ORIGIN` | `"*"` | string | Legacy single-origin form of `MDDB_CORS_ORIGINS` (kept for compatibility). Prefer `MDDB_CORS_ORIGINS`. |
+| `MDDB_MAX_BODY_BYTES` | `33554432` (32 MB) | int | Global cap on HTTP request body size; larger requests are rejected before parsing (streaming endpoints keep their own dedicated caps) |
+| `MDDB_OUTBOUND_ALLOWLIST` | `""` | string | Comma-separated hostnames the server may reach with outbound HTTP (SSRF egress control for `import-url`, webhooks, remote publishing) — see [SECURITY.md](SECURITY.md#outbound-request-egress-controls-ssrf) |
+| `MDDB_OUTBOUND_ALLOW_PRIVATE` | `"false"` | bool | Allow outbound HTTP requests to private/loopback IP ranges (disabled by default to block SSRF pivoting) |
+| `MDDB_WIKI_MAX_PAGES` | `500000` | int | Maximum pages processed by a single `/v1/import-wiki` run (DoS guard) |
+| `MDDB_WIKI_MAX_DECOMPRESSED_BYTES` | `4294967296` (4 GiB) | int | Maximum decompressed XML volume for a wiki import (zip-bomb guard) |
 | `MDDB_METRICS` | `"true"` | bool | Enable Prometheus-compatible `/metrics` endpoint |
 | `MDDB_SEARCH_STATS` | `"true"` | bool | Include `searchStats` in search responses |
 

@@ -19,6 +19,11 @@ MDDB provides a high-performance gRPC API alongside the HTTP/JSON API. The gRPC 
 - [Service Definition](#service-definition)
 - [Client Examples](#client-examples)
 - [Schema Validation RPCs](#schema-validation-rpcs)
+- [Geo RPCs](#geo-rpcs)
+- [Curation RPCs](#curation-rpcs)
+- [FTS Maintenance RPCs](#fts-maintenance-rpcs)
+- [Replication Service](#replication-service)
+- [Not Yet Available over gRPC](#not-yet-available-over-grpc)
 - [Performance Comparison](#performance-comparison)
 - [Best Practices](#best-practices)
 
@@ -89,7 +94,7 @@ grpcurl -plaintext -d '{"collection":"blog","key":"test","lang":"en_US"}' \
 
 The complete service definition is in [`proto/mddb.proto`](https://github.com/tradik/mddb/blob/main/proto/mddb.proto).
 
-### Available RPCs (58 total)
+### Available RPCs (66 implemented)
 
 | Category | RPC | Request → Response |
 |---|---|---|
@@ -107,9 +112,17 @@ The complete service definition is in [`proto/mddb.proto`](https://github.com/tr
 | | `ImportURL` | `ImportURLRequest` → `Document` |
 | | `SetTTL` | `SetTTLRequest` → `Document` |
 | **Full-Text Search** | `FTS` | `FTSRequest` → `FTSResponse` |
+| | `FTSReindex` | `FTSReindexRequest` → `FTSReindexResponse` |
+| | `FTSLanguages` | `FTSLanguagesRequest` → `FTSLanguagesResponse` |
 | **Vector / Semantic** | `VectorSearch` | `VectorSearchRequest` → `VectorSearchResponse` |
 | | `VectorReindex` | `VectorReindexRequest` → `VectorReindexResponse` |
 | | `VectorStats` | `VectorStatsRequest` → `VectorStatsResponse` |
+| **Geo** | `GeoSearch` | `GeoSearchRequest` → `GeoSearchResponse` |
+| | `GeoWithin` | `GeoWithinRequest` → `GeoWithinResponse` |
+| | `GeoReindex` | `GeoReindexRequest` → `GeoReindexResponse` |
+| | `GeoStats` | `GeoStatsRequest` → `GeoStatsResponse` |
+| | `GeoEncode` | `GeoEncodeRequest` → `GeoEncodeResponse` |
+| | `GeoDecode` | `GeoDecodeRequest` → `GeoDecodeResponse` |
 | **Hybrid & Cross** | `HybridSearch` | `HybridSearchRequest` → `HybridSearchResponse` |
 | | `CrossSearch` | `CrossSearchRequest` → `CrossSearchResponse` |
 | **Analysis** | `Classify` | `ClassifyRequest` → `ClassifyResponse` |
@@ -146,7 +159,13 @@ The complete service definition is in [`proto/mddb.proto`](https://github.com/tr
 | **Collection Config** | `GetCollectionConfig` | `GetCollectionConfigRequest` → `GetCollectionConfigResponse` |
 | | `SetCollectionConfig` | `SetCollectionConfigRequest` → `SetCollectionConfigResponse` |
 | | `ListCollectionConfigs` | `ListCollectionConfigsRequest` → `ListCollectionConfigsResponse` |
+| **Curation** | `ListCurationRules` | `ListCurationRulesRequest` → `ListCurationRulesResponse` |
+| | `CreateCurationRule` | `CreateCurationRuleRequest` → `CurationRuleProto` |
+| | `UpdateCurationRule` | `UpdateCurationRuleRequest` → `CurationRuleProto` |
+| | `DeleteCurationRule` | `DeleteCurationRuleRequest` → `DeleteCurationRuleResponse` |
 | **System** | `Stats` | `StatsRequest` → `StatsResponse` |
+
+A separate `mddb.MDDBReplication` service exposes 4 additional RPCs for leader/follower replication — see [Replication Service](#replication-service).
 
 Full service definition: [`proto/mddb.proto`](https://github.com/tradik/mddb/blob/main/proto/mddb.proto)
 
@@ -548,6 +567,367 @@ if resp.Valid {
     log.Printf("Validation errors: %v", resp.Errors)
 }
 ```
+
+---
+
+## Geo RPCs
+
+Geospatial search over documents with `lat`/`lng` metadata, backed by an in-memory R-tree. Implemented in `services/mddbd/geo_grpc.go`.
+
+### GeoSearch
+
+Finds documents within `radius_meters` of a `(lat, lng)` point, ordered by ascending distance.
+
+```protobuf
+message GeoSearchRequest {
+  string collection = 1;
+  double lat = 2;
+  double lng = 3;
+  double radius_meters = 4;
+  int32 top_k = 5;
+  map<string, MetaValues> filter_meta = 6;
+  bool include_content = 7;
+}
+
+message GeoSearchResultItem {
+  Document document = 1;
+  double distance_meters = 2;
+  int32 rank = 3;
+}
+
+message GeoSearchResponse {
+  repeated GeoSearchResultItem results = 1;
+  int32 total = 2;
+  double radius_meters = 3;
+  string algorithm = 4;
+}
+```
+
+### GeoWithin
+
+Finds documents inside the axis-aligned bounding box `[min_lat, max_lat] × [min_lng, max_lng]`.
+
+```protobuf
+message GeoWithinRequest {
+  string collection = 1;
+  double min_lat = 2;
+  double max_lat = 3;
+  double min_lng = 4;
+  double max_lng = 5;
+  map<string, MetaValues> filter_meta = 6;
+  bool include_content = 7;
+}
+
+message GeoWithinResponse {
+  repeated GeoSearchResultItem results = 1;
+  int32 total = 2;
+  string algorithm = 3;
+}
+```
+
+### GeoReindex
+
+Force-rebuilds the in-memory geo R-tree from BoltDB and optionally loads postcode lookup CSVs. An empty `collection` means "rebuild all".
+
+```protobuf
+message GeoPostcodeLoadProto {
+  string country = 1;
+  string csv_path = 2;
+}
+
+message GeoReindexRequest {
+  string collection = 1;
+  repeated GeoPostcodeLoadProto load_postcodes = 2;
+}
+
+message GeoReindexResponse {
+  int32 points = 1;
+  string collection = 2;
+  map<string, int32> postcodes_loaded = 3;
+  int64 duration_ms = 4;
+}
+```
+
+### GeoStats
+
+Returns geo index statistics per collection plus loaded postcode datasets.
+
+```protobuf
+message GeoStatsRequest {}
+
+message GeoCollectionStatProto {
+  int32 points = 1;
+  int64 last_rebuild_unix = 2;
+}
+
+message GeoStatsResponse {
+  map<string, GeoCollectionStatProto> collections = 1;
+  map<string, int32> postcode_datasets = 2;
+  bool ready = 3;
+}
+```
+
+### GeoEncode
+
+Encodes a `(lat, lng)` pair into a geohash string at the requested precision.
+
+```protobuf
+message GeoEncodeRequest {
+  double lat = 1;
+  double lng = 2;
+  int32 precision = 3;
+}
+
+message GeoEncodeResponse {
+  string geohash = 1;
+  int32 precision = 2;
+}
+```
+
+### GeoDecode
+
+Decodes a geohash back to its centroid `(lat, lng)` and bounding box.
+
+```protobuf
+message GeoDecodeRequest {
+  string geohash = 1;
+}
+
+message GeoDecodeResponse {
+  double lat = 1;
+  double lng = 2;
+  double min_lat = 3;
+  double max_lat = 4;
+  double min_lng = 5;
+  double max_lng = 6;
+}
+```
+
+### grpcurl Example
+
+```bash
+grpcurl -plaintext -d '{
+  "collection": "places",
+  "lat": 51.5074,
+  "lng": -0.1278,
+  "radius_meters": 5000,
+  "top_k": 10
+}' localhost:11024 mddb.MDDB/GeoSearch
+```
+
+---
+
+## Curation RPCs
+
+Curation rules (v2.9.14+) let editors pin specific documents to fixed positions and hide others for a given query, overriding organic ranking. Rules are persisted in the `curation` bucket and applied in the FTS and HybridSearch post-processing stages. Implemented in `services/mddbd/grpc_curation.go`.
+
+### Message Types
+
+```protobuf
+message PinnedDocProto {
+  string key = 1;
+  string lang = 2;
+  int32 position = 3;            // 1-based; <=0 means "append after organic results"
+}
+
+message CurationRuleProto {
+  string id = 1;
+  string collection = 2;
+  string query = 3;
+  string match_mode = 4;         // "exact" (default) or "contains"
+  repeated PinnedDocProto pins = 5;
+  repeated string hides = 6;     // document keys to drop
+  bool enabled = 7;
+  int64 created_at = 8;
+  int64 updated_at = 9;
+}
+```
+
+### ListCurationRules
+
+Lists rules scoped to a collection, or all rules when `collection` is empty.
+
+```protobuf
+message ListCurationRulesRequest {
+  string collection = 1;         // optional; "" = list all
+}
+
+message ListCurationRulesResponse {
+  repeated CurationRuleProto rules = 1;
+  int32 total = 2;
+  string collection = 3;
+}
+```
+
+### CreateCurationRule / UpdateCurationRule
+
+Create a new rule, or replace an existing rule by `id`. Both return the stored `CurationRuleProto`.
+
+```protobuf
+message CreateCurationRuleRequest {
+  CurationRuleProto rule = 1;
+}
+
+message UpdateCurationRuleRequest {
+  CurationRuleProto rule = 1;
+}
+```
+
+### DeleteCurationRule
+
+Removes a rule by `id`.
+
+```protobuf
+message DeleteCurationRuleRequest {
+  string id = 1;
+}
+
+message DeleteCurationRuleResponse {
+  string status = 1;
+  string id = 2;
+}
+```
+
+### grpcurl Example
+
+```bash
+grpcurl -plaintext -d '{
+  "rule": {
+    "collection": "blog",
+    "query": "getting started",
+    "match_mode": "exact",
+    "pins": [{"key": "quickstart", "lang": "en_US", "position": 1}],
+    "hides": ["outdated-guide"],
+    "enabled": true
+  }
+}' localhost:11024 mddb.MDDB/CreateCurationRule
+```
+
+---
+
+## FTS Maintenance RPCs
+
+### FTSReindex
+
+Rebuilds the full-text index for a collection, re-applying language-aware stemming.
+
+```protobuf
+message FTSReindexRequest {
+  string collection = 1;                         // collection to reindex
+}
+
+message FTSReindexResponse {
+  string status = 1;                             // "ok"
+  int32 reindexed = 2;                           // number of documents reindexed
+  int32 skipped = 3;                             // number of documents skipped
+}
+```
+
+### FTSLanguages
+
+Lists the FTS languages supported by the server and its default language.
+
+```protobuf
+message FTSLanguagesRequest {}
+
+message FTSLanguageInfo {
+  string code = 1;                               // language code, e.g. "en", "pl"
+  string name = 2;                               // language name, e.g. "English", "Polish"
+}
+
+message FTSLanguagesResponse {
+  repeated FTSLanguageInfo languages = 1;
+  string default_lang = 2;                       // server's default language
+}
+```
+
+---
+
+## Replication Service
+
+Leader/follower replication is exposed as a separate gRPC service, `mddb.MDDBReplication`, on the same port. These RPCs are used by follower nodes and are normally not called by application clients. See [REPLICATION.md](REPLICATION.md) for setup, authentication, and operational details.
+
+| RPC | Request → Response | Description |
+|---|---|---|
+| `RequestSnapshot` | `SnapshotRequest` → `stream SnapshotChunk` | Streams a full database snapshot to a follower |
+| `StreamBinlog` | `StreamBinlogRequest` → `stream BinlogEntryProto` | Long-lived server stream of binlog entries from a given LSN |
+| `ReplicationStatus` | `ReplicationStatusRequest` → `ReplicationStatusResponse` | Current replication state of this node (role, LSN, followers, lag) |
+| `AcknowledgeLSN` | `AcknowledgeLSNRequest` → `AcknowledgeLSNResponse` | Follower confirms it has applied up to a given LSN |
+
+```protobuf
+message SnapshotRequest {
+  string follower_id = 1;
+  uint64 current_lsn = 2;
+}
+
+message SnapshotChunk {
+  bytes data = 1;
+  uint64 offset = 2;
+  uint64 total_size = 3;
+  bool is_last = 4;
+  uint64 snapshot_lsn = 5;
+}
+
+message StreamBinlogRequest {
+  string follower_id = 1;
+  uint64 from_lsn = 2;
+}
+
+message BinlogEntryProto {
+  uint64 lsn = 1;
+  uint32 type = 2;
+  int64 timestamp = 3;
+  string bucket_name = 4;
+  bytes key = 5;
+  bytes value = 6;
+  uint32 checksum = 7;
+}
+
+message ReplicationStatusRequest {}
+
+message ReplicationStatusResponse {
+  string node_id = 1;
+  string role = 2;
+  uint64 current_lsn = 3;
+  string leader_addr = 4;
+  int64 last_applied_at = 5;
+  repeated FollowerInfo followers = 6;
+  int64 replication_lag_ms = 7;
+  uint64 binlog_oldest_lsn = 8;
+  int64 binlog_size_bytes = 9;
+}
+
+message FollowerInfo {
+  string follower_id = 1;
+  uint64 confirmed_lsn = 2;
+  int64 last_seen_at = 3;
+  string address = 4;
+  int64 lag_ms = 5;
+}
+
+message AcknowledgeLSNRequest {
+  string follower_id = 1;
+  uint64 confirmed_lsn = 2;
+}
+
+message AcknowledgeLSNResponse {
+  bool ok = 1;
+  uint64 leader_lsn = 2;
+}
+```
+
+---
+
+## Not Yet Available over gRPC
+
+The following RPCs are declared in `proto/mddb.proto` but not yet implemented server-side. Calling them returns gRPC status `Unimplemented` — use the HTTP endpoints instead:
+
+| RPC | HTTP alternative |
+|---|---|
+| `SpellSuggest` | `POST /v1/spell-suggest` |
+| `SpellCleanup` | `POST /v1/spell-cleanup` |
+| `TemporalQuery` | `POST /v1/temporal/query` |
+| `TemporalHot` | `POST /v1/temporal/hot` |
 
 ---
 

@@ -157,6 +157,24 @@ curl -X POST http://localhost:11023/v1/vector-search \
   }'
 ```
 
+## Storage Quantization vs. Index Algorithms
+
+Two independent mechanisms share the "quantization" vocabulary:
+
+- **Storage quantization** (this document): `int8`/`int4` per collection —
+  compresses what is *stored and held in memory*.
+- **Index algorithms** (`algorithm` on `/v1/vector-search`): `flat`, `hnsw`,
+  `ivf`, `pq`, `opq`, `sq`, `bq` — change *how candidates are found*. PQ/OPQ/
+  SQ/BQ are themselves compression-based indexes; HNSW and IVF are
+  graph/cluster-based approximate indexes. See
+  [SEARCH.md](SEARCH.md#vector-search) for per-algorithm characteristics.
+
+Index tuning parameters are currently fixed at sensible defaults (HNSW
+`M=16`, `efConstruction=200`, `efSearch=100`; IVF `nProbe=10`; PQ
+`nSubspaces=8`, `codebookSize=256`; OPQ `opqIter=5`). The one runtime knob is
+`MDDB_VECTOR_BQ_RERANK_FACTOR` for the binary-quantized index — see
+[config.md](config.md).
+
 ## Disk-Only Vectors — Low-Memory Mode (v2.11.4+)
 
 By default, quantized collections still keep full-precision vectors in the

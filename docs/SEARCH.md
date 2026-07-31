@@ -1516,7 +1516,7 @@ curl -X POST http://localhost:11023/v1/fts \
 
 ## Curation Rules — Pinned & Hidden Results (v2.9.14+)
 
-Curation rules override organic ranking for specific queries. For each rule, editors can pin documents to fixed 1-based positions and hide other documents entirely. Inspired by Typesense curation; applied inside the FTS + Hybrid pipelines after scoring but before pagination.
+Curation rules override organic ranking for specific queries. For each rule, editors can pin documents to fixed 1-based positions and hide other documents entirely; applied inside the FTS + Hybrid pipelines after scoring but before pagination.
 
 ### REST Endpoints
 
