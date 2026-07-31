@@ -94,10 +94,24 @@ func (c *DirectClient) VectorSearch(ctx context.Context, req *MCPVectorSearchReq
 		results = searcher.Search(req.Collection, queryVector, searchTopK, req.Threshold, metric)
 	}
 
-	// Deduplicate chunk results: group by base docID, take max score
-	results = vec.DeduplicateChunkResults(results)
+	// Parent mode (default): dedupe chunks to their parent document.
+	// Chunk/window modes keep chunk hits and return the matching passage.
+	if !validRetrievalMode(req.RetrievalMode) {
+		return nil, errors.New("unknown retrievalMode: " + req.RetrievalMode + ", available: parent, chunk, window")
+	}
+	chunkMode := req.RetrievalMode == RetrievalModeChunk || req.RetrievalMode == RetrievalModeWindow
+	if !chunkMode {
+		results = vec.DeduplicateChunkResults(results)
+	}
 	if len(results) > topK {
 		results = results[:topK]
+	}
+	windowSize := 0
+	if req.RetrievalMode == RetrievalModeWindow {
+		windowSize = req.WindowSize
+		if windowSize <= 0 {
+			windowSize = 1
+		}
 	}
 
 	items := make([]MCPVectorSearchResult, 0, len(results))
@@ -107,7 +121,8 @@ func (c *DirectClient) VectorSearch(ctx context.Context, req *MCPVectorSearchReq
 			return nil
 		}
 		for rank, vr := range results {
-			v := bDocs.Get(storage.DocKey(req.Collection, vr.DocID))
+			docID, chunkIndex := splitChunkKey(vr.DocID)
+			v := bDocs.Get(storage.DocKey(req.Collection, docID))
 			if v == nil {
 				continue
 			}
@@ -116,14 +131,20 @@ func (c *DirectClient) VectorSearch(ctx context.Context, req *MCPVectorSearchReq
 				continue
 			}
 			doc := *docPtr
+			item := MCPVectorSearchResult{
+				Score: vr.Score,
+				Rank:  rank + 1,
+			}
+			if chunkMode {
+				idx := chunkIndex
+				item.ChunkIndex = &idx
+				item.ChunkText = chunkPassage(doc.ContentMD, chunkIndex, windowSize)
+			}
 			if !req.IncludeContent {
 				doc.ContentMD = ""
 			}
-			items = append(items, MCPVectorSearchResult{
-				Document: docToMCPDocument(doc),
-				Score:    vr.Score,
-				Rank:     rank + 1,
-			})
+			item.Document = docToMCPDocument(doc)
+			items = append(items, item)
 		}
 		return nil
 	})

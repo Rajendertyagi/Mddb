@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > tag was never published.
 
 ### Added
+- **Retrieval modes for vector search (parent / chunk / window)** — `retrievalMode` on `/v1/vector-search` and the `semantic_search` MCP tool controls result granularity: `parent` (default, one result per document — unchanged behavior), `chunk` (each result carries `chunkIndex` and `chunkText`, the exact matching passage), and `window` (passage widened by `windowSize` neighboring chunks per side). Passages are re-derived from the parent document's current content, so they never go stale. See [docs/SEARCH.md](docs/SEARCH.md#retrieval-modes--parent-chunk-window-v2114).
 - **Native multi-tenancy** — tenant namespace isolation for collections, enforced centrally in the authorization layer so HTTP, gRPC, GraphQL and MCP all inherit it. Users created with a `tenant` are confined to collections named `<tenant>/<name>`, can never hold the global admin role, and listing endpoints (stats, collection configs, curation rules, schemas) return only their namespace. Single-tenant deployments are untouched — zero configuration changes. See [docs/MULTI_TENANCY.md](docs/MULTI_TENANCY.md).
 
 ### Changed

@@ -215,13 +215,17 @@ type MCPVectorSearchRequest struct {
 	IncludeContent bool                `json:"includeContent,omitempty"`
 	Algorithm      string              `json:"algorithm,omitempty"`
 	DistanceMetric string              `json:"distanceMetric,omitempty"`
+	RetrievalMode  string              `json:"retrievalMode,omitempty"` // "parent" (default), "chunk", "window"
+	WindowSize     int                 `json:"windowSize,omitempty"`    // neighbor chunks per side in "window" mode
 }
 
 // MCPVectorSearchResult represents a single semantic search result.
 type MCPVectorSearchResult struct {
-	Document MCPDocument `json:"document"`
-	Score    float32     `json:"score"`
-	Rank     int         `json:"rank"`
+	Document   MCPDocument `json:"document"`
+	Score      float32     `json:"score"`
+	Rank       int         `json:"rank"`
+	ChunkIndex *int        `json:"chunkIndex,omitempty"` // set in chunk/window retrieval modes
+	ChunkText  string      `json:"chunkText,omitempty"`  // matching passage (chunk/window modes)
 }
 
 // MCPVectorSearchResponse represents vector search results.

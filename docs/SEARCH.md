@@ -704,6 +704,47 @@ curl -X POST http://localhost:11023/v1/vector-search \
 
 If the selected algorithm's index is not yet ready (e.g., HNSW graph still building, IVF/PQ still training), the server automatically falls back to the **flat** algorithm and includes the actual algorithm used in the response.
 
+### Retrieval Modes — Parent, Chunk, Window (v2.11.4+)
+
+Documents are embedded per chunk, and `retrievalMode` controls the granularity
+of what a search returns:
+
+| Mode | Returns | Use case |
+|------|---------|----------|
+| `parent` (default) | One result per document, scored by its best chunk | Document-level search, browsing |
+| `chunk` | One result per matching chunk with `chunkIndex` + `chunkText` | Precise passages for LLM prompts (RAG) |
+| `window` | Like `chunk`, but the passage includes `windowSize` neighboring chunks per side | Passage plus surrounding context |
+
+```bash
+# Get the exact matching passage for an LLM prompt
+curl -X POST http://localhost:11023/v1/vector-search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "kb",
+    "query": "how do I rotate the TLS certificate?",
+    "topK": 3,
+    "retrievalMode": "chunk"
+  }'
+```
+
+Response items in `chunk`/`window` mode carry the matching passage:
+
+```json
+{
+  "document": { "id": "abc123", "key": "tls-guide", "meta": {"category": ["ops"]} },
+  "score": 0.91,
+  "rank": 1,
+  "chunkIndex": 4,
+  "chunkText": "## Certificate rotation\nTo rotate the TLS certificate..."
+}
+```
+
+The parent document's metadata is always included, so a RAG pipeline can cite
+the source document while prompting with only the relevant passage. Passages
+are derived from the parent's current content, so they never go stale. The
+same options are available on the `semantic_search` MCP tool
+(`retrieval_mode`, `window_size`).
+
 ## Hybrid Search (v2.6.5+)
 
 Hybrid search combines FTS (keyword) and vector (semantic) search into a single query, producing results ranked by a fused score. This gives you the best of both worlds: exact keyword matching plus semantic understanding.

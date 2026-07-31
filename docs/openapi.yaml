@@ -5905,6 +5905,24 @@ components:
           description: Distance metric for similarity computation
           default: cosine
           example: cosine
+        retrievalMode:
+          type: string
+          enum: [ parent, chunk, window ]
+          description: |
+            Result granularity (default "parent").
+            - **parent**: One result per document, scored by its best-matching chunk.
+            - **chunk**: One result per matching chunk; each result carries
+              `chunkIndex` and `chunkText` with the exact matching passage —
+              ideal for feeding precise context to an LLM.
+            - **window**: Like `chunk`, but the passage is widened with
+              `windowSize` neighboring chunks on each side.
+          default: parent
+          example: chunk
+        windowSize:
+          type: integer
+          description: Neighbor chunks per side in "window" retrieval mode (default 1)
+          default: 1
+          example: 1
 
     VectorSearchResponse:
       type: object
@@ -5950,6 +5968,14 @@ components:
           type: integer
           description: Result rank (1-based)
           example: 1
+        chunkIndex:
+          type: integer
+          description: Index of the matching chunk (only in chunk/window retrieval modes)
+          example: 2
+        chunkText:
+          type: string
+          description: The matching passage text (only in chunk/window retrieval modes)
+          example: "## Deployment\nTo deploy the service..."
 
     VectorReindexRequest:
       type: object

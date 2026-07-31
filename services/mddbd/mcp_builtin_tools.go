@@ -107,6 +107,8 @@ func mcpBuiltinToolsCore() []MCPTool {
 					"filter_meta":     map[string]interface{}{"type": "object", "description": "Optional metadata filter to combine with semantic search"},
 					"algorithm":       map[string]interface{}{"type": "string", "description": "Vector search algorithm: flat (exact, default), hnsw (approximate), ivf (clustered), pq (compressed)"},
 					"distance_metric": map[string]interface{}{"type": "string", "description": "Distance metric: cosine (default), dot_product, euclidean"},
+					"retrieval_mode":  map[string]interface{}{"type": "string", "description": "Result granularity: parent (default, one result per document), chunk (matching passage with chunkIndex/chunkText), window (passage plus neighboring chunks)"},
+					"window_size":     map[string]interface{}{"type": "integer", "description": "Neighbor chunks per side in window mode (default: 1)"},
 					"include_content": map[string]interface{}{"type": "boolean", "description": mcpIncludeContentDesc},
 					"fields":          map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}, "description": mcpFieldsDesc},
 				},

@@ -29,13 +29,17 @@ type VectorSearchRequest struct {
 	IncludeContent bool                `json:"includeContent"`
 	Algorithm      string              `json:"algorithm"`      // "flat" (default), "hnsw", "ivf", "pq", "opq", "sq", "bq"
 	DistanceMetric string              `json:"distanceMetric"` // "cosine" (default), "dot_product", "euclidean"
+	RetrievalMode  string              `json:"retrievalMode"`  // "parent" (default), "chunk", "window"
+	WindowSize     int                 `json:"windowSize"`     // neighbor chunks per side in "window" mode (default 1)
 }
 
 // VectorSearchResultItem represents a single search result.
 type VectorSearchResultItem struct {
-	Document storage.Doc `json:"document"`
-	Score    float32     `json:"score"`
-	Rank     int         `json:"rank"`
+	Document   storage.Doc `json:"document"`
+	Score      float32     `json:"score"`
+	Rank       int         `json:"rank"`
+	ChunkIndex *int        `json:"chunkIndex,omitempty"` // set in chunk/window retrieval modes
+	ChunkText  string      `json:"chunkText,omitempty"`  // matching passage (chunk/window modes)
 }
 
 // VectorSearchResponseHTTP represents the response from vector search.
@@ -130,6 +134,10 @@ func (s *Server) handleVectorSearch(w http.ResponseWriter, r *http.Request) {
 		bad(w, errors.New("either query or queryVector is required"))
 		return
 	}
+	if !validRetrievalMode(req.RetrievalMode) {
+		bad(w, errors.New("unknown retrievalMode: "+req.RetrievalMode+", available: parent, chunk, window"))
+		return
+	}
 
 	// Select algorithm
 	algo := req.Algorithm
@@ -212,10 +220,23 @@ func (s *Server) handleVectorSearch(w http.ResponseWriter, r *http.Request) {
 		results = searcher.Search(req.Collection, queryVector, searchTopK, req.Threshold, metric)
 	}
 
-	// Deduplicate chunk results: group by base docID, take max score
-	results = vec.DeduplicateChunkResults(results)
+	// Parent mode (default): one result per document, best chunk wins.
+	// Chunk/window modes keep individual chunk hits so the exact matching
+	// passage can be returned alongside the parent document.
+	chunkMode := req.RetrievalMode == RetrievalModeChunk || req.RetrievalMode == RetrievalModeWindow
+	if !chunkMode {
+		results = vec.DeduplicateChunkResults(results)
+	}
 	if len(results) > topK {
 		results = results[:topK]
+	}
+
+	windowSize := 0
+	if req.RetrievalMode == RetrievalModeWindow {
+		windowSize = req.WindowSize
+		if windowSize <= 0 {
+			windowSize = 1
+		}
 	}
 
 	// Track vector search operation
@@ -231,7 +252,8 @@ func (s *Server) handleVectorSearch(w http.ResponseWriter, r *http.Request) {
 			return nil
 		}
 		for rank, vr := range results {
-			v := bDocs.Get(storage.DocKey(req.Collection, vr.DocID))
+			docID, chunkIndex := splitChunkKey(vr.DocID)
+			v := bDocs.Get(storage.DocKey(req.Collection, docID))
 			if v == nil {
 				continue
 			}
@@ -240,14 +262,20 @@ func (s *Server) handleVectorSearch(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			doc := *docPtr
+			item := VectorSearchResultItem{
+				Score: vr.Score,
+				Rank:  rank + 1,
+			}
+			if chunkMode {
+				idx := chunkIndex
+				item.ChunkIndex = &idx
+				item.ChunkText = chunkPassage(doc.ContentMD, chunkIndex, windowSize)
+			}
 			if !req.IncludeContent {
 				doc.ContentMD = ""
 			}
-			items = append(items, VectorSearchResultItem{
-				Document: doc,
-				Score:    vr.Score,
-				Rank:     rank + 1,
-			})
+			item.Document = doc
+			items = append(items, item)
 		}
 		return nil
 	})

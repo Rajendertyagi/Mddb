@@ -29,11 +29,11 @@ func TestCollectionInTenant(t *testing.T) {
 		tenant, collection string
 		want               bool
 	}{
-		{"", "anything", true},        // global scope owns everything
-		{"acme", "acme/notes", true},  // inside namespace
-		{"acme", "acme/a/b", true},    // nested names allowed
-		{"acme", "acme", false},       // bare tenant name is not a collection
-		{"acme", "acme/", false},      // empty collection part
+		{"", "anything", true},       // global scope owns everything
+		{"acme", "acme/notes", true}, // inside namespace
+		{"acme", "acme/a/b", true},   // nested names allowed
+		{"acme", "acme", false},      // bare tenant name is not a collection
+		{"acme", "acme/", false},     // empty collection part
 		{"acme", "acmeX/notes", false},
 		{"acme", "other/notes", false},
 		{"acme", "notes", false},
