@@ -5,6 +5,14 @@
 source: .
 content_dir: docs
 pages_path: .
+
+# Blog posts live outside docs/ and are merged in as posts (slug prefix
+# "blog/" → URLs /blog/<name>/; the /blog/ index is docs/BLOG.md with
+# layout: blog).
+content_sources:
+  - path: blog
+    type: post
+    category: Blog
 template: ssg-template
 templates_dir: services
 domain: mddb.tradik.com

@@ -1,0 +1,42 @@
+{{define "page_slug"}}{{.Slug}}{{end}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {{template "head_meta" .}}
+    <meta name="description" content="{{.Description}}">
+    <meta property="og:title" content="{{.Title}} — MDDB">
+    <meta property="og:url" content="https://{{.Domain}}/{{.Slug}}/" />
+    <meta property="twitter:title" content="{{.Title}} — MDDB">
+    <meta property="twitter:url" content="https://{{.Domain}}/{{.Slug}}/" />
+    <link rel="canonical" href="https://{{.Domain}}/{{.Slug}}/" />
+    <title>{{.Title}} — MDDB</title>
+</head>
+<body>
+{{template "gtm_noscript" .}}
+{{template "navbar" .}}
+
+<div class="site-layout">
+    <main id="main-content" class="main-content">
+        <div class="doc-category">
+            <header class="doc-header">
+                <h1 class="doc-title">{{.Title}}</h1>
+                {{if .Description}}
+                <p class="doc-index-lead">{{.Description}}</p>
+                {{end}}
+            </header>
+            <ul class="doc-page-list">
+                {{range .Site.Posts | sort "Date" "desc"}}
+                <li>
+                    <a href="/{{.Slug}}/">{{.Title}}</a>
+                    {{if .Date}}<time class="doc-page-date">{{formatDate .Date}}</time>{{end}}
+                    {{if .Excerpt}}<span class="doc-page-excerpt">{{.Excerpt}}</span>{{end}}
+                </li>
+                {{end}}
+            </ul>
+        </div>
+    </main>
+</div>
+
+{{template "footer" .}}
+</body>
+</html>
