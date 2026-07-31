@@ -135,8 +135,6 @@
 
 /* Doc footer */
 .doc-footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border); }
-.doc-edit-link { font-size: .85rem; color: var(--text-muted); }
-.doc-edit-link:hover { color: var(--primary); }
 
 /* Doc index (homepage) */
 .doc-index { max-width: 860px; }
