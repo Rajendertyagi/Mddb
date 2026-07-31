@@ -15,7 +15,7 @@ import (
 // MCP API Key management — stores keys in internal BoltDB bucket "_mcp_api_keys".
 // Keys persist across restarts. Managed via REST API (requires admin auth).
 
-const mcpAPIKeyBucket = "_mcp_api_keys" //nolint:gosec // G101: bucket name, not a credential
+const mcpAPIKeyBucket = "_mcp_api_keys" // #nosec G101 -- bucket name, not a credential
 
 // MCPAPIKey represents a stored MCP API key.
 type MCPAPIKey struct {

@@ -68,7 +68,7 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, maxSize*10) // account for multipart overhead
 
-	if err := r.ParseMultipartForm(maxSize); err != nil {
+	if err := r.ParseMultipartForm(maxSize); err != nil { // #nosec G120 -- bounded by http.MaxBytesReader above
 		bad(w, fmt.Errorf("parse multipart: %w", err))
 		return
 	}
