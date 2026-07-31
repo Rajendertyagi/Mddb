@@ -360,6 +360,7 @@ func main() {
 		s.Embedding = embedding.NewProvider()
 		if s.Embedding != nil {
 			s.EmbeddingWorker = NewEmbeddingWorker(s.Embedding, s.VectorStore, s.VectorIndex, 1000)
+			s.EmbeddingWorker.SetDiskOnly(s.QuantizedVecIndex, s.collectionDiskOnly)
 			s.EmbeddingWorker.Start(2)
 			log.Printf("Vector search enabled from env vars (provider=%s, model=%s, dims=%d)",
 				s.Embedding.Model(), s.Embedding.Model(), s.Embedding.Dimensions())

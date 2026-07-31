@@ -4302,6 +4302,14 @@ paths:
                     (~2-3% recall drop). Default: float32 (no quantization).
                     Requires vector-reindex after changing."
                   example: int8
+                diskOnlyVectors:
+                  type: boolean
+                  description: "Low-memory vector mode: RAM holds only the quantized
+                    vectors while full-precision vectors stay on disk and are
+                    read back to rescore the candidate set exactly. Requires
+                    quantization (int8 or int4) and a vector-reindex after
+                    enabling. Default: false"
+                  example: true
       responses:
         "200":
           description: Collection configuration set successfully

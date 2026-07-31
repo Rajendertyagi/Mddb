@@ -70,8 +70,30 @@ func newHandlerTestServer(t *testing.T) (*Server, func()) {
 		t.Fatal(err)
 	}
 	s.VectorIndex = vector.NewVectorIndex()
+
+	// Collection configs (quantization, disk-only, attributes)
+	s.CollectionManager = NewCollectionManager(db)
+	if err := s.CollectionManager.EnsureBucket(); err != nil {
+		_ = db.Close()
+		_ = os.Remove(f.Name())
+		t.Fatal(err)
+	}
+
+	s.QuantizedVecIndex = vector.NewQuantizedVectorIndex(func(collection string) vector.QuantizationType {
+		if s.CollectionManager == nil {
+			return vector.QuantNone
+		}
+		cfg, ok := s.CollectionManager.Get(collection)
+		if !ok || cfg.Quantization == "" {
+			return vector.QuantNone
+		}
+		return vector.ParseQuantization(cfg.Quantization)
+	})
+	s.QuantizedVecIndex.SetReady()
+
 	s.VectorSearchers = map[string]vector.VectorSearcher{
-		"flat": s.VectorIndex,
+		"flat":      s.VectorIndex,
+		"quantized": s.QuantizedVecIndex,
 	}
 
 	// TTL

@@ -30,6 +30,11 @@ func (c *DirectClient) VectorSearch(ctx context.Context, req *MCPVectorSearchReq
 	if algo == "" {
 		algo = "flat"
 	}
+	// Auto-select quantized searcher if collection has quantization configured
+	// (disk-only collections exist ONLY in the quantized index).
+	if algo == "flat" && s.QuantizedVecIndex != nil && s.QuantizedVecIndex.HasCollection(req.Collection) {
+		algo = "quantized"
+	}
 	searcher, ok := s.VectorSearchers[algo]
 	if !ok {
 		return nil, errors.New("unknown algorithm: " + algo)
@@ -99,12 +104,21 @@ func (c *DirectClient) VectorSearch(ctx context.Context, req *MCPVectorSearchReq
 	if !validRetrievalMode(req.RetrievalMode) {
 		return nil, errors.New("unknown retrievalMode: " + req.RetrievalMode + ", available: parent, chunk, window")
 	}
+	// Disk-only collections: rescore quantized candidates from disk first.
+	var diskVecs map[string][]float32
+	if s.collectionDiskOnly(req.Collection) {
+		results, diskVecs = s.rescoreFromDisk(req.Collection, queryVector, results, metric)
+	}
+
 	chunkMode := req.RetrievalMode == RetrievalModeChunk || req.RetrievalMode == RetrievalModeWindow
 	if !chunkMode {
 		results = vec.DeduplicateChunkResults(results)
 	}
 	if req.MMR {
 		results = vec.MMRRerank(results, mmrLambdaOrDefault(req.MMRLambda), topK, func(id string) []float32 {
+			if v, ok := diskVecs[id]; ok {
+				return v
+			}
 			return s.VectorIndex.GetVector(req.Collection, id)
 		})
 	}
