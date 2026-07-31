@@ -32,6 +32,15 @@ webp: true
 minify_all: false
 clean: true
 
+# Native mermaid rendering: ```mermaid fences become <pre class="mermaid">
+# and the runtime is injected only on pages/posts that contain a diagram.
+# (Replaces the theme's former page.html-only bootstrap script, which never
+# ran for posts — blog diagrams stayed as plain code blocks.)
+mermaid: true
+mermaid_theme: neutral
+mermaid_background: "#ffffff"
+
+
 # Enable sitemap and robots.txt generation
 sitemap_off: false
 robots_off: false
