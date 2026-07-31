@@ -31,6 +31,8 @@ type VectorSearchRequest struct {
 	DistanceMetric string              `json:"distanceMetric"` // "cosine" (default), "dot_product", "euclidean"
 	RetrievalMode  string              `json:"retrievalMode"`  // "parent" (default), "chunk", "window"
 	WindowSize     int                 `json:"windowSize"`     // neighbor chunks per side in "window" mode (default 1)
+	MMR            bool                `json:"mmr"`            // diversify results via Maximal Marginal Relevance
+	MMRLambda      float64             `json:"mmrLambda"`      // relevance/diversity balance, 0..1 (default 0.5)
 }
 
 // VectorSearchResultItem represents a single search result.
@@ -226,6 +228,12 @@ func (s *Server) handleVectorSearch(w http.ResponseWriter, r *http.Request) {
 	chunkMode := req.RetrievalMode == RetrievalModeChunk || req.RetrievalMode == RetrievalModeWindow
 	if !chunkMode {
 		results = vec.DeduplicateChunkResults(results)
+	}
+	if req.MMR {
+		// Diversify over the oversampled candidate set, then keep topK.
+		results = vec.MMRRerank(results, mmrLambdaOrDefault(req.MMRLambda), topK, func(id string) []float32 {
+			return s.VectorIndex.GetVector(req.Collection, id)
+		})
 	}
 	if len(results) > topK {
 		results = results[:topK]

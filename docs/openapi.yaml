@@ -5923,6 +5923,25 @@ components:
           description: Neighbor chunks per side in "window" retrieval mode (default 1)
           default: 1
           example: 1
+        mmr:
+          type: boolean
+          description: >-
+            Diversify results with Maximal Marginal Relevance reranking.
+            Selection balances query relevance against similarity to already
+            selected results, so near-duplicate documents stop crowding out
+            distinct ones.
+          default: false
+          example: true
+        mmrLambda:
+          type: number
+          format: float
+          description: >-
+            MMR relevance/diversity balance in [0,1] — 1.0 keeps the pure
+            relevance order, 0.0 maximizes diversity (default 0.5).
+          minimum: 0
+          maximum: 1
+          default: 0.5
+          example: 0.5
 
     VectorSearchResponse:
       type: object

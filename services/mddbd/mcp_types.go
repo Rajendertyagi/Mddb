@@ -217,6 +217,8 @@ type MCPVectorSearchRequest struct {
 	DistanceMetric string              `json:"distanceMetric,omitempty"`
 	RetrievalMode  string              `json:"retrievalMode,omitempty"` // "parent" (default), "chunk", "window"
 	WindowSize     int                 `json:"windowSize,omitempty"`    // neighbor chunks per side in "window" mode
+	MMR            bool                `json:"mmr,omitempty"`           // diversify results via Maximal Marginal Relevance
+	MMRLambda      float64             `json:"mmrLambda,omitempty"`     // relevance/diversity balance, 0..1 (default 0.5)
 }
 
 // MCPVectorSearchResult represents a single semantic search result.

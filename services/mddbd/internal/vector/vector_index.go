@@ -50,6 +50,23 @@ func (vi *VectorIndex) Add(collection, docID string, vector []float32) {
 	vi.collections[collection][docID] = vector
 }
 
+// GetVector returns the stored vector for a doc/chunk ID, or nil if absent.
+// For base doc IDs it falls back to the first chunk ("id#0"), so callers can
+// resolve vectors for deduplicated (parent-level) results.
+func (vi *VectorIndex) GetVector(collection, docID string) []float32 {
+	vi.mu.RLock()
+	defer vi.mu.RUnlock()
+
+	coll, ok := vi.collections[collection]
+	if !ok {
+		return nil
+	}
+	if v, ok := coll[docID]; ok {
+		return v
+	}
+	return coll[docID+"#0"]
+}
+
 // Remove deletes a vector from the index.
 func (vi *VectorIndex) Remove(collection, docID string) {
 	vi.mu.Lock()

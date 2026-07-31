@@ -159,3 +159,59 @@ func TestHandleVectorSearchRetrievalModes(t *testing.T) {
 		t.Errorf("invalid retrievalMode: status = %d, want 400", rec.Code)
 	}
 }
+
+func TestHandleVectorSearchMMR(t *testing.T) {
+	s, cleanup := newHandlerTestServer(t)
+	defer cleanup()
+	s.VectorIndex.SetReady()
+
+	// Two near-duplicate docs highly relevant to the query, one diverse doc.
+	for _, d := range []struct {
+		key string
+		vec []float32
+	}{
+		{"dup1", []float32{1, 0, 0}},
+		{"dup2", []float32{0.99, 0.01, 0}},
+		{"diverse", []float32{0.5, 0.87, 0}},
+	} {
+		doc := addTestDoc(t, s, "mmr", d.key, "en", "content "+d.key, nil)
+		s.VectorIndex.Add("mmr", doc.ID, d.vec)
+	}
+
+	query := VectorSearchRequest{
+		Collection:  "mmr",
+		QueryVector: []float32{1, 0, 0},
+		TopK:        2,
+	}
+
+	// Without MMR: the two near-duplicates fill topK
+	rec := doRequest(t, s.handleVectorSearch, query)
+	var resp VectorSearchResponseHTTP
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Total != 2 {
+		t.Fatalf("total = %d, want 2", resp.Total)
+	}
+	keys := []string{resp.Results[0].Document.Key, resp.Results[1].Document.Key}
+	if keys[1] == "diverse" {
+		t.Fatalf("test setup broken: diverse doc already ranks second without MMR")
+	}
+
+	// With MMR: the diverse doc displaces the near-duplicate
+	query.MMR = true
+	query.MMRLambda = 0.3
+	rec = doRequest(t, s.handleVectorSearch, query)
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Total != 2 {
+		t.Fatalf("MMR total = %d, want 2", resp.Total)
+	}
+	if resp.Results[0].Document.Key != "dup1" {
+		t.Errorf("MMR first pick = %q, want dup1 (most relevant)", resp.Results[0].Document.Key)
+	}
+	if resp.Results[1].Document.Key != "diverse" {
+		t.Errorf("MMR second pick = %q, want diverse", resp.Results[1].Document.Key)
+	}
+}

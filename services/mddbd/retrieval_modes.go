@@ -38,6 +38,18 @@ func validRetrievalMode(mode string) bool {
 	return false
 }
 
+// mmrLambdaOrDefault clamps the MMR lambda to [0,1], defaulting to 0.5 when
+// unset (zero). Lambda balances relevance (1.0) against diversity (0.0).
+func mmrLambdaOrDefault(lambda float64) float64 {
+	if lambda <= 0 {
+		return 0.5
+	}
+	if lambda > 1 {
+		return 1
+	}
+	return lambda
+}
+
 // splitChunkKey splits an index key "docID#N" into the parent document ID and
 // the chunk index. Legacy non-chunked keys map to chunk 0.
 func splitChunkKey(key string) (docID string, chunkIndex int) {

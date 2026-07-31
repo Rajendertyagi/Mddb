@@ -109,6 +109,8 @@ func mcpBuiltinToolsCore() []MCPTool {
 					"distance_metric": map[string]interface{}{"type": "string", "description": "Distance metric: cosine (default), dot_product, euclidean"},
 					"retrieval_mode":  map[string]interface{}{"type": "string", "description": "Result granularity: parent (default, one result per document), chunk (matching passage with chunkIndex/chunkText), window (passage plus neighboring chunks)"},
 					"window_size":     map[string]interface{}{"type": "integer", "description": "Neighbor chunks per side in window mode (default: 1)"},
+					"mmr":             map[string]interface{}{"type": "boolean", "description": "Diversify results via Maximal Marginal Relevance reranking (default: false)"},
+					"mmr_lambda":      map[string]interface{}{"type": "number", "description": "MMR relevance/diversity balance 0-1; 1.0 = pure relevance, 0.0 = max diversity (default: 0.5)"},
 					"include_content": map[string]interface{}{"type": "boolean", "description": mcpIncludeContentDesc},
 					"fields":          map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}, "description": mcpFieldsDesc},
 				},

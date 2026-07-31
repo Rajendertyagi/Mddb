@@ -213,6 +213,12 @@ func (s *MCPToolServer) toolSemanticSearch(ctx context.Context, args map[string]
 		RetrievalMode:  mcpGetString(args, "retrieval_mode"),
 		WindowSize:     mcpGetInt(args, "window_size"),
 	}
+	if mmr, ok := args["mmr"].(bool); ok {
+		req.MMR = mmr
+	}
+	if lambda, ok := args["mmr_lambda"].(float64); ok {
+		req.MMRLambda = lambda
+	}
 
 	if threshold, ok := args["threshold"].(float64); ok {
 		req.Threshold = threshold

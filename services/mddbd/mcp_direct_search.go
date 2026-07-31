@@ -103,6 +103,11 @@ func (c *DirectClient) VectorSearch(ctx context.Context, req *MCPVectorSearchReq
 	if !chunkMode {
 		results = vec.DeduplicateChunkResults(results)
 	}
+	if req.MMR {
+		results = vec.MMRRerank(results, mmrLambdaOrDefault(req.MMRLambda), topK, func(id string) []float32 {
+			return s.VectorIndex.GetVector(req.Collection, id)
+		})
+	}
 	if len(results) > topK {
 		results = results[:topK]
 	}

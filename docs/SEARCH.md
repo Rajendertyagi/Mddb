@@ -745,6 +745,37 @@ are derived from the parent's current content, so they never go stale. The
 same options are available on the `semantic_search` MCP tool
 (`retrieval_mode`, `window_size`).
 
+### MMR Result Diversification (v2.11.4+)
+
+When a collection contains many similar documents (or chunks), plain top-K
+often fills up with near-duplicates. Maximal Marginal Relevance (MMR)
+reranking selects results greedily by balancing relevance to the query
+against similarity to what has already been selected:
+
+```
+mmrScore = λ·relevance − (1−λ)·max(similarity to selected)
+```
+
+```bash
+curl -X POST http://localhost:11023/v1/vector-search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "kb",
+    "query": "deployment strategies",
+    "topK": 5,
+    "mmr": true,
+    "mmrLambda": 0.5
+  }'
+```
+
+- `mmr: true` enables diversification; candidates are oversampled (3× topK)
+  before selection, so diverse results can surface from beyond the raw top-K.
+- `mmrLambda` (default `0.5`): `1.0` reproduces the pure relevance order,
+  `0.0` maximizes diversity.
+- Composes with `retrievalMode` — in `chunk`/`window` modes diversification
+  applies across chunks, in `parent` mode across documents.
+- Also available on the `semantic_search` MCP tool (`mmr`, `mmr_lambda`).
+
 ## Hybrid Search (v2.6.5+)
 
 Hybrid search combines FTS (keyword) and vector (semantic) search into a single query, producing results ranked by a fused score. This gives you the best of both worlds: exact keyword matching plus semantic understanding.
