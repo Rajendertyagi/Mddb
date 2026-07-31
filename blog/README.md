@@ -1,3 +1,9 @@
+---
+title: "Blog authoring guide"
+slug: "blog/authoring-guide"
+status: draft
+---
+
 # MDDB Blog
 
 Release announcements and engineering notes, published through the same
@@ -19,8 +25,10 @@ status: publish
 ---
 ```
 
-- **Slug prefix** `blog/` puts the post in the blog section of the generated
-  site. Use `status: draft` to keep a post out of publication.
+- **Slug prefix** `blog/` puts the post under `/blog/<name>/` on the site;
+  the `/blog/` index page (`docs/BLOG.md`, `layout: blog`) lists posts
+  newest-first automatically. Add a `date: YYYY-MM-DD` field for ordering.
+  Use `status: draft` to keep a post out of publication.
 - Diagrams: ` ```mermaid ` fences render on GitHub and in the site's
   Markdown viewer.
 - Tone: write for a human who is deciding whether to upgrade — lead with what
