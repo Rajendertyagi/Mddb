@@ -569,6 +569,7 @@ mddb-cli stats
 - **[LLM Connections](docs/LLM_CONNECTIONS.md)** - MCP for Claude, ChatGPT, Ollama, DeepSeek
 - **[Integrations](docs/INTEGRATIONS.md)** - Docling, Langflow, OpenSearch, SSG, wpexporter, Airbyte, WordPress Sync, GitHub Action, Grafana datasource, Chrome browser extension
 - **[Bulk Import](docs/BULK-IMPORT.md)** - Load markdown folders
+- **[Blog](blog/)** - Release announcements and engineering notes
 
 ### Operations
 - **[Docker Guide](docs/DOCKER.md)** - Container deployment
