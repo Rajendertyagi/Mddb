@@ -41,6 +41,12 @@ updates:
       # ignore, so dirs already on 10 (grafana-datasource) keep minor updates.
       - dependency-name: eslint
         update-types: ["version-update:semver-major"]
+      # @eslint/js is released in lockstep with eslint from the same repo;
+      # bumping its major alone (PR #133 → 10.0.1) breaks npm 10's strict
+      # peer resolution against eslint 9 (ERESOLVE in the snap build).
+      # Keep it on the same major as eslint until both move together.
+      - dependency-name: "@eslint/js"
+        update-types: ["version-update:semver-major"]
       # TypeScript 7 is outside the supported peer ranges of the current
       # typescript-eslint (<6.1) and ts-jest (<7) releases. Keep supported
       # TypeScript 6 updates until both toolchains declare TS 7 support.
