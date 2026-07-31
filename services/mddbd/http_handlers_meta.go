@@ -450,7 +450,9 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		stats.DatabaseSize = info.Size()
 	}
 
-	// Collect statistics per collection
+	// Collect statistics per collection. Tenant users only see (and count)
+	// collections inside their namespace.
+	tenant := TenantFromContext(r.Context())
 	collectionMap := make(map[string]*CollectionStats)
 
 	err := s.DBView(func(tx *bolt.Tx) error {
@@ -461,7 +463,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 			for k, _ := c.First(); k != nil; k, _ = c.Next() {
 				// key format: doc|collection|id
 				parts := strings.Split(string(k), "|")
-				if len(parts) >= 2 {
+				if len(parts) >= 2 && CollectionInTenant(tenant, parts[1]) {
 					coll := parts[1]
 					if _, ok := collectionMap[coll]; !ok {
 						collectionMap[coll] = &CollectionStats{Name: coll}
@@ -479,7 +481,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 			for k, _ := c.First(); k != nil; k, _ = c.Next() {
 				// key format: rev|collection|docID|ts
 				parts := strings.Split(string(k), "|")
-				if len(parts) >= 2 {
+				if len(parts) >= 2 && CollectionInTenant(tenant, parts[1]) {
 					coll := parts[1]
 					if _, ok := collectionMap[coll]; !ok {
 						collectionMap[coll] = &CollectionStats{Name: coll}
@@ -497,7 +499,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 			for k, _ := c.First(); k != nil; k, _ = c.Next() {
 				// key format: meta|collection|key|value|docID
 				parts := strings.Split(string(k), "|")
-				if len(parts) >= 2 {
+				if len(parts) >= 2 && CollectionInTenant(tenant, parts[1]) {
 					coll := parts[1]
 					if _, ok := collectionMap[coll]; !ok {
 						collectionMap[coll] = &CollectionStats{Name: coll}

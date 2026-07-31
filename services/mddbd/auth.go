@@ -45,6 +45,7 @@ type User struct {
 	PasswordHash string `json:"passwordHash"`
 	CreatedAt    int64  `json:"createdAt"`
 	Disabled     bool   `json:"disabled"`
+	Tenant       string `json:"tenant,omitempty"` // "" = global user
 }
 
 // APIKey represents an API key for authentication
@@ -85,7 +86,8 @@ type GroupPermission struct {
 // JWTClaims represents JWT token claims
 type JWTClaims struct {
 	Username string `json:"username"`
-	Admin    bool   `json:"admin"` // cached admin flag
+	Admin    bool   `json:"admin"`            // cached admin flag; never true for tenant users
+	Tenant   string `json:"tenant,omitempty"` // namespace the caller is confined to
 	jwt.RegisteredClaims
 }
 
@@ -172,12 +174,24 @@ func GetClaimsFromContext(ctx context.Context) (*JWTClaims, bool) {
 
 // ---- JWT generation and validation ----
 
-// GenerateJWT generates a JWT token for a user
+// GenerateJWT generates a JWT token for a global (non-tenant) user.
 func GenerateJWT(username string, isAdmin bool, secret string, expiry time.Duration) (string, error) {
+	return GenerateTenantJWT(username, "", isAdmin, secret, expiry)
+}
+
+// GenerateTenantJWT generates a JWT token carrying a tenant namespace.
+// Tenant users are always issued Admin=false: the global admin flag would
+// bypass CheckPermission and every admin-only endpoint, leaking cross-tenant
+// control, so it is stripped here regardless of what the caller passed.
+func GenerateTenantJWT(username, tenant string, isAdmin bool, secret string, expiry time.Duration) (string, error) {
+	if tenant != "" {
+		isAdmin = false
+	}
 	now := time.Now()
 	claims := &JWTClaims{
 		Username: username,
 		Admin:    isAdmin,
+		Tenant:   tenant,
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(expiry)),

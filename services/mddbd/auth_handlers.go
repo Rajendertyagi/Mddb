@@ -28,12 +28,14 @@ type LoginResponse struct {
 type RegisterRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
+	Tenant   string `json:"tenant,omitempty"` // confine the new user to a namespace
 }
 
 // RegisterResponse is the response body for a successful registration.
 type RegisterResponse struct {
 	Username  string `json:"username"`
 	CreatedAt int64  `json:"createdAt"`
+	Tenant    string `json:"tenant,omitempty"`
 }
 
 // CreateAPIKeyRequest is the request body for creating an API key.
@@ -68,6 +70,7 @@ type GetMeResponse struct {
 	Username  string `json:"username"`
 	Admin     bool   `json:"admin"`
 	CreatedAt int64  `json:"createdAt"`
+	Tenant    string `json:"tenant,omitempty"`
 }
 
 // SetPermissionRequest is the request body for setting user permissions.
@@ -123,8 +126,8 @@ func (s *Server) handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	// Check if user has admin privileges
 	isAdmin := s.AuthManager.IsAdmin(user.Username)
 
-	// Generate JWT
-	token, err := GenerateJWT(user.Username, isAdmin, s.AuthManager.config.JWTSecret, s.AuthManager.config.JWTExpiry)
+	// Generate JWT carrying the user's tenant confinement (if any)
+	token, err := GenerateTenantJWT(user.Username, user.Tenant, isAdmin, s.AuthManager.config.JWTSecret, s.AuthManager.config.JWTExpiry)
 	if err != nil {
 		http.Error(w, `{"error":"failed to generate token"}`, http.StatusInternalServerError)
 		return
@@ -174,12 +177,15 @@ func (s *Server) handleAuthRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create user
-	user, err := s.AuthManager.CreateUser(req.Username, req.Password)
+	// Create user (optionally confined to a tenant namespace)
+	user, err := s.AuthManager.CreateTenantUser(req.Username, req.Password, req.Tenant)
 	if err != nil {
-		if err == ErrUserExists {
+		switch err {
+		case ErrUserExists:
 			http.Error(w, `{"error":"user already exists"}`, http.StatusConflict)
-		} else {
+		case ErrInvalidTenant:
+			http.Error(w, `{"error":"invalid tenant name"}`, http.StatusBadRequest)
+		default:
 			http.Error(w, `{"error":"failed to create user"}`, http.StatusInternalServerError)
 		}
 		return
@@ -188,6 +194,7 @@ func (s *Server) handleAuthRegister(w http.ResponseWriter, r *http.Request) {
 	resp := RegisterResponse{
 		Username:  user.Username,
 		CreatedAt: user.CreatedAt,
+		Tenant:    user.Tenant,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -341,6 +348,7 @@ func (s *Server) handleAuthMe(w http.ResponseWriter, r *http.Request) {
 		Username:  user.Username,
 		Admin:     claims.Admin,
 		CreatedAt: user.CreatedAt,
+		Tenant:    user.Tenant,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

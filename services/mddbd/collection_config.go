@@ -389,8 +389,12 @@ func (s *Server) handleCollectionConfigList(w http.ResponseWriter, r *http.Reque
 		Collection string            `json:"collection"`
 		Config     *CollectionConfig `json:"config"`
 	}
+	tenant := TenantFromContext(r.Context())
 	var result []configInfo
 	for col, cfg := range configs {
+		if !CollectionInTenant(tenant, col) {
+			continue
+		}
 		result = append(result, configInfo{Collection: col, Config: cfg})
 	}
 	if result == nil {

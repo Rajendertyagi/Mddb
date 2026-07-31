@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+> The unreleased 2.11.3 changes below ship together with 2.11.4 — the 2.11.3
+> tag was never published.
+
+### Added
+- **Native multi-tenancy** — tenant namespace isolation for collections, enforced centrally in the authorization layer so HTTP, gRPC, GraphQL and MCP all inherit it. Users created with a `tenant` are confined to collections named `<tenant>/<name>`, can never hold the global admin role, and listing endpoints (stats, collection configs, curation rules, schemas) return only their namespace. Single-tenant deployments are untouched — zero configuration changes. See [docs/MULTI_TENANCY.md](docs/MULTI_TENANCY.md).
+
 ### Changed
 - **Go 1.26.5 security patch** — align every Go toolchain, workflow, and Docker base-image pin on 1.26.5, fixing `GO-2026-5856` in the standard library and restoring the monorepo version-consistency guard.
 - **Dependency refresh** — consolidated the open Dependabot updates for Docker, GitHub Actions, Go, Rust, and npm dependencies (#137, #138, #147–#149). TypeScript 7 updates (#140–#143) are declined for now because the current `typescript-eslint` and `ts-jest` peer ranges do not support them; a major-only Dependabot ignore prevents repeated incompatible proposals while preserving TypeScript 6 minor/patch updates.

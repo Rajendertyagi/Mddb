@@ -90,7 +90,8 @@ func (a *GraphQLAdapter) GenerateJWT(username string, isAdmin bool) (string, int
 		return "", 0, ErrAuthNotEnabled
 	}
 	expiry := a.server.AuthManager.config.JWTExpiry
-	token, err := GenerateJWT(username, isAdmin, a.server.AuthManager.config.JWTSecret, expiry)
+	tenant := a.server.AuthManager.UserTenant(username)
+	token, err := GenerateTenantJWT(username, tenant, isAdmin, a.server.AuthManager.config.JWTSecret, expiry)
 	if err != nil {
 		return "", 0, err
 	}

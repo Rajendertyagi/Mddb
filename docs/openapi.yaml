@@ -7286,6 +7286,13 @@ components:
           type: string
           description: Password for the new user
           example: securepassword123
+        tenant:
+          type: string
+          description: >-
+            Optional tenant namespace for the new user. A tenant user can only
+            access collections named "<tenant>/<name>" and can never hold the
+            global admin role. Omit for an unrestricted (global) user.
+          example: acme
 
     RegisterResponse:
       type: object
@@ -7294,6 +7301,10 @@ components:
           type: string
           description: Created username
           example: alice
+        tenant:
+          type: string
+          description: Tenant namespace the user is confined to (empty for global users)
+          example: acme
         createdAt:
           type: integer
           format: int64
