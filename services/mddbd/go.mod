@@ -15,9 +15,9 @@ require (
 	github.com/golang/snappy v1.0.0
 	github.com/klauspost/compress v1.19.1
 	github.com/minio/minio-go/v7 v7.2.1
-	github.com/quic-go/quic-go v0.60.0
+	github.com/quic-go/quic-go v0.61.0
 	github.com/robfig/cron/v3 v3.0.1
-	github.com/tidwall/rtree v1.10.0
+	github.com/tidwall/rtree v1.11.0
 	github.com/vektah/gqlparser/v2 v2.5.36
 	go.etcd.io/bbolt v1.5.0
 	golang.org/x/crypto v0.54.0
