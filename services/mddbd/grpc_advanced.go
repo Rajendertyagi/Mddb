@@ -386,8 +386,12 @@ func (g *GRPCServer) ListCollectionConfigs(ctx context.Context, req *proto.ListC
 		return nil, status.Error(codes.FailedPrecondition, "collection manager not initialized")
 	}
 	all := g.server.CollectionManager.ListAll()
+	tenant := TenantFromContext(ctx)
 	entries := make([]*proto.CollectionConfigEntry, 0, len(all))
 	for coll, cfg := range all {
+		if !CollectionInTenant(tenant, coll) {
+			continue
+		}
 		entries = append(entries, &proto.CollectionConfigEntry{
 			Collection: coll,
 			Config: &proto.CollectionConfigProto{

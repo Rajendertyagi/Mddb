@@ -255,10 +255,19 @@ func (am *AuthManager) BootstrapAdmin() error {
 
 // ---- User management ----
 
-// CreateUser creates a new user
+// CreateUser creates a new global (non-tenant) user
 func (am *AuthManager) CreateUser(username, password string) (*User, error) {
+	return am.CreateTenantUser(username, password, "")
+}
+
+// CreateTenantUser creates a user confined to a tenant namespace.
+// An empty tenant creates a global user (identical to CreateUser).
+func (am *AuthManager) CreateTenantUser(username, password, tenant string) (*User, error) {
 	if username == "" || password == "" {
 		return nil, errors.New("username and password required")
+	}
+	if !ValidTenantName(tenant) {
+		return nil, ErrInvalidTenant
 	}
 
 	// Check if user exists
@@ -280,6 +289,7 @@ func (am *AuthManager) CreateUser(username, password string) (*User, error) {
 		PasswordHash: passwordHash,
 		CreatedAt:    time.Now().Unix(),
 		Disabled:     false,
+		Tenant:       tenant,
 	}
 
 	// Save to database
@@ -523,7 +533,22 @@ func (am *AuthManager) CheckPermission(ctx context.Context, collection string, o
 		return ErrUnauthorized
 	}
 
-	// Admins bypass all checks
+	// Tenant isolation gate: a tenant user may only touch collections inside
+	// their namespace. "*" is allowed through only as a read scope request
+	// (listing endpoints, which filter results via TenantFromContext) —
+	// write/admin operations on "*" are global and always denied to tenants.
+	if claims.Tenant != "" {
+		if collection == "*" {
+			if operation != PermRead {
+				return ErrForbidden
+			}
+		} else if !CollectionInTenant(claims.Tenant, collection) {
+			return ErrForbidden
+		}
+	}
+
+	// Global admins bypass all checks (GenerateTenantJWT guarantees the
+	// Admin flag is never set on tenant claims).
 	if claims.Admin {
 		return nil
 	}
@@ -580,6 +605,16 @@ func (am *AuthManager) CheckPermission(ctx context.Context, collection string, o
 	}
 
 	return ErrForbidden
+}
+
+// UserTenant returns the tenant of a user, or "" for unknown/global users.
+func (am *AuthManager) UserTenant(username string) string {
+	am.mu.RLock()
+	defer am.mu.RUnlock()
+	if u, ok := am.users[username]; ok {
+		return u.Tenant
+	}
+	return ""
 }
 
 // IsAdmin checks if user has admin privileges

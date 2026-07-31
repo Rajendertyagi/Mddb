@@ -198,7 +198,7 @@ func NewMCPRateLimiter() *MCPRateLimiter {
 		rl.by = "ip"
 	}
 
-	log.Printf("MCP rate limiting enabled (%d req/%ds, burst=%d, by=%s)", rl.limit, windowSec, rl.burst, rl.by) //nolint:gosec // G706: config values only, not user input
+	log.Printf("MCP rate limiting enabled (%d req/%ds, burst=%d, by=%s)", rl.limit, windowSec, rl.burst, rl.by) // #nosec G706 -- config values only, not user input
 	return rl
 }
 
@@ -301,7 +301,7 @@ func NewMCPRequestLogger() *MCPRequestLogger {
 		rl.level = "info"
 	}
 	if rl.enabled {
-		log.Println("MCP request logging enabled (level=" + rl.level + ")") //nolint:gosec // G706: config value only, not user input
+		log.Println("MCP request logging enabled (level=" + rl.level + ")") // #nosec G706 -- config value only, not user input
 	}
 	return rl
 }

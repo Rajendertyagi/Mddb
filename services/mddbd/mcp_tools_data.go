@@ -210,6 +210,14 @@ func (s *MCPToolServer) toolSemanticSearch(ctx context.Context, args map[string]
 		FilterMeta:     mcpGetMetaMap(args, "filter_meta"),
 		Algorithm:      mcpGetString(args, "algorithm"),
 		DistanceMetric: mcpGetString(args, "distance_metric"),
+		RetrievalMode:  mcpGetString(args, "retrieval_mode"),
+		WindowSize:     mcpGetInt(args, "window_size"),
+	}
+	if mmr, ok := args["mmr"].(bool); ok {
+		req.MMR = mmr
+	}
+	if lambda, ok := args["mmr_lambda"].(float64); ok {
+		req.MMRLambda = lambda
 	}
 
 	if threshold, ok := args["threshold"].(float64); ok {

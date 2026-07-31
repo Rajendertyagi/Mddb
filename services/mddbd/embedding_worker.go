@@ -30,6 +30,19 @@ type EmbeddingWorker struct {
 	chunkSize    int
 	chunkEnabled bool
 	metrics      *metrics.Metrics
+
+	// Disk-only support: when isDiskOnly reports true for a collection, the
+	// full-precision vector is NOT added to the float32 index — only the
+	// quantized index keeps an in-memory representation.
+	quantIndex *vec.QuantizedVectorIndex
+	isDiskOnly func(collection string) bool
+}
+
+// SetDiskOnly wires the quantized index and the disk-only predicate so the
+// worker can route freshly embedded vectors to the right in-memory index.
+func (w *EmbeddingWorker) SetDiskOnly(quantIndex *vec.QuantizedVectorIndex, isDiskOnly func(string) bool) {
+	w.quantIndex = quantIndex
+	w.isDiskOnly = isDiskOnly
 }
 
 // NewEmbeddingWorker creates a new background embedding worker.
@@ -151,9 +164,17 @@ func (w *EmbeddingWorker) processJob(job EmbeddingJob) {
 		return
 	}
 
-	// Update in-memory index
+	// Update in-memory index. Disk-only collections keep RAM quantized-only:
+	// the full vector stays on disk and only the quantized index is updated.
+	diskOnly := w.isDiskOnly != nil && w.isDiskOnly(job.Collection)
 	for _, ce := range chunkEmbeddings {
 		chunkKey := fmt.Sprintf("%s#%d", job.DocID, ce.ChunkIndex)
+		if diskOnly {
+			if w.quantIndex != nil {
+				w.quantIndex.Add(job.Collection, chunkKey, ce.Vector)
+			}
+			continue
+		}
 		w.vectorIndex.Add(job.Collection, chunkKey, ce.Vector)
 	}
 

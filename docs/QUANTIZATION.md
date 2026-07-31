@@ -157,6 +157,67 @@ curl -X POST http://localhost:11023/v1/vector-search \
   }'
 ```
 
+## Storage Quantization vs. Index Algorithms
+
+Two independent mechanisms share the "quantization" vocabulary:
+
+- **Storage quantization** (this document): `int8`/`int4` per collection —
+  compresses what is *stored and held in memory*.
+- **Index algorithms** (`algorithm` on `/v1/vector-search`): `flat`, `hnsw`,
+  `ivf`, `pq`, `opq`, `sq`, `bq` — change *how candidates are found*. PQ/OPQ/
+  SQ/BQ are themselves compression-based indexes; HNSW and IVF are
+  graph/cluster-based approximate indexes. See
+  [SEARCH.md](SEARCH.md#vector-search) for per-algorithm characteristics.
+
+Index tuning parameters are currently fixed at sensible defaults (HNSW
+`M=16`, `efConstruction=200`, `efSearch=100`; IVF `nProbe=10`; PQ
+`nSubspaces=8`, `codebookSize=256`; OPQ `opqIter=5`). The one runtime knob is
+`MDDB_VECTOR_BQ_RERANK_FACTOR` for the binary-quantized index — see
+[config.md](config.md).
+
+## Disk-Only Vectors — Low-Memory Mode (v2.11.4+)
+
+By default, quantized collections still keep full-precision vectors in the
+float32 index alongside the quantized copies. `diskOnlyVectors` removes that
+duplication entirely: **RAM holds only the quantized representation**, while
+full-precision vectors live exclusively on disk (the BoltDB `vectors` bucket).
+
+```bash
+curl -X PUT http://localhost:11023/v1/collection-config \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "archive",
+    "quantization": "int8",
+    "diskOnlyVectors": true
+  }'
+
+# Re-embed so full-precision vectors are stored on disk
+curl -X POST http://localhost:11023/v1/vector-reindex \
+  -d '{"collection": "archive", "force": true}'
+```
+
+Searches then run in two phases:
+
+1. **Phase 1 (RAM):** the quantized index produces an oversampled candidate
+   set (3× topK) using fast integer arithmetic.
+2. **Phase 2 (disk):** the candidates' full-precision vectors are batch-read
+   from disk and rescored exactly, restoring the precision lost to
+   quantization before final ranking.
+
+Memory footprint per vector drops ~4× with `int8` and ~8× with `int4`
+relative to keeping float32 vectors resident — for 100K docs at 1536
+dimensions that is ~600 MB → ~150 MB (int8). The cost is one extra BoltDB
+read per query for the candidate set, typically well under a millisecond.
+
+Notes:
+
+- Requires `quantization` (`int8` or `int4`); the server rejects
+  `diskOnlyVectors` without it.
+- Vectors are stored on disk in **full precision** for this mode, so the
+  exact rescoring phase has lossless data to work with.
+- `vector-stats` reports `diskOnlyVectors: true` for such collections.
+- Ideal for edge deployments and small VPS instances hosting large archives.
+
 ## Backward Compatibility
 
 - **Existing vectors** stored before v2.9.0 use float32 format (v1 binary encoding). They continue to work without changes.

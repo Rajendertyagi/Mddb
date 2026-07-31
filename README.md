@@ -19,9 +19,12 @@ MDDB gives your AI agents a persistent, searchable knowledge base:
 - **File Upload** - Upload PDF, DOCX, HTML, ODT, RTF, TEX, YAML, TXT files — auto-converted to Markdown and indexed
 - **Wikipedia Import** - Stream and import MediaWiki XML dumps (`.xml.bz2`) — wikitext auto-converted to Markdown, namespace filtering, handles multi-GB files
 - **Built-in MCP Server** - 79 tools for Claude Desktop, Cursor, Windsurf, or any MCP client
-- **Vector Search** - Auto-embed documents, semantic similarity with 7 index algorithms (Flat, HNSW, IVF, PQ, OPQ, SQ, BQ) + per-collection quantization (int8/int4) + ARM NEON/SME hardware acceleration + goroutine parallel search
+- **Vector Search** - Auto-embed documents, semantic similarity with 7 index algorithms (Flat, HNSW, IVF, PQ, OPQ, SQ, BQ) + per-collection quantization (int8/int4) + [disk-only low-memory mode](docs/QUANTIZATION.md#disk-only-vectors--low-memory-mode-v2114) + ARM NEON/SME hardware acceleration + goroutine parallel search
+- **Embedding Providers** - Pluggable: OpenAI, Ollama, Voyage, Cohere — configured per server or per collection ([guide](docs/EMBEDDING_PROVIDERS.md))
 - **[Geo Search](docs/GEOSEARCH.md)** - R-tree and geohash indexes for radius/bounding-box queries, composable with FTS/vector via `hybrid-search`, optional postcode lookup
-- **RAG-Ready** - Hybrid search (BM25 + vector) for retrieval-augmented generation
+- **RAG-Ready** - Hybrid search (BM25 keyword + vector, fused with RRF or alpha blending), [parent/chunk/window retrieval modes](docs/SEARCH.md#retrieval-modes--parent-chunk-window-v2114) for precise LLM context, [MMR result diversification](docs/SEARCH.md#mmr-result-diversification-v2114), and per-query metadata boosting (freshness/recency ranking)
+- **Native Multi-Tenancy** - [Namespace isolation per tenant](docs/MULTI_TENANCY.md) across HTTP/gRPC/GraphQL/MCP — ready for SaaS backends
+- **Zero-Maintenance Storage** - Single-file embedded database with automatic space management — no vacuum, compaction jobs, or index maintenance windows
 - **Memory RAG** - Conversational memory system: store, recall, and summarize chat sessions with semantic search
 - **Integrations** - [Docling](docs/INTEGRATIONS.md), [Langflow](docs/INTEGRATIONS.md), [OpenSearch](docs/INTEGRATIONS.md), [SSG](docs/INTEGRATIONS.md), [wpexporter](docs/INTEGRATIONS.md), [Airbyte](docs/INTEGRATIONS.md#6-airbyte--mddb-elt-destination-connector), [WordPress Sync](docs/INTEGRATIONS.md#7-wordpress--mddb-sync-plugin), [GitHub Action](docs/INTEGRATIONS.md#8-github-action--mddb-ci-sync), [Grafana datasource](docs/INTEGRATIONS.md#9-grafana--mddb-datasource-plugin), [Chrome extension](docs/INTEGRATIONS.md#10-chrome-extension--mddb-browser-toolbar) for production pipelines
 - **Zero-Shot Classification** — Classify documents against candidate labels using embeddings, no training data
@@ -282,7 +285,7 @@ doc, err := c.Add(ctx, mddb.AddRequest{Collection: "blog", Key: "hello", Lang: "
 - ✅ **Hybrid Search** - Sparse (BM25) + dense (vector) fusion with alpha blending or RRF
 - ✅ **Aggregations** - Metadata facets (value counts) and date histograms with optional pre-filtering
 - ✅ **Inline Facets on Search** (v2.9.14+) - Pass `facetBy` to `/v1/fts` or `/v1/hybrid-search` and get per-key value counts alongside results — no separate aggregate call
-- ✅ **Curation Rules** (v2.9.14+) - Pin or hide documents for specific queries via `/v1/curation` (CRUD). Inspired by Typesense; applied in FTS + Hybrid pipelines
+- ✅ **Curation Rules** (v2.9.14+) - Pin or hide documents for specific queries via `/v1/curation` (CRUD); applied in FTS + Hybrid pipelines
 - ✅ **Zero-Shot Classification** - Classify documents against candidate labels using embedding similarity
 - ✅ **Custom MCP Tools** - Define YAML-based AI tools for domain-specific workflows
 - ✅ **RAG Pipeline** - Built-in support for retrieval-augmented generation workflows
@@ -315,6 +318,7 @@ doc, err := c.Add(ctx, mddb.AddRequest{Collection: "blog", Key: "hello", Lang: "
 - ✅ **Per-Protocol Access Modes** - `MDDB_MCP_MODE=read` (MCP read-only), `MDDB_API_MODE`, `MDDB_GRPC_MODE`, `MDDB_HTTP3_MODE`
 - ✅ **MCP Tool Control** - `MDDB_MCP_BUILTIN_TOOLS=false` to expose only custom YAML tools
 - ✅ **User Management** - Multi-user with admin roles
+- ✅ **[Native Multi-Tenancy](docs/MULTI_TENANCY.md)** - Namespace isolation per tenant, enforced centrally across HTTP/gRPC/GraphQL/MCP; zero config for single-tenant deployments
 - ✅ **Group Permissions** - Organize users into groups
 - ✅ **[TLS / HTTPS](docs/TLS.md)** - `MDDB_TLS_ENABLED=true`, `MDDB_TLS_CERT`, `MDDB_TLS_KEY` — user-supplied PEM cert + key, TLS 1.2 minimum
 - ✅ **[Mutual TLS (mTLS)](docs/TLS.md#quick-start-mtls--clients-must-present-certificates)** - `MDDB_TLS_CLIENT_CA` points to a PEM bundle of trusted client CAs; `MDDB_TLS_CLIENT_AUTH=require` (default) or `request`. Rejects unauthenticated clients when `require`
@@ -565,6 +569,7 @@ mddb-cli stats
 - **[LLM Connections](docs/LLM_CONNECTIONS.md)** - MCP for Claude, ChatGPT, Ollama, DeepSeek
 - **[Integrations](docs/INTEGRATIONS.md)** - Docling, Langflow, OpenSearch, SSG, wpexporter, Airbyte, WordPress Sync, GitHub Action, Grafana datasource, Chrome browser extension
 - **[Bulk Import](docs/BULK-IMPORT.md)** - Load markdown folders
+- **[Blog](blog/)** - Release announcements and engineering notes
 
 ### Operations
 - **[Docker Guide](docs/DOCKER.md)** - Container deployment

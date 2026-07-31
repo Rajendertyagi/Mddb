@@ -68,7 +68,7 @@ info:
 
     See authentication endpoints below for user management, groups, and permissions.
 
-  version: "2.11.3"
+  version: "2.11.4"
   contact:
     name: MDDB Team
     url: https://github.com/tradik/mddb
@@ -914,6 +914,133 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
           description: Vector index is still loading
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/mcp/keys:
+    post:
+      tags:
+        - MCP
+      summary: Create MCP API key
+      description: Create a named API key for MCP clients (admin only). The plaintext key is returned once.
+      operationId: createMCPKey
+      responses:
+        "200":
+          description: Key created (plaintext returned once)
+          content:
+            application/json:
+              schema:
+                type: object
+    get:
+      tags:
+        - MCP
+      summary: List MCP API keys
+      description: List MCP API keys without plaintext values (admin only).
+      operationId: listMCPKeys
+      responses:
+        "200":
+          description: Key list
+          content:
+            application/json:
+              schema:
+                type: object
+    delete:
+      tags:
+        - MCP
+      summary: Delete MCP API key
+      description: Delete an MCP API key by hash (admin only).
+      operationId: deleteMCPKey
+      responses:
+        "200":
+          description: Key deleted
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /v1/mcp/keys/disable:
+    post:
+      tags:
+        - MCP
+      summary: Disable MCP API key
+      description: Disable an MCP API key without deleting it (admin only).
+      operationId: disableMCPKey
+      responses:
+        "200":
+          description: Key disabled
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /v1/vector-projection:
+    post:
+      tags:
+        - Vector Search
+      summary: Project embeddings to 2D (PCA)
+      description: |
+        Server-side PCA projection of a collection's embedding vectors to 2D
+        for visual exploration (cluster structure, outliers, query
+        diagnostics). Large collections are sampled deterministically; a text
+        query or raw vector can be projected alongside the points.
+      operationId: vectorProjection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - collection
+              properties:
+                collection:
+                  type: string
+                  description: Collection to project
+                  example: kb
+                sample:
+                  type: integer
+                  description: Maximum points to project (default 1000, capped at 2000)
+                  default: 1000
+                  example: 1000
+                query:
+                  type: string
+                  description: Optional text query to embed and overlay on the projection
+                queryVector:
+                  type: array
+                  items:
+                    type: number
+                    format: float
+                  description: Optional pre-computed query vector to overlay
+      responses:
+        "200":
+          description: Projected points
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  points:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, description: "Index key (docID or docID#N)" }
+                        key: { type: string, description: Document key }
+                        docId: { type: string }
+                        chunkIndex: { type: integer }
+                        x: { type: number }
+                        y: { type: number }
+                  query:
+                    type: object
+                    nullable: true
+                    description: Projected query point (when query/queryVector provided)
+                  total: { type: integer, description: Vectors in the collection }
+                  sampled: { type: integer, description: Vectors actually projected }
+                  dimensions: { type: integer }
+        "400":
+          description: Invalid request
           content:
             application/json:
               schema:
@@ -4066,6 +4193,34 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/RotationJob"
+  /v1/encryption/jobs/{id}:
+    get:
+      tags:
+        - Encryption
+      summary: Get a single key-rotation job
+      description: Returns the status and progress of one encryption rotation job by ID.
+      operationId: getEncryptionJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Rotation job ID
+      responses:
+        "200":
+          description: Rotation job status
+          content:
+            application/json:
+              schema:
+                type: object
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /v1/compliance-status:
     get:
       tags:
@@ -4302,6 +4457,14 @@ paths:
                     (~2-3% recall drop). Default: float32 (no quantization).
                     Requires vector-reindex after changing."
                   example: int8
+                diskOnlyVectors:
+                  type: boolean
+                  description: "Low-memory vector mode: RAM holds only the quantized
+                    vectors while full-precision vectors stay on disk and are
+                    read back to rescore the candidate set exactly. Requires
+                    quantization (int8 or int4) and a vector-reindex after
+                    enabling. Default: false"
+                  example: true
       responses:
         "200":
           description: Collection configuration set successfully
@@ -5890,7 +6053,7 @@ components:
           example: false
         algorithm:
           type: string
-          enum: [ flat, hnsw, ivf, pq, opq, sq, bq ]
+          enum: [ flat, hnsw, ivf, pq, opq, sq, bq, quantized ]
           description: |
             Search algorithm to use (default "flat").
             - **flat**: Exact brute-force cosine similarity (most accurate, slower for large datasets)
@@ -5905,6 +6068,43 @@ components:
           description: Distance metric for similarity computation
           default: cosine
           example: cosine
+        retrievalMode:
+          type: string
+          enum: [ parent, chunk, window ]
+          description: |
+            Result granularity (default "parent").
+            - **parent**: One result per document, scored by its best-matching chunk.
+            - **chunk**: One result per matching chunk; each result carries
+              `chunkIndex` and `chunkText` with the exact matching passage —
+              ideal for feeding precise context to an LLM.
+            - **window**: Like `chunk`, but the passage is widened with
+              `windowSize` neighboring chunks on each side.
+          default: parent
+          example: chunk
+        windowSize:
+          type: integer
+          description: Neighbor chunks per side in "window" retrieval mode (default 1)
+          default: 1
+          example: 1
+        mmr:
+          type: boolean
+          description: >-
+            Diversify results with Maximal Marginal Relevance reranking.
+            Selection balances query relevance against similarity to already
+            selected results, so near-duplicate documents stop crowding out
+            distinct ones.
+          default: false
+          example: true
+        mmrLambda:
+          type: number
+          format: float
+          description: >-
+            MMR relevance/diversity balance in [0,1] — 1.0 keeps the pure
+            relevance order, 0.0 maximizes diversity (default 0.5).
+          minimum: 0
+          maximum: 1
+          default: 0.5
+          example: 0.5
 
     VectorSearchResponse:
       type: object
@@ -5950,6 +6150,14 @@ components:
           type: integer
           description: Result rank (1-based)
           example: 1
+        chunkIndex:
+          type: integer
+          description: Index of the matching chunk (only in chunk/window retrieval modes)
+          example: 2
+        chunkText:
+          type: string
+          description: The matching passage text (only in chunk/window retrieval modes)
+          example: "## Deployment\nTo deploy the service..."
 
     VectorReindexRequest:
       type: object
@@ -6266,6 +6474,23 @@ components:
           $ref: "#/components/schemas/SearchStats"
         facets:
           $ref: "#/components/schemas/FacetMap"
+        stemmingActive:
+          type: boolean
+          description: Whether stemming was applied to this query
+        synonymsActive:
+          type: boolean
+          description: Whether synonym expansion was applied to this query
+        fieldWeights:
+          type: object
+          additionalProperties:
+            type: number
+          description: Effective per-field weights used for scoring (BM25F)
+        spellCorrected:
+          type: object
+          nullable: true
+          description: >-
+            Spell-correction info when the collection has spellCorrect enabled
+            and the query was auto-corrected (original and corrected terms).
 
     FacetBucket:
       type: object
@@ -6607,7 +6832,7 @@ components:
           example: 10
         algorithm:
           type: string
-          enum: [ bm25, bm25f ]
+          enum: [ bm25, bm25f, pmisparse ]
           description: FTS algorithm (default "bm25")
           default: bm25
           example: bm25
@@ -6662,6 +6887,33 @@ components:
           description: Metadata filters applied to both FTS and vector results
           example:
             category: [ tutorial ]
+        geo:
+          type: object
+          description: |
+            Optional spatial pre-filter. When set, only documents present in the
+            in-memory geo index AND within `radiusMeters` of the given point are
+            considered by both FTS and vector search; each result then carries a
+            `distanceMeters` value. Required when `sort` is `distance`.
+          required:
+            - lat
+            - lng
+            - radiusMeters
+          properties:
+            lat:
+              type: number
+              format: double
+              description: Latitude of the center point
+              example: 51.5074
+            lng:
+              type: number
+              format: double
+              description: Longitude of the center point
+              example: -0.1278
+            radiusMeters:
+              type: number
+              format: double
+              description: Search radius in meters
+              example: 5000
         includeContent:
           type: boolean
           description: Include document content in results
@@ -6683,6 +6935,10 @@ components:
           type: boolean
           description: Disable synonym expansion for FTS
           default: false
+        lang:
+          type: string
+          description: Language for FTS query tokenization and stemming (e.g. "en", "pl", "de")
+          example: en
         distanceMetric:
           type: string
           enum: [ cosine, dot_product, euclidean ]
@@ -7286,6 +7542,13 @@ components:
           type: string
           description: Password for the new user
           example: securepassword123
+        tenant:
+          type: string
+          description: >-
+            Optional tenant namespace for the new user. A tenant user can only
+            access collections named "<tenant>/<name>" and can never hold the
+            global admin role. Omit for an unrestricted (global) user.
+          example: acme
 
     RegisterResponse:
       type: object
@@ -7294,6 +7557,10 @@ components:
           type: string
           description: Created username
           example: alice
+        tenant:
+          type: string
+          description: Tenant namespace the user is confined to (empty for global users)
+          example: acme
         createdAt:
           type: integer
           format: int64
@@ -7770,6 +8037,23 @@ components:
           type: object
           additionalProperties: true
           description: Custom key-value metadata for the collection
+        trackAccess:
+          type: boolean
+          description: Record per-read access events for temporal analytics
+        trackHot:
+          type: boolean
+          description: Maintain a hot-documents leaderboard for this collection
+        spellCorrect:
+          type: boolean
+          description: Auto-correct FTS queries using the spell checker
+        spellLang:
+          type: string
+          description: Override language for spell correction (defaults to query language)
+        encrypted:
+          type: boolean
+          description: >-
+            Encrypt documents and revisions of this collection at rest
+            (AES-256-GCM; requires MDDB_ENCRYPTION_KEY on the server)
         storageBackend:
           type: string
           enum: [ boltdb, memory, s3 ]

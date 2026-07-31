@@ -24,6 +24,11 @@ type CollectionConfig struct {
 	StorageBackend string            `json:"storageBackend,omitempty"` // "boltdb" (default), "memory", "s3"
 	StorageConfig  *StorageConfigDef `json:"storageConfig,omitempty"`  // backend-specific settings (required for s3)
 	Quantization   string            `json:"quantization,omitempty"`   // "float32" (default), "int8", "int4"
+	// DiskOnlyVectors keeps only quantized vectors in RAM: full-precision
+	// vectors live exclusively in the BoltDB vectors bucket and are read back
+	// for exact rescoring of the quantized candidate set. Requires
+	// Quantization to be set; ignored otherwise.
+	DiskOnlyVectors bool `json:"diskOnlyVectors,omitempty"`
 	// Temporal tracking
 	TrackAccess bool `json:"trackAccess,omitempty"` // record per-read access events
 	TrackHot    bool `json:"trackHot,omitempty"`    // maintain hot-docs leaderboard
@@ -205,18 +210,19 @@ func (cm *CollectionManager) ListAll() map[string]*CollectionConfig {
 
 // SetCollectionConfigRequest is the request body for PUT /v1/collection-config.
 type SetCollectionConfigRequest struct {
-	Collection     string                 `json:"collection"`
-	Type           string                 `json:"type,omitempty"`
-	Description    string                 `json:"description,omitempty"`
-	Icon           string                 `json:"icon,omitempty"`
-	Color          string                 `json:"color,omitempty"`
-	CustomMeta     map[string]string      `json:"customMeta,omitempty"`
-	StorageBackend string                 `json:"storageBackend,omitempty"` // "boltdb", "memory", "s3"
-	StorageConfig  *StorageConfigDef      `json:"storageConfig,omitempty"`
-	Quantization   string                 `json:"quantization,omitempty"` // "float32" (default), "int8", "int4"
-	MaxRevisions   int                    `json:"maxRevisions,omitempty"` // keep last N revisions per doc (0 = unlimited)
-	Encrypted      bool                   `json:"encrypted,omitempty"`    // opt collection into AES-256-GCM at-rest encryption
-	WordPress      *WordPressTargetConfig `json:"wordpress,omitempty"`    // outbound publishing target (mddb-sync plugin)
+	Collection      string                 `json:"collection"`
+	Type            string                 `json:"type,omitempty"`
+	Description     string                 `json:"description,omitempty"`
+	Icon            string                 `json:"icon,omitempty"`
+	Color           string                 `json:"color,omitempty"`
+	CustomMeta      map[string]string      `json:"customMeta,omitempty"`
+	StorageBackend  string                 `json:"storageBackend,omitempty"` // "boltdb", "memory", "s3"
+	StorageConfig   *StorageConfigDef      `json:"storageConfig,omitempty"`
+	Quantization    string                 `json:"quantization,omitempty"`    // "float32" (default), "int8", "int4"
+	DiskOnlyVectors bool                   `json:"diskOnlyVectors,omitempty"` // RAM holds only quantized vectors; full vectors stay on disk
+	MaxRevisions    int                    `json:"maxRevisions,omitempty"`    // keep last N revisions per doc (0 = unlimited)
+	Encrypted       bool                   `json:"encrypted,omitempty"`       // opt collection into AES-256-GCM at-rest encryption
+	WordPress       *WordPressTargetConfig `json:"wordpress,omitempty"`       // outbound publishing target (mddb-sync plugin)
 }
 
 func (s *Server) handleCollectionConfig(w http.ResponseWriter, r *http.Request) {
@@ -313,23 +319,29 @@ func (s *Server) handleCollectionConfigSet(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	if req.DiskOnlyVectors && (qt == "" || qt == "float32") {
+		bad(w, errors.New("diskOnlyVectors requires quantization (int8 or int4)"))
+		return
+	}
+
 	if err := validateWordPressTarget(req.WordPress); err != nil {
 		bad(w, err)
 		return
 	}
 
 	cfg := &CollectionConfig{
-		Type:           req.Type,
-		Description:    req.Description,
-		Icon:           req.Icon,
-		Color:          req.Color,
-		CustomMeta:     req.CustomMeta,
-		StorageBackend: sb,
-		StorageConfig:  req.StorageConfig,
-		Quantization:   qt,
-		MaxRevisions:   req.MaxRevisions,
-		Encrypted:      req.Encrypted,
-		WordPress:      req.WordPress,
+		Type:            req.Type,
+		Description:     req.Description,
+		Icon:            req.Icon,
+		Color:           req.Color,
+		CustomMeta:      req.CustomMeta,
+		StorageBackend:  sb,
+		StorageConfig:   req.StorageConfig,
+		Quantization:    qt,
+		DiskOnlyVectors: req.DiskOnlyVectors,
+		MaxRevisions:    req.MaxRevisions,
+		Encrypted:       req.Encrypted,
+		WordPress:       req.WordPress,
 	}
 	if err := s.CollectionManager.Set(req.Collection, cfg); err != nil {
 		bad(w, err)
@@ -389,8 +401,12 @@ func (s *Server) handleCollectionConfigList(w http.ResponseWriter, r *http.Reque
 		Collection string            `json:"collection"`
 		Config     *CollectionConfig `json:"config"`
 	}
+	tenant := TenantFromContext(r.Context())
 	var result []configInfo
 	for col, cfg := range configs {
+		if !CollectionInTenant(tenant, col) {
+			continue
+		}
 		result = append(result, configInfo{Collection: col, Config: cfg})
 	}
 	if result == nil {

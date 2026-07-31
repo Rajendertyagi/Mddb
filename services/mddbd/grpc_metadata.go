@@ -179,8 +179,12 @@ func (g *GRPCServer) ListSchemas(ctx context.Context, req *proto.ListSchemasRequ
 	}
 
 	schemas := g.server.SchemaManager.List()
+	tenant := TenantFromContext(ctx)
 	var result []*proto.SchemaInfo
 	for col, raw := range schemas {
+		if !CollectionInTenant(tenant, col) {
+			continue
+		}
 		result = append(result, &proto.SchemaInfo{
 			Collection: col,
 			Schema:     raw,

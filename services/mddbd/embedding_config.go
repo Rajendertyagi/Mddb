@@ -428,6 +428,7 @@ func (s *Server) InitializeEmbeddingFromConfig(config *EmbeddingConfig) {
 	}
 	if emb != nil {
 		s.EmbeddingWorker = NewEmbeddingWorker(emb, s.VectorStore, s.VectorIndex, 1000)
+		s.EmbeddingWorker.SetDiskOnly(s.QuantizedVecIndex, s.collectionDiskOnly)
 		s.EmbeddingWorker.Start(2)
 	}
 }

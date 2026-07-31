@@ -211,6 +211,37 @@ All automation rules are stored as `AutomationRule` in the `automation` BoltDB b
 | `threshold` | float64 | `0` | Minimum score to fire (see [Trigger Evaluation](#trigger-evaluation)) |
 | `webhookId` | string | (required) | ID of the webhook to fire |
 | `searchParams` | object | `{}` | Optional extra search parameters (e.g., `alpha`, `strategy`, `algorithm`) |
+| `events` | string[] | all | Restrict to document events: `"insert"`, `"update"`, `"delete"` |
+| `sentimentEnabled` | bool | `false` | Additionally require the document's sentiment score to fall in range |
+| `sentimentMin` | float64 | `0` | Lower sentiment bound, `-1.0` (negative) to `1.0` (positive) |
+| `sentimentMax` | float64 | `0` | Upper sentiment bound, `-1.0` to `1.0` |
+| `conditionLogic` | string | `"and"` | How the search match and sentiment condition combine: `"and"` or `"or"` |
+
+### Sentiment-Conditioned Triggers
+
+Triggers can react to the *tone* of incoming documents using the built-in
+sentiment analyzer — no external service involved. For example, fire a webhook
+only for negative feedback:
+
+```json
+{
+  "type": "trigger",
+  "name": "Negative feedback alert",
+  "collection": "feedback",
+  "searchType": "fts",
+  "query": "delivery",
+  "webhookId": "wh_abc123",
+  "events": ["insert"],
+  "sentimentEnabled": true,
+  "sentimentMin": -1.0,
+  "sentimentMax": -0.25,
+  "conditionLogic": "and"
+}
+```
+
+With `conditionLogic: "and"` both the search match and the sentiment range must
+hold; with `"or"` either one fires the trigger. The computed score is included
+in the webhook payload as `sentimentScore`.
 
 ### Cron Fields
 
@@ -472,9 +503,13 @@ When a trigger fires, MDDB sends an HTTP request to the linked webhook URL with 
     }
   },
   "score": 8.2,
+  "sentimentScore": -0.42,
   "timestamp": 1709510400
 }
 ```
+
+`sentimentScore` (−1.0…1.0) is present when the trigger has
+`sentimentEnabled: true`.
 
 ### Custom Headers
 

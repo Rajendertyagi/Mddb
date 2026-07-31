@@ -58,9 +58,12 @@ func (am *AuthManager) HTTPMiddleware(next http.Handler) http.Handler {
 					return
 				}
 
-				// Generate short-lived JWT from API key
+				// Generate short-lived JWT from API key; tenant confinement
+				// travels with the token (GenerateTenantJWT strips Admin
+				// for tenant users).
 				isAdmin := am.IsAdmin(username)
-				token, err = GenerateJWT(username, isAdmin, am.config.JWTSecret, 1*3600*time.Second) // 1h
+				tenant := am.UserTenant(username)
+				token, err = GenerateTenantJWT(username, tenant, isAdmin, am.config.JWTSecret, 1*3600*time.Second) // 1h
 				if err != nil {
 					am.auditAuth(r, username, "auth.apikey", "fail", "jwt generation failed")
 					http.Error(w, `{"error":"failed to generate token"}`, http.StatusInternalServerError)

@@ -110,6 +110,24 @@ Per-detector thresholds and cool-downs live in `MDDB_INCIDENT_*` (see [config.md
 
 ---
 
+## Outbound request egress controls (SSRF)
+
+Endpoints that make the server issue outbound HTTP requests — `/v1/import-url`,
+webhook deliveries, and remote publishing — are guarded against Server-Side
+Request Forgery:
+
+- Requests to **private, loopback, and link-local IP ranges are blocked by
+  default**, so a crafted URL cannot pivot into the internal network or cloud
+  metadata services.
+- `MDDB_OUTBOUND_ALLOW_PRIVATE=true` opts out of the private-range block for
+  trusted environments (e.g. webhooks to an internal service mesh).
+- `MDDB_OUTBOUND_ALLOWLIST=host1,host2` restricts outbound requests to an
+  explicit set of hostnames; anything else is refused regardless of IP class.
+
+Related request-size guards: `MDDB_MAX_BODY_BYTES` caps HTTP request bodies
+(default 32 MB), and `MDDB_WIKI_MAX_PAGES` / `MDDB_WIKI_MAX_DECOMPRESSED_BYTES`
+bound wiki-dump imports against decompression bombs.
+
 ## Threat model
 
 ### In scope

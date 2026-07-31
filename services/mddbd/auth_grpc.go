@@ -44,9 +44,11 @@ func (am *AuthManager) authenticateContext(ctx context.Context) (context.Context
 				return nil, status.Error(codes.Unauthenticated, "invalid api key")
 			}
 
-			// Generate short-lived JWT from API key
+			// Generate short-lived JWT from API key; tenant confinement
+			// travels with the token.
 			isAdmin := am.IsAdmin(username)
-			token, err = GenerateJWT(username, isAdmin, am.config.JWTSecret, 1*time.Hour)
+			tenant := am.UserTenant(username)
+			token, err = GenerateTenantJWT(username, tenant, isAdmin, am.config.JWTSecret, 1*time.Hour)
 			if err != nil {
 				return nil, status.Error(codes.Internal, "failed to generate token")
 			}

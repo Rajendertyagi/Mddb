@@ -366,6 +366,39 @@ func (vs *VectorStore) LoadCollectionQuantized(collection string) (map[string]*E
 	return records, quantized, err
 }
 
+// GetVectors fetches the stored vectors for specific index keys (docID or
+// docID#N suffixes) in a single read transaction. Used by disk-only
+// collections to rescore quantized candidates against the full-precision
+// vectors kept on disk. Missing keys are simply absent from the result.
+func (vs *VectorStore) GetVectors(collection string, ids []string) map[string][]float32 {
+	out := make(map[string][]float32, len(ids))
+	_ = vs.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket(vs.bucketName)
+		if b == nil {
+			return nil
+		}
+		for _, id := range ids {
+			v := b.Get([]byte("vec|" + collection + "|" + id))
+			if v == nil {
+				continue
+			}
+			var rec *EmbeddingRecord
+			var err error
+			if isQuantizedRecord(v) {
+				rec, _, err = unmarshalEmbeddingRecordQuantized(v)
+			} else {
+				rec, err = UnmarshalEmbeddingRecord(v)
+			}
+			if err != nil || rec == nil {
+				continue
+			}
+			out[id] = rec.Vector
+		}
+		return nil
+	})
+	return out
+}
+
 // CountByCollection counts embeddings per collection (counting unique docIDs, not chunks).
 // Handles keys like vec|coll|docID and vec|coll|docID#N where docID may contain | characters.
 func (vs *VectorStore) CountByCollection() (map[string]int, error) {

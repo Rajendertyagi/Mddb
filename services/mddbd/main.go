@@ -36,7 +36,7 @@ import (
 )
 
 // VERSION is the current release version of the MDDB server.
-const VERSION = "2.11.3"
+const VERSION = "2.11.4"
 
 // AccessMode defines the database access mode (read, write, or both).
 type AccessMode string
@@ -360,6 +360,7 @@ func main() {
 		s.Embedding = embedding.NewProvider()
 		if s.Embedding != nil {
 			s.EmbeddingWorker = NewEmbeddingWorker(s.Embedding, s.VectorStore, s.VectorIndex, 1000)
+			s.EmbeddingWorker.SetDiskOnly(s.QuantizedVecIndex, s.collectionDiskOnly)
 			s.EmbeddingWorker.Start(2)
 			log.Printf("Vector search enabled from env vars (provider=%s, model=%s, dims=%d)",
 				s.Embedding.Model(), s.Embedding.Model(), s.Embedding.Dimensions())
@@ -826,6 +827,7 @@ func main() {
 	mux.HandleFunc("/v1/vector-search", s.handleVectorSearch)
 	mux.HandleFunc("/v1/vector-reindex", s.guardWrite(s.handleVectorReindex))
 	mux.HandleFunc("/v1/vector-stats", s.handleVectorStats)
+	mux.HandleFunc("/v1/vector-projection", s.handleVectorProjection)
 	mux.HandleFunc("/v1/geo-search", s.handleGeoSearch)
 	mux.HandleFunc("/v1/geo-within", s.handleGeoWithin)
 	mux.HandleFunc("/v1/geo-polygon", s.handleGeoPolygon)

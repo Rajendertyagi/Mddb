@@ -29,13 +29,19 @@ type VectorSearchRequest struct {
 	IncludeContent bool                `json:"includeContent"`
 	Algorithm      string              `json:"algorithm"`      // "flat" (default), "hnsw", "ivf", "pq", "opq", "sq", "bq"
 	DistanceMetric string              `json:"distanceMetric"` // "cosine" (default), "dot_product", "euclidean"
+	RetrievalMode  string              `json:"retrievalMode"`  // "parent" (default), "chunk", "window"
+	WindowSize     int                 `json:"windowSize"`     // neighbor chunks per side in "window" mode (default 1)
+	MMR            bool                `json:"mmr"`            // diversify results via Maximal Marginal Relevance
+	MMRLambda      float64             `json:"mmrLambda"`      // relevance/diversity balance, 0..1 (default 0.5)
 }
 
 // VectorSearchResultItem represents a single search result.
 type VectorSearchResultItem struct {
-	Document storage.Doc `json:"document"`
-	Score    float32     `json:"score"`
-	Rank     int         `json:"rank"`
+	Document   storage.Doc `json:"document"`
+	Score      float32     `json:"score"`
+	Rank       int         `json:"rank"`
+	ChunkIndex *int        `json:"chunkIndex,omitempty"` // set in chunk/window retrieval modes
+	ChunkText  string      `json:"chunkText,omitempty"`  // matching passage (chunk/window modes)
 }
 
 // VectorSearchResponseHTTP represents the response from vector search.
@@ -81,19 +87,28 @@ func (s *Server) loadVectorIndex() {
 		// Collect vectors for trainable indexes
 		collVecs := make(map[string][]float32, len(records))
 
+		// Disk-only collections keep RAM quantized-only: full-precision
+		// vectors are never loaded into the float32 searchers.
+		diskOnly := s.collectionDiskOnly(collection)
+
 		for docID, rec := range records {
 			// Add to all searchers (docID may be "id" or "id#0", "id#1", etc.)
-			for name, searcher := range s.VectorSearchers {
-				if name == "quantized" {
-					continue // quantized index is populated separately below
+			if !diskOnly {
+				for name, searcher := range s.VectorSearchers {
+					if name == "quantized" {
+						continue // quantized index is populated separately below
+					}
+					searcher.Add(collection, docID, rec.Vector)
 				}
-				searcher.Add(collection, docID, rec.Vector)
 			}
 			// Also add to quantized index (it will self-check if collection has quantization)
 			if s.QuantizedVecIndex != nil {
 				s.QuantizedVecIndex.Add(collection, docID, rec.Vector)
 			}
 			collVecs[docID] = rec.Vector
+		}
+		if diskOnly {
+			collVecs = nil // nothing to train float32 indexes with
 		}
 
 		// Trigger training for trainable indexes (IVF, PQ)
@@ -128,6 +143,10 @@ func (s *Server) handleVectorSearch(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Query == "" && len(req.QueryVector) == 0 {
 		bad(w, errors.New("either query or queryVector is required"))
+		return
+	}
+	if !validRetrievalMode(req.RetrievalMode) {
+		bad(w, errors.New("unknown retrievalMode: "+req.RetrievalMode+", available: parent, chunk, window"))
 		return
 	}
 
@@ -212,10 +231,39 @@ func (s *Server) handleVectorSearch(w http.ResponseWriter, r *http.Request) {
 		results = searcher.Search(req.Collection, queryVector, searchTopK, req.Threshold, metric)
 	}
 
-	// Deduplicate chunk results: group by base docID, take max score
-	results = vec.DeduplicateChunkResults(results)
+	// Parent mode (default): one result per document, best chunk wins.
+	// Chunk/window modes keep individual chunk hits so the exact matching
+	// passage can be returned alongside the parent document.
+	// Disk-only collections: rescore the quantized candidates against the
+	// full-precision vectors on disk before any downstream ranking.
+	var diskVecs map[string][]float32
+	if s.collectionDiskOnly(req.Collection) {
+		results, diskVecs = s.rescoreFromDisk(req.Collection, queryVector, results, metric)
+	}
+
+	chunkMode := req.RetrievalMode == RetrievalModeChunk || req.RetrievalMode == RetrievalModeWindow
+	if !chunkMode {
+		results = vec.DeduplicateChunkResults(results)
+	}
+	if req.MMR {
+		// Diversify over the oversampled candidate set, then keep topK.
+		results = vec.MMRRerank(results, mmrLambdaOrDefault(req.MMRLambda), topK, func(id string) []float32 {
+			if v, ok := diskVecs[id]; ok {
+				return v
+			}
+			return s.VectorIndex.GetVector(req.Collection, id)
+		})
+	}
 	if len(results) > topK {
 		results = results[:topK]
+	}
+
+	windowSize := 0
+	if req.RetrievalMode == RetrievalModeWindow {
+		windowSize = req.WindowSize
+		if windowSize <= 0 {
+			windowSize = 1
+		}
 	}
 
 	// Track vector search operation
@@ -231,7 +279,8 @@ func (s *Server) handleVectorSearch(w http.ResponseWriter, r *http.Request) {
 			return nil
 		}
 		for rank, vr := range results {
-			v := bDocs.Get(storage.DocKey(req.Collection, vr.DocID))
+			docID, chunkIndex := splitChunkKey(vr.DocID)
+			v := bDocs.Get(storage.DocKey(req.Collection, docID))
 			if v == nil {
 				continue
 			}
@@ -240,14 +289,20 @@ func (s *Server) handleVectorSearch(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			doc := *docPtr
+			item := VectorSearchResultItem{
+				Score: vr.Score,
+				Rank:  rank + 1,
+			}
+			if chunkMode {
+				idx := chunkIndex
+				item.ChunkIndex = &idx
+				item.ChunkText = chunkPassage(doc.ContentMD, chunkIndex, windowSize)
+			}
 			if !req.IncludeContent {
 				doc.ContentMD = ""
 			}
-			items = append(items, VectorSearchResultItem{
-				Document: doc,
-				Score:    vr.Score,
-				Rank:     rank + 1,
-			})
+			item.Document = doc
+			items = append(items, item)
 		}
 		return nil
 	})
@@ -299,12 +354,18 @@ func (s *Server) handleVectorReindex(w http.ResponseWriter, r *http.Request) {
 	chunkSize := envconf.Int("MDDB_EMBEDDING_CHUNK_SIZE", 1500)
 	chunkEnabled := envconf.String("MDDB_EMBEDDING_CHUNK_ENABLED", "true") == "true"
 
-	// Resolve quantization for this collection
+	// Resolve quantization for this collection. Disk-only collections store
+	// FULL-precision vectors on disk (the quantized form lives only in RAM),
+	// so storage quantization is disabled for them.
 	var qt vec.QuantizationType
 	if s.CollectionManager != nil {
 		if cfg, ok := s.CollectionManager.Get(req.Collection); ok && cfg.Quantization != "" {
 			qt = vec.ParseQuantization(cfg.Quantization)
 		}
+	}
+	diskOnly := s.collectionDiskOnly(req.Collection)
+	if diskOnly {
+		qt = vec.QuantNone
 	}
 
 	// Load all documents in collection
@@ -399,14 +460,16 @@ func (s *Server) handleVectorReindex(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		// Update in-memory indexes
+		// Update in-memory indexes (disk-only: quantized index exclusively)
 		for _, ce := range chunkEmbeddings {
 			chunkKey := fmt.Sprintf("%s#%d", d.ID, ce.ChunkIndex)
-			for name, searcher := range s.VectorSearchers {
-				if name == "quantized" {
-					continue
+			if !diskOnly {
+				for name, searcher := range s.VectorSearchers {
+					if name == "quantized" {
+						continue
+					}
+					searcher.Add(req.Collection, chunkKey, ce.Vector)
 				}
-				searcher.Add(req.Collection, chunkKey, ce.Vector)
 			}
 			if s.QuantizedVecIndex != nil {
 				s.QuantizedVecIndex.Add(req.Collection, chunkKey, ce.Vector)
@@ -421,7 +484,8 @@ func (s *Server) handleVectorReindex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Trigger training for trainable indexes after reindex
-	if embedded > 0 {
+	// (disk-only collections have no float32 indexes to train)
+	if embedded > 0 && !diskOnly {
 		if records, loadErr := s.VectorStore.LoadCollection(req.Collection); loadErr == nil {
 			collVecs := make(map[string][]float32, len(records))
 			for docID, rec := range records {
@@ -498,6 +562,7 @@ func (s *Server) handleVectorStats(w http.ResponseWriter, r *http.Request) {
 		if s.CollectionManager != nil {
 			if cfg, cfgOK := s.CollectionManager.Get(coll); cfgOK && cfg.Quantization != "" {
 				collInfo["quantization"] = cfg.Quantization
+				collInfo["diskOnlyVectors"] = cfg.DiskOnlyVectors
 			} else {
 				collInfo["quantization"] = "float32"
 			}

@@ -172,6 +172,162 @@ Logs are written to stderr in JSON format:
 {"timestamp":"2026-03-26T10:30:00Z","method":"POST","path":"/mcp","status":200,"duration_ms":45,"client_ip":"1.2.3.4","key_name":"claude-prod","session_id":"abc123","user_agent":"claude-code/1.0"}
 ```
 
+## Built-in Tool Catalog
+
+All 79 built-in tools, grouped by area. Tool inputs are self-describing via
+MCP schema discovery (`tools/list`); the `semantic_search` tool additionally
+supports `retrieval_mode`/`window_size` (passage-level results) and
+`mmr`/`mmr_lambda` (result diversification).
+
+### Documents
+
+| Tool | Description |
+|------|-------------|
+| `add_document` | Add or update a document in MDDB. |
+| `search_documents` | Search documents with filters and sorting. |
+| `delete_document` | Delete a document from MDDB. |
+| `import_url` | Import a markdown document from a URL. |
+| `set_ttl` | Set or remove time-to-live on a document. |
+| `validate_document` | Validate document metadata against collection schema without adding the document. |
+| `add_documents_batch` | Add multiple documents to a collection in a single batch operation. |
+| `delete_documents_batch` | Delete multiple documents from a collection in a single batch operation. |
+| `get_meta_keys` | List all unique metadata keys and their values for a collection. |
+| `get_checksum` | Get a CRC32 checksum for a collection that changes when documents are modified. |
+| `ingest_documents` | Bulk ingest documents with URL-based key derivation, YAML frontmatter extraction, content deduplication, and automatic metadata injection. |
+| `upload_file` | Upload a file and convert it to markdown. |
+
+### Search
+
+| Tool | Description |
+|------|-------------|
+| `aggregate` | Compute metadata facets (value counts) and date histograms over a collection, with optional metadata pre-filtering. |
+| `semantic_search` | Search documents by meaning using semantic similarity. |
+| `full_text_search` | Search documents by text content using full-text search with term matching and relevance scoring. |
+| `autocomplete` | Prefix autocomplete — returns top-N terms starting with the query, ranked by document frequency. |
+| `classify_document` | Zero-shot document classification. |
+| `hybrid_search` | Combined sparse (FTS) + dense (vector) search with alpha blending or Reciprocal Rank Fusion. |
+| `cross_search` | Search across multiple collections using a source document's embedding or a text query. |
+| `find_duplicates` | Find duplicate and similar documents within a collection. |
+
+### Geo
+
+| Tool | Description |
+|------|-------------|
+| `geo_search` | Find documents within a given radius (in meters) of a latitude/longitude point. |
+| `geo_within` | Find documents inside an axis-aligned bounding box (minLat..maxLat × minLng..maxLng). |
+| `geo_polygon` | Find documents whose coordinates fall inside a GeoJSON Polygon (outer ring + optional holes) or MultiPolygon (union of polygons). |
+| `geo_stats` | Report per-collection indexed-point counts plus any loaded postcode datasets. |
+| `geo_encode` | Convert a (lat, lng) pair into a geohash string of the requested precision (1..12, default 12). |
+| `geo_decode` | Convert a geohash string back to the (lat, lng) centroid of its cell. |
+
+### Vectors
+
+| Tool | Description |
+|------|-------------|
+| `vector_reindex` | Re-embed all documents in a collection. |
+| `vector_stats` | Get vector/embedding statistics including provider info and per-collection embedding coverage. |
+
+### FTS admin
+
+| Tool | Description |
+|------|-------------|
+| `fts_reindex` | Reindex full-text search for a collection. |
+| `fts_languages` | List all supported FTS languages with their codes and names. |
+| `list_synonyms` | List all synonym entries for a collection. |
+| `add_synonym` | Add or update a synonym group for a term. |
+| `delete_synonym` | Delete a synonym group for a term in a collection. |
+| `list_stopwords` | List all stop words (default + custom) for a collection. |
+| `add_stopwords` | Add custom stop words to a collection's FTS index. |
+| `delete_stopwords` | Remove custom stop words from a collection. |
+
+### Revisions
+
+| Tool | Description |
+|------|-------------|
+| `truncate_revisions` | Truncate revision history for a collection, keeping only the N most recent revisions per document. |
+| `list_revisions` | List revision history for a document. |
+| `restore_revision` | Restore a document to a previous revision by timestamp. |
+
+### Curation
+
+| Tool | Description |
+|------|-------------|
+| `list_curation_rules` | (v2.9.14+) List curation rules that pin or hide documents for specific search queries. |
+| `create_curation_rule` | (v2.9.14+) Create a rule that pins specific documents to fixed positions or hides others when a query matches. |
+| `update_curation_rule` | (v2.9.14+) Replace an existing curation rule by id. |
+| `delete_curation_rule` | (v2.9.14+) Remove a curation rule by id. |
+
+### Automation
+
+| Tool | Description |
+|------|-------------|
+| `list_automation` | List all automation rules (webhooks, triggers, crons). |
+| `create_automation` | Create a new automation rule (webhook target, search trigger, or cron schedule). |
+| `get_automation` | Get a specific automation rule by ID. |
+| `update_automation` | Update an existing automation rule. |
+| `delete_automation` | Delete an automation rule by ID. |
+| `test_automation` | Test a trigger rule by running its search and returning matches (dry run, no webhook fired). |
+| `get_automation_logs` | List automation execution logs with optional filtering by rule ID and status. |
+
+### Webhooks
+
+| Tool | Description |
+|------|-------------|
+| `register_webhook` | Register a webhook to receive HTTP callbacks when documents are added, updated, or deleted. |
+| `list_webhooks` | List all registered webhooks. |
+| `delete_webhook` | Delete a registered webhook by ID. |
+
+### Schemas
+
+| Tool | Description |
+|------|-------------|
+| `set_schema` | Set JSON Schema for collection metadata validation. |
+| `get_schema` | Get JSON Schema for a collection. |
+| `delete_schema` | Delete/disable schema validation for a collection. |
+| `list_schemas` | List all collection schemas. |
+
+### Memory RAG
+
+| Tool | Description |
+|------|-------------|
+| `memory_start_session` | Start a new memory/conversation session for RAG. |
+| `memory_add_message` | Add a message to an existing memory session. |
+| `memory_recall` | Semantically recall relevant messages from past conversations. |
+| `memory_summarize` | Generate a summary of a conversation session. |
+| `memory_list_sessions` | List memory/conversation sessions with optional filtering by user, scenario, and sorting. |
+| `memory_session_history` | Get the full message history of a specific conversation session, ordered chronologically. |
+
+### WordPress
+
+| Tool | Description |
+|------|-------------|
+| `wordpress_publish` | (v2.11.0+) Create or update a WordPress post/page via the mddb-sync plugin, including tags, categories, custom taxonomies, meta fields and Polylang/WPML language assignment. |
+| `wordpress_set_status` | (v2.11.0+) Change the publishing status of a WordPress post/page (publish, draft, pending, private, future, trash) via the mddb-sync plugin. |
+
+### Bulk ingest
+
+| Tool | Description |
+|------|-------------|
+| `bulk_ingest_submit` | Queue a long-running bulk ingest job and return immediately with a job identifier. |
+| `bulk_ingest_status` | Return the current status record (counters, timestamps, up to 50 errors) for a previously-submitted bulk ingest job. |
+| `bulk_ingest_list` | List bulk ingest jobs newest-first, optionally filtered by collection. |
+| `bulk_ingest_cancel` | Cancel a pending bulk ingest job. |
+
+### Ops
+
+| Tool | Description |
+|------|-------------|
+| `get_stats` | Get MDDB server statistics. |
+| `export_documents` | Export documents from a collection in NDJSON format. |
+| `create_backup` | Create a backup of the MDDB database. |
+| `restore_backup` | Restore the MDDB database from a backup file. |
+| `update_document` | Partially update a document. |
+| `get_document_meta` | Get document metadata without content. |
+| `delete_collection` | Delete an entire collection and all its documents, revisions, and metadata indices. |
+| `get_collection_config` | Get configuration attributes for a collection (type, description, icon, color, custom metadata). |
+| `set_collection_config` | Set or update configuration attributes for a collection. |
+| `list_collection_configs` | List all collections that have custom configuration set. |
+
 ## Access Modes
 
 Each protocol can have its own read/write mode:

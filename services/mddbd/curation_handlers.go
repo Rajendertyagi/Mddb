@@ -58,6 +58,15 @@ func (s *Server) handleCurationGet(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		rules := s.CurationManager.ListAll()
+		if tenant := TenantFromContext(r.Context()); tenant != "" {
+			scoped := rules[:0:0]
+			for _, rule := range rules {
+				if CollectionInTenant(tenant, rule.Collection) {
+					scoped = append(scoped, rule)
+				}
+			}
+			rules = scoped
+		}
 		ok(w, map[string]any{"rules": rules, "total": len(rules)})
 		return
 	}

@@ -63,7 +63,7 @@ Complete list of MDDB features organized by category.
 - **Embedding Chunking** - Auto-split long documents into paragraph-based chunks before embedding with sentence and hard-split fallbacks. Multi-key chunk storage with deduplication in search results. Configurable via `MDDB_EMBEDDING_CHUNK_SIZE` and `MDDB_EMBEDDING_CHUNK_ENABLED`.
 
 #### Full-Text Search
-- **Built-in Inverted Index** - No external dependencies (Elasticsearch, etc.)
+- **Built-in Inverted Index** - No external search-engine dependency
 - **TF-IDF Scoring** - Classic term frequency-inverse document frequency ranking
 - **BM25 Scoring** - Okapi BM25 with document length normalization (k1=1.2, b=0.75)
 - **BM25F Scoring** - Field-weighted BM25 — weight matches in title, tags, description differently from body content
@@ -327,7 +327,10 @@ See [Replication Guide](REPLICATION.md) for setup instructions and examples.
 - **Truncate Revisions** - Remove old revisions to save space
 - **Keep N Revisions** - Configurable retention policy
 - **Cache Invalidation** - Drop cache after truncate
-- **Vacuum** - BoltDB compaction (manual)
+- **No Scheduled Vacuum Needed** - The embedded storage engine reuses freed
+  pages automatically, so there is no routine vacuum/compaction job to run or
+  schedule. Reclaiming disk space after mass deletions is an optional one-off
+  (restore from a fresh backup); day-to-day operation is maintenance-free.
 - **Statistics** - Real-time server and DB metrics
 
 ### Access Modes
