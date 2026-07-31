@@ -51,6 +51,14 @@ MDDB Panel is a modern, web-based admin interface for MDDB (Markdown Database). 
 - Ascending/descending order
 - Configurable result limits
 
+### 🗺️ Vector Space Explorer
+
+- 2D PCA projection of a collection's embeddings (server-side, sampled)
+- Each dot is a document chunk; colors group chunks of the same document
+- Hover/click to inspect points; keyboard focusable (WCAG 2.2)
+- Optional query overlay: project a natural-language query into the map to
+  see why results match ("Vector Space" in the sidebar)
+
 ### 🎨 Modern UI
 - Clean, responsive design
 - TailwindCSS styling

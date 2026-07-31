@@ -919,6 +919,77 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /v1/vector-projection:
+    post:
+      tags:
+        - Vector Search
+      summary: Project embeddings to 2D (PCA)
+      description: |
+        Server-side PCA projection of a collection's embedding vectors to 2D
+        for visual exploration (cluster structure, outliers, query
+        diagnostics). Large collections are sampled deterministically; a text
+        query or raw vector can be projected alongside the points.
+      operationId: vectorProjection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - collection
+              properties:
+                collection:
+                  type: string
+                  description: Collection to project
+                  example: kb
+                sample:
+                  type: integer
+                  description: Maximum points to project (default 1000, capped at 2000)
+                  default: 1000
+                  example: 1000
+                query:
+                  type: string
+                  description: Optional text query to embed and overlay on the projection
+                queryVector:
+                  type: array
+                  items:
+                    type: number
+                    format: float
+                  description: Optional pre-computed query vector to overlay
+      responses:
+        "200":
+          description: Projected points
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  points:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, description: "Index key (docID or docID#N)" }
+                        key: { type: string, description: Document key }
+                        docId: { type: string }
+                        chunkIndex: { type: integer }
+                        x: { type: number }
+                        y: { type: number }
+                  query:
+                    type: object
+                    nullable: true
+                    description: Projected query point (when query/queryVector provided)
+                  total: { type: integer, description: Vectors in the collection }
+                  sampled: { type: integer, description: Vectors actually projected }
+                  dimensions: { type: integer }
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /v1/vector-reindex:
     post:
       tags:

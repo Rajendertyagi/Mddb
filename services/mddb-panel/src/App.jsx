@@ -17,6 +17,7 @@ import EndpointsPanel from './components/EndpointsPanel';
 import UsersPanel from './components/UsersPanel';
 import GroupsPanel from './components/GroupsPanel';
 import VectorPanel from './components/VectorPanel';
+import VectorSpacePanel from './components/VectorSpacePanel';
 import EmbeddingModelsPanel from './components/EmbeddingModelsPanel';
 import SettingsPanel from './components/SettingsPanel';
 import ClusterPanel from './components/ClusterPanel';
@@ -229,6 +230,11 @@ function App() {
           {viewMode === 'vectors' && (
             <div className="flex-1 border-l border-gray-200">
               <VectorPanel />
+            </div>
+          )}
+          {viewMode === 'vectorSpace' && (
+            <div className="flex-1 border-l border-gray-200">
+              <VectorSpacePanel />
             </div>
           )}
           {viewMode === 'embeddings' && (

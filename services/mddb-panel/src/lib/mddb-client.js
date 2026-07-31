@@ -215,6 +215,20 @@ class MDDBClient {
   }
 
   /**
+   * 2D PCA projection of a collection's embedding vectors for visualization.
+   * @param {object} opts
+   * @param {string} opts.collection - collection to project
+   * @param {number} [opts.sample=1000] - max points (server caps at 2000)
+   * @param {string} [opts.query] - optional text query to embed and overlay
+   */
+  async vectorProjection({ collection, sample = 1000, query }) {
+    return this.request('/vector-projection', {
+      method: 'POST',
+      body: JSON.stringify({ collection, sample, query }),
+    });
+  }
+
+  /**
    * Geo radius search: find docs within N meters of (lat, lng).
    * @param {object} opts
    * @param {string} opts.collection
