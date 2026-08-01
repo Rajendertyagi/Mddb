@@ -24,12 +24,16 @@
                 <p class="doc-index-lead">{{.Description}}</p>
                 {{end}}
             </header>
-            <ul class="doc-page-list">
+            <ul class="post-list">
                 {{range .Site.Posts | sort "Date" "desc"}}
                 <li>
-                    <a href="/{{.Slug}}/">{{.Title}}</a>
-                    {{if .Date}}<time class="doc-page-date">{{formatDate .Date}}</time>{{end}}
-                    {{if .Excerpt}}<span class="doc-page-excerpt">{{.Excerpt}}</span>{{end}}
+                    <a class="post-card" href="/{{.Slug}}/">
+                        {{if .Date}}<time class="post-card-date" datetime="{{.Date.Format "2006-01-02"}}">{{.Date.Format "2 January 2006"}}</time>{{end}}
+                        <h2 class="post-card-title">{{.Title}}</h2>
+                        {{if .Description}}<p class="post-card-excerpt">{{.Description}}</p>
+                        {{else if .Excerpt}}<p class="post-card-excerpt">{{.Excerpt}}</p>{{end}}
+                        <span class="post-card-more" aria-hidden="true">Read the post →</span>
+                    </a>
                 </li>
                 {{end}}
             </ul>
