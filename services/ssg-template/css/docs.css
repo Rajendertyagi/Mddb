@@ -56,7 +56,14 @@
 /* Doc article */
 .doc-article { max-width: 800px; }
 .doc-header { margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
-.doc-title { font-size: 2.25rem; color: var(--text); margin-bottom: .5rem; }
+.doc-title {
+    font-size: var(--font-size-3xl);
+    color: var(--text);
+    margin-bottom: .5rem;
+    font-family: var(--font-family-display);
+    font-weight: var(--font-weight-regular);
+    letter-spacing: var(--letter-spacing-tight);
+}
 .doc-date { font-size: .85rem; color: var(--text-muted); }
 
 /* Rendered markdown content */
@@ -78,7 +85,7 @@
     color: var(--text-secondary);
 }
 .doc-body code {
-    font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
+    font-family: var(--font-family-mono);
     font-size: .85em;
     background: var(--bg-tertiary);
     border: 1px solid var(--border);
@@ -209,4 +216,55 @@
     .doc-page-list { grid-template-columns: 1fr; }
     .doc-index-actions { flex-direction: column; }
     .btn { width: 100%; text-align: center; }
+}
+
+/* Blog listing — Tradik Design System cards (tokens from tradik-tokens.css) */
+.post-list { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--space-4); }
+.post-card {
+    display: block;
+    padding: var(--space-6);
+    background: var(--color-bg-subtle);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-lg);
+    color: inherit;
+    text-decoration: none;
+    transition: border-color var(--motion-duration-base) var(--motion-easing-standard),
+                transform var(--motion-duration-base) var(--motion-easing-standard),
+                box-shadow var(--motion-duration-base) var(--motion-easing-standard);
+}
+.post-card:hover {
+    border-color: var(--color-border-strong);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    color: inherit;
+}
+.post-card:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--color-border-focus); }
+.post-card-date {
+    display: block;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: var(--letter-spacing-caps);
+    color: var(--color-fg-muted);
+    margin-bottom: var(--space-2);
+}
+.post-card-title {
+    font-family: var(--font-family-display);
+    font-weight: var(--font-weight-regular);
+    font-size: var(--font-size-2xl);
+    line-height: var(--line-height-snug);
+    color: var(--color-fg-primary);
+    margin: 0 0 var(--space-2);
+}
+.post-card:hover .post-card-title { color: var(--color-fg-accent); }
+.post-card-excerpt {
+    color: var(--color-fg-secondary);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-relaxed);
+    margin: 0 0 var(--space-3);
+}
+.post-card-more {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-fg-link);
 }

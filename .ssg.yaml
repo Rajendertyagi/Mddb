@@ -47,6 +47,9 @@ robots_off: false
 
 # Rewrite .md links to final /docs/ URLs
 rewrite_md_links: true
+# Drop the ".md" from link text that is a bare filename
+# ([TEMPORAL-TRACK.md](...) renders as "TEMPORAL-TRACK")
+strip_md_link_text: true
 
 # Template engine (Go templates)
 engine: "go"

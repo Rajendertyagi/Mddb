@@ -438,3 +438,11 @@
     right: 16px;
   }
 }
+
+.mddb-header-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  margin-right: 10px;
+  flex-shrink: 0;
+}

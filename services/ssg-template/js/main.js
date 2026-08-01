@@ -71,8 +71,11 @@
         });
     });
 
-    // Add copy buttons to code blocks
-    document.querySelectorAll('.doc-body pre').forEach(function (pre) {
+    // Add copy buttons to code blocks. Mermaid pres are excluded: the button
+    // text would be appended to the diagram source before mermaid renders it,
+    // producing a "Syntax error in text" bomb (race between this script and
+    // the injected mermaid runtime).
+    document.querySelectorAll('.doc-body pre:not(.mermaid)').forEach(function (pre) {
         const btn = document.createElement('button');
         btn.className = 'copy-btn';
         btn.setAttribute('aria-label', 'Copy code');
