@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Site redesign on the Tradik Design System** — the documentation site adopts the design tokens from designstyles.tradik.com (vendored `tradik-tokens.css`): semantic color palette with the navy brand accent, Geist/Geist Mono/Instrument Serif typography, 4px spacing scale, shadows and motion. Hero keeps its photo background with design-system typography on top; blog listing renders design-system cards; the project logo (`docs/logo.svg`) is used in the navbar, footer and favicon. Link texts drop the `.md` suffix (`strip_md_link_text`).
+
+### Fixed
+- **Mermaid diagrams intermittently showing "Syntax error in text"** — the theme's copy-button script appended its "Copy" label into `pre.mermaid` blocks before the mermaid runtime read them; diagram blocks are now excluded from copy buttons.
+
 > The unreleased 2.11.3 changes below ship together with 2.11.4 — the 2.11.3
 > tag was never published.
 
