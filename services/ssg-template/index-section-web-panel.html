@@ -1,7 +1,7 @@
 {{define "index_web_panel"}}
 <!-- Web Panel Section -->
 <section class="web-panel"
-    style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 80px 0; color: white;">
+    style="background: linear-gradient(135deg, var(--color-palette-accent-500) 0%, var(--color-palette-accent-800) 100%); padding: 80px 0; color: white;">
     <div class="container">
         <div style="text-align: center; margin-bottom: 50px;">
             <h2 style="font-size: 2.5rem; margin-bottom: 20px;">🎨 Web Admin Panel</h2>
@@ -16,7 +16,7 @@
         </div>
         <div style="text-align: center; margin-top: 40px;">
             <div
-                style="display: inline-grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; text-align: left; max-width: 900px;">
+                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 20px; text-align: left; max-width: 900px; margin: 0 auto;">
                 <div
                     style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 8px; backdrop-filter: blur(10px);">
                     <strong style="display: block; margin-bottom: 8px;">📊 Dashboard</strong>

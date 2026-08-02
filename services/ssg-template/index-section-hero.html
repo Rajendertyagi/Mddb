@@ -6,16 +6,16 @@
             <p class="hero-eyebrow">MDDB · AI-native document database</p>
             <h1>The Knowledge Base<br>Your AI Agent Needs</h1>
             <p class="hero-subtitle">Built-in MCP server, vector search, RAG, and hybrid retrieval. Plugs into
-                Claude, ChatGPT, Cursor, Windsurf, and any MCP client — single ~29MB binary, zero config</p>
+                Claude, ChatGPT, Cursor, Windsurf, and any MCP client — single {{$.Vars.mddbBinarySize}} binary, zero config</p>
             <div class="hero-badges">
-                <span class="badge"><span data-tools>77</span> MCP Tools</span>
-                <span class="badge" data-v>v2.11.4</span>
+                <span class="badge">{{$.Vars.mcpTools}} MCP Tools</span>
+                <span class="badge">v{{$.Vars.mddbVersion}}</span>
                 <span class="badge">RAG-Ready</span>
                 <span class="badge">UDS + mTLS</span>
                 <span class="badge">Docker Ready</span>
             </div>
             <div class="hero-actions">
-                <a href="#download" class="btn btn-primary" data-v>Download v2.11.4</a>
+                <a href="#download" class="btn btn-primary">Download v{{$.Vars.mddbVersion}}</a>
                 <a href="https://github.com/tradik/mddb" class="btn btn-secondary" target="_blank" rel="noopener">View
                     on GitHub</a>
             </div>

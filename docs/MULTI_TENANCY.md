@@ -1,3 +1,10 @@
+---
+title: "Multi-Tenancy"
+slug: "docs/multi-tenancy"
+description: "Native multi-tenancy in MDDB — tenant namespace isolation for collections, enforced across HTTP, gRPC, GraphQL and MCP."
+status: publish
+---
+
 # Multi-Tenancy
 
 MDDB provides native multi-tenancy through **namespace isolation**: a tenant is a
