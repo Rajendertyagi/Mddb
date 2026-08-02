@@ -49,8 +49,8 @@
                 <li>Automation: triggers, crons, webhooks, sentiment analysis, template variables</li>
                 <li>Multi-language support: same document key, multiple locales</li>
                 <li>Prometheus metrics and Grafana dashboard support</li>
-                <li>~29MB single binary, embedded BoltDB, zero external dependencies</li>
-                <li>Docker image: ~29MB Alpine-based with health checks</li>
+                <li>{{$.Vars.mddbBinarySize}} single binary, embedded BoltDB, zero external dependencies</li>
+                <li>Docker image: {{$.Vars.mddbDockerSize}} Alpine-based with health checks</li>
                 <li>Aggregations: metadata facets (value counts) and date histograms with optional pre-filtering
                 </li>
                 <li>Per-collection storage backends: BoltDB (default), in-memory (ephemeral), S3/MinIO —
@@ -190,7 +190,7 @@
             <div class="feat-chip"><strong>Automations</strong> Triggers, crons, webhooks</div>
             <div class="feat-chip"><strong>Aggregations</strong> Facets & histograms</div>
             <div class="feat-chip"><strong>Multi-Language</strong> Same key, many locales</div>
-            <div class="feat-chip"><strong>Docker</strong> ~29MB Alpine image</div>
+            <div class="feat-chip"><strong>Docker</strong> {{$.Vars.mddbDockerSize}} Alpine image</div>
             <div class="feat-chip"><strong>Zero Config</strong> Single binary, no deps</div>
             <div class="feat-chip"><strong>Storage Backends</strong> BoltDB, In-Memory, S3</div>
             <div class="feat-chip"><strong>Telemetry</strong> Prometheus + Grafana</div>

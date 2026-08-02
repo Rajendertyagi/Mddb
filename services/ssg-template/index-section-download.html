@@ -6,48 +6,48 @@
         <div class="download-grid">
             <div class="download-card">
                 <h3>Latest Release</h3>
-                <div class="version" data-v>v{v}</div>
-                <p class="release-date" id="release-date">Released: June 13, 2026</p>
+                <div class="version">v{{$.Vars.mddbVersion}}</div>
+                <p class="release-date">Released: {{$.Vars.mddbReleaseDate}}</p>
                 <div class="download-links">
                     <a href="#"
-                        data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-v{v}-linux-amd64.tar.gz"
+                        href="https://github.com/tradik/mddb/releases/download/v{{$.Vars.mddbVersion}}/mddbd-v{{$.Vars.mddbVersion}}-linux-amd64.tar.gz"
                         class="download-link">
                         <span class="platform">Linux AMD64</span>
-                        <span class="size">~29MB</span>
+                        <span class="size">{{$.Vars.mddbBinarySize}}</span>
                     </a>
                     <a href="#"
-                        data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-v{v}-linux-arm64.tar.gz"
+                        href="https://github.com/tradik/mddb/releases/download/v{{$.Vars.mddbVersion}}/mddbd-v{{$.Vars.mddbVersion}}-linux-arm64.tar.gz"
                         class="download-link">
                         <span class="platform">Linux ARM64</span>
-                        <span class="size">~29MB</span>
+                        <span class="size">{{$.Vars.mddbBinarySize}}</span>
                     </a>
                     <a href="#"
-                        data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-v{v}-darwin-amd64.tar.gz"
+                        href="https://github.com/tradik/mddb/releases/download/v{{$.Vars.mddbVersion}}/mddbd-v{{$.Vars.mddbVersion}}-darwin-amd64.tar.gz"
                         class="download-link">
                         <span class="platform">macOS AMD64</span>
-                        <span class="size">~29MB</span>
+                        <span class="size">{{$.Vars.mddbBinarySize}}</span>
                     </a>
                     <a href="#"
-                        data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-v{v}-darwin-arm64.tar.gz"
+                        href="https://github.com/tradik/mddb/releases/download/v{{$.Vars.mddbVersion}}/mddbd-v{{$.Vars.mddbVersion}}-darwin-arm64.tar.gz"
                         class="download-link">
                         <span class="platform">macOS ARM64</span>
-                        <span class="size">~29MB</span>
+                        <span class="size">{{$.Vars.mddbBinarySize}}</span>
                     </a>
                     <a href="#"
-                        data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-v{v}-freebsd-amd64.tar.gz"
+                        href="https://github.com/tradik/mddb/releases/download/v{{$.Vars.mddbVersion}}/mddbd-v{{$.Vars.mddbVersion}}-freebsd-amd64.tar.gz"
                         class="download-link">
                         <span class="platform">FreeBSD AMD64</span>
-                        <span class="size">~29MB</span>
+                        <span class="size">{{$.Vars.mddbBinarySize}}</span>
                     </a>
                 </div>
                 <div class="package-links">
                     <a href="#"
-                        data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-{v}-linux-amd64.deb"
+                        href="https://github.com/tradik/mddb/releases/download/v{{$.Vars.mddbVersion}}/mddbd-{{$.Vars.mddbVersion}}-linux-amd64.deb"
                         class="package-link">
                         📦 Debian/Ubuntu (.deb)
                     </a>
                     <a href="#"
-                        data-v-href="https://github.com/tradik/mddb/releases/download/v{v}/mddbd-{v}-linux-amd64.rpm"
+                        href="https://github.com/tradik/mddb/releases/download/v{{$.Vars.mddbVersion}}/mddbd-{{$.Vars.mddbVersion}}-linux-amd64.rpm"
                         class="package-link">
                         📦 RedHat/CentOS (.rpm)
                     </a>
@@ -74,50 +74,43 @@ sudo snap install mddb-cli</code></pre>
                 </div>
                 <div class="pkg-section">
                     <p class="pkg-label">🐳 Docker <span class="pkg-platform">All platforms</span></p>
-                    <pre><code id="docker-pull-code">docker pull tradik/mddb:latest</code></pre>
+                    <pre><code>docker pull tradik/mddb:latest
+docker pull tradik/mddb:{{$.Vars.mddbVersion}}</code></pre>
                     <a href="https://hub.docker.com/r/tradik/mddb" class="package-link" target="_blank"
                         rel="noopener">View on Docker Hub →</a>
                 </div>
             </div>
         </div>
         <div class="release-notes">
-            <h3 id="whats-new-header">What's New in v2.10.0</h3>
+            <!-- Content mirrors CHANGELOG.md [2.11.4]. TODO: replace with the
+                 native SSG changelog data source when spagu/ssg#69 ships. -->
+            <h3>What's New in v{{$.Vars.mddbVersion}}</h3>
             <ul>
-                <li><strong>Encryption key rotation (ISO 27001 A.8.24 / SOC 2 CC6.7)</strong> — new
-                    wire format <code>V2</code> prefixes ciphertext with a 1-byte keyID so the
-                    encryptor can hold a primary plus any number of read-only previous keys.
-                    <code>MDDB_ENCRYPTION_KEY_ID</code> stamps new writes;
-                    <code>MDDB_ENCRYPTION_KEYS_PREVIOUS</code> (<code>[{"id":1,"key":"..."}]</code>)
-                    keeps historical entries readable. Admin endpoint
-                    <code>POST /v1/encryption/rotate</code> re-seals every encrypted document under
-                    the new primary in the background. V1 (2.9.15) ciphertexts continue to
-                    decrypt — non-breaking upgrade.
+                <li><strong>Native multi-tenancy</strong> — tenant namespace isolation for
+                    collections, enforced centrally so HTTP, gRPC, GraphQL and MCP all
+                    inherit it; tenant users can never hold the global admin role and
+                    single-tenant deployments need zero changes.
                 </li>
-                <li><strong>Audit log export to SIEM / syslog (ISO 27001 A.8.15 / SOC 2 CC7.2)</strong> —
-                    <code>MDDB_AUDIT_EXPORT_WEBHOOK_URL</code> mirrors every audit event to a SIEM
-                    (Splunk HEC, Datadog Logs, ELK) with custom auth headers from
-                    <code>MDDB_AUDIT_EXPORT_WEBHOOK_HEADER</code>.
-                    <code>MDDB_AUDIT_EXPORT_SYSLOG_ADDR</code> sends RFC 5424 framed messages over
-                    UDP/TCP to a syslog collector. Per-sink delivered/failed/dropped counters at
-                    <code>GET /v1/audit/exporters</code>; rendered in the Security panel.
+                <li><strong>Retrieval modes for vector search</strong> — <code>retrievalMode:
+                    parent | chunk | window</code> returns whole documents, the exact matching
+                    passage (<code>chunkIndex</code> + <code>chunkText</code>), or the passage
+                    with surrounding context — precise prompts for RAG.
                 </li>
-                <li><strong>Backup path jail</strong> —
-                    <code>/v1/backup</code> and <code>/v1/restore</code> now confine every
-                    user-supplied path to <code>MDDB_BACKUP_DIR</code> (default
-                    <code>./backups</code>). Path traversal (<code>../</code>, absolute paths,
-                    symlink escape) is rejected with 400. Closes a path-traversal gap that
-                    previously allowed admins to read or overwrite arbitrary files.
+                <li><strong>MMR result diversification</strong> — <code>mmr: true</code> reranks
+                    with Maximal Marginal Relevance so near-duplicate documents stop crowding
+                    out distinct ones; <code>mmrLambda</code> balances relevance vs diversity.
                 </li>
-                <li><strong>Encryption admin panel</strong> — new sidebar entry
-                    <strong>Encryption</strong> rendering primary keyID, configured previous keyIDs,
-                    per-collection coverage (withPrimary / withLegacy / plaintext), the rotation job
-                    table, and a "Start rotation" control with optional collection scope. Security
-                    dashboard adds an <strong>Audit log export</strong> card with masked webhook URLs
-                    and per-sink health counters.
+                <li><strong>Disk-only vectors (low-memory mode)</strong> —
+                    <code>diskOnlyVectors: true</code> keeps only quantized vectors in RAM
+                    (~4× less with int8, ~8× with int4) while full-precision vectors stay on
+                    disk for exact two-phase rescoring.
                 </li>
-                <li><strong>Bug fix</strong> — <code>SetCollectionConfigRequest</code> was missing
-                    the <code>encrypted</code> field, so REST/gRPC/MCP clients flipping the flag
-                    silently dropped it. Now plumbed through correctly.
+                <li><strong>Vector space explorer</strong> — <code>/v1/vector-projection</code>
+                    computes a server-side 2D PCA projection of a collection's embeddings and
+                    the panel visualizes clusters, outliers and query placement.
+                </li>
+                <li><strong>arm64 SIMD restored</strong> — NEON/SME hardware acceleration for
+                    vector math builds and links again on Apple Silicon and ARM servers.
                 </li>
             </ul>
             <a href="https://github.com/tradik/mddb/blob/main/CHANGELOG.md" target="_blank" rel="noopener">View

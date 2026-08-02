@@ -32,6 +32,17 @@ webp: true
 minify_all: false
 clean: true
 
+# Site-wide template variables (.Vars.*) — the single source of truth for
+# version strings baked into the HTML at build time (no client-side JS).
+# Updated by the release version sweep alongside Makefile/main.go.
+variables:
+  mddbVersion: "2.11.4"
+  mddbReleaseDate: "31 July 2026"
+  mcpTools: "79"
+  mddbBinarySize: "~26MB"
+  mddbDockerSize: "~33MB"
+
+
 # Native mermaid rendering: ```mermaid fences become <pre class="mermaid">
 # and the runtime is injected only on pages/posts that contain a diagram.
 # (Replaces the theme's former page.html-only bootstrap script, which never

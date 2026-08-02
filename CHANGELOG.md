@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Mobile layout of the documentation site** — long code lines and a fixed-width feature grid forced a ~876px page width on phones, so mobile browsers zoomed out and the hamburger menu appeared "missing"; grid tracks now clamp to the viewport (`minmax(min(100%, …))`), grid children get `min-width: 0`, inline code wraps, and the page never scrolls horizontally.
 - **Homepage documentation section** — stale "New" badges removed; the missing Multi-Tenancy and Vector Quantization entries added.
+- **Stale "What's New" and client-side version patching** — the homepage section now lists the actual v2.11.4 features, and every version string, download link and size figure is baked at build time from SSG `variables:` (`.Vars`) instead of being rewritten by inline JavaScript (2.1 KB of patching script removed; native changelog extraction tracked upstream as spagu/ssg#69).
+- **Size figures corrected** — the server binary is ~26MB (was advertised ~29MB) and the Docker image ~33MB; both are now `.Vars`-driven so they update in one place.
 - **Mermaid diagrams intermittently showing "Syntax error in text"** — the theme's copy-button script appended its "Copy" label into `pre.mermaid` blocks before the mermaid runtime read them; diagram blocks are now excluded from copy buttons.
 
 ## [2.11.4] - 2026-07-31
