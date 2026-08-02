@@ -191,9 +191,6 @@
         // Update binary download code block
         const bdEl = document.getElementById('binary-download-code');
         if (bdEl) bdEl.textContent = '# Download binary\nwget https://github.com/tradik/mddb/releases/download/v' + MDDB_VERSION + '/mddbd-v' + MDDB_VERSION + '-linux-amd64.tar.gz\ntar -xzf mddbd-v' + MDDB_VERSION + '-linux-amd64.tar.gz\n\n# Run server\n./mddbd\n\n# Server starts on http://localhost:11023';
-        // Update "What's New" header
-        const wnEl = document.getElementById('whats-new-header');
-        if (wnEl) wnEl.textContent = "What's New in v" + MDDB_VERSION;
         // Update footer version
         const fvEl = document.getElementById('footer-version');
         if (fvEl) fvEl.textContent = 'Version ' + MDDB_VERSION;

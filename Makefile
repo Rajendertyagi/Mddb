@@ -157,24 +157,14 @@ mcp-tools-count: ## Verify docs' built-in MCP tool count matches the code (DOC-0
 	@cd services/mddbd && go test -run TestMCPToolCountDocsInSync -count=1 . && \
 		echo "✅ docs MCP tool count matches len(mcpBuiltinTools())"
 
-docs-prep: ## Generate SSG content from docs/ (adds frontmatter to all .md files)
-	@bash scripts/ssg-prep.sh
+docs-prep: ## Generate What's New data for the site from CHANGELOG.md
+	@node scripts/whatsnew-from-changelog.mjs
 
 docs-dev: docs-prep ## Start SSG docs server in watch mode on :8888
-	@ssg docs ssg-template mddb.tradik.com \
-	  --content-dir=content \
-	  --templates-dir=packages \
-	  --output-dir=docs \
-	  --http \
-	  --watch \
-	  --port=8888
+	@ssg --config .ssg.yaml --watch --http --port 8888
 
-docs-build: docs-prep ## Build static documentation site into docs/
-	@ssg docs ssg-template mddb.tradik.com \
-	  --content-dir=content \
-	  --templates-dir=packages \
-	  --output-dir=docs \
-	  --minify-all
+docs-build: docs-prep ## Build static documentation site into dist/
+	@ssg --config .ssg.yaml --clean
 
 # ----- Airbyte destination connector (integrations/airbyte-destination) -----
 
