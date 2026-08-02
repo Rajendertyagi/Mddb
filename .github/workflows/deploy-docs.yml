@@ -8,10 +8,6 @@ on:
       - 'docs/**'
       - 'services/ssg-template/**'
       - '.ssg.yaml'
-      - 'CHANGELOG.md'
-      - 'blog/**'
-      - 'data/**'
-      - 'scripts/whatsnew-from-changelog.mjs'
   workflow_dispatch:
 
 permissions:
@@ -50,9 +46,6 @@ jobs:
 
       - name: Prepare metadata
         run: echo '{"categories":[],"media":[],"users":[]}' > docs/metadata.json
-
-      - name: Generate What's New data from CHANGELOG
-        run: node scripts/whatsnew-from-changelog.mjs
 
       - name: Generate site with SSG
         uses: spagu/ssg@1.8.13

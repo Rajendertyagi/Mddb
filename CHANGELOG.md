@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Mobile layout of the documentation site** — long code lines and a fixed-width feature grid forced a ~876px page width on phones, so mobile browsers zoomed out and the hamburger menu appeared "missing"; grid tracks now clamp to the viewport (`minmax(min(100%, …))`), grid children get `min-width: 0`, inline code wraps, and the page never scrolls horizontally.
-- **Stale "What's New" on the homepage** — the section was hand-maintained HTML frozen at v2.10.0; it is now generated from `CHANGELOG.md` at build time (`scripts/whatsnew-from-changelog.mjs` → `data/whatsnew.json` → template), always showing the latest release's features. The homepage documentation section gained the missing Multi-Tenancy and Vector Quantization entries.
+- **Homepage documentation section** — stale "New" badges removed; the missing Multi-Tenancy and Vector Quantization entries added.
 - **Mermaid diagrams intermittently showing "Syntax error in text"** — the theme's copy-button script appended its "Copy" label into `pre.mermaid` blocks before the mermaid runtime read them; diagram blocks are now excluded from copy buttons.
 
 ## [2.11.4] - 2026-07-31
