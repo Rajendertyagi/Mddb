@@ -32,6 +32,13 @@ webp: true
 minify_all: false
 clean: true
 
+# Content-addressed CSS/JS filenames. The generated _headers ships a one-year
+# `immutable` cache policy for /css/* and /js/*, which is only safe when a
+# file's name changes with its contents — without this, an edited stylesheet
+# keeps its name and returning visitors (and the CDN) serve the old one for a
+# year. See SSG docs: DEPLOYMENT.md "Generated _headers and _redirects".
+fingerprint: true
+
 # Site-wide template variables (.Vars.*) — the single source of truth for
 # version strings baked into the HTML at build time (no client-side JS).
 # Updated by the release version sweep alongside Makefile/main.go.

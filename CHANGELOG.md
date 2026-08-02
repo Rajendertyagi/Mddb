@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Site assets were frozen in caches for up to a year** — the generated Cloudflare `_headers` applies `Cache-Control: public, max-age=31536000, immutable` to `/css/*` and `/js/*`, but the filenames were not content-addressed, so an edited stylesheet kept its name and the CDN plus every returning visitor kept serving the old copy (production was measured serving CSS/JS 34–36 hours stale, which silently withheld the design-system styles, the mermaid copy-button fix and the mobile layout fix despite successful deploys). `fingerprint: true` now hashes CSS/JS names and rewrites every reference, making the immutable policy correct. The 404 page — copied into the output after the SSG build, so its references are never rewritten — no longer links the stylesheet; its inline styles already carry full fallbacks.
+
 ### Changed
 - **Site redesign on the Tradik Design System** — the documentation site adopts the design tokens from designstyles.tradik.com (vendored `tradik-tokens.css`): semantic color palette with the navy brand accent, Geist/Geist Mono/Instrument Serif typography, 4px spacing scale, shadows and motion. Hero keeps its photo background with design-system typography on top; blog listing renders design-system cards; the project logo (`docs/logo.svg`) is used in the navbar, footer and favicon. Link texts drop the `.md` suffix (`strip_md_link_text`).
 
