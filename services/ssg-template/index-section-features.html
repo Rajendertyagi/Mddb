@@ -13,7 +13,7 @@
                 auto-converting everything to Markdown. All documents are stored with full revision history.</p>
             <h3>Core capabilities</h3>
             <ul>
-                <li>Built-in MCP server with <span data-tools>77</span> tools — connects to Claude, Cursor, Windsurf, ChatGPT, Ollama,
+                <li>Built-in MCP server with {{$.Vars.mcpTools}} tools — connects to Claude, Cursor, Windsurf, ChatGPT, Ollama,
                     DeepSeek, Manus via stdio and HTTP transport</li>
                 <li>Geospatial search: R-tree and geohash indexes, radius and bounding-box queries, composable
                     with full-text and vector search, optional postcode lookup</li>
@@ -75,7 +75,7 @@
                 </div>
                 <div class="feat-text">
                     <span class="feat-label">AI Integration</span>
-                    <h3><span data-tools>77</span> Built-in MCP Tools</h3>
+                    <h3>{{$.Vars.mcpTools}} Built-in MCP Tools</h3>
                     <p>MCP 2025-11-25 compliant. Tool annotations for auto-approve, 5 built-in prompts,
                         completion, structured output, logging. Three transports: stdio, Streamable HTTP, SSE.
                     </p>
