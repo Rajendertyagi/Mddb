@@ -27,6 +27,7 @@ from __future__ import annotations
 import os
 import re
 import sys
+from pathlib import Path
 
 SITE_ORIGIN = "https://mddb.tradik.com"
 # `[^<]*` rather than `.*?`: neither a URL nor these tag bodies contain `<`,
@@ -70,17 +71,21 @@ def within_root(root: str, path: str) -> bool:
     return target == root_real or target.startswith(root_real + os.sep)
 
 
-def read_within(root: str, path: str) -> str:
-    """Read a file, refusing anything that resolves outside the output tree.
+def resolve_within(root: str, path: str) -> Path:
+    """Resolve `path` and prove it is inside `root`, or raise.
 
-    Both the output directory and the sitemap `<loc>` values are untrusted
-    input, so containment is checked immediately before the read rather than
-    being assumed from how the path was built.
+    `Path.relative_to` raises when the target escapes, and the *returned*
+    object is the resolved, verified path — callers open that rather than the
+    string they came in with, so nothing untrusted reaches the filesystem.
     """
-    if not within_root(root, path):
-        raise ValueError(f"refusing to read outside {root!r}: {path!r}")
-    with open(path, encoding="utf-8", errors="ignore") as handle:
-        return handle.read()
+    target = Path(path).resolve()
+    target.relative_to(Path(root).resolve())
+    return target
+
+
+def read_within(root: str, path: str) -> str:
+    """Read a file that is proven to live inside the output directory."""
+    return resolve_within(root, path).read_text(encoding="utf-8", errors="ignore")
 
 
 def page_for(root: str, url: str) -> str | None:
@@ -147,10 +152,7 @@ def main() -> int:
         )
         return 0
 
-    if not within_root(root, sitemap):
-        raise ValueError(f"refusing to write outside {root!r}: {sitemap!r}")
-    with open(sitemap, "w", encoding="utf-8") as handle:
-        handle.write(pruned)
+    resolve_within(root, sitemap).write_text(pruned, encoding="utf-8")
     print(f"🧹 removed {len(dropped)} entr(y/ies) from sitemap.xml:")
     for url, reason in dropped:
         print(f"  {url}  ({reason})")

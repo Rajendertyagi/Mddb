@@ -33,6 +33,7 @@ from __future__ import annotations
 import os
 import re
 import sys
+from pathlib import Path
 from collections import defaultdict
 from html.parser import HTMLParser
 
@@ -151,17 +152,21 @@ def within_root(root: str, path: str) -> bool:
     return target == root_real or target.startswith(root_real + os.sep)
 
 
-def read_within(root: str, path: str) -> str:
-    """Read a file, refusing anything that resolves outside the output tree.
+def resolve_within(root: str, path: str) -> Path:
+    """Resolve `path` and prove it is inside `root`, or raise.
 
-    Every path here descends from either a CLI argument or a URL lifted out of
-    a built page, so the containment check happens immediately before the
-    read rather than being assumed from how the path was built.
+    `Path.relative_to` raises when the target escapes, and the *returned*
+    object is the resolved, verified path — callers open that rather than the
+    string they came in with, so nothing untrusted reaches the filesystem.
     """
-    if not within_root(root, path):
-        raise ValueError(f"refusing to read outside {root!r}: {path!r}")
-    with open(path, encoding="utf-8", errors="ignore") as handle:
-        return handle.read()
+    target = Path(path).resolve()
+    target.relative_to(Path(root).resolve())
+    return target
+
+
+def read_within(root: str, path: str) -> str:
+    """Read a file that is proven to live inside the output directory."""
+    return resolve_within(root, path).read_text(encoding="utf-8", errors="ignore")
 
 
 def served_file(root: str, page: str, url: str) -> str | None:
