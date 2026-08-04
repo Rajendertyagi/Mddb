@@ -1225,7 +1225,7 @@ Since plugin 0.2.0 + MDDB 2.11.0 the bridge is **two-way**: the plugin's opt-in 
 
 ### Build & release
 
-The workflow [`.github/workflows/wordpress-plugin.yml`](../.github/workflows/wordpress-plugin.yml) runs `composer audit` + PHPCS (WordPress security ruleset) + PHPStan level 5 + PHPUnit on PHP 8.1 / 8.2 / 8.3 / 8.4 on every PR and push touching `integrations/wordpress-plugin/**`. The 8.3 leg enforces ≥90 % line coverage. Pushing a `wp-v*` tag builds the runtime zip and attaches it to a GitHub Release — that asset is what the in-plugin updater downloads.
+The workflow [`.github/workflows/wordpress-plugin.yml`](https://github.com/tradik/mddb/blob/main/.github/workflows/wordpress-plugin.yml) runs `composer audit` + PHPCS (WordPress security ruleset) + PHPStan level 5 + PHPUnit on PHP 8.1 / 8.2 / 8.3 / 8.4 on every PR and push touching `integrations/wordpress-plugin/**`. The 8.3 leg enforces ≥90 % line coverage. Pushing a `wp-v*` tag builds the runtime zip and attaches it to a GitHub Release — that asset is what the in-plugin updater downloads.
 
 ---
 
@@ -1303,7 +1303,7 @@ Markdown and plain-text (`.md`, `.markdown`, `.mdx`, `.txt`, `.rst`, `.adoc`) ar
 
 ### Tests & release
 
-57 unit tests with 90%+ Jest coverage (statements / branches / functions / lines). The workflow [`.github/workflows/github-action.yml`](../.github/workflows/github-action.yml) runs format check + ESLint + Jest with coverage on a Node 22 & 24 matrix, rebuilds `dist/` and asserts it matches the committed bundle (`verify-dist`), and dry-runs the action against the integration's own README (`smoke`). Pushing a `gha-v*` tag verifies `package.json.version`, force-moves floating `gha-v<major>` / `gha-v<major>.<minor>` tags, and publishes a GitHub Release — so consumers can pin to `@gha-v0`, `@gha-v0.1`, or `@gha-v0.1.0`.
+57 unit tests with 90%+ Jest coverage (statements / branches / functions / lines). The workflow [`.github/workflows/github-action.yml`](https://github.com/tradik/mddb/blob/main/.github/workflows/github-action.yml) runs format check + ESLint + Jest with coverage on a Node 22 & 24 matrix, rebuilds `dist/` and asserts it matches the committed bundle (`verify-dist`), and dry-runs the action against the integration's own README (`smoke`). Pushing a `gha-v*` tag verifies `package.json.version`, force-moves floating `gha-v<major>` / `gha-v<major>.<minor>` tags, and publishes a GitHub Release — so consumers can pin to `@gha-v0`, `@gha-v0.1`, or `@gha-v0.1.0`.
 
 ---
 
@@ -1409,7 +1409,7 @@ Both are sent with `credentials: 'omit'`; the optional API key is forwarded as `
 
 ### Tests & release
 
-98 Jest (jsdom) unit tests covering the client, refresh worker, popup/options DOM, and background service worker with ≥90% coverage enforced. The workflow [`.github/workflows/chrome-extension.yml`](../.github/workflows/chrome-extension.yml) runs format check + ESLint + tests with coverage on a Node 22 & 24 matrix, runs `npm audit --omit=dev --audit-level=high`, builds + packages the extension, smoke-validates the packaged manifest, and uploads the zip as an artefact. Pushing a `chrome-ext-v<version>` tag verifies that `package.json` and `manifest.json` versions match the tag, rebuilds + repackages from source, force-moves floating `chrome-ext-v<major>` / `chrome-ext-v<major>.<minor>` tags, and publishes a GitHub Release with the zip attached.
+98 Jest (jsdom) unit tests covering the client, refresh worker, popup/options DOM, and background service worker with ≥90% coverage enforced. The workflow [`.github/workflows/chrome-extension.yml`](https://github.com/tradik/mddb/blob/main/.github/workflows/chrome-extension.yml) runs format check + ESLint + tests with coverage on a Node 22 & 24 matrix, runs `npm audit --omit=dev --audit-level=high`, builds + packages the extension, smoke-validates the packaged manifest, and uploads the zip as an artefact. Pushing a `chrome-ext-v<version>` tag verifies that `package.json` and `manifest.json` versions match the tag, rebuilds + repackages from source, force-moves floating `chrome-ext-v<major>` / `chrome-ext-v<major>.<minor>` tags, and publishes a GitHub Release with the zip attached.
 
 ---
 

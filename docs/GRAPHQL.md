@@ -9,7 +9,7 @@ status: publish
 
 ## Overview
 
-MDDB provides a fully-functional GraphQL API alongside its REST and gRPC interfaces. The GraphQL endpoint offers flexible querying, type safety, and schema introspection — every operation declared in [services/mddbd/graphql/schema.graphql](../services/mddbd/graphql/schema.graphql) is wired to the in-process MCP DirectClient (the same code path REST/gRPC use), so behaviour is identical across protocols.
+MDDB provides a fully-functional GraphQL API alongside its REST and gRPC interfaces. The GraphQL endpoint offers flexible querying, type safety, and schema introspection — every operation declared in [services/mddbd/graphql/schema.graphql](https://github.com/tradik/mddb/blob/main/services/mddbd/graphql/schema.graphql) is wired to the in-process MCP DirectClient (the same code path REST/gRPC use), so behaviour is identical across protocols.
 
 **Endpoint:** `POST /graphql`
 **Playground:** `GET /playground` (development tool, served alongside the endpoint)
@@ -1035,7 +1035,7 @@ GraphQL resolver implementations are in progress. Contributions welcome:
 ## Support
 
 - GitHub Issues: https://github.com/tradik/mddb/issues
-- Documentation: https://github.com/tradik/mddb/tree/main/docs
+- Documentation: https://mddb.tradik.com/docs/readme/
 - REST API Docs: `/v1/endpoints`
 
 ---

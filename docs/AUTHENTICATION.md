@@ -10,7 +10,7 @@ status: publish
 Complete guide to JWT authentication and RBAC (Role-Based Access Control) in MDDB.
 
 > **What's new in 2.9.15.** Authentication is now compliance-aware:
-> - **Timing-safe error unification** — "user disabled or not found" now returns the same `invalid token` response as a bad JWT, so an attacker can no longer probe user existence via differential error messages ([services/mddbd/auth_middleware.go](../services/mddbd/auth_middleware.go)).
+> - **Timing-safe error unification** — "user disabled or not found" now returns the same `invalid token` response as a bad JWT, so an attacker can no longer probe user existence via differential error messages ([services/mddbd/auth_middleware.go](https://github.com/tradik/mddb/blob/main/services/mddbd/auth_middleware.go)).
 > - **Audit trail of every auth event** — every login, JWT verification, API-key check, and missing/invalid/disabled attempt is recorded to a dedicated audit bucket with actor, IP, user agent, and outcome. Enable with `MDDB_AUDIT_ENABLED=true` and query via admin-only `GET /v1/audit`.
 > - **`security.auth_failure_burst` incident event** — the new `AuthFailureTracker` integrates with the auth middleware. When the configured number of failures lands from the same `actor@ip` inside the sliding window (`MDDB_INCIDENT_AUTH_*`), MDDB fires a webhook to every subscriber on `/v1/webhooks` with detail `{actor, ip, count, windowSec}` so your SIEM / PagerDuty / Slack receives an alert without polling.
 >
@@ -806,9 +806,9 @@ Auth data (users, keys, permissions) remains in database but is not enforced.
 
 For issues or questions:
 
-- GitHub Issues: https://github.com/anthropics/mddb/issues
-- Documentation: https://github.com/anthropics/mddb/docs
-- Email: support@example.com
+- GitHub Issues: https://github.com/tradik/mddb/issues
+- Documentation: https://mddb.tradik.com/docs/readme/
+- Security reports: security@tradik.com
 
 ---
 

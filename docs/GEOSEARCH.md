@@ -70,7 +70,7 @@ will pick them up.
 
 Two algorithms share the same `geo` BoltDB bucket. They are two
 *in-memory views* of the same persisted data, rebuilt independently at
-startup and kept in sync by the write hooks in [main.go](../services/mddbd/main.go).
+startup and kept in sync by the write hooks in [main.go](https://github.com/tradik/mddb/blob/main/services/mddbd/main.go).
 Pick between them at query time via the `algorithm` field on
 `/v1/geo-search`.
 
@@ -297,7 +297,7 @@ shared viewer.
 No map-provider key is needed — OpenStreetMap tiles are used directly
 with their public attribution. If you need a different tile source
 (Mapbox, Stamen, Carto), edit the `tileLayer` URL in
-[services/mddb-panel/src/components/GeoPanel.jsx](../services/mddb-panel/src/components/GeoPanel.jsx).
+[services/mddb-panel/src/components/GeoPanel.jsx](https://github.com/tradik/mddb/blob/main/services/mddb-panel/src/components/GeoPanel.jsx).
 
 ## Operational notes
 
@@ -311,8 +311,8 @@ with their public attribution. If you need a different tile source
 - **Memory**: each point costs ~80 bytes in the R-tree plus ~40 bytes
   in the geohash slice. 100 k points ≈ 12 MB RSS for both indexes
   combined.
-- **Benchmark**: `go test -bench BenchmarkGeoIndex -benchmem`. See
-  [services/mddbd/geo_index_test.go](../services/mddbd/geo_index_test.go)
+- **Benchmark**: `go test ./internal/geo/ -bench BenchmarkGeoIndex -benchmem`. See
+  [services/mddbd/internal/geo/geo_index_test.go](https://github.com/tradik/mddb/blob/main/services/mddbd/internal/geo/geo_index_test.go)
   for the harness.
 
 ## Limitations

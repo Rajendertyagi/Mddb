@@ -313,8 +313,8 @@ curl http://localhost:11023/stats
 ## 📚 Documentation
 
 - **GitHub**: https://github.com/tradik/mddb
-- **API Documentation**: https://github.com/tradik/mddb/blob/main/README.md
-- **Examples**: https://github.com/tradik/mddb/tree/main/test
+- **API Documentation**: https://mddb.tradik.com/docs/api/
+- **Examples**: https://mddb.tradik.com/docs/examples/
 - **Changelog**: https://github.com/tradik/mddb/blob/main/CHANGELOG.md
 
 ## 🤝 Support
