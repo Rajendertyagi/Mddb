@@ -16,7 +16,12 @@ from pathlib import Path
 # Canonical site origin. Absolute links to it are internal, so they resolve
 # against the output directory exactly like a root-relative link would.
 SITE_ORIGIN = "https://mddb.tradik.com"
-SITE_ORIGINS = (SITE_ORIGIN, "http://mddb.tradik.com")
+# The plaintext variant exists only to recognise a self-link written with the
+# wrong scheme, so that it is still resolved against the output instead of
+# being skipped as external. It is a string to match, never an address to
+# fetch — nothing in these scripts makes network calls. Derived from
+# SITE_ORIGIN rather than written out, so the two cannot drift apart.
+SITE_ORIGINS = (SITE_ORIGIN, SITE_ORIGIN.replace("https://", "http://", 1))
 
 # `[^<]*` and `[^"]*` rather than a lazy `.*?`: none of these values contain
 # the delimiter that ends them, and the lazy dotall form backtracks
