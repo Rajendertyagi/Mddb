@@ -175,7 +175,7 @@ MDDB_CHAT_LLM_MODEL=bielik-11b-v2.3-instruct
 
 ## Step-by-Step Guide
 
-See the [Website Chat Guide](/uses-website-chat/) for a complete walkthrough with Docker and Ollama.
+See the [Website Chat Guide](/docs/uses-website-chat/) for a complete walkthrough with Docker and Ollama.
 
 ## Source Code
 

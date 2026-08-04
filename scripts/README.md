@@ -53,6 +53,32 @@ Bulk import markdown files from a folder into MDDB database.
 **Documentation:**
 See [BULK-IMPORT.md](../docs/BULK-IMPORT.md) for detailed documentation.
 
+### check-docs-links.py
+
+Fails the documentation build when the generated site contains a link that
+would return 404 **or 308** on mddb.tradik.com. Checks every `href`, `src` and
+`og:image`/`twitter:image`, resolving both site-relative links and absolute
+links back to the canonical domain against the build output. External hosts are
+never fetched, so the check is offline and deterministic — it gates the
+`deploy-docs` workflow before the Cloudflare Pages upload.
+
+Resolution models **Cloudflare Pages routing**, not the output directory:
+Pages strips `.html` and appends a missing trailing slash on a directory,
+answering the original URL with a 308 each time. So `/docs/api/swagger` is
+valid even though the file on disk is `swagger.html`, while linking
+`/docs/api/swagger.html` or `/docs/config` is reported with the final URL to
+use instead. Redirecting links still work for visitors, but they cost a round
+trip and a hop of crawl budget, so they are treated as failures.
+
+**Usage:**
+```bash
+python3 scripts/check-docs-links.py [output_dir]   # default: dist
+make docs-linkcheck                                # build, then check
+```
+
+Exit codes: `0` clean, `1` broken links found (each printed with the pages
+linking to it), `2` output directory missing.
+
 ## Using with Makefile
 
 ```bash

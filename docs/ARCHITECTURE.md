@@ -41,7 +41,7 @@ graph TB
 
 Routes requests to handlers, applies middleware (JSON, CORS, auth, rate limit, logging), enforces access modes.
 
-For the **full endpoint catalogue** see [API.md](API.md) (HTTP/REST), [GRPC.md](GRPC.md) (gRPC), [GRAPHQL.md](GRAPHQL.md) (GraphQL schema), [MCP.md](MCP.md) (MCP tools), and the live Swagger UI at `/docs/api/swagger.html`. The endpoint list lives in [services/mddbd/endpoints_handlers.go](../services/mddbd/endpoints_handlers.go) and is queryable at `GET /v1/endpoints`.
+For the **full endpoint catalogue** see [API.md](API.md) (HTTP/REST), [GRPC.md](GRPC.md) (gRPC), [GRAPHQL.md](GRAPHQL.md) (GraphQL schema), [MCP.md](MCP.md) (MCP tools), and the live Swagger UI at `/docs/api/swagger`. The endpoint list lives in [services/mddbd/endpoints_handlers.go](https://github.com/tradik/mddb/blob/main/services/mddbd/endpoints_handlers.go) and is queryable at `GET /v1/endpoints`.
 
 ### 2. Storage Layer (BoltDB)
 
@@ -267,12 +267,12 @@ This section describes the *layers* that gate every request reaching the storage
 
 A request hitting MDDB passes through up to four trust gates in order; each is independently configurable and may be disabled:
 
-1. **Transport** — TCP+TLS, TCP plaintext, or Unix Domain Socket. TLS terminates inside MDDB (`buildServerTLSConfig` in [services/mddbd/tls_config.go](../services/mddbd/tls_config.go)). UDS is authenticated by filesystem ownership (`0600`) instead of TLS.
+1. **Transport** — TCP+TLS, TCP plaintext, or Unix Domain Socket. TLS terminates inside MDDB (`buildServerTLSConfig` in [services/mddbd/tls_config.go](https://github.com/tradik/mddb/blob/main/services/mddbd/tls_config.go)). UDS is authenticated by filesystem ownership (`0600`) instead of TLS.
 2. **Peer authentication** *(optional)* — mTLS verifies the client certificate against a configured CA bundle. The server only learns "this peer's cert chains to a trusted CA"; it does not impose identity semantics on the cert subject.
-3. **Application authentication** — JWT bearer token or API key. Validated in HTTP / gRPC / GraphQL middleware ([services/mddbd/auth_middleware.go](../services/mddbd/auth_middleware.go), [auth_grpc.go](../services/mddbd/auth_grpc.go), [graphql_handler.go](../services/mddbd/graphql_handler.go)). On success, claims are written to the request context.
+3. **Application authentication** — JWT bearer token or API key. Validated in HTTP / gRPC / GraphQL middleware ([services/mddbd/auth_middleware.go](https://github.com/tradik/mddb/blob/main/services/mddbd/auth_middleware.go), [auth_grpc.go](https://github.com/tradik/mddb/blob/main/services/mddbd/auth_grpc.go), [graphql_handler.go](https://github.com/tradik/mddb/blob/main/services/mddbd/graphql_handler.go)). On success, claims are written to the request context.
 4. **Authorization** — every handler / resolver that touches a collection calls `AuthManager.CheckPermission(ctx, collection, op)`, which resolves the caller's effective permissions through both direct user grants and group membership. Operation modes are also gated *per protocol* (`MDDB_MCP_MODE`, `MDDB_API_MODE`, `MDDB_GRPC_MODE`, `MDDB_HTTP3_MODE`) — a single deployment can serve read-write to gRPC and read-only to MCP, for example.
 
-The MCP transport adds a fifth gate above its protocol entry point — its own API-key store and per-key rate limiter ([services/mddbd/mcp_apikeys.go](../services/mddbd/mcp_apikeys.go)) — so an MCP client can be issued credentials independently from the main JWT/API-key store.
+The MCP transport adds a fifth gate above its protocol entry point — its own API-key store and per-key rate limiter ([services/mddbd/mcp_apikeys.go](https://github.com/tradik/mddb/blob/main/services/mddbd/mcp_apikeys.go)) — so an MCP client can be issued credentials independently from the main JWT/API-key store.
 
 When `AuthManager` is `nil` (auth disabled, the default for an unconfigured deployment) gates 3 and 4 short-circuit to allow-all. mTLS (gate 2) is independent and can be enabled without enabling JWT.
 

@@ -64,6 +64,31 @@ make lint
 7. **Commit** using conventional commits (see below)
 8. **Push** and open a Pull Request
 
+### Documentation site
+
+`docs/` and `blog/` are published to [mddb.tradik.com](https://mddb.tradik.com)
+by the SSG build. Preview and verify locally:
+
+```bash
+make docs-dev        # live preview on http://localhost:8888
+make docs-build      # build the static site into dist/
+make docs-linkcheck  # build, then fail on any link that would 404 on the site
+```
+
+Two rules the checker enforces:
+
+- Repository files have no URL on the published site, so **never link to source
+  with a repo-relative path** (`../services/mddbd/main.go`). Use the full GitHub
+  URL (`https://github.com/tradik/mddb/blob/main/services/mddbd/main.go`) — or,
+  when the page exists on the site, link the site instead.
+- **Link the final URL, never a redirect.** Cloudflare Pages strips `.html` and
+  appends a missing trailing slash, answering with a 308 either way — so write
+  `/docs/api/swagger` (not `swagger.html`) and `/docs/config/` (not
+  `/docs/config`).
+
+`make docs-linkcheck` runs in the deploy workflow and blocks publication when
+either is violated.
+
 ## Commit Convention
 
 We use [Conventional Commits](https://www.conventionalcommits.org/):

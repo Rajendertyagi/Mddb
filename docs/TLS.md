@@ -17,10 +17,10 @@ This document covers config, generating certs with `openssl`, common
 deployment recipes, and the most frequent gotchas.
 
 > **Scope**: TLS is configured on **both** the HTTP listener
-> ([services/mddbd/main.go](../services/mddbd/main.go) — `ServeTLS`) and the
+> ([services/mddbd/main.go](https://github.com/tradik/mddb/blob/main/services/mddbd/main.go) — `ServeTLS`) and the
 > gRPC listener (`grpc.Creds(credentials.NewTLS(...))` in the same file).
 > Both reuse the same `tls.Config` built by `buildServerTLSConfig` in
-> [services/mddbd/tls_config.go](../services/mddbd/tls_config.go), so a single
+> [services/mddbd/tls_config.go](https://github.com/tradik/mddb/blob/main/services/mddbd/tls_config.go), so a single
 > `tls.*` config block enables HTTPS and TLS-secured gRPC simultaneously, and
 > the same `clientCAFile` / `clientAuth` settings enable mTLS on both. The
 > Unix Domain Socket listener (see [config.md](config.md#unix-domain-socket-transport))
@@ -102,7 +102,7 @@ tls:
   clientAuth: require   # or "request"
 ```
 
-Implementation lives in [services/mddbd/tls_config.go](../services/mddbd/tls_config.go)
+Implementation lives in [services/mddbd/tls_config.go](https://github.com/tradik/mddb/blob/main/services/mddbd/tls_config.go)
 (`buildServerTLSConfig`). Key facts:
 
 - `MinVersion` is pinned to **TLS 1.2** — older clients are rejected at handshake.

@@ -9,19 +9,14 @@ status: publish
 
 This directory contains the documentation for MDDB.
 
-## GitHub Pages
+## Published Site
 
-The documentation is published at: https://mddb.tradik.com/mddb/
+The documentation is published at: https://mddb.tradik.com/docs/readme/
 
-### Markdown Viewer
-
-All `.md` files are automatically rendered using `md-viewer.html`, which uses:
-- **marked.js** - Markdown parser
-- **github-markdown-css** - GitHub-style rendering
-
-Usage: `md-viewer.html?doc=FILENAME.md`
-
-Example: https://mddb.tradik.com/mddb/md-viewer.html?doc=QUICKSTART.md
+Every `.md` file in this directory is rendered to a static page by the SSG
+build (`make docs-build`) and deployed to Cloudflare Pages. A file's URL comes
+from its front-matter `slug` — e.g. `QUICKSTART.md` (`slug: docs/quickstart`)
+is served at https://mddb.tradik.com/docs/quickstart/.
 
 Welcome to the MDDB documentation! This guide will help you understand, deploy, and use MDDB effectively.
 
@@ -31,8 +26,8 @@ Welcome to the MDDB documentation! This guide will help you understand, deploy, 
 
 - **[Quick Start Guide](QUICKSTART.md)** - Get up and running in 5 minutes
 - **[API Documentation](API.md)** - Complete HTTP/JSON API reference
-- **[OpenAPI/Swagger Specification](/docs/api/swagger.html)** - Machine-readable API spec (OpenAPI 3.0)
-- **[Swagger UI](/docs/api/swagger.html)** - Interactive API documentation
+- **[OpenAPI/Swagger Specification](/docs/api/swagger)** - Machine-readable API spec (OpenAPI 3.0)
+- **[Swagger UI](/docs/api/swagger)** - Interactive API documentation
 - **[Health Check Guide](HEALTHCHECK.md)** - Health checks for Docker, Kubernetes, and load balancers
 - **[gRPC Documentation](GRPC.md)** - High-performance gRPC API guide
 - **[Usage Examples](EXAMPLES.md)** - Code examples and integration patterns

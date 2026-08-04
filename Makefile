@@ -1,4 +1,4 @@
-.PHONY: help dev-start dev-stop dev-logs dev-build dev-clean test lint fmt fmt-check vet sec test-graphql lint-all test-all ci chat-build chat-dev chat-test widget-build widget-dev dev-logs-chat docs-prep docs-dev docs-build airbyte-build airbyte-push airbyte-test airbyte-spec airbyte-check airbyte-clean gha-install gha-build gha-test gha-coverage gha-lint gha-check gha-verify-dist gha-clean chrome-install chrome-build chrome-package chrome-test chrome-coverage chrome-lint chrome-audit chrome-check chrome-clean grafana-install grafana-build grafana-test grafana-coverage grafana-lint grafana-check grafana-package grafana-docker grafana-clean
+.PHONY: docs-linkcheck help dev-start dev-stop dev-logs dev-build dev-clean test lint fmt fmt-check vet sec test-graphql lint-all test-all ci chat-build chat-dev chat-test widget-build widget-dev dev-logs-chat docs-prep docs-dev docs-build airbyte-build airbyte-push airbyte-test airbyte-spec airbyte-check airbyte-clean gha-install gha-build gha-test gha-coverage gha-lint gha-check gha-verify-dist gha-clean chrome-install chrome-build chrome-package chrome-test chrome-coverage chrome-lint chrome-audit chrome-check chrome-clean grafana-install grafana-build grafana-test grafana-coverage grafana-lint grafana-check grafana-package grafana-docker grafana-clean
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -162,6 +162,14 @@ docs-dev: ## Start SSG docs server in watch mode on :8888
 
 docs-build: ## Build static documentation site into dist/
 	@ssg --config .ssg.yaml --clean
+	@mkdir -p dist/docs/api
+	@cp services/ssg-template/swagger.html dist/docs/api/swagger.html
+	@cp services/ssg-template/404.html dist/404.html
+	@cp docs/openapi.yaml dist/docs/api/openapi.yaml
+	@cp services/ssg-template/og-image.png dist/og-image.png
+
+docs-linkcheck: docs-build ## Fail if the built site contains a broken internal link
+	@python3 scripts/check-docs-links.py dist
 
 # ----- Airbyte destination connector (integrations/airbyte-destination) -----
 

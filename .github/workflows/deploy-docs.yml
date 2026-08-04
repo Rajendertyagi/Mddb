@@ -6,8 +6,11 @@ on:
       - main
     paths:
       - 'docs/**'
+      - 'blog/**'
       - 'services/ssg-template/**'
+      - 'scripts/check-docs-links.py'
       - '.ssg.yaml'
+      - '.github/workflows/deploy-docs.yml'
   workflow_dispatch:
 
 permissions:
@@ -70,6 +73,17 @@ jobs:
           cp services/ssg-template/swagger.html dist/docs/api/swagger.html
           cp services/ssg-template/404.html dist/404.html
           cp docs/openapi.yaml dist/docs/api/openapi.yaml
+          # og:image is referenced as https://mddb.tradik.com/og-image.png by
+          # every page's meta tags. It must stay a PNG at the site root: the
+          # SSG's webp pass rewrites anything under images/, and several social
+          # crawlers still refuse WebP previews.
+          cp services/ssg-template/og-image.png dist/og-image.png
+
+      # SEO-001: a link that 404s on mddb.tradik.com must block the deploy, not
+      # surface weeks later in a crawl report. Offline check — external hosts
+      # are never fetched.
+      - name: Check for broken internal links
+        run: python3 scripts/check-docs-links.py dist
 
       - name: Create Cloudflare Pages project (if not exists)
         continue-on-error: true

@@ -396,7 +396,7 @@ Queue long-running bulk ingest jobs from LLMs without blocking on the tool call.
 
 ## WordPress Publishing Tools (v2.11.0+)
 
-Publish straight from MCP into WordPress sites running the [mddb-sync plugin](../integrations/wordpress-plugin/README.md) with **Remote publishing** enabled. Posts and pages, tags/categories/custom taxonomies, post meta ("metafields") and Polylang/WPML language assignment + translation linking are all supported.
+Publish straight from MCP into WordPress sites running the [mddb-sync plugin](https://github.com/tradik/mddb/blob/main/integrations/wordpress-plugin/README.md) with **Remote publishing** enabled. Posts and pages, tags/categories/custom taxonomies, post meta ("metafields") and Polylang/WPML language assignment + translation linking are all supported.
 
 | Tool | Description | Write? |
 |------|-------------|--------|
