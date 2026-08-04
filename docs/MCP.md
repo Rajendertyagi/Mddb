@@ -1,7 +1,7 @@
 ---
 title: "MCP Server Configuration"
 slug: "docs/mcp"
-description: "MCP Server Configuration"
+description: "MDDB's built-in MCP server implementing the 2025-11-25 spec: the full built-in tool catalogue, stdio and HTTP transports, API keys and access modes."
 status: publish
 ---
 

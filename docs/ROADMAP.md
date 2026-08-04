@@ -1,7 +1,7 @@
 ---
 title: "MDDB Roadmap"
 slug: "docs/roadmap"
-description: "MDDB Roadmap"
+description: "The MDDB roadmap - what has shipped, what is in progress and what is planned across search, storage, protocols, security and integrations."
 status: publish
 ---
 

@@ -1,7 +1,7 @@
 ---
 title: "MDDB Automations (v2.7.1)"
 slug: "docs/automations"
-description: "MDDB Automations (v2.7.1)"
+description: "Reactive and scheduled workflows in MDDB: webhook targets, triggers that fire when documents match a search, and cron jobs, all stored in the database."
 status: publish
 ---
 

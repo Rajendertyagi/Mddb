@@ -1,7 +1,7 @@
 ---
 title: "MDDB Search Algorithms"
 slug: "docs/search"
-description: "MDDB Search Algorithms"
+description: "MDDB's four search methods - metadata, full-text, vector and hybrid - with algorithms selectable per query, retrieval modes and result diversification."
 status: publish
 ---
 

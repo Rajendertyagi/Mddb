@@ -1,7 +1,7 @@
 ---
 title: "MDDB Telemetry & Monitoring"
 slug: "docs/telemetry"
-description: "MDDB Telemetry & Monitoring"
+description: "MDDB's Prometheus-compatible /metrics endpoint exposing server, database and Go runtime telemetry with no external dependencies, plus Grafana panels."
 status: publish
 ---
 

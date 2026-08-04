@@ -1,7 +1,7 @@
 ---
 title: "gRPC API Documentation"
 slug: "docs/grpc"
-description: "gRPC API Documentation"
+description: "MDDB's gRPC API over HTTP/2 and protocol buffers: service definitions, streaming calls, TLS and when it outperforms the HTTP/JSON surface."
 status: publish
 ---
 

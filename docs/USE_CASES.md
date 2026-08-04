@@ -1,7 +1,7 @@
 ---
 title: "MDDB Use Cases"
 slug: "docs/use-cases"
-description: "MDDB Use Cases"
+description: "Real-world MDDB use cases: documentation search, RAG knowledge bases, content pipelines, multi-language sites and agent-facing APIs."
 status: publish
 ---
 

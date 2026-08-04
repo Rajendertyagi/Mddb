@@ -1,7 +1,7 @@
 ---
 title: "Custom YAML Tools for MCP"
 slug: "docs/custom-tools"
-description: "Custom YAML Tools for MCP"
+description: "Define site-specific MCP tools for MDDB in YAML, giving an AI agent a small purpose-built API instead of the full generic tool surface."
 status: publish
 ---
 

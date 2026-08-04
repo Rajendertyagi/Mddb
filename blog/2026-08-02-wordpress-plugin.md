@@ -1,5 +1,5 @@
 ---
-title: "Your WordPress just became AI-searchable: meet the MDDB Sync plugin"
+title: "Your WordPress just became AI-searchable: MDDB Sync"
 slug: "blog/wordpress-plugin"
 description: "MDDB Sync mirrors your WordPress posts into MDDB for semantic search and RAG — and lets your AI agent publish drafts back. Setup takes ten minutes."
 status: publish

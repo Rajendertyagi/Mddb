@@ -1,7 +1,7 @@
 ---
 title: "Docker Deployment Guide"
 slug: "docs/docker"
-description: "Docker Deployment Guide"
+description: "Run MDDB in Docker: Alpine-based images, compose recipes, volumes and data persistence, health checks and environment-variable configuration."
 status: publish
 ---
 
@@ -572,6 +572,9 @@ services:
 - [Deployment Guide](DEPLOYMENT.md) - General deployment instructions
 - [API Documentation](API.md) - API reference
 - [Architecture](ARCHITECTURE.md) - System architecture
+- [Docker Hub Image](DOCKER_HUB.md) - What ships in the published image
+- [Docker Hub Setup](DOCKER_SETUP.md) - Wiring up automated image builds and pushes
+- [Docker Hub Description Update](DOCKER_HUB_UPDATE.md) - Refreshing the Docker Hub listing text
 
 ## License
 

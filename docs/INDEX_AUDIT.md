@@ -1,7 +1,7 @@
 ---
 title: "index.html Audit Report"
 slug: "docs/index-audit"
-description: "index.html Audit Report"
+description: "Audit of the MDDB documentation homepage covering accessibility, metadata, structured data and performance, with the fixes that were applied."
 status: publish
 ---
 

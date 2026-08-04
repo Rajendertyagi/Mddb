@@ -1,7 +1,7 @@
 ---
 title: "YouTube Transcript Analyzer"
 slug: "docs/uses-youtube-transcribe"
-description: "YouTube Transcript Analyzer - MDDB use case guide"
+description: "Load a YouTube channel's transcripts into MDDB, then ask questions about the channel's content with Claude CLI over semantic search."
 status: publish
 ---
 

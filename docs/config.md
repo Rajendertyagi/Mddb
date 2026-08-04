@@ -1,7 +1,7 @@
 ---
 title: "MDDB Configuration Reference"
 slug: "docs/config"
-description: "MDDB Configuration Reference"
+description: "Complete MDDB configuration reference: every environment variable and config key for storage, search, auth, TLS, replication and telemetry."
 status: publish
 ---
 

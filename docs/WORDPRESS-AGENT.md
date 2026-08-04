@@ -1,7 +1,7 @@
 ---
 title: "Build a WordPress AI Agent"
 slug: "docs/wordpress-agent"
-description: "Build a WordPress AI Agent"
+description: "Build an AI chatbot for a WordPress site with MDDB: content sync, semantic retrieval and a local LLM, running entirely on a single machine."
 status: publish
 ---
 

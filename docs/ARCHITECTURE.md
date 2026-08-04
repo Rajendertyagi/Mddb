@@ -1,7 +1,7 @@
 ---
 title: "MDDB Architecture"
 slug: "docs/architecture"
-description: "MDDB Architecture"
+description: "How MDDB is built: the BoltDB storage layout, the HTTP/gRPC/GraphQL request path, the built-in MCP server, and the trust gates every request passes."
 status: publish
 ---
 

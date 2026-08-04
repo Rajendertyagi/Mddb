@@ -1,7 +1,7 @@
 ---
 title: "MDDB Documentation"
 slug: "docs/readme"
-description: "MDDB Documentation"
+description: "Index of the MDDB documentation: quick start, API and protocol references, search, security, deployment guides and use-case walkthroughs."
 status: publish
 ---
 

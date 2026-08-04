@@ -1,7 +1,7 @@
 ---
 title: "MDDB - High-Performance Markdown Database"
 slug: "docs/docker-hub"
-description: "MDDB - High-Performance Markdown Database"
+description: "MDDB on Docker Hub - a markdown document database with rich metadata, full revision history and both HTTP/JSON and gRPC protocols in one small image."
 status: publish
 ---
 

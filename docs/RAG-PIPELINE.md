@@ -1,7 +1,7 @@
 ---
 title: "RAG Pipeline with MDDB"
 slug: "docs/rag-pipeline"
-description: "RAG Pipeline with MDDB"
+description: "Build a production RAG pipeline on MDDB: chunking, embeddings, hybrid retrieval and MCP integration, with WordPress as the content source."
 status: publish
 ---
 

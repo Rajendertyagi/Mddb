@@ -1,7 +1,7 @@
 ---
 title: "MDDB Chat Widget"
 slug: "docs/chat"
-description: "MDDB Chat Widget"
+description: "Embed an AI chat widget on any site with a single script tag - RAG answers from your MDDB knowledge base via OpenAI, Claude, Ollama, Groq or Mistral."
 status: publish
 ---
 

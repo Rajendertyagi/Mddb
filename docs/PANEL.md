@@ -1,7 +1,7 @@
 ---
 title: "MDDB Panel - Web Admin Interface"
 slug: "docs/panel"
-description: "MDDB Panel - Web Admin Interface"
+description: "MDDB Panel, the React admin interface: browse collections and documents, run every search type, inspect vectors and geo data, and manage users."
 status: publish
 ---
 

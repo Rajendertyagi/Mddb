@@ -1,7 +1,7 @@
 ---
 title: "WordPress Website Analyzer"
 slug: "docs/uses-wordpress-analyzer"
-description: "WordPress Website Analyzer - MDDB use case guide"
+description: "Export a WordPress site into MDDB and analyse it with Claude CLI: find broken links, missing meta tags, duplicate content and thin pages."
 status: publish
 ---
 

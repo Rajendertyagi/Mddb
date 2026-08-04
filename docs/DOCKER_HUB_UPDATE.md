@@ -1,7 +1,7 @@
 ---
 title: "Docker Hub Description Update"
 slug: "docs/docker-hub-update"
-description: "Docker Hub Description Update"
+description: "Why the MDDB Docker Hub description is not refreshed automatically by CI, and how to update it by hand or enable the workflow step."
 status: publish
 ---
 

@@ -1,7 +1,7 @@
 ---
 title: "MDDB Authentication & Authorization"
 slug: "docs/authentication"
-description: "MDDB Authentication & Authorization"
+description: "JWT authentication and role-based access control in MDDB: users, API keys, per-collection permissions, group grants and per-protocol access modes."
 status: publish
 ---
 
@@ -799,6 +799,14 @@ export MDDB_AUTH_ENABLED=false
 ```
 
 Auth data (users, keys, permissions) remains in database but is not enforced.
+
+---
+
+## See Also
+
+- [Authentication Quick Start](AUTH_QUICKSTART.md) - Five-minute setup for the first admin user and JWT
+- [Implementation Summary](AUTH_IMPLEMENTATION_SUMMARY.md) - What the JWT/RBAC work changed across the HTTP, gRPC, GraphQL and MCP surfaces
+- [Security Model](SECURITY.md) - ISO 27001 / SOC 2 control map and threat model
 
 ---
 

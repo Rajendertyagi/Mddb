@@ -1,7 +1,7 @@
 ---
 title: "Authentication Quick Start"
 slug: "docs/auth-quickstart"
-description: "Authentication Quick Start"
+description: "Turn on MDDB authentication in five minutes: create the first admin user, issue a JWT, and lock a collection down with role-based permissions."
 status: publish
 ---
 

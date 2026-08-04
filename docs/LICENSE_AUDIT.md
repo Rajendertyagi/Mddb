@@ -1,7 +1,7 @@
 ---
 title: "License Audit Report"
 slug: "docs/license-audit"
-description: "License Audit Report"
+description: "License audit of every MDDB dependency across Go modules and npm packages, with the distribution obligations each licence carries."
 status: publish
 ---
 

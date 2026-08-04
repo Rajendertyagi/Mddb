@@ -59,9 +59,19 @@ Fails the documentation build on defects a crawl of mddb.tradik.com would
 report. Checks every `href`, `src` and `og:image`/`twitter:image` for links
 that would return 404 **or 308**, resolving both site-relative links and
 absolute links back to the canonical domain against the build output. Also
-reports `<img>` elements with **no `alt` attribute**. External hosts are never
-fetched, so the check is offline and deterministic — it gates the
-`deploy-docs` workflow before the Cloudflare Pages upload.
+reports `<img>` elements with **no `alt` attribute**, and indexable pages with
+**no meta description**, **no `<title>`**, or **no inbound link** (orphans).
+Titles over 60 characters are printed as a warning without failing the build.
+External hosts are never fetched, so the check is offline and deterministic —
+it gates the `deploy-docs` workflow before the Cloudflare Pages upload.
+
+Pages marked `noindex` are exempt from the description, title and orphan
+checks: they never appear in results, so none of it buys them anything.
+`404.html` and the taxonomy pages are the cases this matters for.
+
+Orphan detection counts only `<a href>` from *other* pages. Counting every
+`href` looks equivalent and is not: `<link rel="canonical">` points each page
+at itself, so every page would appear linked and the check would never fire.
 
 On `alt`: a *missing* attribute is the defect, `alt=""` is not. An empty `alt`
 is the correct WCAG treatment for a decorative image — the site logo sits

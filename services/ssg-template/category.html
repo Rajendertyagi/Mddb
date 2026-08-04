@@ -9,13 +9,13 @@
 <head>
     {{template "head_meta" .}}
     <meta name="robots" content="noindex, follow">
-    <meta name="description" content="{{if .Category.Description}}{{.Category.Description}}{{else}}All MDDB posts filed under {{.Category.Name}}.{{end}}">
-    <meta property="og:title" content="{{.Category.Name}} — MDDB Documentation">
+    <meta name="description" content="{{if .Category.Description}}{{.Category.Description}}{{else}}Every MDDB article filed under {{.Category.Name}} - release notes, engineering write-ups and guides from the team.{{end}}">
+    <meta property="og:title" content="{{.Category.Name}} — MDDB">
     <meta property="og:url" content="https://{{.Domain}}/category/{{.Category.Slug}}/" />
-    <meta property="twitter:title" content="{{.Category.Name}} — MDDB Documentation">
+    <meta property="twitter:title" content="{{.Category.Name}} — MDDB">
     <meta property="twitter:url" content="https://{{.Domain}}/category/{{.Category.Slug}}/" />
     <link rel="canonical" href="https://{{.Domain}}/category/{{.Category.Slug}}/" />
-    <title>{{.Category.Name}} — MDDB Documentation</title>
+    <title>{{.Category.Name}} — MDDB</title>
 </head>
 <body>
 {{template "gtm_noscript" .}}

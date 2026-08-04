@@ -1,7 +1,7 @@
 ---
 title: "Schema Validation"
 slug: "docs/schema-validation"
-description: "Schema Validation"
+description: "Enforce structure on document metadata per collection in MDDB: opt-in field types, required keys and constraints, disabled by default."
 status: publish
 ---
 

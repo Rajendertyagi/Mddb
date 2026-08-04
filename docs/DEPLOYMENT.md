@@ -1,7 +1,7 @@
 ---
 title: "MDDB Deployment Guide"
 slug: "docs/deployment"
-description: "MDDB Deployment Guide"
+description: "Deploy MDDB to production: systemd service setup, reverse proxy configuration, backup strategy, monitoring, scaling and the hardening checklist."
 status: publish
 ---
 
