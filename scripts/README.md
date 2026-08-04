@@ -69,6 +69,10 @@ Pages marked `noindex` are exempt from the description, title and orphan
 checks: they never appear in results, so none of it buys them anything.
 `404.html` and the taxonomy pages are the cases this matters for.
 
+It also verifies `sitemap.xml` lists no URL that contradicts its own page —
+see `prune-sitemap.py` below, which removes them; this is the guard that the
+pruning actually ran.
+
 Orphan detection counts only `<a href>` from *other* pages. Counting every
 `href` looks equivalent and is not: `<link rel="canonical">` points each page
 at itself, so every page would appear linked and the check would never fire.
@@ -95,6 +99,30 @@ make docs-linkcheck                                # build, then check
 
 Exit codes: `0` clean, `1` broken links found (each printed with the pages
 linking to it), `2` output directory missing.
+
+### prune-sitemap.py
+
+Keeps the generated `sitemap.xml` to canonical, indexable URLs. A sitemap entry
+asks a crawler to index that exact URL, so two kinds of page are removed:
+
+- **`noindex`** — the page declines the very thing the sitemap requests. Search
+  Console reports the pair as an error and crawl budget is spent on a page that
+  is then discarded.
+- **non-self-canonical** — the page names a different URL as canonical, so the
+  listed one is not the version to index.
+
+The SSG cannot do this itself: it writes the sitemap before the theme emits
+`robots` and `canonical`, so at that moment neither signal exists. Pruning runs
+after the build instead, and removes the sitemap entry rather than the tag —
+the tag is the deliberate signal. Reported upstream as spagu/ssg#78.
+
+**Usage:**
+```bash
+python3 scripts/prune-sitemap.py [output_dir]   # default: dist
+```
+
+Runs automatically as part of `make docs-build` and in the deploy workflow.
+`check-docs-links.py` fails the build if a contradicting entry survives.
 
 ## Using with Makefile
 

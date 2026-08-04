@@ -78,6 +78,9 @@ jobs:
           # SSG's webp pass rewrites anything under images/, and several social
           # crawlers still refuse WebP previews.
           cp services/ssg-template/og-image.png dist/og-image.png
+          # The SSG writes the sitemap before the theme emits robots/canonical,
+          # so it cannot know which pages exclude themselves. Prune after.
+          python3 scripts/prune-sitemap.py dist
 
       # SEO-001: a link that 404s on mddb.tradik.com must block the deploy, not
       # surface weeks later in a crawl report. Offline check — external hosts

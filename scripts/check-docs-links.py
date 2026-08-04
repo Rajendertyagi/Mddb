@@ -75,6 +75,7 @@ class LinkCollector(HTMLParser):
         self.anchors: list[str] = []
         self.description: str | None = None
         self.robots: str = ""
+        self.canonical: str = ""
         self.title: str = ""
         self._in_title = False
 
@@ -97,6 +98,8 @@ class LinkCollector(HTMLParser):
                 self.description = attr.get("content") or ""
             elif attr.get("name") == "robots":
                 self.robots = attr.get("content") or ""
+        if tag == "link" and attr.get("rel") == "canonical":
+            self.canonical = attr.get("href") or ""
         # Only <a href> counts as navigation. <link rel="canonical"> points a
         # page at itself, so counting it would make every page look linked and
         # the orphan check would never fire.
@@ -209,6 +212,7 @@ class Findings:
         self.orphans: set[str] = set()
         self.no_title: set[str] = set()
         self.long_titles: list[tuple[str, int, str]] = []
+        self.bad_sitemap: list[tuple[str, str]] = []
 
     def __bool__(self) -> bool:
         """True when something should fail the build.
@@ -225,6 +229,7 @@ class Findings:
             or self.no_description
             or self.orphans
             or self.no_title
+            or self.bad_sitemap
         )
 
 
@@ -283,7 +288,38 @@ def check(root: str) -> Findings:
     # An indexable page nothing links to is reachable only from the sitemap.
     # Crawlers deprioritise it and readers never find it at all.
     found.orphans = indexable_pages - linked - set(ENTRY_POINTS)
+    found.bad_sitemap = check_sitemap(root)
     return found
+
+
+def check_sitemap(root: str) -> list[tuple[str, str]]:
+    """URLs the sitemap lists that contradict their own page.
+
+    `scripts/prune-sitemap.py` removes these after the build; this is the guard
+    that the pruning actually ran, since a sitemap asking a crawler to index a
+    page that excludes itself is reported as an error by Search Console.
+    """
+    sitemap = os.path.join(root, "sitemap.xml")
+    if not os.path.isfile(sitemap):
+        return []
+    with open(sitemap, encoding="utf-8") as handle:
+        body = handle.read()
+
+    bad: list[tuple[str, str]] = []
+    for url in re.findall(r"<loc>(.*?)</loc>", body, re.S):
+        path = normalise(url.strip())
+        if path is None:
+            continue
+        page = served_file(root, os.path.join(root, "index.html"), path)
+        if page is None:
+            bad.append((url, "no such page in the build"))
+            continue
+        parsed = scan_page(page)
+        if "noindex" in parsed.robots.lower():
+            bad.append((url, "page is noindex"))
+        elif parsed.canonical and parsed.canonical.rstrip("/") != url.strip().rstrip("/"):
+            bad.append((url, f"canonical points at {parsed.canonical}"))
+    return bad
 
 
 def report(title: str, entries: dict[str, set[str]], relation: str = "linked from") -> None:
@@ -355,6 +391,14 @@ def main() -> int:
         print(f"❌ {len(found.no_title)} indexable page(s) with no <title>:\n")
         for page in sorted(found.no_title):
             print(f"  {page}")
+        print()
+    if found.bad_sitemap:
+        print(
+            f"❌ {len(found.bad_sitemap)} sitemap entr(y/ies) contradicting their own page "
+            "(run scripts/prune-sitemap.py):\n"
+        )
+        for url, reason in sorted(found.bad_sitemap):
+            print(f"  {url}\n      {reason}")
         print()
     return 1
 
