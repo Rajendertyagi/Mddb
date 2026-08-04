@@ -35,21 +35,13 @@ import re
 import sys
 from collections import defaultdict
 from html.parser import HTMLParser
+from urllib.parse import urlsplit
 
-# Canonical site origin. Absolute links to it are internal and must resolve
-# locally, exactly like a root-relative link would.
-SITE_ORIGINS = ("https://mddb.tradik.com", "http://mddb.tradik.com")
-
-# Schemes and prefixes that never point at a file in the output directory.
-SKIP_PREFIXES = (
-    "http://",
-    "https://",
-    "mailto:",
-    "tel:",
-    "data:",
-    "javascript:",
-    "#",
-    "//",
+from docs_output import (
+    LOC_PATTERN,
+    read_within,
+    site_path,
+    within_root,
 )
 
 # Cloudflare injects /cdn-cgi/ endpoints (email obfuscation, RUM beacon) at the
@@ -75,6 +67,7 @@ class LinkCollector(HTMLParser):
         self.anchors: list[str] = []
         self.description: str | None = None
         self.robots: str = ""
+        self.canonical: str = ""
         self.title: str = ""
         self._in_title = False
 
@@ -97,6 +90,8 @@ class LinkCollector(HTMLParser):
                 self.description = attr.get("content") or ""
             elif attr.get("name") == "robots":
                 self.robots = attr.get("content") or ""
+        if tag == "link" and attr.get("rel") == "canonical":
+            self.canonical = attr.get("href") or ""
         # Only <a href> counts as navigation. <link rel="canonical"> points a
         # page at itself, so counting it would make every page look linked and
         # the orphan check would never fire.
@@ -110,21 +105,29 @@ class LinkCollector(HTMLParser):
 def normalise(url: str) -> str | None:
     """Reduce a raw attribute value to a checkable path, or None to skip it."""
     url = url.strip()
-    for origin in SITE_ORIGINS:
-        if url.startswith(origin):
-            url = url[len(origin) :] or "/"
-            break
-    else:
-        if url.startswith(SKIP_PREFIXES):
+    parts = urlsplit(url)
+
+    if parts.scheme or parts.netloc:
+        # Absolute, or protocol-relative. Only this host resolves against the
+        # output; everything else is somebody else's server.
+        path = site_path(url)
+        if path is None:
             return None
-    url = url.split("#", 1)[0].split("?", 1)[0]
-    if not url or url.startswith(SKIP_PATHS):
+    else:
+        path = parts.path
+
+    if not path or path.startswith(SKIP_PATHS):
         return None
-    return url
+    return path
 
 
 def resolve(root: str, page: str, url: str) -> str:
-    """Map a link to the filesystem path it would be served from."""
+    """Map a link to the filesystem path it would be served from.
+
+    The result can point outside `root` — `../../../etc/passwd` is a link a
+    page is free to contain — so every caller goes through `within_root`
+    before touching the filesystem.
+    """
     if url.startswith("/"):
         return os.path.join(root, url.lstrip("/"))
     return os.path.normpath(os.path.join(os.path.dirname(page), url))
@@ -138,7 +141,7 @@ def served_file(root: str, page: str, url: str) -> str | None:
     """
     target = resolve(root, page, url)
     for candidate in (target, os.path.join(target, "index.html"), target + ".html"):
-        if os.path.isfile(candidate):
+        if within_root(root, candidate) and os.path.isfile(candidate):
             return candidate
     return None
 
@@ -153,6 +156,9 @@ def classify(root: str, page: str, url: str) -> tuple[str, str]:
     is reported separately from an outright 404.
     """
     target = resolve(root, page, url)
+    if not within_root(root, target):
+        # Escapes the output directory, so nothing on the site serves it.
+        return "missing", ""
 
     if url.endswith(".html") and os.path.isfile(target):
         stripped = url[: -len(".html")]
@@ -182,7 +188,7 @@ META_IMAGE = re.compile(
 )
 
 
-def scan_page(page: str) -> LinkCollector:
+def scan_page(root: str, page: str) -> LinkCollector:
     """Parse one built page.
 
     HTMLParser handles href/src, meta tags and images; og:image and
@@ -190,8 +196,7 @@ def scan_page(page: str) -> LinkCollector:
     specific meta tags, so they are appended separately rather than by treating
     every `content` as a link.
     """
-    with open(page, encoding="utf-8", errors="ignore") as handle:
-        body = handle.read()
+    body = read_within(root, page)
     collector = LinkCollector()
     collector.feed(body)
     collector.links += META_IMAGE.findall(body)
@@ -209,6 +214,7 @@ class Findings:
         self.orphans: set[str] = set()
         self.no_title: set[str] = set()
         self.long_titles: list[tuple[str, int, str]] = []
+        self.bad_sitemap: list[tuple[str, str]] = []
 
     def __bool__(self) -> bool:
         """True when something should fail the build.
@@ -225,6 +231,7 @@ class Findings:
             or self.no_description
             or self.orphans
             or self.no_title
+            or self.bad_sitemap
         )
 
 
@@ -242,7 +249,7 @@ def check(root: str) -> Findings:
 
     for page in iter_pages(root):
         source = os.path.relpath(page, root)
-        parsed = scan_page(page)
+        parsed = scan_page(root, page)
 
         for src in parsed.images_without_alt:
             found.no_alt[src].add(source)
@@ -283,7 +290,39 @@ def check(root: str) -> Findings:
     # An indexable page nothing links to is reachable only from the sitemap.
     # Crawlers deprioritise it and readers never find it at all.
     found.orphans = indexable_pages - linked - set(ENTRY_POINTS)
+    found.bad_sitemap = check_sitemap(root)
     return found
+
+
+def check_sitemap(root: str) -> list[tuple[str, str]]:
+    """URLs the sitemap lists that contradict their own page.
+
+    `scripts/prune-sitemap.py` removes these after the build; this is the guard
+    that the pruning actually ran, since a sitemap asking a crawler to index a
+    page that excludes itself is reported as an error by Search Console.
+    """
+    sitemap = os.path.join(root, "sitemap.xml")
+    if not os.path.isfile(sitemap):
+        return []
+    body = read_within(root, sitemap)
+
+    bad: list[tuple[str, str]] = []
+    # `[^<]*` rather than `.*?`: a URL never contains `<`, and the lazy form
+    # backtracks super-linearly on malformed input.
+    for url in re.findall(LOC_PATTERN, body):
+        path = normalise(url.strip())
+        if path is None:
+            continue
+        page = served_file(root, os.path.join(root, "index.html"), path)
+        if page is None:
+            bad.append((url, "no such page in the build"))
+            continue
+        parsed = scan_page(root, page)
+        if "noindex" in parsed.robots.lower():
+            bad.append((url, "page is noindex"))
+        elif parsed.canonical and parsed.canonical.rstrip("/") != url.strip().rstrip("/"):
+            bad.append((url, f"canonical points at {parsed.canonical}"))
+    return bad
 
 
 def report(title: str, entries: dict[str, set[str]], relation: str = "linked from") -> None:
@@ -297,7 +336,9 @@ def report(title: str, entries: dict[str, set[str]], relation: str = "linked fro
 
 
 def main() -> int:
-    root = sys.argv[1] if len(sys.argv) > 1 else "dist"
+    # Resolve once so every derived path is compared against a real, absolute
+    # root rather than whatever shape the argument arrived in.
+    root = os.path.realpath(sys.argv[1] if len(sys.argv) > 1 else "dist")
     if not os.path.isdir(root):
         print(f"error: output directory {root!r} does not exist — run 'make docs-build'")
         return 2
@@ -355,6 +396,14 @@ def main() -> int:
         print(f"❌ {len(found.no_title)} indexable page(s) with no <title>:\n")
         for page in sorted(found.no_title):
             print(f"  {page}")
+        print()
+    if found.bad_sitemap:
+        print(
+            f"❌ {len(found.bad_sitemap)} sitemap entr(y/ies) contradicting their own page "
+            "(run scripts/prune-sitemap.py):\n"
+        )
+        for url, reason in sorted(found.bad_sitemap):
+            print(f"  {url}\n      {reason}")
         print()
     return 1
 

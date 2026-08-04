@@ -167,6 +167,7 @@ docs-build: ## Build static documentation site into dist/
 	@cp services/ssg-template/404.html dist/404.html
 	@cp docs/openapi.yaml dist/docs/api/openapi.yaml
 	@cp services/ssg-template/og-image.png dist/og-image.png
+	@python3 scripts/prune-sitemap.py dist
 
 docs-linkcheck: docs-build ## Fail if the built site contains a broken internal link
 	@python3 scripts/check-docs-links.py dist
