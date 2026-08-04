@@ -33,8 +33,8 @@ from docs_output import (
     CANONICAL_PATTERN,
     LOC_PATTERN,
     ROBOTS_PATTERN,
-    SITE_ORIGIN,
     read_within,
+    site_path,
     within_root,
 )
 
@@ -76,7 +76,10 @@ def page_for(root: str, url: str) -> str | None:
     A sitemap `<loc>` is text, and the output directory is an argument, so the
     joined path is confined to the tree before it is opened.
     """
-    path = url.replace(SITE_ORIGIN, "").strip("/")
+    relative = site_path(url)
+    if relative is None:
+        return None
+    path = relative.strip("/")
     candidate = os.path.join(root, path, "index.html") if path else os.path.join(root, "index.html")
     if not within_root(root, candidate):
         return None

@@ -12,16 +12,25 @@ stay offline and deterministic.
 from __future__ import annotations
 
 from pathlib import Path
+from urllib.parse import urlsplit
 
 # Canonical site origin. Absolute links to it are internal, so they resolve
 # against the output directory exactly like a root-relative link would.
-SITE_ORIGIN = "https://mddb.tradik.com"
-# The plaintext variant exists only to recognise a self-link written with the
-# wrong scheme, so that it is still resolved against the output instead of
-# being skipped as external. It is a string to match, never an address to
-# fetch — nothing in these scripts makes network calls. Derived from
-# SITE_ORIGIN rather than written out, so the two cannot drift apart.
-SITE_ORIGINS = (SITE_ORIGIN, SITE_ORIGIN.replace("https://", "http://", 1))
+SITE_HOST = "mddb.tradik.com"
+SITE_ORIGIN = f"https://{SITE_HOST}"
+
+
+def site_path(url: str) -> str | None:
+    """The site-relative path of an absolute URL on this host, else None.
+
+    Compares the host rather than matching origin prefixes, so a self-link is
+    recognised whichever scheme or capitalisation it was written with, and its
+    query and fragment are dropped by the parser instead of by hand.
+    """
+    parts = urlsplit(url)
+    if parts.netloc.lower() != SITE_HOST or parts.scheme.lower() not in ("http", "https"):
+        return None
+    return parts.path or "/"
 
 # `[^<]*` and `[^"]*` rather than a lazy `.*?`: none of these values contain
 # the delimiter that ends them, and the lazy dotall form backtracks

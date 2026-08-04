@@ -35,24 +35,13 @@ import re
 import sys
 from collections import defaultdict
 from html.parser import HTMLParser
+from urllib.parse import urlsplit
 
 from docs_output import (
     LOC_PATTERN,
-    SITE_ORIGINS,
     read_within,
+    site_path,
     within_root,
-)
-
-# Schemes and prefixes that never point at a file in the output directory.
-SKIP_PREFIXES = (
-    "http://",
-    "https://",
-    "mailto:",
-    "tel:",
-    "data:",
-    "javascript:",
-    "#",
-    "//",
 )
 
 # Cloudflare injects /cdn-cgi/ endpoints (email obfuscation, RUM beacon) at the
@@ -116,17 +105,20 @@ class LinkCollector(HTMLParser):
 def normalise(url: str) -> str | None:
     """Reduce a raw attribute value to a checkable path, or None to skip it."""
     url = url.strip()
-    for origin in SITE_ORIGINS:
-        if url.startswith(origin):
-            url = url[len(origin) :] or "/"
-            break
-    else:
-        if url.startswith(SKIP_PREFIXES):
+    parts = urlsplit(url)
+
+    if parts.scheme or parts.netloc:
+        # Absolute, or protocol-relative. Only this host resolves against the
+        # output; everything else is somebody else's server.
+        path = site_path(url)
+        if path is None:
             return None
-    url = url.split("#", 1)[0].split("?", 1)[0]
-    if not url or url.startswith(SKIP_PATHS):
+    else:
+        path = parts.path
+
+    if not path or path.startswith(SKIP_PATHS):
         return None
-    return url
+    return path
 
 
 def resolve(root: str, page: str, url: str) -> str:
