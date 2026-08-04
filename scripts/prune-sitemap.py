@@ -63,6 +63,26 @@ def url_blocks(body: str):
         pos = end
 
 
+def within_root(root: str, path: str) -> bool:
+    """True when `path` stays inside the output directory."""
+    root_real = os.path.realpath(root)
+    target = os.path.realpath(path)
+    return target == root_real or target.startswith(root_real + os.sep)
+
+
+def read_within(root: str, path: str) -> str:
+    """Read a file, refusing anything that resolves outside the output tree.
+
+    Both the output directory and the sitemap `<loc>` values are untrusted
+    input, so containment is checked immediately before the read rather than
+    being assumed from how the path was built.
+    """
+    if not within_root(root, path):
+        raise ValueError(f"refusing to read outside {root!r}: {path!r}")
+    with open(path, encoding="utf-8", errors="ignore") as handle:
+        return handle.read()
+
+
 def page_for(root: str, url: str) -> str | None:
     """The built file a sitemap URL refers to, or None if it is not a page.
 
@@ -71,17 +91,14 @@ def page_for(root: str, url: str) -> str | None:
     """
     path = url.replace(SITE_ORIGIN, "").strip("/")
     candidate = os.path.join(root, path, "index.html") if path else os.path.join(root, "index.html")
-    root_real = os.path.realpath(root)
-    target = os.path.realpath(candidate)
-    if not target.startswith(root_real + os.sep):
+    if not within_root(root, candidate):
         return None
     return candidate if os.path.isfile(candidate) else None
 
 
-def reason_to_drop(page: str, url: str) -> str | None:
+def reason_to_drop(root: str, page: str, url: str) -> str | None:
     """Why this URL does not belong in the sitemap, or None if it does."""
-    with open(page, encoding="utf-8", errors="ignore") as handle:
-        body = handle.read()
+    body = read_within(root, page)
 
     robots = ROBOTS.search(body)
     if robots and "noindex" in robots.group(1).lower():
@@ -94,14 +111,15 @@ def reason_to_drop(page: str, url: str) -> str | None:
 
 
 def main() -> int:
-    root = sys.argv[1] if len(sys.argv) > 1 else "dist"
+    # Resolve once so every derived path is compared against a real, absolute
+    # root rather than whatever shape the argument arrived in.
+    root = os.path.realpath(sys.argv[1] if len(sys.argv) > 1 else "dist")
     sitemap = os.path.join(root, "sitemap.xml")
     if not os.path.isfile(sitemap):
         print(f"error: {sitemap} not found — run 'make docs-build'")
         return 2
 
-    with open(sitemap, encoding="utf-8") as handle:
-        body = handle.read()
+    body = read_within(root, sitemap)
 
     dropped: list[tuple[str, str]] = []
     keep: list[str] = []
@@ -113,7 +131,7 @@ def main() -> int:
         if loc:
             page = page_for(root, loc.group(1).strip())
             if page is not None:
-                reason = reason_to_drop(page, loc.group(1).strip())
+                reason = reason_to_drop(root, page, loc.group(1).strip())
         if reason is None:
             continue
         keep.append(body[cursor:start])
@@ -129,6 +147,8 @@ def main() -> int:
         )
         return 0
 
+    if not within_root(root, sitemap):
+        raise ValueError(f"refusing to write outside {root!r}: {sitemap!r}")
     with open(sitemap, "w", encoding="utf-8") as handle:
         handle.write(pruned)
     print(f"🧹 removed {len(dropped)} entr(y/ies) from sitemap.xml:")

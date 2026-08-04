@@ -151,6 +151,19 @@ def within_root(root: str, path: str) -> bool:
     return target == root_real or target.startswith(root_real + os.sep)
 
 
+def read_within(root: str, path: str) -> str:
+    """Read a file, refusing anything that resolves outside the output tree.
+
+    Every path here descends from either a CLI argument or a URL lifted out of
+    a built page, so the containment check happens immediately before the
+    read rather than being assumed from how the path was built.
+    """
+    if not within_root(root, path):
+        raise ValueError(f"refusing to read outside {root!r}: {path!r}")
+    with open(path, encoding="utf-8", errors="ignore") as handle:
+        return handle.read()
+
+
 def served_file(root: str, page: str, url: str) -> str | None:
     """The file a request for this URL actually returns, or None if nothing does.
 
@@ -206,7 +219,7 @@ META_IMAGE = re.compile(
 )
 
 
-def scan_page(page: str) -> LinkCollector:
+def scan_page(root: str, page: str) -> LinkCollector:
     """Parse one built page.
 
     HTMLParser handles href/src, meta tags and images; og:image and
@@ -214,8 +227,7 @@ def scan_page(page: str) -> LinkCollector:
     specific meta tags, so they are appended separately rather than by treating
     every `content` as a link.
     """
-    with open(page, encoding="utf-8", errors="ignore") as handle:
-        body = handle.read()
+    body = read_within(root, page)
     collector = LinkCollector()
     collector.feed(body)
     collector.links += META_IMAGE.findall(body)
@@ -268,7 +280,7 @@ def check(root: str) -> Findings:
 
     for page in iter_pages(root):
         source = os.path.relpath(page, root)
-        parsed = scan_page(page)
+        parsed = scan_page(root, page)
 
         for src in parsed.images_without_alt:
             found.no_alt[src].add(source)
@@ -323,8 +335,7 @@ def check_sitemap(root: str) -> list[tuple[str, str]]:
     sitemap = os.path.join(root, "sitemap.xml")
     if not os.path.isfile(sitemap):
         return []
-    with open(sitemap, encoding="utf-8") as handle:
-        body = handle.read()
+    body = read_within(root, sitemap)
 
     bad: list[tuple[str, str]] = []
     # `[^<]*` rather than `.*?`: a URL never contains `<`, and the lazy form
@@ -337,7 +348,7 @@ def check_sitemap(root: str) -> list[tuple[str, str]]:
         if page is None:
             bad.append((url, "no such page in the build"))
             continue
-        parsed = scan_page(page)
+        parsed = scan_page(root, page)
         if "noindex" in parsed.robots.lower():
             bad.append((url, "page is noindex"))
         elif parsed.canonical and parsed.canonical.rstrip("/") != url.strip().rstrip("/"):
@@ -356,7 +367,9 @@ def report(title: str, entries: dict[str, set[str]], relation: str = "linked fro
 
 
 def main() -> int:
-    root = sys.argv[1] if len(sys.argv) > 1 else "dist"
+    # Resolve once so every derived path is compared against a real, absolute
+    # root rather than whatever shape the argument arrived in.
+    root = os.path.realpath(sys.argv[1] if len(sys.argv) > 1 else "dist")
     if not os.path.isdir(root):
         print(f"error: output directory {root!r} does not exist — run 'make docs-build'")
         return 2
