@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
-"""Fail the docs build when the generated site links to something that 404s.
+"""Fail the docs build on defects a crawler would report against the live site.
 
-Every finding here is a URL a crawler would hit on mddb.tradik.com and get a
-404 back. Two classes are checked:
+Every finding is something an SEO or accessibility crawl of mddb.tradik.com
+would flag. Three classes are checked:
 
   1. Site-relative links (`/docs/tls/`, `../images/logo.svg`) — resolved against
      the output directory. Directory URLs are satisfied by an `index.html`.
   2. Absolute links to the canonical domain — these are internal links written
      the long way, so they are resolved the same as class 1.
+  3. `<img>` elements with no `alt` attribute at all.
+
+On (3): a *missing* attribute is the defect. `alt=""` is not — it is the
+correct WCAG treatment for a decorative image, and flagging it would push
+authors toward inventing descriptions that make screen readers announce the
+same thing twice. Only the absent attribute leaves a real gap.
 
 External hosts are never fetched: the check must stay offline and
 deterministic so it can gate the deploy workflow.
@@ -48,13 +54,22 @@ URL_ATTRS = ("href", "src")
 
 
 class LinkCollector(HTMLParser):
-    """Collects href/src values, ignoring markup inside <code>/<pre>."""
+    """Collects href/src values and images that declare no alt attribute.
+
+    Markup shown inside <code>/<pre> arrives escaped in the generated HTML, so
+    documented examples are text to the parser and never counted as real
+    elements.
+    """
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.links: list[str] = []
+        self.images_without_alt: list[str] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        names = {name for name, _ in attrs}
+        if tag == "img" and "alt" not in names:
+            self.images_without_alt.append(dict(attrs).get("src") or "(no src)")
         for name, value in attrs:
             if name in URL_ATTRS and value:
                 self.links.append(value)
@@ -122,8 +137,8 @@ META_IMAGE = re.compile(
 )
 
 
-def page_links(page: str) -> list[str]:
-    """Every URL a crawler would follow from this page.
+def scan_page(page: str) -> tuple[list[str], list[str]]:
+    """Return (URLs a crawler would follow, images declaring no alt attribute).
 
     HTMLParser handles href/src; og:image and twitter:image live in a `content`
     attribute that is only a URL for these specific meta tags, so they are
@@ -133,16 +148,22 @@ def page_links(page: str) -> list[str]:
         body = handle.read()
     collector = LinkCollector()
     collector.feed(body)
-    return collector.links + META_IMAGE.findall(body)
+    return collector.links + META_IMAGE.findall(body), collector.images_without_alt
 
 
-def check(root: str) -> tuple[dict[str, set[str]], dict[str, tuple[str, set[str]]]]:
-    """Return ({missing url: pages}, {redirecting url: (final url, pages)})."""
+def check(
+    root: str,
+) -> tuple[dict[str, set[str]], dict[str, tuple[str, set[str]]], dict[str, set[str]]]:
+    """Return ({404 url: pages}, {308 url: (final url, pages)}, {img src: pages})."""
     missing: dict[str, set[str]] = defaultdict(set)
     redirects: dict[str, tuple[str, set[str]]] = {}
+    no_alt: dict[str, set[str]] = defaultdict(set)
     for page in iter_pages(root):
         source = os.path.relpath(page, root)
-        for raw in page_links(page):
+        links, images = scan_page(page)
+        for src in images:
+            no_alt[src].add(source)
+        for raw in links:
             url = normalise(raw)
             if url is None:
                 continue
@@ -151,16 +172,16 @@ def check(root: str) -> tuple[dict[str, set[str]], dict[str, tuple[str, set[str]
                 missing[raw].add(source)
             elif verdict == "redirect":
                 redirects.setdefault(raw, (detail, set()))[1].add(source)
-    return missing, redirects
+    return missing, redirects, no_alt
 
 
-def report(title: str, entries: dict[str, set[str]]) -> None:
+def report(title: str, entries: dict[str, set[str]], relation: str = "linked from") -> None:
     print(f"{title}\n")
     for url in sorted(entries):
         sources = sorted(entries[url])
         shown = ", ".join(sources[:5])
         more = f" (+{len(sources) - 5} more)" if len(sources) > 5 else ""
-        print(f"  {url}\n      linked from: {shown}{more}")
+        print(f"  {url}\n      {relation}: {shown}{more}")
     print()
 
 
@@ -170,11 +191,11 @@ def main() -> int:
         print(f"error: output directory {root!r} does not exist — run 'make docs-build'")
         return 2
 
-    missing, redirects = check(root)
+    missing, redirects, no_alt = check(root)
     total = sum(1 for _ in iter_pages(root))
 
-    if not missing and not redirects:
-        print(f"✅ no broken or redirecting internal links across {total} pages in {root}/")
+    if not missing and not redirects and not no_alt:
+        print(f"✅ {total} pages in {root}/: no broken or redirecting links, every image has alt")
         return 0
 
     if missing:
@@ -183,6 +204,13 @@ def main() -> int:
         report(
             f"❌ {len(redirects)} internal link(s) that 308 — link the final URL instead:",
             {f"{url}  →  {final}": pages for url, (final, pages) in redirects.items()},
+        )
+    if no_alt:
+        report(
+            f"❌ {len(no_alt)} image(s) with no alt attribute "
+            '(use alt="" only if the image is decorative):',
+            no_alt,
+            relation="on",
         )
     return 1
 

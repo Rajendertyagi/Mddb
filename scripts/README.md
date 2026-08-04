@@ -55,12 +55,19 @@ See [BULK-IMPORT.md](../docs/BULK-IMPORT.md) for detailed documentation.
 
 ### check-docs-links.py
 
-Fails the documentation build when the generated site contains a link that
-would return 404 **or 308** on mddb.tradik.com. Checks every `href`, `src` and
-`og:image`/`twitter:image`, resolving both site-relative links and absolute
-links back to the canonical domain against the build output. External hosts are
-never fetched, so the check is offline and deterministic — it gates the
+Fails the documentation build on defects a crawl of mddb.tradik.com would
+report. Checks every `href`, `src` and `og:image`/`twitter:image` for links
+that would return 404 **or 308**, resolving both site-relative links and
+absolute links back to the canonical domain against the build output. Also
+reports `<img>` elements with **no `alt` attribute**. External hosts are never
+fetched, so the check is offline and deterministic — it gates the
 `deploy-docs` workflow before the Cloudflare Pages upload.
+
+On `alt`: a *missing* attribute is the defect, `alt=""` is not. An empty `alt`
+is the correct WCAG treatment for a decorative image — the site logo sits
+inside a link that already carries the text "MDDB", so describing it again
+would make a screen reader announce the same thing twice. Flagging `alt=""`
+would push authors toward exactly that.
 
 Resolution models **Cloudflare Pages routing**, not the output directory:
 Pages strips `.html` and appends a missing trailing slash on a directory,
