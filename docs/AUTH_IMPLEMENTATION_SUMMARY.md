@@ -1,7 +1,7 @@
 ---
-title: "JWT Authentication + Authorization Implementation Summary"
+title: "JWT Auth and RBAC: Implementation Summary"
 slug: "docs/auth-implementation-summary"
-description: "JWT Authentication + Authorization Implementation Summary"
+description: "Implementation notes for MDDB's JWT authentication and RBAC system, and what it changed across the HTTP, gRPC, GraphQL and MCP surfaces."
 status: publish
 ---
 

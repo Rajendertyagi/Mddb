@@ -1,7 +1,7 @@
 ---
 title: "Zero-Shot Classification"
 slug: "docs/zero-shot-classification"
-description: "Zero-Shot Classification"
+description: "Classify documents into predefined labels in MDDB without any training data, using embedding similarity between the text and each label."
 status: publish
 ---
 

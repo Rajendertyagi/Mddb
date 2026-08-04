@@ -4,14 +4,14 @@
 <head>
     {{template "head_meta" .}}
     <meta name="robots" content="index, follow">
-    <meta name="description" content="{{.Post.Excerpt}}">
-    <meta property="og:title" content="{{.Post.Title}} — MDDB Documentation">
-    <meta property="og:description" content="{{.Post.Excerpt}}">
+    <meta name="description" content="{{if .Post.Description}}{{.Post.Description}}{{else}}{{.Post.Excerpt}}{{end}}">
+    <meta property="og:title" content="{{.Post.Title}} — MDDB">
+    <meta property="og:description" content="{{if .Post.Description}}{{.Post.Description}}{{else}}{{.Post.Excerpt}}{{end}}">
     <meta property="og:url" content="https://{{.Domain}}/{{.Post.Slug}}/" />
-    <meta property="twitter:title" content="{{.Post.Title}} — MDDB Documentation">
+    <meta property="twitter:title" content="{{.Post.Title}} — MDDB">
     <meta property="twitter:url" content="https://{{.Domain}}/{{.Post.Slug}}/" />
     <link rel="canonical" href="https://{{.Domain}}/{{.Post.Slug}}/" />
-    <title>{{.Post.Title}} — MDDB Documentation</title>
+    <title>{{.Post.Title}} — MDDB</title>
 </head>
 <body>
 {{template "gtm_noscript" .}}

@@ -1,7 +1,7 @@
 ---
 title: "MDDB Replication (Leader-Follower)"
 slug: "docs/replication"
-description: "MDDB Replication (Leader-Follower)"
+description: "Leader-follower replication in MDDB: binlog streaming to read-only followers for horizontal read scaling, with lag monitoring and failover notes."
 status: publish
 ---
 

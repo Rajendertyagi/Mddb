@@ -1,7 +1,7 @@
 ---
 title: "FTS Algorithm Benchmark"
 slug: "docs/benchmark"
-description: "FTS Algorithm Benchmark"
+description: "Benchmark results for MDDB's full-text search algorithms - TF-IDF, BM25, BM25F and PMISparse - compared on result quality and query throughput."
 status: publish
 ---
 

@@ -1,7 +1,7 @@
 ---
 title: "Vector Quantization"
 slug: "docs/quantization"
-description: "Vector Quantization"
+description: "Per-collection vector quantization in MDDB: int8 and int4 compression plus disk-only mode, cutting vector memory several-fold with near-lossless ranking."
 status: publish
 ---
 

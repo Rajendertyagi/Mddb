@@ -1,7 +1,7 @@
 ---
 title: "MDDB Features"
 slug: "docs/features"
-description: "MDDB Features"
+description: "The complete MDDB feature list by category: storage, search, protocols, authentication, replication, automation, geo and the web admin panel."
 status: publish
 ---
 

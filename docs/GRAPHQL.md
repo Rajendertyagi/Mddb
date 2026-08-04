@@ -1,7 +1,7 @@
 ---
 title: "MDDB GraphQL API Documentation"
 slug: "docs/graphql"
-description: "MDDB GraphQL API Documentation"
+description: "MDDB's GraphQL API: schema, queries and mutations, introspection and the playground - every operation shares the code path REST and gRPC use."
 status: publish
 ---
 

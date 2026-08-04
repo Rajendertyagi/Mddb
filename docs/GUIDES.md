@@ -1,7 +1,7 @@
 ---
 title: Guides & Use Cases
 slug: guides
-description: Practical step-by-step guides for common MDDB use cases.
+description: "Step-by-step MDDB guides for real scenarios - website chat, WordPress analysis, YouTube transcripts and RAG pipelines - from setup to deployment."
 status: publish
 ---
 

@@ -1,7 +1,7 @@
 ---
 title: "PMISparse — Sparse Retrieval with PMI Query Expansion"
 slug: "docs/pmisparse"
-description: "PMISparse — Sparse Retrieval with PMI Query Expansion"
+description: "PMISparse pairs BM25 scoring with automatic PPMI query expansion, closing the vocabulary gap between short queries and documents without synonym lists."
 status: publish
 ---
 

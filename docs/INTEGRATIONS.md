@@ -1,7 +1,7 @@
 ---
-title: "Integrations: Docling, Langflow, OpenSearch, Airbyte, GitHub Action, Grafana & Chrome"
+title: "Integrations: Docling, Langflow, Airbyte & more"
 slug: "docs/integrations"
-description: "Integrations: Docling, Langflow, OpenSearch, SSG, wpexporter, Airbyte, WordPress sync, GitHub Action, Grafana datasource, Chrome browser extension"
+description: "Use MDDB with Docling, Langflow, OpenSearch, Airbyte, WordPress, GitHub Actions, Grafana and Chrome to build document processing and RAG pipelines."
 status: publish
 ---
 

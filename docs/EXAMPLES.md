@@ -1,7 +1,7 @@
 ---
 title: "MDDB Usage Examples"
 slug: "docs/examples"
-description: "MDDB Usage Examples"
+description: "Practical MDDB examples: document CRUD, metadata filters, full-text and vector queries, hybrid search, exports, and client code in several languages."
 status: publish
 ---
 

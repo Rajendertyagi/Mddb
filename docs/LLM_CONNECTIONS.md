@@ -1,7 +1,7 @@
 ---
 title: "LLM Connections"
 slug: "docs/llm-connections"
-description: "LLM Connections"
+description: "Connect MDDB to Claude, Cursor, Windsurf, ChatGPT and Ollama for RAG and knowledge-base workflows through the built-in MCP server."
 status: publish
 ---
 

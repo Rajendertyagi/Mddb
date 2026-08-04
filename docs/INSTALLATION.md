@@ -1,7 +1,7 @@
 ---
 title: "Installation Guide"
 slug: "docs/installation"
-description: "Installation Guide"
+description: "Install MDDB on Linux, macOS and Windows: binary releases, Homebrew, Docker and building from source, plus first-run configuration."
 status: publish
 ---
 

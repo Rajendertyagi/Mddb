@@ -1,7 +1,7 @@
 ---
 title: "MDDB API Documentation"
 slug: "docs/api"
-description: "MDDB API Documentation"
+description: "REST API reference for MDDB: document CRUD, collections, metadata queries, search, revision history and bulk operations over HTTP/JSON."
 status: publish
 ---
 

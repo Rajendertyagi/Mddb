@@ -1,7 +1,7 @@
 ---
 title: "Server-Sent Events (SSE)"
 slug: "docs/sse"
-description: "Server-Sent Events (SSE)"
+description: "Subscribe to MDDB document changes in real time over Server-Sent Events: event types, payload format, collection filtering and reconnection."
 status: publish
 ---
 

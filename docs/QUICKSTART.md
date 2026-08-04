@@ -1,7 +1,7 @@
 ---
 title: "MDDB Quick Start Guide"
 slug: "docs/quickstart"
-description: "MDDB Quick Start Guide"
+description: "Get MDDB running in five minutes: install the binary, start the server, write your first document, and run a search over it."
 status: publish
 ---
 

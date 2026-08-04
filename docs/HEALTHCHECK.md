@@ -1,7 +1,7 @@
 ---
 title: "Health Check Guide"
 slug: "docs/healthcheck"
-description: "Health Check Guide"
+description: "MDDB health check endpoints for Docker, Kubernetes and load balancers: liveness and readiness semantics, response format and ready-made probes."
 status: publish
 ---
 

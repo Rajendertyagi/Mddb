@@ -1,7 +1,7 @@
 ---
 title: "Bulk Import Guide"
 slug: "docs/bulk-import"
-description: "Bulk Import Guide"
+description: "Bulk-load folders of Markdown into MDDB: front-matter metadata extraction, recursive scanning, custom fields, dry runs and progress reporting."
 status: publish
 ---
 

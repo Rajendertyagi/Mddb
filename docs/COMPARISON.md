@@ -1,7 +1,7 @@
 ---
 title: "MDDB vs Alternatives"
 slug: "docs/comparison"
-description: "MDDB vs Alternatives"
+description: "How MDDB compares with other document databases, vector stores and content systems on storage model, search, protocols and operational footprint."
 status: publish
 ---
 

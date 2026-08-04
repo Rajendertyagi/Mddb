@@ -1,7 +1,7 @@
 ---
 title: "Embedding Providers Guide"
 slug: "docs/embedding-providers"
-description: "Embedding Providers Guide"
+description: "Configure embedding providers for MDDB vector search - OpenAI, Ollama, Cohere and Voyage - through environment variables or the admin panel."
 status: publish
 ---
 
