@@ -29,12 +29,18 @@ import re
 import sys
 from pathlib import Path
 
-SITE_ORIGIN = "https://mddb.tradik.com"
-# `[^<]*` rather than `.*?`: neither a URL nor these tag bodies contain `<`,
-# and the lazy dotall form backtracks super-linearly on malformed input.
-LOC = re.compile(r"<loc>([^<]*)</loc>")
-ROBOTS = re.compile(r'<meta name="robots" content="([^"]*)"')
-CANONICAL = re.compile(r'<link rel="canonical" href="([^"]*)"')
+from docs_output import (
+    CANONICAL_PATTERN,
+    LOC_PATTERN,
+    ROBOTS_PATTERN,
+    SITE_ORIGIN,
+    read_within,
+    within_root,
+)
+
+LOC = re.compile(LOC_PATTERN)
+ROBOTS = re.compile(ROBOTS_PATTERN)
+CANONICAL = re.compile(CANONICAL_PATTERN)
 
 
 def url_blocks(body: str):
@@ -62,30 +68,6 @@ def url_blocks(body: str):
             end += 1
         yield start, end
         pos = end
-
-
-def within_root(root: str, path: str) -> bool:
-    """True when `path` stays inside the output directory."""
-    root_real = os.path.realpath(root)
-    target = os.path.realpath(path)
-    return target == root_real or target.startswith(root_real + os.sep)
-
-
-def resolve_within(root: str, path: str) -> Path:
-    """Resolve `path` and prove it is inside `root`, or raise.
-
-    `Path.relative_to` raises when the target escapes, and the *returned*
-    object is the resolved, verified path — callers open that rather than the
-    string they came in with, so nothing untrusted reaches the filesystem.
-    """
-    target = Path(path).resolve()
-    target.relative_to(Path(root).resolve())
-    return target
-
-
-def read_within(root: str, path: str) -> str:
-    """Read a file that is proven to live inside the output directory."""
-    return resolve_within(root, path).read_text(encoding="utf-8", errors="ignore")
 
 
 def page_for(root: str, url: str) -> str | None:

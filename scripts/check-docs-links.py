@@ -33,13 +33,15 @@ from __future__ import annotations
 import os
 import re
 import sys
-from pathlib import Path
 from collections import defaultdict
 from html.parser import HTMLParser
 
-# Canonical site origin. Absolute links to it are internal and must resolve
-# locally, exactly like a root-relative link would.
-SITE_ORIGINS = ("https://mddb.tradik.com", "http://mddb.tradik.com")
+from docs_output import (
+    LOC_PATTERN,
+    SITE_ORIGINS,
+    read_within,
+    within_root,
+)
 
 # Schemes and prefixes that never point at a file in the output directory.
 SKIP_PREFIXES = (
@@ -137,36 +139,6 @@ def resolve(root: str, page: str, url: str) -> str:
     if url.startswith("/"):
         return os.path.join(root, url.lstrip("/"))
     return os.path.normpath(os.path.join(os.path.dirname(page), url))
-
-
-def within_root(root: str, path: str) -> bool:
-    """True when `path` stays inside the output directory.
-
-    A link is arbitrary text from a built page, and the output directory is an
-    argument. Neither is trusted to keep a resolved path inside the tree, so
-    anything that escapes is treated as pointing at nothing rather than being
-    opened.
-    """
-    root_real = os.path.realpath(root)
-    target = os.path.realpath(path)
-    return target == root_real or target.startswith(root_real + os.sep)
-
-
-def resolve_within(root: str, path: str) -> Path:
-    """Resolve `path` and prove it is inside `root`, or raise.
-
-    `Path.relative_to` raises when the target escapes, and the *returned*
-    object is the resolved, verified path — callers open that rather than the
-    string they came in with, so nothing untrusted reaches the filesystem.
-    """
-    target = Path(path).resolve()
-    target.relative_to(Path(root).resolve())
-    return target
-
-
-def read_within(root: str, path: str) -> str:
-    """Read a file that is proven to live inside the output directory."""
-    return resolve_within(root, path).read_text(encoding="utf-8", errors="ignore")
 
 
 def served_file(root: str, page: str, url: str) -> str | None:
@@ -345,7 +317,7 @@ def check_sitemap(root: str) -> list[tuple[str, str]]:
     bad: list[tuple[str, str]] = []
     # `[^<]*` rather than `.*?`: a URL never contains `<`, and the lazy form
     # backtracks super-linearly on malformed input.
-    for url in re.findall(r"<loc>([^<]*)</loc>", body):
+    for url in re.findall(LOC_PATTERN, body):
         path = normalise(url.strip())
         if path is None:
             continue
