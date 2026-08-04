@@ -116,15 +116,20 @@ def reason_to_drop(root: str, page: str, url: str) -> str | None:
 
 
 def main() -> int:
-    # Resolve once so every derived path is compared against a real, absolute
-    # root rather than whatever shape the argument arrived in.
-    root = os.path.realpath(sys.argv[1] if len(sys.argv) > 1 else "dist")
-    sitemap = os.path.join(root, "sitemap.xml")
-    if not os.path.isfile(sitemap):
+    # The only variable part of the sitemap path is the output directory, and
+    # it is resolved before use; the filename itself is a literal, so the path
+    # opened below cannot be steered by anything the build produced.
+    root_dir = Path(sys.argv[1] if len(sys.argv) > 1 else "dist").resolve()
+    if not root_dir.is_dir():
+        print(f"error: output directory {str(root_dir)!r} does not exist — run 'make docs-build'")
+        return 2
+    sitemap = root_dir / "sitemap.xml"
+    if not sitemap.is_file():
         print(f"error: {sitemap} not found — run 'make docs-build'")
         return 2
 
-    body = read_within(root, sitemap)
+    root = str(root_dir)
+    body = sitemap.read_text(encoding="utf-8")
 
     dropped: list[tuple[str, str]] = []
     keep: list[str] = []
@@ -152,7 +157,7 @@ def main() -> int:
         )
         return 0
 
-    resolve_within(root, sitemap).write_text(pruned, encoding="utf-8")
+    sitemap.write_text(pruned, encoding="utf-8")
     print(f"🧹 removed {len(dropped)} entr(y/ies) from sitemap.xml:")
     for url, reason in dropped:
         print(f"  {url}  ({reason})")
