@@ -29,16 +29,52 @@ import re
 import sys
 
 SITE_ORIGIN = "https://mddb.tradik.com"
-URL_BLOCK = re.compile(r"[ \t]*<url>.*?</url>\n?", re.S)
-LOC = re.compile(r"<loc>(.*?)</loc>", re.S)
+# `[^<]*` rather than `.*?`: neither a URL nor these tag bodies contain `<`,
+# and the lazy dotall form backtracks super-linearly on malformed input.
+LOC = re.compile(r"<loc>([^<]*)</loc>")
 ROBOTS = re.compile(r'<meta name="robots" content="([^"]*)"')
 CANONICAL = re.compile(r'<link rel="canonical" href="([^"]*)"')
 
 
+def url_blocks(body: str):
+    """Yield (start, end) of each <url>…</url> block, in document order.
+
+    Scanned with str.find rather than a regex: matching across the block needs
+    a dotall lazy quantifier, which backtracks super-linearly when a closing
+    tag is missing.
+    """
+    pos = 0
+    while True:
+        start = body.find("<url>", pos)
+        if start == -1:
+            return
+        end = body.find("</url>", start)
+        if end == -1:
+            return
+        end += len("</url>")
+        # Swallow the trailing newline and the block's own indentation so
+        # removing an entry does not leave a blank line behind.
+        line_start = body.rfind("\n", 0, start) + 1
+        if body[line_start:start].strip() == "":
+            start = line_start
+        if body[end : end + 1] == "\n":
+            end += 1
+        yield start, end
+        pos = end
+
+
 def page_for(root: str, url: str) -> str | None:
-    """The built file a sitemap URL refers to, or None if it is not a page."""
+    """The built file a sitemap URL refers to, or None if it is not a page.
+
+    A sitemap `<loc>` is text, and the output directory is an argument, so the
+    joined path is confined to the tree before it is opened.
+    """
     path = url.replace(SITE_ORIGIN, "").strip("/")
     candidate = os.path.join(root, path, "index.html") if path else os.path.join(root, "index.html")
+    root_real = os.path.realpath(root)
+    target = os.path.realpath(candidate)
+    if not target.startswith(root_real + os.sep):
+        return None
     return candidate if os.path.isfile(candidate) else None
 
 
@@ -68,23 +104,24 @@ def main() -> int:
         body = handle.read()
 
     dropped: list[tuple[str, str]] = []
+    keep: list[str] = []
+    cursor = 0
 
-    def prune(match: re.Match[str]) -> str:
-        block = match.group(0)
-        loc = LOC.search(block)
-        if not loc:
-            return block
-        url = loc.group(1)
-        page = page_for(root, url)
-        if page is None:
-            return block
-        reason = reason_to_drop(page, url)
+    for start, end in url_blocks(body):
+        loc = LOC.search(body[start:end])
+        reason = None
+        if loc:
+            page = page_for(root, loc.group(1).strip())
+            if page is not None:
+                reason = reason_to_drop(page, loc.group(1).strip())
         if reason is None:
-            return block
-        dropped.append((url, reason))
-        return ""
+            continue
+        keep.append(body[cursor:start])
+        cursor = end
+        dropped.append((loc.group(1).strip(), reason))
 
-    pruned = URL_BLOCK.sub(prune, body)
+    keep.append(body[cursor:])
+    pruned = "".join(keep)
 
     if not dropped:
         print(

@@ -127,10 +127,28 @@ def normalise(url: str) -> str | None:
 
 
 def resolve(root: str, page: str, url: str) -> str:
-    """Map a link to the filesystem path it would be served from."""
+    """Map a link to the filesystem path it would be served from.
+
+    The result can point outside `root` — `../../../etc/passwd` is a link a
+    page is free to contain — so every caller goes through `within_root`
+    before touching the filesystem.
+    """
     if url.startswith("/"):
         return os.path.join(root, url.lstrip("/"))
     return os.path.normpath(os.path.join(os.path.dirname(page), url))
+
+
+def within_root(root: str, path: str) -> bool:
+    """True when `path` stays inside the output directory.
+
+    A link is arbitrary text from a built page, and the output directory is an
+    argument. Neither is trusted to keep a resolved path inside the tree, so
+    anything that escapes is treated as pointing at nothing rather than being
+    opened.
+    """
+    root_real = os.path.realpath(root)
+    target = os.path.realpath(path)
+    return target == root_real or target.startswith(root_real + os.sep)
 
 
 def served_file(root: str, page: str, url: str) -> str | None:
@@ -141,7 +159,7 @@ def served_file(root: str, page: str, url: str) -> str | None:
     """
     target = resolve(root, page, url)
     for candidate in (target, os.path.join(target, "index.html"), target + ".html"):
-        if os.path.isfile(candidate):
+        if within_root(root, candidate) and os.path.isfile(candidate):
             return candidate
     return None
 
@@ -156,6 +174,9 @@ def classify(root: str, page: str, url: str) -> tuple[str, str]:
     is reported separately from an outright 404.
     """
     target = resolve(root, page, url)
+    if not within_root(root, target):
+        # Escapes the output directory, so nothing on the site serves it.
+        return "missing", ""
 
     if url.endswith(".html") and os.path.isfile(target):
         stripped = url[: -len(".html")]
@@ -306,7 +327,9 @@ def check_sitemap(root: str) -> list[tuple[str, str]]:
         body = handle.read()
 
     bad: list[tuple[str, str]] = []
-    for url in re.findall(r"<loc>(.*?)</loc>", body, re.S):
+    # `[^<]*` rather than `.*?`: a URL never contains `<`, and the lazy form
+    # backtracks super-linearly on malformed input.
+    for url in re.findall(r"<loc>([^<]*)</loc>", body):
         path = normalise(url.strip())
         if path is None:
             continue
