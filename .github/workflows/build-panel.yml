@@ -1,0 +1,31 @@
+name: Build MDDB Panel
+on:
+  workflow_dispatch:
+    inputs:
+      vite_server_url:
+        description: 'Public panel URL (GraphQL base)'
+        required: false
+        default: 'http://localhost:11023'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: services/mddb-panel/package-lock.json
+      - name: Build
+        working-directory: services/mddb-panel
+        run: |
+          npm ci
+          echo "VITE_SERVER_URL=${{ inputs.vite_server_url }}" > .env.production
+          npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mddb-panel-dist
+          path: services/mddb-panel/dist
+          retention-days: 7
