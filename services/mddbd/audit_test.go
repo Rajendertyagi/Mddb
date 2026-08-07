@@ -266,19 +266,10 @@ func TestAuditBatchFlushLarge(t *testing.T) {
 	for i := 0; i < 200; i++ {
 		am.Record(audit.AuditEvent{Actor: "u", Action: "x", Result: "ok"})
 	}
-	// Flush is ticker/batch driven (async writer); poll until all 200 are
-	// persisted rather than sleep a fixed amount (flaky on slow/loaded CI).
-	deadline := time.Now().Add(5 * time.Second)
-	for {
-		ev, _ := am.Query(audit.QueryFilter{Limit: 300})
-		if len(ev) == 200 {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("want 200, got %d", len(ev))
-			return
-		}
-		time.Sleep(20 * time.Millisecond)
+	waitFlush(am)
+	ev, _ := am.Query(audit.QueryFilter{Limit: 300})
+	if len(ev) != 200 {
+		t.Fatalf("want 200, got %d", len(ev))
 	}
 }
 

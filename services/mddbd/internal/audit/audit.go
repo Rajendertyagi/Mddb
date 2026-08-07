@@ -207,13 +207,20 @@ func (a *AuditManager) flushBatch(batch []AuditEvent) error {
 		if b == nil {
 			return errors.New("audit bucket missing")
 		}
-		seq, _ := b.NextSequence()
-		for i, ev := range batch {
+		for _, ev := range batch {
 			payload, err := json.Marshal(ev)
 			if err != nil {
 				continue
 			}
-			key := auditKey(ev.Timestamp, seq+uint64(i))
+			// Allocate a fresh sequence per event so keys stay globally
+			// unique even when events share a timestamp (bbolt NextSequence
+			// increments by 1 per call; seeding a whole batch off a single
+			// value reused sequence numbers across batches -> overwrites).
+			seq, err := b.NextSequence()
+			if err != nil {
+				return err
+			}
+			key := auditKey(ev.Timestamp, seq)
 			if err := b.Put(key, payload); err != nil {
 				return err
 			}
