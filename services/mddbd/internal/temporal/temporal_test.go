@@ -124,7 +124,7 @@ func TestTemporalManager_Histogram(t *testing.T) {
 
 	// Poll until the async records land in a histogram bucket instead of
 	// relying on a fixed sleep (CI workers can be slow, esp. on Windows).
-	var buckets []HistogramBucket
+	var buckets []TemporalHistogramBucket
 	var err error
 	now := time.Now().Unix()
 	waitFor(t, func() bool {
