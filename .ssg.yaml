@@ -120,8 +120,19 @@ content_exclude:
 sitemap_prune_canonical: false
 
 # Feed for the blog, so readers can subscribe without polling the index.
-feed: true
+# Both formats, same posts. Readers accept either, but plenty of "paste your
+# RSS URL" fields still expect the older one, so publishing both removes the
+# question. Declared rather than using `feed: true`, which names the Atom feed
+# after the bare hostname. SSG injects the autodiscovery <link> tags itself.
 feed_items: 20
+feeds:
+  - path: /feed.xml
+    format: atom
+    title: MDDB blog
+  - path: /rss.xml
+    format: rss
+    title: MDDB blog
+
 
 # /index/ was published for months before the duplicate was removed; send it to
 # the page it duplicated rather than letting it 404.

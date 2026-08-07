@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Atom feed for the blog** — `/feed.xml` carries the 20 most recent posts, with autodiscovery `<link rel="alternate">` in every page head and a visible subscribe link on `/blog/`. (SSG emits Atom, not RSS 2.0; every reader handles it.)
+- **Blog feeds in both formats** — `/feed.xml` (Atom) and `/rss.xml` (RSS 2.0), 20 most recent posts each, with a visible subscribe link on `/blog/`. Declared through SSG's `feeds:` rather than `feed: true`, which names the Atom feed after the bare hostname; SSG injects the autodiscovery `<link rel="alternate">` tags into every page itself, so the theme adds none. `feeds:` is undocumented upstream — reported as spagu/ssg#92, with spagu/ssg#93 asking for a way to opt out of the injection.
 
 ### Changed
 - **The generator validates its own output; the local scripts stopped duplicating it** — SSG 1.8.19 ships the checks requested in spagu/ssg#74–#78, so `.ssg.yaml` now enables `check_links`, `check_images`, `check_meta` and `check_orphans` in strict mode, `content_exclude` drops the front-matter sample that never parsed as a page, and `static_sources` copies swagger/openapi/404/og-image **during** the build instead of a `make` step afterwards — while those were staged after the build, the generator saw every link to them as dead. `scripts/prune-sitemap.py` is deleted (SSG prunes `noindex` pages from the sitemap itself) and `check-docs-links.py` shrinks to the one thing SSG cannot see: links that resolve only through a Cloudflare Pages redirect (requested as spagu/ssg#87).
@@ -1011,7 +1011,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Atom feed for the blog** — `/feed.xml` carries the 20 most recent posts, with autodiscovery `<link rel="alternate">` in every page head and a visible subscribe link on `/blog/`. (SSG emits Atom, not RSS 2.0; every reader handles it.)
+- **Blog feeds in both formats** — `/feed.xml` (Atom) and `/rss.xml` (RSS 2.0), 20 most recent posts each, with a visible subscribe link on `/blog/`. Declared through SSG's `feeds:` rather than `feed: true`, which names the Atom feed after the bare hostname; SSG injects the autodiscovery `<link rel="alternate">` tags into every page itself, so the theme adds none. `feeds:` is undocumented upstream — reported as spagu/ssg#92, with spagu/ssg#93 asking for a way to opt out of the injection.
 
 ### Changed
 - **The generator validates its own output; the local scripts stopped duplicating it** — SSG 1.8.19 ships the checks requested in spagu/ssg#74–#78, so `.ssg.yaml` now enables `check_links`, `check_images`, `check_meta` and `check_orphans` in strict mode, `content_exclude` drops the front-matter sample that never parsed as a page, and `static_sources` copies swagger/openapi/404/og-image **during** the build instead of a `make` step afterwards — while those were staged after the build, the generator saw every link to them as dead. `scripts/prune-sitemap.py` is deleted (SSG prunes `noindex` pages from the sitemap itself) and `check-docs-links.py` shrinks to the one thing SSG cannot see: links that resolve only through a Cloudflare Pages redirect (requested as spagu/ssg#87).
