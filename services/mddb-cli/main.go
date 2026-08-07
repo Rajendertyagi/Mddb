@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -1414,17 +1413,6 @@ The Playground provides an interactive GraphQL IDE for exploring the schema and 
 			fmt.Printf("Opening GraphQL Playground at: %s\n", playgroundURL)
 
 			// Try to open browser based on OS
-			if runtime.GOOS == "windows" {
-				// #nosec G204 -- URL is a system launcher argument
-				if err := exec.Command("cmd", "/c", "start", "", playgroundURL).Start(); err != nil {
-					fmt.Printf("\n⚠️  Failed to open browser: %v\n", err)
-					fmt.Printf("Please open manually: %s\n", playgroundURL)
-				} else {
-					fmt.Println("✓ Browser opened")
-				}
-				return nil
-			}
-
 			var openCmd string
 			switch {
 			case fileExists("/usr/bin/open"):

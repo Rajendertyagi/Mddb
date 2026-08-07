@@ -122,17 +122,15 @@ func TestTemporalManager_Histogram(t *testing.T) {
 	tm.RecordAsync(collection, "d1", EventAccess, "")
 	tm.RecordAsync(collection, "d2", EventAccess, "")
 
-	// Poll until the async records land in a histogram bucket instead of
-	// relying on a fixed sleep (CI workers can be slow, esp. on Windows).
-	var buckets []TemporalHistogramBucket
-	var err error
+	time.Sleep(600 * time.Millisecond)
+
 	now := time.Now().Unix()
-	waitFor(t, func() bool {
-		buckets, err = tm.ComputeHistogram(collection, "access", "day", now-3600, now+3600)
-		return err == nil && len(buckets) > 0
-	}, "expected at least one histogram bucket")
+	buckets, err := tm.ComputeHistogram(collection, "access", "day", now-3600, now+3600)
 	if err != nil {
 		t.Fatalf("ComputeHistogram: %v", err)
+	}
+	if len(buckets) == 0 {
+		t.Error("expected at least one histogram bucket")
 	}
 	if buckets[0].Count < 2 {
 		t.Errorf("expected count >= 2, got %d", buckets[0].Count)
@@ -146,17 +144,4 @@ func TestIsoWeekStart(t *testing.T) {
 	if !got.Equal(want) {
 		t.Errorf("isoWeekStart(2026,14) = %s, want %s", got.Format("2006-01-02"), want.Format("2006-01-02"))
 	}
-}
-
-// waitFor polls until cond() or the deadline; fails the test on timeout.
-func waitFor(t *testing.T, cond func() bool, msg string) {
-	t.Helper()
-	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) {
-		if cond() {
-			return
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
-	t.Fatal(msg)
 }

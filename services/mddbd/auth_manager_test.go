@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -12,7 +11,7 @@ import (
 
 func setupTestAuthManager(t *testing.T) (*AuthManager, *bolt.DB, func()) {
 	// Create temp database
-	dbPath := filepath.Join(t.TempDir(), t.Name()+".db")
+	dbPath := "/tmp/test_auth_" + t.Name() + ".db"
 	db, err := bolt.Open(dbPath, 0600, &bolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
 		t.Fatalf("Failed to open test database: %v", err)

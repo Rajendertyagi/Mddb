@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -17,7 +16,7 @@ import (
 // authGrpcSetup creates an AuthManager for gRPC interceptor tests.
 func authGrpcSetup(t *testing.T) (*AuthManager, func()) {
 	t.Helper()
-	dbPath := filepath.Join(t.TempDir(), t.Name()+".db")
+	dbPath := "/tmp/test_auth_grpc_" + t.Name() + ".db"
 	db, err := bolt.Open(dbPath, 0600, &bolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
 		t.Fatalf("bolt.Open: %v", err)

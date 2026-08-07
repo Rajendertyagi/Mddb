@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime"
 	"sync"
+	"syscall"
 	"time"
 
 	json "github.com/goccy/go-json"
@@ -30,9 +31,11 @@ var cpuSampler = &cpuSamplerState{
 
 func init() {
 	// Take initial sample
-	userNs, systemNs, _ := processCPUTimes()
-	cpuSampler.lastUserNs = userNs
-	cpuSampler.lastSystemNs = systemNs
+	var rusage syscall.Rusage
+	if err := syscall.Getrusage(syscall.RUSAGE_SELF, &rusage); err == nil {
+		cpuSampler.lastUserNs = rusage.Utime.Nano()
+		cpuSampler.lastSystemNs = rusage.Stime.Nano()
+	}
 }
 
 func (c *cpuSamplerState) sample() float64 {
@@ -40,10 +43,13 @@ func (c *cpuSamplerState) sample() float64 {
 	defer c.mu.Unlock()
 
 	now := time.Now()
-	userNs, systemNs, ok := processCPUTimes()
-	if !ok {
+	var rusage syscall.Rusage
+	if err := syscall.Getrusage(syscall.RUSAGE_SELF, &rusage); err != nil {
 		return c.cpuPercent
 	}
+
+	userNs := rusage.Utime.Nano()
+	systemNs := rusage.Stime.Nano()
 
 	elapsed := now.Sub(c.lastTime).Nanoseconds()
 	if elapsed <= 0 {

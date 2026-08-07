@@ -33,10 +33,10 @@ Several upstream tests used fixed `time.Sleep` calls to wait for async workers. 
 
 ### `renameio` shim (patch 0002)
 
-- **Files:** `services/mddbd/Mddb-patches/third_party/renameio/go.mod`, `renameio.go`
+- **Files:** `services/mddbd/go.mod` (the shim itself is port-layer, committed at `Mddb-patches/third_party/renameio/`)
 - **Why:** `google/renameio` exports no functions on Windows by design, breaking compilation of `github.com/coder/hnsw`, which calls `renameio.TempFile`.
 - **Behavior:** A stdlib-only module implementing the three symbols hnsw references (`TempFile`, `Cleanup`, `CloseAtomicallyReplace`) with a remove+rename fallback. Wired in via a local `replace` directive in `go.mod`. mddbd never calls `hnsw.SavedGraph.Save()` (vector persistence is BoltDB-backed), so the shim is never exercised at runtime.
-- **Note:** This shim lives under `services/mddbd/Mddb-patches/third_party/` to keep it clearly separated from both upstream source and the patch archive.
+- **Note:** The shim lives at the port-layer root `Mddb-patches/third_party/renameio/`, NOT inside the upstream tree. Patch 0002 only modifies go.mod to reference it.
 
 ### Process / disk metrics (patch 0001)
 

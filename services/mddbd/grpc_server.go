@@ -489,27 +489,8 @@ func (g *GRPCServer) Restore(ctx context.Context, req *proto.RestoreRequest) (*p
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	// Close the live DB so the file can be swapped (required on Windows,
-	// where an open file cannot be removed/renamed).
-	if err := g.server.DB.Close(); err != nil {
-		return nil, status.Error(codes.Internal, fmt.Sprintf("close db: %v", err))
-	}
 	if err := copyFile(safeFrom, g.server.Path); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
-	}
-
-	// Reopen the DB in place; restore the same pointer so the server keeps using it.
-	db, err := bolt.Open(g.server.Path, 0600, getOptimizedBoltOptions())
-	if err != nil {
-		return nil, status.Error(codes.Internal, fmt.Sprintf("reopen db: %v", err))
-	}
-	g.server.DB = db
-
-	// Reset binlog after restore to force followers to re-snapshot.
-	if g.server.Binlog != nil {
-		if err := g.server.Binlog.Rotate(0); err != nil {
-			log.Printf("Warning: failed to reset binlog after restore: %v", err)
-		}
 	}
 
 	return &proto.RestoreResponse{Restored: safeFrom}, nil

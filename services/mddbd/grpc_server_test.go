@@ -131,9 +131,7 @@ func newTestGRPCServer(t *testing.T) (*GRPCServer, *Server, func()) {
 
 	cleanup := func() {
 		s.IndexQueue.Shutdown()
-		// Close the live handle: Restore (and other DB-swapping paths) assign a new
-		// *bolt.DB to s.DB, so closing the original `db` would leak it on Windows.
-		_ = s.DB.Close()
+		_ = db.Close()
 	}
 
 	return gs, s, cleanup

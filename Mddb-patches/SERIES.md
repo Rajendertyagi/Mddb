@@ -35,10 +35,8 @@ Ordered vendor patch series for the MDDB Windows port.
 - **Upstreamable:** No
 - **Status:** Applied
 - **Files:**
-  - `services/mddbd/Mddb-patches/third_party/renameio/go.mod` (new)
-  - `services/mddbd/Mddb-patches/third_party/renameio/renameio.go` (new)
   - `services/mddbd/go.mod` (modified)
-- **Purpose:** `google/renameio` exports no functions on Windows by design, which breaks compilation of `github.com/coder/hnsw` (it calls `renameio.TempFile`). mddbd never calls `hnsw.SavedGraph.Save()` (vector persistence is BoltDB-backed), so a tiny stdlib-only compatibility shim providing the three symbols hnsw references is sufficient. Wired in via a local `replace` directive; no vendoring of hnsw and upstream source untouched.
+- **Purpose:** `google/renameio` exports no functions on Windows by design, which breaks compilation of `github.com/coder/hnsw` (it calls `renameio.TempFile`). mddbd never calls `hnsw.SavedGraph.Save()` (vector persistence is BoltDB-backed), so a tiny stdlib-only compatibility shim providing the three symbols hnsw references is sufficient. The shim itself lives in the port layer at `Mddb-patches/third_party/renameio/` (committed directly). This patch wires it into the build via a local `replace` directive pointing at the root shim; no vendoring of hnsw and upstream source untouched.
 - **Dependencies:** 0001 (cross-compile must be possible to hit this failure).
 
 ---

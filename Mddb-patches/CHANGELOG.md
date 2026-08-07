@@ -9,10 +9,10 @@ First complete Windows x64 port of upstream MDDB, captured as an ordered vendor 
 ### Added
 
 - Cross-compilation support for `mddbd.exe` and `mddb-cli.exe` (`CGO_ENABLED=0`).
-- `build-windows.yml` CI workflow: cross-compile job + native `windows-latest` `go test ./...` runtime job.
+- `build-windows.yml` CI workflow: cross-compile job + native `windows-latest` `go test ./...` runtime job. Both jobs apply vendor patches before building/testing.
 - Platform-split CPU/disk metric helpers (`cpu_usage_*`, `disk_usage_*`) backed by `golang.org/x/sys/windows`.
 - `replacefile` helper with a Windows remove-then-rename path.
-- `renameio` compile-time shim for Windows (under `Mddb-patches/third_party/renameio/`).
+- `renameio` compile-time shim for Windows (port layer at `Mddb-patches/third_party/renameio/`).
 - `waitFor` polling helper in tests to replace fixed `time.Sleep` calls.
 
 ### Changed

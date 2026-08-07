@@ -236,14 +236,13 @@ func TestIndexQueue_EnqueueAndProcess(t *testing.T) {
 
 	_ = iq.Enqueue(job)
 
-	// Poll until the job is processed instead of relying on a fixed sleep
-	// (CI workers can be slow, especially on Windows).
-	waitFor(t, func() bool {
-		p, _, _, _ := iq.Stats()
-		return p == 1
-	}, "expected 1 processed")
+	// Wait for processing
+	time.Sleep(100 * time.Millisecond)
 
-	_, failed, _, _ := iq.Stats()
+	processed, failed, _, _ := iq.Stats()
+	if processed != 1 {
+		t.Errorf("expected 1 processed, got %d", processed)
+	}
 	if failed != 0 {
 		t.Errorf("expected 0 failed, got %d", failed)
 	}
@@ -298,6 +297,7 @@ func TestIndexQueue_EnqueueUpdateMeta(t *testing.T) {
 		NewMeta:    map[string][]string{"tag": {"go"}},
 	}
 	_ = iq.Enqueue(job1)
+	time.Sleep(100 * time.Millisecond)
 
 	// Second: update metadata (remove "go", add "python")
 	job2 := &IndexJob{
@@ -307,15 +307,12 @@ func TestIndexQueue_EnqueueUpdateMeta(t *testing.T) {
 		NewMeta:    map[string][]string{"tag": {"python"}},
 	}
 	_ = iq.Enqueue(job2)
+	time.Sleep(100 * time.Millisecond)
 
-	// Poll until both jobs are processed instead of relying on fixed sleeps
-	// (CI workers can be slow, especially on Windows).
-	waitFor(t, func() bool {
-		p, _, _, _ := iq.Stats()
-		return p == 2
-	}, "expected 2 processed")
-
-	_, failed, _, _ := iq.Stats()
+	processed, failed, _, _ := iq.Stats()
+	if processed != 2 {
+		t.Errorf("expected 2 processed, got %d", processed)
+	}
 	if failed != 0 {
 		t.Errorf("expected 0 failed, got %d", failed)
 	}
@@ -487,10 +484,7 @@ func TestIndexQueue_MultipleJobs(t *testing.T) {
 	}
 
 	// Wait for all to process
-	waitFor(t, func() bool {
-		p, _, _, _ := iq.Stats()
-		return p == 20
-	}, "expected 20 jobs processed")
+	time.Sleep(500 * time.Millisecond)
 
 	processed, failed, _, _ := iq.Stats()
 	if processed != 20 {
@@ -651,10 +645,7 @@ func TestIndexQueue_StatsAfterProcessing(t *testing.T) {
 		})
 	}
 
-	waitFor(t, func() bool {
-		p, _, _, _ := iq.Stats()
-		return p == 5
-	}, "expected 5 jobs processed")
+	time.Sleep(200 * time.Millisecond)
 
 	processed, failed, _, qLen := iq.Stats()
 	if processed != 5 {

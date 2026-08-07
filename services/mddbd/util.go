@@ -95,7 +95,7 @@ func copyFile(src, dst string) error {
 	if err = out.Close(); err != nil {
 		return err
 	}
-	return replaceFile(tmp, dst) // #nosec G703 -- paths are internally constructed
+	return os.Rename(tmp, dst) // #nosec G703 -- paths are internally constructed
 }
 func mustJSON(v any) []byte {
 	b, err := json.Marshal(v)

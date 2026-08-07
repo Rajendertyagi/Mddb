@@ -13,6 +13,7 @@ on:
       - 'services/mddb-cli/**'
       - 'clients/go/mddb/**'
       - 'go.work'
+      - 'Mddb-patches/**'
       - '.github/workflows/build-windows.yml'
 
 env:
@@ -30,6 +31,9 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+
+      - name: Apply vendor patches
+        run: git apply Mddb-patches/patches/*.patch
 
       - name: Set up Go
         uses: actions/setup-go@v7
@@ -79,6 +83,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+
+      - name: Apply vendor patches
+        run: git apply Mddb-patches/patches/*.patch
 
       - name: Set up Go
         uses: actions/setup-go@v7
