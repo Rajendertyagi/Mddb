@@ -555,7 +555,7 @@ Any LLM agent that supports HTTP tools can connect to MDDB. Key endpoints:
 | `/v1/get` | POST | Get specific document |
 | `/v1/add` | POST | Add/update document |
 
-See the [OpenAPI specification](/docs/api/swagger) for complete API details.
+See the [OpenAPI specification](/docs/api/swagger/) for complete API details.
 
 ## Panel Configuration
 

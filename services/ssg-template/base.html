@@ -6,6 +6,9 @@
 <meta property="og:type" content="website">
 <meta property="og:image" content="https://mddb.tradik.com/og-image.png">
 <meta property="twitter:card" content="summary_large_image">
+<!-- Feed autodiscovery: without this, a reader cannot find /feed.xml from the
+     page, and neither can the browser extensions people actually subscribe with. -->
+<link rel="alternate" type="application/atom+xml" title="MDDB blog" href="/feed.xml">
 <link rel="icon" type="image/svg+xml" href="/images/logo.svg">
 <link rel="apple-touch-icon" href="/images/logo.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -132,7 +135,7 @@
         <div class="sidebar-section">
             <p class="sidebar-group-title">More</p>
             <ul class="sidebar-list">
-                <li><a href="/docs/api/swagger">API Swagger UI</a></li>
+                <li><a href="/docs/api/swagger/">API Swagger UI</a></li>
                 <li><a href="https://github.com/tradik/mddb" target="_blank" rel="noopener">GitHub</a></li>
             </ul>
         </div>

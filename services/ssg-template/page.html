@@ -10,7 +10,7 @@
 <html lang="en">
 <head>
     {{template "head_meta" .}}
-    <meta name="robots" content="{{if $dupOfHome}}noindex, follow{{else}}index, follow{{end}}">
+    <meta name="robots" content="index, follow">
     <meta name="description" content="{{if .Page.Description}}{{.Page.Description}}{{else}}{{.Page.Excerpt}}{{end}}">
     <meta property="og:title" content="{{.Page.Title}} — MDDB">
     <meta property="og:description" content="{{if .Page.Description}}{{.Page.Description}}{{else}}{{.Page.Excerpt}}{{end}}">
