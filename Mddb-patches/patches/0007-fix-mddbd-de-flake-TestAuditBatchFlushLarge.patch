@@ -1,0 +1,43 @@
+From 685c873912efdc63b2b8ede508a3b82ec1cbfd7a Mon Sep 17 00:00:00 2001
+From: Rajendertyagi <86180775+Rajendertyagi@users.noreply.github.com>
+Date: Fri, 7 Aug 2026 10:44:23 +0530
+Subject: [PATCH 07/13] fix(mddbd): de-flake TestAuditBatchFlushLarge
+
+waitFlush() is a fixed 700ms sleep; the audit writer flushes async on a
+500ms ticker / batch-64, so on slow Windows CI only part of 200 records
+persist in time (got 66). Poll Query until all 200 are persisted (bounded).
+---
+ services/mddbd/audit_test.go | 17 +++++++++++++----
+ 1 file changed, 13 insertions(+), 4 deletions(-)
+
+diff --git a/services/mddbd/audit_test.go b/services/mddbd/audit_test.go
+index b9b059f..27223a4 100644
+--- a/services/mddbd/audit_test.go
++++ b/services/mddbd/audit_test.go
+@@ -266,10 +266,19 @@ func TestAuditBatchFlushLarge(t *testing.T) {
+ 	for i := 0; i < 200; i++ {
+ 		am.Record(audit.AuditEvent{Actor: "u", Action: "x", Result: "ok"})
+ 	}
+-	waitFlush(am)
+-	ev, _ := am.Query(audit.QueryFilter{Limit: 300})
+-	if len(ev) != 200 {
+-		t.Fatalf("want 200, got %d", len(ev))
++	// Flush is ticker/batch driven (async writer); poll until all 200 are
++	// persisted rather than sleep a fixed amount (flaky on slow/loaded CI).
++	deadline := time.Now().Add(5 * time.Second)
++	for {
++		ev, _ := am.Query(audit.QueryFilter{Limit: 300})
++		if len(ev) == 200 {
++			break
++		}
++		if time.Now().After(deadline) {
++			t.Fatalf("want 200, got %d", len(ev))
++			return
++		}
++		time.Sleep(20 * time.Millisecond)
+ 	}
+ }
+ 
+-- 
+2.54.0.windows.1
+

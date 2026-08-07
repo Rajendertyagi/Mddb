@@ -1,0 +1,31 @@
+From 841cf1bdb4bbef124e0be7d858cc8b75d09d0b49 Mon Sep 17 00:00:00 2001
+From: Rajendertyagi <86180775+Rajendertyagi@users.noreply.github.com>
+Date: Fri, 7 Aug 2026 11:39:54 +0530
+Subject: [PATCH 10/13] fix(grpc-test): close live s.DB in newTestGRPCServer
+ cleanup
+
+GRPCRestore.Restore swaps s.DB with a newly reopened *bolt.DB. The test
+cleanup closed only the original handle, leaking the new one and leaving
+test.db open, which broke t.TempDir RemoveAll on Windows.
+---
+ services/mddbd/grpc_server_test.go | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/services/mddbd/grpc_server_test.go b/services/mddbd/grpc_server_test.go
+index 4910654..3c86c48 100644
+--- a/services/mddbd/grpc_server_test.go
++++ b/services/mddbd/grpc_server_test.go
+@@ -131,7 +131,9 @@ func newTestGRPCServer(t *testing.T) (*GRPCServer, *Server, func()) {
+ 
+ 	cleanup := func() {
+ 		s.IndexQueue.Shutdown()
+-		_ = db.Close()
++		// Close the live handle: Restore (and other DB-swapping paths) assign a new
++		// *bolt.DB to s.DB, so closing the original `db` would leak it on Windows.
++		_ = s.DB.Close()
+ 	}
+ 
+ 	return gs, s, cleanup
+-- 
+2.54.0.windows.1
+

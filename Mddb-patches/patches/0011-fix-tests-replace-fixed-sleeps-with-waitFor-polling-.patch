@@ -1,0 +1,100 @@
+From d978e7176515104a3a51f2bb55b20f69dfabf958 Mon Sep 17 00:00:00 2001
+From: Rajendertyagi <86180775+Rajendertyagi@users.noreply.github.com>
+Date: Fri, 7 Aug 2026 11:58:38 +0530
+Subject: [PATCH 11/13] fix(tests): replace fixed sleeps with waitFor polling
+ (indexqueue, temporal)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+CI workers — esp. on Windows — can be slower than the fixed 100-600ms
+sleeps assume, so async-worker tests flake. Replace with waitFor polling
+against the real condition (processed==2 / histogram non-empty).
+Test-only; no production code changed.
+---
+ .../internal/indexqueue/indexqueue_test.go    | 14 +++++-----
+ .../mddbd/internal/temporal/temporal_test.go  | 27 ++++++++++++++-----
+ 2 files changed, 29 insertions(+), 12 deletions(-)
+
+diff --git a/services/mddbd/internal/indexqueue/indexqueue_test.go b/services/mddbd/internal/indexqueue/indexqueue_test.go
+index 9d4c5d3..f08d668 100644
+--- a/services/mddbd/internal/indexqueue/indexqueue_test.go
++++ b/services/mddbd/internal/indexqueue/indexqueue_test.go
+@@ -297,7 +297,6 @@ func TestIndexQueue_EnqueueUpdateMeta(t *testing.T) {
+ 		NewMeta:    map[string][]string{"tag": {"go"}},
+ 	}
+ 	_ = iq.Enqueue(job1)
+-	time.Sleep(100 * time.Millisecond)
+ 
+ 	// Second: update metadata (remove "go", add "python")
+ 	job2 := &IndexJob{
+@@ -307,12 +306,15 @@ func TestIndexQueue_EnqueueUpdateMeta(t *testing.T) {
+ 		NewMeta:    map[string][]string{"tag": {"python"}},
+ 	}
+ 	_ = iq.Enqueue(job2)
+-	time.Sleep(100 * time.Millisecond)
+ 
+-	processed, failed, _, _ := iq.Stats()
+-	if processed != 2 {
+-		t.Errorf("expected 2 processed, got %d", processed)
+-	}
++	// Poll until both jobs are processed instead of relying on fixed sleeps
++	// (CI workers can be slow, especially on Windows).
++	waitFor(t, func() bool {
++		p, _, _, _ := iq.Stats()
++		return p == 2
++	}, "expected 2 processed")
++
++	_, failed, _, _ := iq.Stats()
+ 	if failed != 0 {
+ 		t.Errorf("expected 0 failed, got %d", failed)
+ 	}
+diff --git a/services/mddbd/internal/temporal/temporal_test.go b/services/mddbd/internal/temporal/temporal_test.go
+index 7a5511c..5a1e655 100644
+--- a/services/mddbd/internal/temporal/temporal_test.go
++++ b/services/mddbd/internal/temporal/temporal_test.go
+@@ -122,16 +122,18 @@ func TestTemporalManager_Histogram(t *testing.T) {
+ 	tm.RecordAsync(collection, "d1", EventAccess, "")
+ 	tm.RecordAsync(collection, "d2", EventAccess, "")
+ 
+-	time.Sleep(600 * time.Millisecond)
+-
++	// Poll until the async records land in a histogram bucket instead of
++	// relying on a fixed sleep (CI workers can be slow, esp. on Windows).
++	var buckets []HistogramBucket
++	var err error
+ 	now := time.Now().Unix()
+-	buckets, err := tm.ComputeHistogram(collection, "access", "day", now-3600, now+3600)
++	waitFor(t, func() bool {
++		buckets, err = tm.ComputeHistogram(collection, "access", "day", now-3600, now+3600)
++		return err == nil && len(buckets) > 0
++	}, "expected at least one histogram bucket")
+ 	if err != nil {
+ 		t.Fatalf("ComputeHistogram: %v", err)
+ 	}
+-	if len(buckets) == 0 {
+-		t.Error("expected at least one histogram bucket")
+-	}
+ 	if buckets[0].Count < 2 {
+ 		t.Errorf("expected count >= 2, got %d", buckets[0].Count)
+ 	}
+@@ -145,3 +147,16 @@ func TestIsoWeekStart(t *testing.T) {
+ 		t.Errorf("isoWeekStart(2026,14) = %s, want %s", got.Format("2006-01-02"), want.Format("2006-01-02"))
+ 	}
+ }
++
++// waitFor polls until cond() or the deadline; fails the test on timeout.
++func waitFor(t *testing.T, cond func() bool, msg string) {
++	t.Helper()
++	deadline := time.Now().Add(2 * time.Second)
++	for time.Now().Before(deadline) {
++		if cond() {
++			return
++		}
++		time.Sleep(5 * time.Millisecond)
++	}
++	t.Fatal(msg)
++}
+-- 
+2.54.0.windows.1
+

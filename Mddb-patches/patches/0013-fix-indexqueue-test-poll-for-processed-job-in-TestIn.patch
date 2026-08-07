@@ -1,0 +1,40 @@
+From 334d7b4ebc3a4f2931cd1bff7e0f990eeb02ba9a Mon Sep 17 00:00:00 2001
+From: Rajendertyagi <86180775+Rajendertyagi@users.noreply.github.com>
+Date: Fri, 7 Aug 2026 12:12:56 +0530
+Subject: [PATCH 13/13] fix(indexqueue-test): poll for processed job in
+ TestIndexQueue_EnqueueAndProcess
+
+Same fixed-sleep flake class as EnqueueUpdateMeta. Replace time.Sleep(100ms)
++ immediate check with waitFor polling on processed==1. Test-only.
+---
+ .../mddbd/internal/indexqueue/indexqueue_test.go    | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/services/mddbd/internal/indexqueue/indexqueue_test.go b/services/mddbd/internal/indexqueue/indexqueue_test.go
+index f08d668..1801c37 100644
+--- a/services/mddbd/internal/indexqueue/indexqueue_test.go
++++ b/services/mddbd/internal/indexqueue/indexqueue_test.go
+@@ -236,13 +236,14 @@ func TestIndexQueue_EnqueueAndProcess(t *testing.T) {
+ 
+ 	_ = iq.Enqueue(job)
+ 
+-	// Wait for processing
+-	time.Sleep(100 * time.Millisecond)
++	// Poll until the job is processed instead of relying on a fixed sleep
++	// (CI workers can be slow, especially on Windows).
++	waitFor(t, func() bool {
++		p, _, _, _ := iq.Stats()
++		return p == 1
++	}, "expected 1 processed")
+ 
+-	processed, failed, _, _ := iq.Stats()
+-	if processed != 1 {
+-		t.Errorf("expected 1 processed, got %d", processed)
+-	}
++	_, failed, _, _ := iq.Stats()
+ 	if failed != 0 {
+ 		t.Errorf("expected 0 failed, got %d", failed)
+ 	}
+-- 
+2.54.0.windows.1
+

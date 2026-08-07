@@ -1,0 +1,52 @@
+From 87068794202699693c1d85c399b82644453b7ac4 Mon Sep 17 00:00:00 2001
+From: Rajendertyagi <86180775+Rajendertyagi@users.noreply.github.com>
+Date: Fri, 7 Aug 2026 11:27:28 +0530
+Subject: [PATCH 09/13] fix(grpc): close+swap+reopen DB during Restore so
+ Windows uses pass
+
+GRPCServer.Restore copied the backup over the live, open bbolt file.
+Unix allows renaming over an open file; Windows forbids removing an open
+file, so restore failed with 'being used by another process'. Mirror the
+existing handleRestore/replaceDatabase pattern: close DB, swap file,
+reopen in place, reset binlog.
+---
+ services/mddbd/grpc_server.go | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+diff --git a/services/mddbd/grpc_server.go b/services/mddbd/grpc_server.go
+index 5e74a0e..32af380 100644
+--- a/services/mddbd/grpc_server.go
++++ b/services/mddbd/grpc_server.go
+@@ -489,10 +489,29 @@ func (g *GRPCServer) Restore(ctx context.Context, req *proto.RestoreRequest) (*p
+ 		return nil, status.Error(codes.InvalidArgument, err.Error())
+ 	}
+ 
++	// Close the live DB so the file can be swapped (required on Windows,
++	// where an open file cannot be removed/renamed).
++	if err := g.server.DB.Close(); err != nil {
++		return nil, status.Error(codes.Internal, fmt.Sprintf("close db: %v", err))
++	}
+ 	if err := copyFile(safeFrom, g.server.Path); err != nil {
+ 		return nil, status.Error(codes.Internal, err.Error())
+ 	}
+ 
++	// Reopen the DB in place; restore the same pointer so the server keeps using it.
++	db, err := bolt.Open(g.server.Path, 0600, getOptimizedBoltOptions())
++	if err != nil {
++		return nil, status.Error(codes.Internal, fmt.Sprintf("reopen db: %v", err))
++	}
++	g.server.DB = db
++
++	// Reset binlog after restore to force followers to re-snapshot.
++	if g.server.Binlog != nil {
++		if err := g.server.Binlog.Rotate(0); err != nil {
++			log.Printf("Warning: failed to reset binlog after restore: %v", err)
++		}
++	}
++
+ 	return &proto.RestoreResponse{Restored: safeFrom}, nil
+ }
+ 
+-- 
+2.54.0.windows.1
+

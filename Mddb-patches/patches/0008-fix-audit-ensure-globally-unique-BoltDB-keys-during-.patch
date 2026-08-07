@@ -1,0 +1,70 @@
+From 90c7911f3b46db9ce3f7a4c666b0402d80f3c7f4 Mon Sep 17 00:00:00 2001
+From: Rajendertyagi <86180775+Rajendertyagi@users.noreply.github.com>
+Date: Fri, 7 Aug 2026 11:11:56 +0530
+Subject: [PATCH 08/13] fix(audit): ensure globally unique BoltDB keys during
+ batch flush on Windows
+
+---
+ services/mddbd/audit_test.go           | 17 ++++-------------
+ services/mddbd/internal/audit/audit.go | 13 ++++++++++---
+ 2 files changed, 14 insertions(+), 16 deletions(-)
+
+diff --git a/services/mddbd/audit_test.go b/services/mddbd/audit_test.go
+index 27223a4..b9b059f 100644
+--- a/services/mddbd/audit_test.go
++++ b/services/mddbd/audit_test.go
+@@ -266,19 +266,10 @@ func TestAuditBatchFlushLarge(t *testing.T) {
+ 	for i := 0; i < 200; i++ {
+ 		am.Record(audit.AuditEvent{Actor: "u", Action: "x", Result: "ok"})
+ 	}
+-	// Flush is ticker/batch driven (async writer); poll until all 200 are
+-	// persisted rather than sleep a fixed amount (flaky on slow/loaded CI).
+-	deadline := time.Now().Add(5 * time.Second)
+-	for {
+-		ev, _ := am.Query(audit.QueryFilter{Limit: 300})
+-		if len(ev) == 200 {
+-			break
+-		}
+-		if time.Now().After(deadline) {
+-			t.Fatalf("want 200, got %d", len(ev))
+-			return
+-		}
+-		time.Sleep(20 * time.Millisecond)
++	waitFlush(am)
++	ev, _ := am.Query(audit.QueryFilter{Limit: 300})
++	if len(ev) != 200 {
++		t.Fatalf("want 200, got %d", len(ev))
+ 	}
+ }
+ 
+diff --git a/services/mddbd/internal/audit/audit.go b/services/mddbd/internal/audit/audit.go
+index 4463675..6563c8a 100644
+--- a/services/mddbd/internal/audit/audit.go
++++ b/services/mddbd/internal/audit/audit.go
+@@ -207,13 +207,20 @@ func (a *AuditManager) flushBatch(batch []AuditEvent) error {
+ 		if b == nil {
+ 			return errors.New("audit bucket missing")
+ 		}
+-		seq, _ := b.NextSequence()
+-		for i, ev := range batch {
++		for _, ev := range batch {
+ 			payload, err := json.Marshal(ev)
+ 			if err != nil {
+ 				continue
+ 			}
+-			key := auditKey(ev.Timestamp, seq+uint64(i))
++			// Allocate a fresh sequence per event so keys stay globally
++			// unique even when events share a timestamp (bbolt NextSequence
++			// increments by 1 per call; seeding a whole batch off a single
++			// value reused sequence numbers across batches -> overwrites).
++			seq, err := b.NextSequence()
++			if err != nil {
++				return err
++			}
++			key := auditKey(ev.Timestamp, seq)
+ 			if err := b.Put(key, payload); err != nil {
+ 				return err
+ 			}
+-- 
+2.54.0.windows.1
+

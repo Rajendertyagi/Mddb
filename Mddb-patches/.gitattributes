@@ -1,0 +1,2 @@
+# Force LF line endings for patch files so they apply cleanly on any platform.
+*.patch text eol=lf

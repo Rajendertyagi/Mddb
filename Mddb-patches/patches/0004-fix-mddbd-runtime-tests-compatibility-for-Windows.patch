@@ -1,0 +1,313 @@
+From cdb703cfea2c3dff7f0e007f7c4fd5705ae3a278 Mon Sep 17 00:00:00 2001
+From: Rajendertyagi <86180775+Rajendertyagi@users.noreply.github.com>
+Date: Fri, 7 Aug 2026 10:03:30 +0530
+Subject: [PATCH 04/13] fix(mddbd): runtime + tests compatibility for Windows
+
+- replaceFile helper: Windows os.Rename cannot overwrite existing dest;
+  remove-then-rename path (replacefile_unix/windows.go) used by copyFile
+  and ReplicationClient.replaceDatabase.
+- tests: use filepath.Join(t.TempDir(), ...) for auth DB paths instead of
+  /tmp; skip UDS listener tests on Windows where unix sockets are
+  unsupported; shortSocketDir uses os.TempDir() on Windows.
+- mddb-cli: open GraphQL playground via 'cmd /c start' on Windows.
+- build-windows.yml: add windows-latest runtime 'go test ./...' job.
+---
+ .github/workflows/build-windows.yml    | 25 +++++++++++++++++++++++++
+ services/mddb-cli/main.go              | 12 ++++++++++++
+ services/mddbd/auth_grpc_test.go       |  3 ++-
+ services/mddbd/auth_handlers_test.go   |  3 ++-
+ services/mddbd/auth_manager_test.go    |  3 ++-
+ services/mddbd/auth_middleware_test.go |  3 ++-
+ services/mddbd/listen_addr_test.go     | 21 +++++++++++++++++++--
+ services/mddbd/replacefile_unix.go     | 10 ++++++++++
+ services/mddbd/replacefile_windows.go  | 17 +++++++++++++++++
+ services/mddbd/replication_client.go   |  2 +-
+ services/mddbd/util.go                 |  2 +-
+ 11 files changed, 93 insertions(+), 8 deletions(-)
+ create mode 100644 services/mddbd/replacefile_unix.go
+ create mode 100644 services/mddbd/replacefile_windows.go
+
+diff --git a/.github/workflows/build-windows.yml b/.github/workflows/build-windows.yml
+index 821c9e3..38e028b 100644
+--- a/.github/workflows/build-windows.yml
++++ b/.github/workflows/build-windows.yml
+@@ -68,3 +68,28 @@ jobs:
+         with:
+           name: mddb-windows-amd64
+           path: dist/
++
++  windows-runtime:
++    # Windows host runs go test natively (not cross-compiled) to catch
++    # runtime gaps the cross-compile alone cannot: overwrite-rename, temp paths.
++    name: Runtime tests on Windows
++    runs-on: windows-latest
++    env:
++      GOWORK: "off"
++    steps:
++      - name: Checkout code
++        uses: actions/checkout@v7
++
++      - name: Set up Go
++        uses: actions/setup-go@v7
++        with:
++          go-version: ${{ env.GO_VERSION }}
++          cache-dependency-path: services/mddbd/go.sum
++
++      - name: Test server (mddbd)
++        working-directory: services/mddbd
++        run: go test ./...
++
++      - name: Build client (mddb-cli)
++        working-directory: services/mddb-cli
++        run: go build ./...
+diff --git a/services/mddb-cli/main.go b/services/mddb-cli/main.go
+index b111831..455edf3 100644
+--- a/services/mddb-cli/main.go
++++ b/services/mddb-cli/main.go
+@@ -8,6 +8,7 @@ import (
+ 	"os"
+ 	"os/exec"
+ 	"path/filepath"
++	"runtime"
+ 	"strings"
+ 	"time"
+ 
+@@ -1413,6 +1414,17 @@ The Playground provides an interactive GraphQL IDE for exploring the schema and
+ 			fmt.Printf("Opening GraphQL Playground at: %s\n", playgroundURL)
+ 
+ 			// Try to open browser based on OS
++			if runtime.GOOS == "windows" {
++				// #nosec G204 -- URL is a system launcher argument
++				if err := exec.Command("cmd", "/c", "start", "", playgroundURL).Start(); err != nil {
++					fmt.Printf("\n⚠️  Failed to open browser: %v\n", err)
++					fmt.Printf("Please open manually: %s\n", playgroundURL)
++				} else {
++					fmt.Println("✓ Browser opened")
++				}
++				return nil
++			}
++
+ 			var openCmd string
+ 			switch {
+ 			case fileExists("/usr/bin/open"):
+diff --git a/services/mddbd/auth_grpc_test.go b/services/mddbd/auth_grpc_test.go
+index 219343a..157c1f7 100644
+--- a/services/mddbd/auth_grpc_test.go
++++ b/services/mddbd/auth_grpc_test.go
+@@ -3,6 +3,7 @@ package main
+ import (
+ 	"context"
+ 	"os"
++	"path/filepath"
+ 	"testing"
+ 	"time"
+ 
+@@ -16,7 +17,7 @@ import (
+ // authGrpcSetup creates an AuthManager for gRPC interceptor tests.
+ func authGrpcSetup(t *testing.T) (*AuthManager, func()) {
+ 	t.Helper()
+-	dbPath := "/tmp/test_auth_grpc_" + t.Name() + ".db"
++	dbPath := filepath.Join(t.TempDir(), t.Name()+".db")
+ 	db, err := bolt.Open(dbPath, 0600, &bolt.Options{Timeout: 1 * time.Second})
+ 	if err != nil {
+ 		t.Fatalf("bolt.Open: %v", err)
+diff --git a/services/mddbd/auth_handlers_test.go b/services/mddbd/auth_handlers_test.go
+index 0237028..94ce14f 100644
+--- a/services/mddbd/auth_handlers_test.go
++++ b/services/mddbd/auth_handlers_test.go
+@@ -7,6 +7,7 @@ import (
+ 	"net/http"
+ 	"net/http/httptest"
+ 	"os"
++	"path/filepath"
+ 	"strings"
+ 	"testing"
+ 	"time"
+@@ -18,7 +19,7 @@ import (
+ // Returns the server, the database, and a cleanup function.
+ func setupTestServer(t *testing.T) (*Server, *bolt.DB, func()) {
+ 	t.Helper()
+-	dbPath := "/tmp/test_auth_handlers_" + t.Name() + ".db"
++	dbPath := filepath.Join(t.TempDir(), t.Name()+".db")
+ 	db, err := bolt.Open(dbPath, 0600, &bolt.Options{Timeout: 1 * time.Second})
+ 	if err != nil {
+ 		t.Fatalf("Failed to open test database: %v", err)
+diff --git a/services/mddbd/auth_manager_test.go b/services/mddbd/auth_manager_test.go
+index 8823a22..696f5af 100644
+--- a/services/mddbd/auth_manager_test.go
++++ b/services/mddbd/auth_manager_test.go
+@@ -3,6 +3,7 @@ package main
+ import (
+ 	"context"
+ 	"os"
++	"path/filepath"
+ 	"testing"
+ 	"time"
+ 
+@@ -11,7 +12,7 @@ import (
+ 
+ func setupTestAuthManager(t *testing.T) (*AuthManager, *bolt.DB, func()) {
+ 	// Create temp database
+-	dbPath := "/tmp/test_auth_" + t.Name() + ".db"
++	dbPath := filepath.Join(t.TempDir(), t.Name()+".db")
+ 	db, err := bolt.Open(dbPath, 0600, &bolt.Options{Timeout: 1 * time.Second})
+ 	if err != nil {
+ 		t.Fatalf("Failed to open test database: %v", err)
+diff --git a/services/mddbd/auth_middleware_test.go b/services/mddbd/auth_middleware_test.go
+index 462b94a..8dd9c68 100644
+--- a/services/mddbd/auth_middleware_test.go
++++ b/services/mddbd/auth_middleware_test.go
+@@ -4,6 +4,7 @@ import (
+ 	"net/http"
+ 	"net/http/httptest"
+ 	"os"
++	"path/filepath"
+ 	"testing"
+ 	"time"
+ 
+@@ -13,7 +14,7 @@ import (
+ // authMwSetup creates an AuthManager with a test DB for middleware tests.
+ func authMwSetup(t *testing.T) (*AuthManager, func()) {
+ 	t.Helper()
+-	dbPath := "/tmp/test_auth_mw_" + t.Name() + ".db"
++	dbPath := filepath.Join(t.TempDir(), t.Name()+".db")
+ 	db, err := bolt.Open(dbPath, 0600, &bolt.Options{Timeout: 1 * time.Second})
+ 	if err != nil {
+ 		t.Fatalf("bolt.Open: %v", err)
+diff --git a/services/mddbd/listen_addr_test.go b/services/mddbd/listen_addr_test.go
+index a22d54a..cf9e4d8 100644
+--- a/services/mddbd/listen_addr_test.go
++++ b/services/mddbd/listen_addr_test.go
+@@ -4,6 +4,7 @@ import (
+ 	"net"
+ 	"os"
+ 	"path/filepath"
++	"runtime"
+ 	"testing"
+ )
+ 
+@@ -11,10 +12,14 @@ import (
+ // Socket paths. macOS caps `sun_path` at 104 bytes, and `t.TempDir()` on
+ // macOS returns `/var/folders/...` which is ~80+ chars before adding the
+ // test name, easily blowing the budget. Falling through to /tmp keeps the
+-// path short on every supported platform.
++// path short on Unix; Windows gets os.TempDir() (no sock-path length limit).
+ func shortSocketDir(t *testing.T) string {
+ 	t.Helper()
+-	dir, err := os.MkdirTemp("/tmp", "mddb-uds-")
++	base := "/tmp"
++	if runtime.GOOS == "windows" {
++		base = os.TempDir()
++	}
++	dir, err := os.MkdirTemp(base, "mddb-uds-")
+ 	if err != nil {
+ 		t.Fatalf("mkdtemp: %v", err)
+ 	}
+@@ -22,6 +27,15 @@ func shortSocketDir(t *testing.T) string {
+ 	return dir
+ }
+ 
++// skipIfNoUnixSockets aborts a test on platforms lacking Unix domain
++// sockets (i.e. Windows) so the UDS-specific assertions are not run there.
++func skipIfNoUnixSockets(t *testing.T) {
++	t.Helper()
++	if runtime.GOOS == "windows" {
++		t.Skip("unix domain sockets unsupported on Windows")
++	}
++}
++
+ func TestParseListenAddr(t *testing.T) {
+ 	cases := []struct {
+ 		in       string
+@@ -57,6 +71,7 @@ func TestIsUnixAddr(t *testing.T) {
+ }
+ 
+ func TestOpenListenerUDS(t *testing.T) {
++	skipIfNoUnixSockets(t)
+ 	dir := shortSocketDir(t)
+ 	path := filepath.Join(dir, "test.sock")
+ 	lis, err := openListener("unix:" + path)
+@@ -80,6 +95,7 @@ func TestOpenListenerUDS(t *testing.T) {
+ }
+ 
+ func TestOpenListenerUDSStale(t *testing.T) {
++	skipIfNoUnixSockets(t)
+ 	dir := shortSocketDir(t)
+ 	path := filepath.Join(dir, "stale.sock")
+ 	// Create a stale file first — openListener should remove it before binding.
+@@ -94,6 +110,7 @@ func TestOpenListenerUDSStale(t *testing.T) {
+ }
+ 
+ func TestCloseListenerRemovesSocket(t *testing.T) {
++	skipIfNoUnixSockets(t)
+ 	dir := shortSocketDir(t)
+ 	path := filepath.Join(dir, "cleanup.sock")
+ 	lis, err := openListener("unix:" + path)
+diff --git a/services/mddbd/replacefile_unix.go b/services/mddbd/replacefile_unix.go
+new file mode 100644
+index 0000000..48d75f0
+--- /dev/null
++++ b/services/mddbd/replacefile_unix.go
+@@ -0,0 +1,10 @@
++//go:build !windows
++
++package main
++
++import "os"
++
++// replaceFile atomically replaces dst with src. On Unix, rename overwrites.
++func replaceFile(src, dst string) error {
++	return os.Rename(src, dst)
++}
+diff --git a/services/mddbd/replacefile_windows.go b/services/mddbd/replacefile_windows.go
+new file mode 100644
+index 0000000..7a2fad1
+--- /dev/null
++++ b/services/mddbd/replacefile_windows.go
+@@ -0,0 +1,17 @@
++//go:build windows
++
++package main
++
++import (
++	"os"
++	"path/filepath"
++)
++
++// replaceFile atomically replaces dst with src. Windows os.Rename fails when
++// dst already exists, so remove it first (callers reload from disk after).
++func replaceFile(src, dst string) error {
++	if err := os.Remove(filepath.Clean(dst)); err != nil && !os.IsNotExist(err) {
++		return err
++	}
++	return os.Rename(src, dst)
++}
+diff --git a/services/mddbd/replication_client.go b/services/mddbd/replication_client.go
+index 29cf3bd..7e8c3ba 100644
+--- a/services/mddbd/replication_client.go
++++ b/services/mddbd/replication_client.go
+@@ -318,7 +318,7 @@ func (rc *ReplicationClient) replaceDatabase(snapshotPath string) error {
+ 	}
+ 
+ 	// Rename snapshot to database path
+-	if err := os.Rename(snapshotPath, rc.server.Path); err != nil {
++	if err := replaceFile(snapshotPath, rc.server.Path); err != nil {
+ 		return fmt.Errorf("failed to rename snapshot: %w", err)
+ 	}
+ 
+diff --git a/services/mddbd/util.go b/services/mddbd/util.go
+index 821ae94..dd5d153 100644
+--- a/services/mddbd/util.go
++++ b/services/mddbd/util.go
+@@ -95,7 +95,7 @@ func copyFile(src, dst string) error {
+ 	if err = out.Close(); err != nil {
+ 		return err
+ 	}
+-	return os.Rename(tmp, dst) // #nosec G703 -- paths are internally constructed
++	return replaceFile(tmp, dst) // #nosec G703 -- paths are internally constructed
+ }
+ func mustJSON(v any) []byte {
+ 	b, err := json.Marshal(v)
+-- 
+2.54.0.windows.1
+

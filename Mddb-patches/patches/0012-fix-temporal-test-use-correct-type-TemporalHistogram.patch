@@ -1,0 +1,31 @@
+From b6ac55b7123c22bfe48c234bf0c960962202974d Mon Sep 17 00:00:00 2001
+From: Rajendertyagi <86180775+Rajendertyagi@users.noreply.github.com>
+Date: Fri, 7 Aug 2026 12:04:44 +0530
+Subject: [PATCH 12/13] fix(temporal-test): use correct type
+ TemporalHistogramBucket
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Compile fix — the bucket type is TemporalHistogramBucket, not
+HistogramBucket. No logic change.
+---
+ services/mddbd/internal/temporal/temporal_test.go | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/services/mddbd/internal/temporal/temporal_test.go b/services/mddbd/internal/temporal/temporal_test.go
+index 5a1e655..45cbf9d 100644
+--- a/services/mddbd/internal/temporal/temporal_test.go
++++ b/services/mddbd/internal/temporal/temporal_test.go
+@@ -124,7 +124,7 @@ func TestTemporalManager_Histogram(t *testing.T) {
+ 
+ 	// Poll until the async records land in a histogram bucket instead of
+ 	// relying on a fixed sleep (CI workers can be slow, esp. on Windows).
+-	var buckets []HistogramBucket
++	var buckets []TemporalHistogramBucket
+ 	var err error
+ 	now := time.Now().Unix()
+ 	waitFor(t, func() bool {
+-- 
+2.54.0.windows.1
+

@@ -1,0 +1,139 @@
+From 1d9637345ef5b919b35580babb5dda0bcac1bd8e Mon Sep 17 00:00:00 2001
+From: Rajendertyagi <86180775+Rajendertyagi@users.noreply.github.com>
+Date: Fri, 7 Aug 2026 08:51:50 +0530
+Subject: [PATCH 02/13] fix(mddbd): shim google/renameio for Windows
+ cross-compile
+
+google/renameio exports no functions on Windows by design, which breaks
+compilation of github.com/coder/hnsw (it calls renameio.TempFile in
+encode.go). mddbd never calls hnsw.SavedGraph.Save() (vector persistence
+is BoltDB-backed), so a tiny stdlib-only compatibility shim providing the
+three symbols hnsw references is sufficient.
+
+Add Mddb-patches/third_party/renameio implementing TempFile, Cleanup and
+CloseAtomicallyReplace (remove+rename fallback on Windows), wired in via a
+local replace directive. No vendoring of hnsw; upstream source untouched.
+---
+ .../Mddb-patches/third_party/renameio/go.mod  |  3 +
+ .../third_party/renameio/renameio.go          | 87 +++++++++++++++++++
+ services/mddbd/go.mod                         |  2 +
+ 3 files changed, 92 insertions(+)
+ create mode 100644 services/mddbd/Mddb-patches/third_party/renameio/go.mod
+ create mode 100644 services/mddbd/Mddb-patches/third_party/renameio/renameio.go
+
+diff --git a/services/mddbd/Mddb-patches/third_party/renameio/go.mod b/services/mddbd/Mddb-patches/third_party/renameio/go.mod
+new file mode 100644
+index 0000000..cdaa520
+--- /dev/null
++++ b/services/mddbd/Mddb-patches/third_party/renameio/go.mod
+@@ -0,0 +1,3 @@
++module github.com/google/renameio
++
++go 1.21
+\ No newline at end of file
+diff --git a/services/mddbd/Mddb-patches/third_party/renameio/renameio.go b/services/mddbd/Mddb-patches/third_party/renameio/renameio.go
+new file mode 100644
+index 0000000..2182d1c
+--- /dev/null
++++ b/services/mddbd/Mddb-patches/third_party/renameio/renameio.go
+@@ -0,0 +1,87 @@
++// Package renameio provides a minimal, cross-platform compatibility shim for
++// github.com/google/renameio.
++//
++// The real renameio package deliberately exports no functions on Windows
++// ("it is not possible to reliably write files atomically on Windows"), which
++// breaks compilation of anything that imports it under GOOS=windows — most
++// notably github.com/coder/hnsw, a dependency of mddbd's vector index.
++//
++// mddbd never calls hnsw.SavedGraph.Save() (vector persistence is BoltDB
++// backed); the shim only needs to satisfy hnsw's compile-time reference.
++// It implements just the surface hnsw uses:
++//
++//	TempFile(dir, path) (*PendingFile, error)
++//	(*PendingFile).Cleanup() error
++//	(*PendingFile).CloseAtomicallyReplace() error
++//
++// This is a shim, not a full port. It uses only the Go standard library and
++// favours a best-effort atomic replace: rename is atomic on POSIX, and on
++// Windows the destination is removed first when os.Rename cannot overwrite it.
++package renameio
++
++import (
++	"os"
++	"path/filepath"
++)
++
++// PendingFile is a temporary file that will replace the destination path when
++// CloseAtomicallyReplace is called.
++type PendingFile struct {
++	*os.File
++	path     string
++	replaced bool
++}
++
++// TempFile creates a temporary file in dir (or, if dir is empty, in the same
++// directory as path so the final rename stays on one filesystem) that is
++// intended to atomically replace path.
++func TempFile(dir, path string) (*PendingFile, error) {
++	if dir == "" {
++		dir = filepath.Dir(path)
++	}
++	f, err := os.CreateTemp(dir, filepath.Base(path)+".tmp*")
++	if err != nil {
++		return nil, err
++	}
++	return &PendingFile{File: f, path: path}, nil
++}
++
++// Cleanup is a no-op if CloseAtomicallyReplace succeeded; otherwise it closes
++// and removes the temporary file.
++func (t *PendingFile) Cleanup() error {
++	if t.replaced {
++		return nil
++	}
++	name := t.File.Name()
++	if err := t.File.Close(); err != nil {
++		return err
++	}
++	return os.Remove(name)
++}
++
++// CloseAtomicallyReplace closes the temporary file and moves it over the
++// destination path. On POSIX os.Rename overwrites atomically. On Windows,
++// os.Rename fails when the destination exists, so it is removed first and the
++// rename retried.
++func (t *PendingFile) CloseAtomicallyReplace() error {
++	if err := t.File.Sync(); err != nil {
++		return err
++	}
++	if err := t.File.Close(); err != nil {
++		return err
++	}
++	tmp := t.File.Name()
++	if err := os.Rename(tmp, t.path); err != nil {
++		// Windows: destination likely already exists and blocks the rename.
++		if rmErr := os.Remove(t.path); rmErr != nil && !os.IsNotExist(rmErr) {
++			_ = os.Remove(tmp)
++			return rmErr
++		}
++		if err := os.Rename(tmp, t.path); err != nil {
++			_ = os.Remove(tmp)
++			return err
++		}
++	}
++	t.replaced = true
++	return nil
++}
+diff --git a/services/mddbd/go.mod b/services/mddbd/go.mod
+index b76b6cf..096ea68 100644
+--- a/services/mddbd/go.mod
++++ b/services/mddbd/go.mod
+@@ -58,3 +58,5 @@ require (
+ 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260610212136-7ab31c22f7ad // indirect
+ 	gopkg.in/ini.v1 v1.67.3 // indirect
+ )
++
++replace github.com/google/renameio => ./Mddb-patches/third_party/renameio
+-- 
+2.54.0.windows.1
+

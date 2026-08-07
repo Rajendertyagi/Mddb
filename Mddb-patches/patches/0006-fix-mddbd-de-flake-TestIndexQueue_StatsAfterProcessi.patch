@@ -1,0 +1,31 @@
+From 9c80ee4fcd35daa6560467ae0049962ffd1e7342 Mon Sep 17 00:00:00 2001
+From: Rajendertyagi <86180775+Rajendertyagi@users.noreply.github.com>
+Date: Fri, 7 Aug 2026 10:30:51 +0530
+Subject: [PATCH 06/13] fix(mddbd): de-flake
+ TestIndexQueue_StatsAfterProcessing
+
+Same fixed-sleep flakiness as MultipleJobs: 5 jobs / 2 workers / hard 200ms
+sleep raced on slower Windows CI (got 4). Poll Stats() via waitFor instead.
+---
+ services/mddbd/internal/indexqueue/indexqueue_test.go | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/services/mddbd/internal/indexqueue/indexqueue_test.go b/services/mddbd/internal/indexqueue/indexqueue_test.go
+index 1f6211d..9d4c5d3 100644
+--- a/services/mddbd/internal/indexqueue/indexqueue_test.go
++++ b/services/mddbd/internal/indexqueue/indexqueue_test.go
+@@ -648,7 +648,10 @@ func TestIndexQueue_StatsAfterProcessing(t *testing.T) {
+ 		})
+ 	}
+ 
+-	time.Sleep(200 * time.Millisecond)
++	waitFor(t, func() bool {
++		p, _, _, _ := iq.Stats()
++		return p == 5
++	}, "expected 5 jobs processed")
+ 
+ 	processed, failed, _, qLen := iq.Stats()
+ 	if processed != 5 {
+-- 
+2.54.0.windows.1
+

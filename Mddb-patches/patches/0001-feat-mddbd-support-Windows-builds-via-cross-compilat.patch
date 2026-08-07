@@ -1,0 +1,322 @@
+From 14c73ec9312f72cd293eb692839a2c99d7c09774 Mon Sep 17 00:00:00 2001
+From: Rajendertyagi <86180775+Rajendertyagi@users.noreply.github.com>
+Date: Fri, 7 Aug 2026 00:27:04 +0530
+Subject: [PATCH 01/13] feat(mddbd): support Windows builds via
+ cross-compilation
+
+Replace unix-only syscall usage (Getrusage, Statfs) in mddbd with
+platform-specific helpers backed by golang.org/x/sys/windows on Windows:
+- processCPUTimes() -> GetProcessTimes
+- diskUsage() -> GetDiskFreeSpaceEx
+
+Add build-windows.yml workflow to cross-compile mddbd.exe and
+mddb-cli.exe (CGO_ENABLED=0) and upload as artifact.
+---
+ .github/workflows/build-windows.yml  | 70 ++++++++++++++++++++++++++++
+ services/mddbd/cpu_usage_unix.go     | 17 +++++++
+ services/mddbd/cpu_usage_windows.go  | 20 ++++++++
+ services/mddbd/disk_usage_unix.go    | 31 ++++++++++++
+ services/mddbd/disk_usage_windows.go | 18 +++++++
+ services/mddbd/go.mod                |  2 +-
+ services/mddbd/incident_detector.go  | 25 ----------
+ services/mddbd/system_handlers.go    | 16 ++-----
+ 8 files changed, 162 insertions(+), 37 deletions(-)
+ create mode 100644 .github/workflows/build-windows.yml
+ create mode 100644 services/mddbd/cpu_usage_unix.go
+ create mode 100644 services/mddbd/cpu_usage_windows.go
+ create mode 100644 services/mddbd/disk_usage_unix.go
+ create mode 100644 services/mddbd/disk_usage_windows.go
+
+diff --git a/.github/workflows/build-windows.yml b/.github/workflows/build-windows.yml
+new file mode 100644
+index 0000000..821c9e3
+--- /dev/null
++++ b/.github/workflows/build-windows.yml
+@@ -0,0 +1,70 @@
++name: Build Windows
++
++# OPS-009: least privilege ??? builds publish nothing.
++permissions:
++  contents: read
++
++on:
++  workflow_dispatch:
++  push:
++    branches: [main]
++    paths:
++      - 'services/mddbd/**'
++      - 'services/mddb-cli/**'
++      - 'clients/go/mddb/**'
++      - 'go.work'
++      - '.github/workflows/build-windows.yml'
++
++env:
++  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
++  GO_VERSION: '1.26.5'
++  # Disable Go workspace mode so each module builds independently.
++  GOWORK: "off"
++
++jobs:
++  build-windows:
++    name: Cross-compile Windows exes
++    runs-on: ubuntu-latest
++    steps:
++      - name: Checkout code
++        uses: actions/checkout@v7
++        with:
++          fetch-depth: 0
++
++      - name: Set up Go
++        uses: actions/setup-go@v7
++        with:
++          go-version: ${{ env.GO_VERSION }}
++          cache-dependency-path: services/mddbd/go.sum
++
++      - name: Build server (mddbd.exe)
++        working-directory: services/mddbd
++        env:
++          GOOS: windows
++          GOARCH: amd64
++          CGO_ENABLED: 0
++        run: |
++          go build -ldflags="-s -w" -o mddbd.exe .
++
++      - name: Build client (mddb-cli.exe)
++        working-directory: services/mddb-cli
++        env:
++          GOOS: windows
++          GOARCH: amd64
++          CGO_ENABLED: 0
++        run: |
++          go build -ldflags="-s -w" -o mddb-cli.exe .
++
++      - name: Stage binaries
++        run: |
++          mkdir -p dist
++          cp services/mddbd/mddbd.exe dist/
++          cp services/mddb-cli/mddb-cli.exe dist/
++          cp README.md dist/ || true
++          cp LICENSE dist/ || true
++
++      - name: Upload artifacts
++        uses: actions/upload-artifact@v7
++        with:
++          name: mddb-windows-amd64
++          path: dist/
+diff --git a/services/mddbd/cpu_usage_unix.go b/services/mddbd/cpu_usage_unix.go
+new file mode 100644
+index 0000000..3758692
+--- /dev/null
++++ b/services/mddbd/cpu_usage_unix.go
+@@ -0,0 +1,17 @@
++//go:build !windows
++
++package main
++
++import (
++	"syscall"
++)
++
++// processCPUTimes returns the current process's user and system CPU time in
++// nanoseconds. ok is false if the OS call fails or is unsupported.
++func processCPUTimes() (userNs, systemNs int64, ok bool) {
++	var rusage syscall.Rusage
++	if err := syscall.Getrusage(syscall.RUSAGE_SELF, &rusage); err != nil {
++		return 0, 0, false
++	}
++	return rusage.Utime.Nano(), rusage.Stime.Nano(), true
++}
+diff --git a/services/mddbd/cpu_usage_windows.go b/services/mddbd/cpu_usage_windows.go
+new file mode 100644
+index 0000000..3982785
+--- /dev/null
++++ b/services/mddbd/cpu_usage_windows.go
+@@ -0,0 +1,20 @@
++//go:build windows
++
++package main
++
++import (
++	"golang.org/x/sys/windows"
++)
++
++// processCPUTimes returns the current process's user and system CPU time in
++// nanoseconds via GetProcessTimes (the Windows equivalent of getrusage).
++func processCPUTimes() (userNs, systemNs int64, ok bool) {
++	var creationTime, exitTime, kernelTime, userTime windows.Filetime
++	err := windows.GetProcessTimes(windows.GetCurrentProcess(), &creationTime, &exitTime, &kernelTime, &userTime)
++	if err != nil {
++		return 0, 0, false
++	}
++	// FILETIME counts 100ns intervals since 1601; only deltas are used by
++	// the caller, so the epoch offset is irrelevant.
++	return userTime.Nanoseconds(), kernelTime.Nanoseconds(), true
++}
+diff --git a/services/mddbd/disk_usage_unix.go b/services/mddbd/disk_usage_unix.go
+new file mode 100644
+index 0000000..d9840f9
+--- /dev/null
++++ b/services/mddbd/disk_usage_unix.go
+@@ -0,0 +1,31 @@
++//go:build !windows
++
++package main
++
++import (
++	"syscall"
++)
++
++// diskUsage returns used and total bytes for the filesystem that
++// contains path. Falls back to (0, 0, false) on platforms where
++// syscall.Statfs is unavailable or the call fails.
++func diskUsage(path string) (used, total uint64, ok bool) {
++	var stat syscall.Statfs_t
++	if err := syscall.Statfs(path, &stat); err != nil {
++		return 0, 0, false
++	}
++	// Statfs_t field widths differ across OSes (Linux Bsize int64,
++	// Darwin Bsize uint32, FreeBSD Bavail int64 vs Linux uint64, ???).
++	// Bsize is the only field that can plausibly be <= 0 on malformed
++	// filesystems; guard it and then cast everything through uint64
++	// with explicit nosec so gosec is happy on every target.
++	if stat.Bsize <= 0 {
++		return 0, 0, false
++	}
++	total = uint64(stat.Blocks) * uint64(stat.Bsize) // #nosec G115 -- Bsize validated > 0; Blocks is a filesystem size
++	free := uint64(stat.Bavail) * uint64(stat.Bsize) // #nosec G115 -- Bsize validated > 0; Bavail is a filesystem size
++	if free > total {
++		return 0, 0, false
++	}
++	return total - free, total, true
++}
+diff --git a/services/mddbd/disk_usage_windows.go b/services/mddbd/disk_usage_windows.go
+new file mode 100644
+index 0000000..c4e7aee
+--- /dev/null
++++ b/services/mddbd/disk_usage_windows.go
+@@ -0,0 +1,18 @@
++//go:build windows
++
++package main
++
++import (
++	"golang.org/x/sys/windows"
++)
++
++// diskUsage returns used and total bytes for the filesystem that
++// contains path via GetDiskFreeSpaceEx (the Windows equivalent of statfs).
++func diskUsage(path string) (used, total uint64, ok bool) {
++	var freeBytesAvailable, totalBytes, totalFree uint64
++	err := windows.GetDiskFreeSpaceEx(windows.StringToUTF16Ptr(path), &freeBytesAvailable, &totalBytes, &totalFree)
++	if err != nil || totalBytes == 0 {
++		return 0, 0, false
++	}
++	return totalBytes - totalFree, totalBytes, true
++}
+diff --git a/services/mddbd/go.mod b/services/mddbd/go.mod
+index 5c2278e..b76b6cf 100644
+--- a/services/mddbd/go.mod
++++ b/services/mddbd/go.mod
+@@ -21,6 +21,7 @@ require (
+ 	github.com/vektah/gqlparser/v2 v2.5.36
+ 	go.etcd.io/bbolt v1.5.0
+ 	golang.org/x/crypto v0.54.0
++	golang.org/x/sys v0.47.0
+ 	google.golang.org/grpc v1.82.1
+ 	google.golang.org/protobuf v1.36.11
+ 	gopkg.in/yaml.v3 v3.0.1
+@@ -53,7 +54,6 @@ require (
+ 	golang.org/x/exp v0.0.0-20260611194520-c48552f49976 // indirect
+ 	golang.org/x/net v0.57.0 // indirect
+ 	golang.org/x/sync v0.22.0 // indirect
+-	golang.org/x/sys v0.47.0 // indirect
+ 	golang.org/x/text v0.40.0 // indirect
+ 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260610212136-7ab31c22f7ad // indirect
+ 	gopkg.in/ini.v1 v1.67.3 // indirect
+diff --git a/services/mddbd/incident_detector.go b/services/mddbd/incident_detector.go
+index b6c0457..541d457 100644
+--- a/services/mddbd/incident_detector.go
++++ b/services/mddbd/incident_detector.go
+@@ -9,7 +9,6 @@ import (
+ 	"strconv"
+ 	"sync"
+ 	"sync/atomic"
+-	"syscall"
+ 	"time"
+ )
+ 
+@@ -323,27 +322,3 @@ func (m *DiskUsageMonitor) check() {
+ 		"thresholdPct": int(m.threshold * 100),
+ 	})
+ }
+-
+-// diskUsage returns used and total bytes for the filesystem that
+-// contains path. Falls back to (0, 0, false) on platforms where
+-// syscall.Statfs is unavailable or the call fails.
+-func diskUsage(path string) (used, total uint64, ok bool) {
+-	var stat syscall.Statfs_t
+-	if err := syscall.Statfs(path, &stat); err != nil {
+-		return 0, 0, false
+-	}
+-	// Statfs_t field widths differ across OSes (Linux Bsize int64,
+-	// Darwin Bsize uint32, FreeBSD Bavail int64 vs Linux uint64, …).
+-	// Bsize is the only field that can plausibly be <= 0 on malformed
+-	// filesystems; guard it and then cast everything through uint64
+-	// with explicit nosec so gosec is happy on every target.
+-	if stat.Bsize <= 0 {
+-		return 0, 0, false
+-	}
+-	total = uint64(stat.Blocks) * uint64(stat.Bsize) // #nosec G115 -- Bsize validated > 0; Blocks is a filesystem size
+-	free := uint64(stat.Bavail) * uint64(stat.Bsize) // #nosec G115 -- Bsize validated > 0; Bavail is a filesystem size
+-	if free > total {
+-		return 0, 0, false
+-	}
+-	return total - free, total, true
+-}
+diff --git a/services/mddbd/system_handlers.go b/services/mddbd/system_handlers.go
+index 4b14ba7..1c97332 100644
+--- a/services/mddbd/system_handlers.go
++++ b/services/mddbd/system_handlers.go
+@@ -6,7 +6,6 @@ import (
+ 	"os"
+ 	"runtime"
+ 	"sync"
+-	"syscall"
+ 	"time"
+ 
+ 	json "github.com/goccy/go-json"
+@@ -31,11 +30,9 @@ var cpuSampler = &cpuSamplerState{
+ 
+ func init() {
+ 	// Take initial sample
+-	var rusage syscall.Rusage
+-	if err := syscall.Getrusage(syscall.RUSAGE_SELF, &rusage); err == nil {
+-		cpuSampler.lastUserNs = rusage.Utime.Nano()
+-		cpuSampler.lastSystemNs = rusage.Stime.Nano()
+-	}
++	userNs, systemNs, _ := processCPUTimes()
++	cpuSampler.lastUserNs = userNs
++	cpuSampler.lastSystemNs = systemNs
+ }
+ 
+ func (c *cpuSamplerState) sample() float64 {
+@@ -43,14 +40,11 @@ func (c *cpuSamplerState) sample() float64 {
+ 	defer c.mu.Unlock()
+ 
+ 	now := time.Now()
+-	var rusage syscall.Rusage
+-	if err := syscall.Getrusage(syscall.RUSAGE_SELF, &rusage); err != nil {
++	userNs, systemNs, ok := processCPUTimes()
++	if !ok {
+ 		return c.cpuPercent
+ 	}
+ 
+-	userNs := rusage.Utime.Nano()
+-	systemNs := rusage.Stime.Nano()
+-
+ 	elapsed := now.Sub(c.lastTime).Nanoseconds()
+ 	if elapsed <= 0 {
+ 		return c.cpuPercent
+-- 
+2.54.0.windows.1
+
