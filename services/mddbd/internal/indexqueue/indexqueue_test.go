@@ -236,13 +236,14 @@ func TestIndexQueue_EnqueueAndProcess(t *testing.T) {
 
 	_ = iq.Enqueue(job)
 
-	// Wait for processing
-	time.Sleep(100 * time.Millisecond)
+	// Poll until the job is processed instead of relying on a fixed sleep
+	// (CI workers can be slow, especially on Windows).
+	waitFor(t, func() bool {
+		p, _, _, _ := iq.Stats()
+		return p == 1
+	}, "expected 1 processed")
 
-	processed, failed, _, _ := iq.Stats()
-	if processed != 1 {
-		t.Errorf("expected 1 processed, got %d", processed)
-	}
+	_, failed, _, _ := iq.Stats()
 	if failed != 0 {
 		t.Errorf("expected 0 failed, got %d", failed)
 	}
