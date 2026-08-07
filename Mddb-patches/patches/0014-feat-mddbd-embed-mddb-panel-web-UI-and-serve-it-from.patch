@@ -1,6 +1,6 @@
-From 89ce1d42914a299db33ea6c7e225851101f1b3d8 Mon Sep 17 00:00:00 2001
+From 7744da5190d69955185668bd9bb947674bc11ee8 Mon Sep 17 00:00:00 2001
 From: ci <ci@local>
-Date: Fri, 7 Aug 2026 22:31:14 +0530
+Date: Fri, 7 Aug 2026 22:52:53 +0530
 Subject: [PATCH 14/15] feat(mddbd): embed mddb-panel web UI and serve it from
  mddbd.exe
 
@@ -12,19 +12,21 @@ other routes fall through to the embedded SPA (index.html) for client-side
 routing.
 
 The webui directory is populated at CI build time by copying the built
-panel dist into it; a .gitkeep placeholder keeps the package compiling when
-the panel is not built (e.g. the windows-runtime test job).
+panel dist into it; a non-dotfile placeholder.txt keeps the package
+compiling when the panel is not built (e.g. the windows-runtime go test
+job). NOTE: //go:embed ignores dotfiles, so a .gitkeep would NOT be
+embeddable and the directory would appear empty - hence placeholder.txt.
 ---
- services/mddbd/main.go            |  9 +++
- services/mddbd/ui_embed.go        | 16 ++++++
- services/mddbd/ui_handler.go      | 96 +++++++++++++++++++++++++++++++
- services/mddbd/ui_handler_test.go | 59 +++++++++++++++++++
- services/mddbd/webui/.gitkeep     |  5 ++
- 5 files changed, 185 insertions(+)
+ services/mddbd/main.go               |  9 +++
+ services/mddbd/ui_embed.go           | 19 ++++++
+ services/mddbd/ui_handler.go         | 96 ++++++++++++++++++++++++++++
+ services/mddbd/ui_handler_test.go    | 59 +++++++++++++++++
+ services/mddbd/webui/placeholder.txt | 12 ++++
+ 5 files changed, 195 insertions(+)
  create mode 100644 services/mddbd/ui_embed.go
  create mode 100644 services/mddbd/ui_handler.go
  create mode 100644 services/mddbd/ui_handler_test.go
- create mode 100644 services/mddbd/webui/.gitkeep
+ create mode 100644 services/mddbd/webui/placeholder.txt
 
 diff --git a/services/mddbd/main.go b/services/mddbd/main.go
 index 5449533..decbefe 100644
@@ -48,10 +50,10 @@ index 5449533..decbefe 100644
  		_ = earlyServer.Close()
 diff --git a/services/mddbd/ui_embed.go b/services/mddbd/ui_embed.go
 new file mode 100644
-index 0000000..41c16fc
+index 0000000..e3d1222
 --- /dev/null
 +++ b/services/mddbd/ui_embed.go
-@@ -0,0 +1,16 @@
+@@ -0,0 +1,19 @@
 +package main
 +
 +import "embed"
@@ -61,10 +63,13 @@ index 0000000..41c16fc
 +// zero external dependencies (no Node, no separate static server).
 +//
 +// The directory is populated at CI build time by copying
-+// services/mddb-panel/dist into services/mddbd/webui. A .gitkeep is committed
-+// so this package still compiles when the panel has not been built (e.g. the
-+// windows-runtime test job). In that case only .gitkeep is embedded and the
-+// UI handler falls through to the API handler for unknown routes.
++// services/mddb-panel/dist into services/mddbd/webui. A non-dotfile
++// placeholder.txt is committed so this package still compiles when the panel
++// has not been built (e.g. the windows-runtime test job). Note: //go:embed
++// ignores files whose names begin with '.' or '_', so a .gitkeep would NOT
++// be embeddable and the directory would appear empty — hence placeholder.txt.
++// In that case only placeholder.txt is embedded and the UI handler falls
++// through to the API handler for unknown routes.
 +//
 +//go:embed webui
 +var webuiFS embed.FS
@@ -235,17 +240,24 @@ index 0000000..f2c1400
 +		t.Errorf("got status %d, want 404 (fall through to API)", rec.Code)
 +	}
 +}
-diff --git a/services/mddbd/webui/.gitkeep b/services/mddbd/webui/.gitkeep
+diff --git a/services/mddbd/webui/placeholder.txt b/services/mddbd/webui/placeholder.txt
 new file mode 100644
-index 0000000..01f96a5
+index 0000000..72928ec
 --- /dev/null
-+++ b/services/mddbd/webui/.gitkeep
-@@ -0,0 +1,5 @@
-+# Placeholder so the embedded webui directory exists at compile time.
-+# CI populates this directory by copying services/mddb-panel/dist into it
-+# before building mddbd.exe. When the panel has not been built (e.g. the
-+# windows-runtime test job), only this file is embedded and the UI handler
-+# falls through to the API handler for unknown routes.
++++ b/services/mddbd/webui/placeholder.txt
+@@ -0,0 +1,12 @@
++This file exists only so the embedded `webui` directory is never empty at
++compile time.
++
++Go's //go:embed directive ignores files whose names begin with '.' or '_'
++(so a .gitkeep would NOT be embedded, leaving the directory with "no
++embeddable files" and failing to compile). A plain non-dotfile like this one
++is always embeddable.
++
++When the panel is not built (e.g. the windows-runtime `go test` job), this is
++the only file in webui and the package still compiles; the UI handler falls
++through to the API handler for unknown routes. CI overwrites webui/ with the
++built panel dist before cross-compiling mddbd.exe.
 -- 
 2.54.0.windows.1
 

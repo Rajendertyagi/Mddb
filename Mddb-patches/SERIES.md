@@ -199,24 +199,24 @@ Ordered vendor patch series for the MDDB Windows port.
 
 ## 0014 — Embed mddb-panel web UI into mddbd.exe
 
-- **Commit:** `89ce1d4`
+- **Commit:** `7744da5`
 - **Type:** Windows packaging (self-contained delivery)
 - **Upstreamable:** No (delivery model; relevant to any embedded-UI build)
 - **Status:** Applied
 - **Files:**
-  - `services/mddbd/webui/.gitkeep` (new)
+  - `services/mddbd/webui/placeholder.txt` (new)
   - `services/mddbd/ui_embed.go` (new)
   - `services/mddbd/ui_handler.go` (new)
   - `services/mddbd/ui_handler_test.go` (new)
   - `services/mddbd/main.go` (modified)
-- **Purpose:** Make `mddbd.exe` fully self-contained — it serves both the JSON API and the React panel from a single binary with no Node, no separate static server, and no external CDN at runtime. A new `//go:embed webui` directive embeds the pre-built panel (CI copies `services/mddb-panel/dist` into `services/mddbd/webui` before building). `withEmbeddedUI` wraps the API mux: API/control-plane prefixes (`/v1`, `/graphql`, `/playground`, `/metrics`, `/health`, `/debug`) are delegated untouched; all other routes fall through to the embedded SPA (`index.html`) for client-side routing. The `webui` dir carries a `.gitkeep` so the package still compiles when the panel is not built (e.g. the windows-runtime `go test` job). Enabled in internal panel mode (`MDDB_PANEL_MODE`); disabled when `external`.
+- **Purpose:** Make `mddbd.exe` fully self-contained — it serves both the JSON API and the React panel from a single binary with no Node, no separate static server, and no external CDN at runtime. A new `//go:embed webui` directive embeds the pre-built panel (CI copies `services/mddb-panel/dist` into `services/mddbd/webui` before building). `withEmbeddedUI` wraps the API mux: API/control-plane prefixes (`/v1`, `/graphql`, `/playground`, `/metrics`, `/health`, `/debug`) are delegated untouched; all other routes fall through to the embedded SPA (`index.html`) for client-side routing. The `webui` dir carries a non-dotfile `placeholder.txt` so the package still compiles when the panel is not built (e.g. the windows-runtime `go test` job). Enabled in internal panel mode (`MDDB_PANEL_MODE`); disabled when `external`.
 - **Dependencies:** 0001 (cross-compile); pairs with 0015 (panel assets).
 
 ---
 
 ## 0015 — Vendor Leaflet markers locally, make tiles optional
 
-- **Commit:** `f8f96fa`
+- **Commit:** `4207661`
 - **Type:** Windows packaging (offline / no external deps)
 - **Upstreamable:** Yes (removes unpkg CDN dependency; tiles opt-in)
 - **Status:** Applied

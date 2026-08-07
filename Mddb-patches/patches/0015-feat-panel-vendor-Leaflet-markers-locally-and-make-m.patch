@@ -1,6 +1,6 @@
-From f8f96fab7cee1d54618746b1f4d1678302b16bf8 Mon Sep 17 00:00:00 2001
+From 42076611b99eca184f7ae5c08d0bcbdf759d9122 Mon Sep 17 00:00:00 2001
 From: ci <ci@local>
-Date: Fri, 7 Aug 2026 22:31:15 +0530
+Date: Fri, 7 Aug 2026 22:52:53 +0530
 Subject: [PATCH 15/15] feat(panel): vendor Leaflet markers locally and make
  map tiles optional
 
