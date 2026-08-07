@@ -1,42 +1,18 @@
-From 90c7911f3b46db9ce3f7a4c666b0402d80f3c7f4 Mon Sep 17 00:00:00 2001
+From 076dc2df5ac1be782d22d76cfcedda4c847f2b4a Mon Sep 17 00:00:00 2001
 From: Rajendertyagi <86180775+Rajendertyagi@users.noreply.github.com>
-Date: Fri, 7 Aug 2026 11:11:56 +0530
-Subject: [PATCH 08/13] fix(audit): ensure globally unique BoltDB keys during
- batch flush on Windows
+Date: Fri, 7 Aug 2026 21:27:47 +0530
+Subject: [PATCH 08/13] fix(audit): ensure globally unique BoltDB keys during batch
+ flush on Windows
 
+bbolt NextSequence was called once per batch and the sequence reused across
+batches (key = timestamp + seq+i), so events sharing a timestamp collided and
+records were overwritten during flush. Allocate a fresh NextSequence() per
+event so every key is globally unique. Production-only change; the
+TestAuditBatchFlushLarge de-flake (poll instead of fixed sleep) stays in 0007.
 ---
- services/mddbd/audit_test.go           | 17 ++++-------------
  services/mddbd/internal/audit/audit.go | 13 ++++++++++---
- 2 files changed, 14 insertions(+), 16 deletions(-)
+ 1 file changed, 10 insertions(+), 3 deletions(-)
 
-diff --git a/services/mddbd/audit_test.go b/services/mddbd/audit_test.go
-index 27223a4..b9b059f 100644
---- a/services/mddbd/audit_test.go
-+++ b/services/mddbd/audit_test.go
-@@ -266,19 +266,10 @@ func TestAuditBatchFlushLarge(t *testing.T) {
- 	for i := 0; i < 200; i++ {
- 		am.Record(audit.AuditEvent{Actor: "u", Action: "x", Result: "ok"})
- 	}
--	// Flush is ticker/batch driven (async writer); poll until all 200 are
--	// persisted rather than sleep a fixed amount (flaky on slow/loaded CI).
--	deadline := time.Now().Add(5 * time.Second)
--	for {
--		ev, _ := am.Query(audit.QueryFilter{Limit: 300})
--		if len(ev) == 200 {
--			break
--		}
--		if time.Now().After(deadline) {
--			t.Fatalf("want 200, got %d", len(ev))
--			return
--		}
--		time.Sleep(20 * time.Millisecond)
-+	waitFlush(am)
-+	ev, _ := am.Query(audit.QueryFilter{Limit: 300})
-+	if len(ev) != 200 {
-+		t.Fatalf("want 200, got %d", len(ev))
- 	}
- }
- 
 diff --git a/services/mddbd/internal/audit/audit.go b/services/mddbd/internal/audit/audit.go
 index 4463675..6563c8a 100644
 --- a/services/mddbd/internal/audit/audit.go

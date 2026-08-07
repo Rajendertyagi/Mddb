@@ -120,14 +120,13 @@ Ordered vendor patch series for the MDDB Windows port.
 
 ## 0008 — Audit: globally unique BoltDB keys during batch flush
 
-- **Commit:** `90c7911`
+- **Commit:** `076dc2d`
 - **Type:** Cross-platform correctness (root-caused from Windows)
 - **Upstreamable:** Yes (fixes a latent key-collision bug)
 - **Status:** Applied
 - **Files:**
   - `services/mddbd/internal/audit/audit.go` (modified)
-  - `services/mddbd/audit_test.go` (modified)
-- **Purpose:** `flushBatch()` seeded all keys in a batch from a single `b.NextSequence()` call. bbolt advances its stored sequence by only 1 per call, so consecutive batches reused overlapping sequence numbers; with identical timestamps (tight loop, coarse Windows clock) keys collapsed and `Put` silently overwrote rows (got 66 of 200). Fix: one `NextSequence()` per event → strictly monotonic, globally unique `(ts, seq)`.
+- **Purpose:** `flushBatch()` seeded all keys in a batch from a single `b.NextSequence()` call. bbolt advances its stored sequence by only 1 per call, so consecutive batches reused overlapping sequence numbers; with identical timestamps (tight loop, coarse Windows clock) keys collapsed and `Put` silently overwrote rows (got 66 of 200). Fix: one `NextSequence()` per event → strictly monotonic, globally unique `(ts, seq)`. **Production-only** — the `TestAuditBatchFlushLarge` de-flake (poll instead of fixed sleep) lives in 0007 and is intentionally NOT touched here.
 - **Dependencies:** 0007 (the polling fix revealed the deterministic count).
 
 ---

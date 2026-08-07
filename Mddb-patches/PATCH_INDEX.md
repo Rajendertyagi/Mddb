@@ -17,7 +17,7 @@ Searchable index of the vendor patch series.
 | 0005 | `1a958ca` | De-flake TestIndexQueue_MultipleJobs | tests | Yes |
 | 0006 | `9c80ee4` | De-flake TestIndexQueue_StatsAfterProcessing | tests | Yes |
 | 0007 | `685c873` | De-flake TestAuditBatchFlushLarge | tests | Yes |
-| 0008 | `90c7911` | Audit: globally unique BoltDB keys | storage / audit | Yes |
+| 0008 | `076dc2d` | Audit: globally unique BoltDB keys | storage / audit | Yes |
 | 0009 | `1dadef4` | gRPC: close+swap+reopen DB during Restore | gRPC / storage | No |
 | 0010 | `841cf1b` | gRPC-test: close live s.DB in cleanup | tests | No |
 | 0011 | `d978e71` | Replace fixed sleeps with waitFor polling | tests | Yes |
@@ -36,7 +36,7 @@ Searchable index of the vendor patch series.
 - 0004 `cdb703c` — replaceFile helper, UDS skip, temp paths
 
 ### Storage / Audit
-- 0008 `90c7911` — Audit: globally unique BoltDB keys
+- 0008 `076dc2d` — Audit: globally unique BoltDB keys
 - 0009 `1dadef4` — gRPC: close+swap+reopen DB during Restore
 
 ### gRPC
