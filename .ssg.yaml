@@ -25,6 +25,12 @@ watch: false
 
 # Build optimization
 webp: true
+# The webp pass covers the whole output tree and replaces each original. Our
+# og:image is an absolute URL (https://…/og-image.png), which SSG deliberately
+# leaves alone — so replace mode deleted the PNG out from under every page's
+# social-preview meta. Keeping originals alongside the .webp restores it;
+# in-page references are still rewritten to WebP.
+webp_keep_original: true
 # minify_all collapses whitespace inside Mermaid code blocks, which corrupts
 # diagrams (Mermaid source is whitespace-significant: xychart "y-axis 0 --> 55",
 # subgraph layouts, sequence diagrams). Keep HTML un-minified so diagram source
@@ -71,3 +77,69 @@ strip_md_link_text: true
 
 # Template engine (Go templates)
 engine: "go"
+
+# Files published verbatim that live outside the theme's static/ root. Copying
+# them here rather than after the build means the generator's own checks can
+# see them — while they were staged by a Makefile step afterwards, every page
+# linking /docs/api/swagger was reported as a dead link.
+# `dest` for a file is its full destination path, not a directory to drop it in.
+static_sources:
+  # A directory page, not swagger.html: Cloudflare Pages strips the extension
+  # and 308s, so a .html URL and the file on disk can never both be right.
+  - path: services/ssg-template/swagger.html
+    dest: docs/api/swagger/index.html
+  - path: docs/openapi.yaml
+    dest: docs/api/openapi.yaml
+  - path: services/ssg-template/404.html
+    dest: 404.html
+  # og:image is referenced as an absolute URL by every page's meta tags and
+  # must stay a PNG at the site root: the webp pass rewrites anything under
+  # images/, and several social crawlers still refuse WebP previews.
+  - path: services/ssg-template/og-image.png
+    dest: og-image.png
+
+# docs/examples/sample-with-frontmatter.md documents MDDB's own front-matter
+# format (comma-separated `tags`), which is valid for its purpose and
+# unparseable as a page. It is data, not content.
+content_exclude:
+  # docs/index.md carries only the homepage's frontmatter — the body lives in
+  # the index.html template. Left as content it also rendered a near-empty
+  # second page at /index/ with the same title: a thin duplicate of the
+  # homepage. Excluding it removes the duplicate outright; / is unaffected,
+  # because the homepage is rendered from the template, not from the slug.
+  - "index.md"
+  # sample-with-frontmatter.md documents MDDB's own front-matter format
+  # (comma-separated `tags`), which is valid for its purpose and unparseable
+  # as a page. It is data, not content.
+  - "docs/examples/**"
+
+# /index/ names / as its canonical: docs/index.md renders the homepage and a
+# near-empty duplicate, and it cannot be unpublished without losing the
+# homepage. noindex pages are dropped from the sitemap unconditionally; this
+# opts into dropping the non-self-canonical one too.
+sitemap_prune_canonical: false
+
+# Feed for the blog, so readers can subscribe without polling the index.
+feed: true
+feed_items: 20
+
+# /index/ was published for months before the duplicate was removed; send it to
+# the page it duplicated rather than letting it 404.
+redirects:
+  - from: /index/
+    to: /
+    status: 301
+
+# Fail the build on anything a crawl would report: dead links, images with no
+# alt attribute, indexable pages missing a title or description, and pages
+# nothing links to. Length bounds stay advisory — a headline that reads well
+# at 62 characters beats one mangled to fit.
+check_links: strict
+check_images: strict
+check_meta: strict
+check_orphans: strict
+meta_limits:
+  title_min: 0
+  title_max: 60
+  description_min: 70
+  description_max: 160

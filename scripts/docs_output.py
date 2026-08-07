@@ -1,9 +1,8 @@
-"""Shared helpers for the scripts that inspect the built documentation site.
+"""Path and URL helpers for scripts that inspect the built documentation site.
 
-`check-docs-links.py` reports defects in the output and `prune-sitemap.py`
-edits one file in it. Both walk the same tree, read the same tags out of the
-same generated HTML, and take the output directory as an argument — so the
-path handling and the tag patterns live here rather than in each script.
+The output directory arrives as a CLI argument and the URLs come out of
+generated HTML, so neither is trusted to keep a resolved path inside the tree.
+Containment is proven here, once, rather than assumed at each call site.
 
 Nothing in this module touches the network: the scripts gate a deploy and must
 stay offline and deterministic.
@@ -32,12 +31,6 @@ def site_path(url: str) -> str | None:
         return None
     return parts.path or "/"
 
-# `[^<]*` and `[^"]*` rather than a lazy `.*?`: none of these values contain
-# the delimiter that ends them, and the lazy dotall form backtracks
-# super-linearly on malformed input.
-LOC_PATTERN = r"<loc>([^<]*)</loc>"
-ROBOTS_PATTERN = r'<meta name="robots" content="([^"]*)"'
-CANONICAL_PATTERN = r'<link rel="canonical" href="([^"]*)"'
 
 
 def resolve_within(root: str, path: str) -> Path:

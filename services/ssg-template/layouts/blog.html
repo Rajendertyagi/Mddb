@@ -24,6 +24,7 @@
                 {{if .Description}}
                 <p class="doc-index-lead">{{.Description}}</p>
                 {{end}}
+                <p class="doc-index-lead"><a href="/feed.xml">Subscribe via Atom feed</a></p>
             </header>
             <ul class="post-list">
                 {{range .Site.Posts | sort "Date" "desc"}}

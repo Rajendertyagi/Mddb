@@ -72,10 +72,15 @@ by the SSG build. Preview and verify locally:
 ```bash
 make docs-dev        # live preview on http://localhost:8888
 make docs-build      # build the static site into dist/
-make docs-linkcheck  # build, then fail on any link that would 404 on the site
+make docs-linkcheck  # build, then fail on any link that hits a redirect
 ```
 
-Two rules the checker enforces:
+The build validates its own output. SSG fails on dead links, images with no
+`alt`, indexable pages missing a `<title>` or meta description, and pages
+nothing links to (`check_*` in `.ssg.yaml`); `check-docs-links.py` adds the one
+thing it cannot see — links that only resolve through a redirect.
+
+Two rules follow from that:
 
 - Repository files have no URL on the published site, so **never link to source
   with a repo-relative path** (`../services/mddbd/main.go`). Use the full GitHub
@@ -83,11 +88,10 @@ Two rules the checker enforces:
   when the page exists on the site, link the site instead.
 - **Link the final URL, never a redirect.** Cloudflare Pages strips `.html` and
   appends a missing trailing slash, answering with a 308 either way — so write
-  `/docs/api/swagger` (not `swagger.html`) and `/docs/config/` (not
-  `/docs/config`).
+  `/docs/config/`, not `/docs/config`.
 
-`make docs-linkcheck` runs in the deploy workflow and blocks publication when
-either is violated.
+Every page also needs a `description:` in its front matter: it becomes the meta
+description, and the build fails without one.
 
 ## Commit Convention
 
