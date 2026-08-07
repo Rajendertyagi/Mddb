@@ -1,11 +1,4 @@
-{{define "page_slug"}}{{.Page.Slug}}{{end}}
-{{/* docs/index.md drives the homepage AND gets rendered a second time through
-     this template at /index/ — a thin duplicate of / carrying the same title.
-     It cannot simply be dropped: setting it to draft removes the homepage too.
-     So /index/ points its canonical at / and stays out of the index. */}}
-{{$dupOfHome := eq .Page.Slug "index"}}
-{{$url := printf "https://%s/%s/" .Domain .Page.Slug}}
-{{if $dupOfHome}}{{$url = printf "https://%s/" .Domain}}{{end}}
+{{define "page_slug"}}{{.Page.Slug}}{{end -}}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -14,10 +7,10 @@
     <meta name="description" content="{{if .Page.Description}}{{.Page.Description}}{{else}}{{.Page.Excerpt}}{{end}}">
     <meta property="og:title" content="{{.Page.Title}} — MDDB">
     <meta property="og:description" content="{{if .Page.Description}}{{.Page.Description}}{{else}}{{.Page.Excerpt}}{{end}}">
-    <meta property="og:url" content="{{$url}}" />
+    <meta property="og:url" content="https://{{.Domain}}/{{.Page.Slug}}/" />
     <meta property="twitter:title" content="{{.Page.Title}} — MDDB">
-    <meta property="twitter:url" content="{{$url}}" />
-    <link rel="canonical" href="{{$url}}" />
+    <meta property="twitter:url" content="https://{{.Domain}}/{{.Page.Slug}}/" />
+    <link rel="canonical" href="https://{{.Domain}}/{{.Page.Slug}}/" />
     <title>{{.Page.Title}} — MDDB</title>
 </head>
 <body>

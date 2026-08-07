@@ -1,9 +1,9 @@
-{{define "page_slug"}}category/{{.Category.Slug}}{{end}}
+{{define "page_slug"}}category/{{.Category.Slug}}{{end -}}
 {{/* A category page lists the same posts as the section index it mirrors
      (/category/blog/ vs /blog/), is absent from the sitemap and is linked from
      nowhere on the site. It exists so the taxonomy URL resolves, not to rank —
      so keep it out of the index while still letting crawlers follow through to
-     the posts. */}}
+     the posts. */ -}}
 <!DOCTYPE html>
 <html lang="en">
 <head>
