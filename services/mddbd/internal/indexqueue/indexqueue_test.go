@@ -297,7 +297,6 @@ func TestIndexQueue_EnqueueUpdateMeta(t *testing.T) {
 		NewMeta:    map[string][]string{"tag": {"go"}},
 	}
 	_ = iq.Enqueue(job1)
-	time.Sleep(100 * time.Millisecond)
 
 	// Second: update metadata (remove "go", add "python")
 	job2 := &IndexJob{
@@ -307,12 +306,15 @@ func TestIndexQueue_EnqueueUpdateMeta(t *testing.T) {
 		NewMeta:    map[string][]string{"tag": {"python"}},
 	}
 	_ = iq.Enqueue(job2)
-	time.Sleep(100 * time.Millisecond)
 
-	processed, failed, _, _ := iq.Stats()
-	if processed != 2 {
-		t.Errorf("expected 2 processed, got %d", processed)
-	}
+	// Poll until both jobs are processed instead of relying on fixed sleeps
+	// (CI workers can be slow, especially on Windows).
+	waitFor(t, func() bool {
+		p, _, _, _ := iq.Stats()
+		return p == 2
+	}, "expected 2 processed")
+
+	_, failed, _, _ := iq.Stats()
 	if failed != 0 {
 		t.Errorf("expected 0 failed, got %d", failed)
 	}
