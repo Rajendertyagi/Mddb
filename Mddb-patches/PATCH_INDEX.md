@@ -23,8 +23,8 @@ Searchable index of the vendor patch series.
 | 0011 | `d978e71` | Replace fixed sleeps with waitFor polling | tests | Yes |
 | 0012 | `b6ac55b` | Temporal-test: correct HistogramBucket type | tests | Yes |
 | 0013 | `334d7b4` | Indexqueue-test: poll for processed job | tests | Yes |
-| 0014 | `ac5ba6c` | Embed mddb-panel web UI into mddbd.exe | packaging / web | No |
-| 0015 | `9f3a922` | Vendor Leaflet markers, optional tiles | panel / web | Yes |
+| 0014 | `89ce1d4` | Embed mddb-panel web UI into mddbd.exe | packaging / web | No |
+| 0015 | `f8f96fa` | Vendor Leaflet markers, optional tiles | panel / web | Yes |
 
 ## By Subsystem
 
@@ -56,8 +56,8 @@ Searchable index of the vendor patch series.
 - 0013 `334d7b4` — Indexqueue-test: poll for processed job
 
 ### Packaging / Web
-- 0014 `ac5ba6c` — Embed mddb-panel web UI into mddbd.exe
-- 0015 `9f3a922` — Vendor Leaflet markers locally, optional tiles
+- 0014 `89ce1d4` — Embed mddb-panel web UI into mddbd.exe
+- 0015 `f8f96fa` — Vendor Leaflet markers locally, optional tiles
 
 ## By Type
 

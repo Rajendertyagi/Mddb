@@ -199,7 +199,7 @@ Ordered vendor patch series for the MDDB Windows port.
 
 ## 0014 — Embed mddb-panel web UI into mddbd.exe
 
-- **Commit:** `ac5ba6c`
+- **Commit:** `89ce1d4`
 - **Type:** Windows packaging (self-contained delivery)
 - **Upstreamable:** No (delivery model; relevant to any embedded-UI build)
 - **Status:** Applied
@@ -216,7 +216,7 @@ Ordered vendor patch series for the MDDB Windows port.
 
 ## 0015 — Vendor Leaflet markers locally, make tiles optional
 
-- **Commit:** `9f3a922`
+- **Commit:** `f8f96fa`
 - **Type:** Windows packaging (offline / no external deps)
 - **Upstreamable:** Yes (removes unpkg CDN dependency; tiles opt-in)
 - **Status:** Applied
