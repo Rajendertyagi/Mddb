@@ -648,7 +648,10 @@ func TestIndexQueue_StatsAfterProcessing(t *testing.T) {
 		})
 	}
 
-	time.Sleep(200 * time.Millisecond)
+	waitFor(t, func() bool {
+		p, _, _, _ := iq.Stats()
+		return p == 5
+	}, "expected 5 jobs processed")
 
 	processed, failed, _, qLen := iq.Stats()
 	if processed != 5 {
