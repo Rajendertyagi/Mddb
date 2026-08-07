@@ -11,6 +11,7 @@ on:
     paths:
       - 'services/mddbd/**'
       - 'services/mddb-cli/**'
+      - 'services/mddb-panel/**'
       - 'clients/go/mddb/**'
       - 'go.work'
       - '.github/workflows/build-windows.yml'
@@ -66,11 +67,35 @@ jobs:
         run: |
           go build -ldflags="-s -w" -o mddb-cli.exe .
 
+      # mddb-panel is a React/Vite web app (not a native exe). Build it on the
+      # same Linux runner and bundle ONLY the static output. The panel calls
+      # mddbd directly (VITE_SERVER_URL -> :11023) and mddbd ships wildcard
+      # CORS by default, so it runs Node-free: serve dist/panel with any static
+      # server (python -m http.server, nginx, etc.). server.js + package.json
+      # are also included for users who DO want to run the Express server.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: services/mddb-panel/package-lock.json
+
+      - name: Build web panel (mddb-panel)
+        working-directory: services/mddb-panel
+        run: |
+          npm ci
+          npm run build
+
       - name: Stage binaries
         run: |
           mkdir -p dist
           cp services/mddbd/mddbd.exe dist/
           cp services/mddb-cli/mddb-cli.exe dist/
+          # Static web panel (Node-free): built assets + optional Express server.
+          mkdir -p dist/panel
+          cp -r services/mddb-panel/dist dist/panel/dist
+          cp services/mddb-panel/server.js dist/panel/ 2>/dev/null || true
+          cp services/mddb-panel/package.json dist/panel/ 2>/dev/null || true
           cp README.md dist/ || true
           cp LICENSE dist/ || true
 
