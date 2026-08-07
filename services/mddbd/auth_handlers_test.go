@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -18,7 +19,7 @@ import (
 // Returns the server, the database, and a cleanup function.
 func setupTestServer(t *testing.T) (*Server, *bolt.DB, func()) {
 	t.Helper()
-	dbPath := "/tmp/test_auth_handlers_" + t.Name() + ".db"
+	dbPath := filepath.Join(t.TempDir(), t.Name()+".db")
 	db, err := bolt.Open(dbPath, 0600, &bolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
 		t.Fatalf("Failed to open test database: %v", err)

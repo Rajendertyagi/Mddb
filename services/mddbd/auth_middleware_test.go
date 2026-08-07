@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 // authMwSetup creates an AuthManager with a test DB for middleware tests.
 func authMwSetup(t *testing.T) (*AuthManager, func()) {
 	t.Helper()
-	dbPath := "/tmp/test_auth_mw_" + t.Name() + ".db"
+	dbPath := filepath.Join(t.TempDir(), t.Name()+".db")
 	db, err := bolt.Open(dbPath, 0600, &bolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
 		t.Fatalf("bolt.Open: %v", err)

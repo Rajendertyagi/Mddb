@@ -318,7 +318,7 @@ func (rc *ReplicationClient) replaceDatabase(snapshotPath string) error {
 	}
 
 	// Rename snapshot to database path
-	if err := os.Rename(snapshotPath, rc.server.Path); err != nil {
+	if err := replaceFile(snapshotPath, rc.server.Path); err != nil {
 		return fmt.Errorf("failed to rename snapshot: %w", err)
 	}
 
