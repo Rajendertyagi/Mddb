@@ -1,6 +1,6 @@
-From ac5ba6cfe5a627deb545fabbc86b036a8988f7bd Mon Sep 17 00:00:00 2001
+From 89ce1d42914a299db33ea6c7e225851101f1b3d8 Mon Sep 17 00:00:00 2001
 From: ci <ci@local>
-Date: Fri, 7 Aug 2026 22:18:28 +0530
+Date: Fri, 7 Aug 2026 22:31:14 +0530
 Subject: [PATCH 14/15] feat(mddbd): embed mddb-panel web UI and serve it from
  mddbd.exe
 
@@ -15,12 +15,12 @@ The webui directory is populated at CI build time by copying the built
 panel dist into it; a .gitkeep placeholder keeps the package compiling when
 the panel is not built (e.g. the windows-runtime test job).
 ---
- services/mddbd/main.go            |  9 ++++
+ services/mddbd/main.go            |  9 +++
  services/mddbd/ui_embed.go        | 16 ++++++
- services/mddbd/ui_handler.go      | 90 +++++++++++++++++++++++++++++++
- services/mddbd/ui_handler_test.go | 59 ++++++++++++++++++++
+ services/mddbd/ui_handler.go      | 96 +++++++++++++++++++++++++++++++
+ services/mddbd/ui_handler_test.go | 59 +++++++++++++++++++
  services/mddbd/webui/.gitkeep     |  5 ++
- 5 files changed, 179 insertions(+)
+ 5 files changed, 185 insertions(+)
  create mode 100644 services/mddbd/ui_embed.go
  create mode 100644 services/mddbd/ui_handler.go
  create mode 100644 services/mddbd/ui_handler_test.go
@@ -70,10 +70,10 @@ index 0000000..41c16fc
 +var webuiFS embed.FS
 diff --git a/services/mddbd/ui_handler.go b/services/mddbd/ui_handler.go
 new file mode 100644
-index 0000000..c24fea7
+index 0000000..93024e1
 --- /dev/null
 +++ b/services/mddbd/ui_handler.go
-@@ -0,0 +1,90 @@
+@@ -0,0 +1,96 @@
 +package main
 +
 +import (
@@ -107,6 +107,8 @@ index 0000000..c24fea7
 +		return inner
 +	}
 +
++	fileServer := http.FileServer(http.FS(sub))
++
 +	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 +		path := r.URL.Path
 +		if isAPIPath(path) {
@@ -121,8 +123,8 @@ index 0000000..c24fea7
 +		}
 +		if f, err := sub.Open(rel); err == nil {
 +			if info, err := f.Stat(); err == nil && !info.IsDir() {
-+				defer f.Close()
-+				serveEmbedded(w, r, sub, rel)
++				f.Close()
++				serveEmbedded(w, r, fileServer, rel)
 +				return
 +			}
 +			f.Close()
@@ -130,12 +132,13 @@ index 0000000..c24fea7
 +
 +		// SPA fallback: serve index.html for any other non-API path so deep
 +		// links work. If index.html isn't embedded, fall through to the API
-+		// handler (404).
++		// handler (404). http.FileServer resolves the seek internally, so it
++		// works with the fs.File returned by embed.FS (which is not an
++		// io.ReadSeeker at compile time).
 +		if idx, err := sub.Open("index.html"); err == nil {
 +			if info, err := idx.Stat(); err == nil && !info.IsDir() {
-+				defer idx.Close()
-+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
-+				http.ServeContent(w, r, "index.html", info.ModTime(), idx)
++				idx.Close()
++				serveEmbedded(w, r, fileServer, "index.html")
 +				return
 +			}
 +			idx.Close()
@@ -145,15 +148,18 @@ index 0000000..c24fea7
 +	})
 +}
 +
-+// serveEmbedded serves a file from the embedded FS with correct content type
-+// and a short cache lifetime for static assets.
-+func serveEmbedded(w http.ResponseWriter, r *http.Request, sub fs.FS, name string) {
-+	if strings.Contains(r.URL.Path, ".") {
++// serveEmbedded serves name from the embedded FS via the shared fileServer,
++// with a short cache lifetime for static assets (paths containing a dot).
++// The request path is rewritten so "/" and SPA-fallback routes resolve to the
++// requested file (e.g. index.html) rather than the original route.
++func serveEmbedded(w http.ResponseWriter, r *http.Request, fileServer http.Handler, name string) {
++	if strings.Contains(name, ".") {
 +		// Has a file extension (asset, not a route) — cacheable.
 +		w.Header().Set("Cache-Control", "public, max-age=3600")
 +	}
-+	fileServer := http.FileServer(http.FS(sub))
-+	fileServer.ServeHTTP(w, r)
++	r2 := r.Clone(r.Context())
++	r2.URL.Path = "/" + strings.TrimPrefix(name, "/")
++	fileServer.ServeHTTP(w, r2)
 +}
 +
 +func isAPIPath(path string) bool {
