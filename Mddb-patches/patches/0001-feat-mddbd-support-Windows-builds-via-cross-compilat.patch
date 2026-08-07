@@ -9,100 +9,9 @@ platform-specific helpers backed by golang.org/x/sys/windows on Windows:
 - processCPUTimes() -> GetProcessTimes
 - diskUsage() -> GetDiskFreeSpaceEx
 
-Add build-windows.yml workflow to cross-compile mddbd.exe and
-mddb-cli.exe (CGO_ENABLED=0) and upload as artifact.
+The cross-compile CI workflow (.github/workflows/build-windows.yml) is
+committed separately and applies this vendor patch series at build time.
 ---
- .github/workflows/build-windows.yml  | 70 ++++++++++++++++++++++++++++
- services/mddbd/cpu_usage_unix.go     | 17 +++++++
- services/mddbd/cpu_usage_windows.go  | 20 ++++++++
- services/mddbd/disk_usage_unix.go    | 31 ++++++++++++
- services/mddbd/disk_usage_windows.go | 18 +++++++
- services/mddbd/go.mod                |  2 +-
- services/mddbd/incident_detector.go  | 25 ----------
- services/mddbd/system_handlers.go    | 16 ++-----
- 8 files changed, 162 insertions(+), 37 deletions(-)
- create mode 100644 .github/workflows/build-windows.yml
- create mode 100644 services/mddbd/cpu_usage_unix.go
- create mode 100644 services/mddbd/cpu_usage_windows.go
- create mode 100644 services/mddbd/disk_usage_unix.go
- create mode 100644 services/mddbd/disk_usage_windows.go
-
-diff --git a/.github/workflows/build-windows.yml b/.github/workflows/build-windows.yml
-new file mode 100644
-index 0000000..821c9e3
---- /dev/null
-+++ b/.github/workflows/build-windows.yml
-@@ -0,0 +1,70 @@
-+name: Build Windows
-+
-+# OPS-009: least privilege ??? builds publish nothing.
-+permissions:
-+  contents: read
-+
-+on:
-+  workflow_dispatch:
-+  push:
-+    branches: [main]
-+    paths:
-+      - 'services/mddbd/**'
-+      - 'services/mddb-cli/**'
-+      - 'clients/go/mddb/**'
-+      - 'go.work'
-+      - '.github/workflows/build-windows.yml'
-+
-+env:
-+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-+  GO_VERSION: '1.26.5'
-+  # Disable Go workspace mode so each module builds independently.
-+  GOWORK: "off"
-+
-+jobs:
-+  build-windows:
-+    name: Cross-compile Windows exes
-+    runs-on: ubuntu-latest
-+    steps:
-+      - name: Checkout code
-+        uses: actions/checkout@v7
-+        with:
-+          fetch-depth: 0
-+
-+      - name: Set up Go
-+        uses: actions/setup-go@v7
-+        with:
-+          go-version: ${{ env.GO_VERSION }}
-+          cache-dependency-path: services/mddbd/go.sum
-+
-+      - name: Build server (mddbd.exe)
-+        working-directory: services/mddbd
-+        env:
-+          GOOS: windows
-+          GOARCH: amd64
-+          CGO_ENABLED: 0
-+        run: |
-+          go build -ldflags="-s -w" -o mddbd.exe .
-+
-+      - name: Build client (mddb-cli.exe)
-+        working-directory: services/mddb-cli
-+        env:
-+          GOOS: windows
-+          GOARCH: amd64
-+          CGO_ENABLED: 0
-+        run: |
-+          go build -ldflags="-s -w" -o mddb-cli.exe .
-+
-+      - name: Stage binaries
-+        run: |
-+          mkdir -p dist
-+          cp services/mddbd/mddbd.exe dist/
-+          cp services/mddb-cli/mddb-cli.exe dist/
-+          cp README.md dist/ || true
-+          cp LICENSE dist/ || true
-+
-+      - name: Upload artifacts
-+        uses: actions/upload-artifact@v7
-+        with:
-+          name: mddb-windows-amd64
-+          path: dist/
 diff --git a/services/mddbd/cpu_usage_unix.go b/services/mddbd/cpu_usage_unix.go
 new file mode 100644
 index 0000000..3758692
@@ -317,6 +226,3 @@ index 4b14ba7..1c97332 100644
  	elapsed := now.Sub(c.lastTime).Nanoseconds()
  	if elapsed <= 0 {
  		return c.cpuPercent
--- 
-2.54.0.windows.1
-

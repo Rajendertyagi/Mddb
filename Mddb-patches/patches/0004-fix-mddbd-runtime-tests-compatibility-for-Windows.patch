@@ -10,56 +10,11 @@ Subject: [PATCH 04/13] fix(mddbd): runtime + tests compatibility for Windows
   /tmp; skip UDS listener tests on Windows where unix sockets are
   unsupported; shortSocketDir uses os.TempDir() on Windows.
 - mddb-cli: open GraphQL playground via 'cmd /c start' on Windows.
-- build-windows.yml: add windows-latest runtime 'go test ./...' job.
----
- .github/workflows/build-windows.yml    | 25 +++++++++++++++++++++++++
- services/mddb-cli/main.go              | 12 ++++++++++++
- services/mddbd/auth_grpc_test.go       |  3 ++-
- services/mddbd/auth_handlers_test.go   |  3 ++-
- services/mddbd/auth_manager_test.go    |  3 ++-
- services/mddbd/auth_middleware_test.go |  3 ++-
- services/mddbd/listen_addr_test.go     | 21 +++++++++++++++++++--
- services/mddbd/replacefile_unix.go     | 10 ++++++++++
- services/mddbd/replacefile_windows.go  | 17 +++++++++++++++++
- services/mddbd/replication_client.go   |  2 +-
- services/mddbd/util.go                 |  2 +-
- 11 files changed, 93 insertions(+), 8 deletions(-)
- create mode 100644 services/mddbd/replacefile_unix.go
- create mode 100644 services/mddbd/replacefile_windows.go
 
-diff --git a/.github/workflows/build-windows.yml b/.github/workflows/build-windows.yml
-index 821c9e3..38e028b 100644
---- a/.github/workflows/build-windows.yml
-+++ b/.github/workflows/build-windows.yml
-@@ -68,3 +68,28 @@ jobs:
-         with:
-           name: mddb-windows-amd64
-           path: dist/
-+
-+  windows-runtime:
-+    # Windows host runs go test natively (not cross-compiled) to catch
-+    # runtime gaps the cross-compile alone cannot: overwrite-rename, temp paths.
-+    name: Runtime tests on Windows
-+    runs-on: windows-latest
-+    env:
-+      GOWORK: "off"
-+    steps:
-+      - name: Checkout code
-+        uses: actions/checkout@v7
-+
-+      - name: Set up Go
-+        uses: actions/setup-go@v7
-+        with:
-+          go-version: ${{ env.GO_VERSION }}
-+          cache-dependency-path: services/mddbd/go.sum
-+
-+      - name: Test server (mddbd)
-+        working-directory: services/mddbd
-+        run: go test ./...
-+
-+      - name: Build client (mddb-cli)
-+        working-directory: services/mddb-cli
-+        run: go build ./...
+The CI workflow that adds the windows-latest runtime test job is committed
+separately under .github/workflows/build-windows.yml and applies this
+vendor patch series at build time.
+---
 diff --git a/services/mddb-cli/main.go b/services/mddb-cli/main.go
 index b111831..455edf3 100644
 --- a/services/mddb-cli/main.go
@@ -308,6 +263,3 @@ index 821ae94..dd5d153 100644
  }
  func mustJSON(v any) []byte {
  	b, err := json.Marshal(v)
--- 
-2.54.0.windows.1
-

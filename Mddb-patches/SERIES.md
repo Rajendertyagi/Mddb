@@ -22,8 +22,7 @@ Ordered vendor patch series for the MDDB Windows port.
   - `services/mddbd/go.mod` (modified)
   - `services/mddbd/incident_detector.go` (modified)
   - `services/mddbd/system_handlers.go` (modified)
-  - `.github/workflows/build-windows.yml` (new)
-- **Purpose:** Replace unix-only `syscall.Getrusage` / `syscall.Statfs` usage with platform-specific helpers backed by `golang.org/x/sys/windows`. Add a CI workflow to cross-compile `mddbd.exe` and `mddb-cli.exe` (`CGO_ENABLED=0`).
+- **Purpose:** Replace unix-only `syscall.Getrusage` / `syscall.Statfs` usage with platform-specific helpers backed by `golang.org/x/sys/windows`. The CI workflow that cross-compiles `mddbd.exe` / `mddb-cli.exe` (`CGO_ENABLED=0`) is committed separately under `.github/workflows/build-windows.yml` and applies this vendor patch series at build time.
 - **Dependencies:** None (first patch).
 
 ---
@@ -71,12 +70,11 @@ Ordered vendor patch series for the MDDB Windows port.
   - `services/mddbd/auth_middleware_test.go` (modified)
   - `services/mddbd/listen_addr_test.go` (modified)
   - `services/mddb-cli/main.go` (modified)
-  - `.github/workflows/build-windows.yml` (modified)
 - **Purpose:**
   - `replaceFile` helper: Windows `os.Rename` cannot overwrite an existing destination, so add a remove-then-rename path (platform-split files) used by `copyFile` and `ReplicationClient.replaceDatabase`.
   - Tests: use `filepath.Join(t.TempDir(), ...)` for auth DB paths instead of `/tmp`; skip UDS listener tests on Windows (unix sockets unsupported); `shortSocketDir` uses `os.TempDir()` on Windows.
   - mddb-cli: open GraphQL playground via `cmd /c start` on Windows.
-  - CI: add a `windows-latest` runtime `go test ./...` job.
+  - The `windows-latest` runtime `go test ./...` job lives in the committed `.github/workflows/build-windows.yml` and applies this series at build time.
 - **Dependencies:** 0001.
 
 ---
@@ -136,14 +134,14 @@ Ordered vendor patch series for the MDDB Windows port.
 
 ## 0009 — gRPC: close+swap+reopen DB during Restore
 
-- **Commit:** `8706879`
+- **Commit:** `1dadef4`
 - **Type:** Windows-only
 - **Upstreamable:** No (correct on Unix as-is; Windows needs the close/reopen)
 - **Status:** Applied
 - **Files:**
   - `services/mddbd/grpc_server.go` (modified)
-- **Purpose:** `GRPCServer.Restore` copied the backup over the live, open bbolt file. Unix allows renaming over an open file; Windows forbids removing an open file, so restore failed with "being used by another process". Mirror the existing `handleRestore` / `replaceDatabase` pattern: close DB, swap file, reopen in place, reset binlog.
-- **Dependencies:** 0004 (`replaceFile` helper).
+- **Purpose:** `GRPCServer.Restore` copied the backup over the live, open bbolt file. Unix allows renaming over an open file; Windows forbids removing an open file, so restore failed with "being used by another process". Wrap the whole close→copy→reopen in `Server.withRestoreLock` (GO-004): take the exclusive `restoreMu` write lock so concurrent readers drain and the handle is swapped atomically (not just on single-threaded Restore), then reassign the pointer and reset the binlog.
+- **Dependencies:** 0004 (`replaceFile` helper); uses `Server.withRestoreLock` / `restoreMu` (server_restore.go).
 
 ---
 

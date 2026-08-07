@@ -1,6 +1,6 @@
 name: Build Windows
 
-# OPS-009: least privilege ??? builds publish nothing.
+# OPS-009: least privilege — CI only builds/tests, no publish/release artifacts.
 permissions:
   contents: read
 
@@ -13,8 +13,8 @@ on:
       - 'services/mddb-cli/**'
       - 'clients/go/mddb/**'
       - 'go.work'
-      - 'Mddb-patches/**'
       - '.github/workflows/build-windows.yml'
+      - 'Mddb-patches/**'
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
@@ -32,14 +32,21 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Apply vendor patches
-        run: git apply Mddb-patches/patches/*.patch
-
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: services/mddbd/go.sum
+
+      # Apply the vendor patch series (services only) so the upstream tree
+      # becomes Windows-buildable for this run. Changes are ephemeral — the
+      # runner is destroyed afterwards and upstream stays pristine in Git.
+      - name: Apply Windows vendor patches
+        shell: bash
+        run: |
+          for p in Mddb-patches/patches/*.patch; do
+            git apply "$p"
+          done
 
       - name: Build server (mddbd.exe)
         working-directory: services/mddbd
@@ -83,15 +90,21 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
-
-      - name: Apply vendor patches
-        run: git apply Mddb-patches/patches/*.patch
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: services/mddbd/go.sum
+
+      - name: Apply Windows vendor patches
+        shell: bash
+        run: |
+          for p in Mddb-patches/patches/*.patch; do
+            git apply "$p"
+          done
 
       - name: Test server (mddbd)
         working-directory: services/mddbd

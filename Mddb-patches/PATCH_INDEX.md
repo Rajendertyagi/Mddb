@@ -18,7 +18,7 @@ Searchable index of the vendor patch series.
 | 0006 | `9c80ee4` | De-flake TestIndexQueue_StatsAfterProcessing | tests | Yes |
 | 0007 | `685c873` | De-flake TestAuditBatchFlushLarge | tests | Yes |
 | 0008 | `90c7911` | Audit: globally unique BoltDB keys | storage / audit | Yes |
-| 0009 | `8706879` | gRPC: close+swap+reopen DB during Restore | gRPC / storage | No |
+| 0009 | `1dadef4` | gRPC: close+swap+reopen DB during Restore | gRPC / storage | No |
 | 0010 | `841cf1b` | gRPC-test: close live s.DB in cleanup | tests | No |
 | 0011 | `d978e71` | Replace fixed sleeps with waitFor polling | tests | Yes |
 | 0012 | `b6ac55b` | Temporal-test: correct HistogramBucket type | tests | Yes |
@@ -29,7 +29,7 @@ Searchable index of the vendor patch series.
 ### Build / CI
 - 0001 `14c73ec` — Windows builds via cross-compilation
 - 0002 `1d96373` — Shim google/renameio for Windows cross-compile
-- 0004 `cdb703c` — Runtime + tests compatibility (CI job addition)
+- 0004 `cdb703c` — Runtime + tests compatibility (test-side fixes; CI job is in the committed workflow)
 
 ### Platform API
 - 0003 `cf24aa3` — Handle return from GetCurrentProcess
@@ -37,10 +37,10 @@ Searchable index of the vendor patch series.
 
 ### Storage / Audit
 - 0008 `90c7911` — Audit: globally unique BoltDB keys
-- 0009 `8706879` — gRPC: close+swap+reopen DB during Restore
+- 0009 `1dadef4` — gRPC: close+swap+reopen DB during Restore
 
 ### gRPC
-- 0009 `8706879` — gRPC: close+swap+reopen DB during Restore
+- 0009 `1dadef4` — gRPC: close+swap+reopen DB during Restore
 - 0010 `841cf1b` — gRPC-test: close live s.DB in cleanup
 
 ### Tests
