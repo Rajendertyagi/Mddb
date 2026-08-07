@@ -56,7 +56,7 @@ jobs:
           # Pinned: the build now depends on the output validation added in
           # 1.8.18 (check_links/images/meta/orphans) and static_sources from
           # 1.8.19. 'latest' would silently move under us.
-          version: '1.8.19'
+          version: 'v1.8.19'
           source: '.'
           template: 'ssg-template'
           domain: 'mddb.tradik.com'
