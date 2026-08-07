@@ -58,3 +58,5 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260610212136-7ab31c22f7ad // indirect
 	gopkg.in/ini.v1 v1.67.3 // indirect
 )
+
+replace github.com/google/renameio => ./Mddb-patches/third_party/renameio
