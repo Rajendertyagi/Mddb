@@ -484,7 +484,10 @@ func TestIndexQueue_MultipleJobs(t *testing.T) {
 	}
 
 	// Wait for all to process
-	time.Sleep(500 * time.Millisecond)
+	waitFor(t, func() bool {
+		p, _, _, _ := iq.Stats()
+		return p == 20
+	}, "expected 20 jobs processed")
 
 	processed, failed, _, _ := iq.Stats()
 	if processed != 20 {
