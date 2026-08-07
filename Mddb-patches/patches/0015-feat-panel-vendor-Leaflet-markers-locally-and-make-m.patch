@@ -1,0 +1,79 @@
+From 9f3a9222abef8a5234173be42619dfb5e8713294 Mon Sep 17 00:00:00 2001
+From: ci <ci@local>
+Date: Fri, 7 Aug 2026 22:19:02 +0530
+Subject: [PATCH 15/15] feat(panel): vendor Leaflet markers locally and make
+ map tiles optional
+
+Point GeoPanel marker icons at locally-vendored /marker-icon*.png (copied
+into public/ at build time, embedded into mddbd.exe) instead of unpkg, so
+the map has no external CDN dependency. Gate the OpenStreetMap basemap
+tile layer behind VITE_MAP_TILES: unset = no tiles (markers only, fully
+offline); set = enable basemap. Add public/.gitkeep so the directory
+exists for the CI copy step.
+---
+ services/mddb-panel/public/.gitkeep           |  6 +++++
+ .../mddb-panel/src/components/GeoPanel.jsx    | 26 ++++++++++++-------
+ 2 files changed, 23 insertions(+), 9 deletions(-)
+ create mode 100644 services/mddb-panel/public/.gitkeep
+
+diff --git a/services/mddb-panel/public/.gitkeep b/services/mddb-panel/public/.gitkeep
+new file mode 100644
+index 0000000..0ed42c2
+--- /dev/null
++++ b/services/mddb-panel/public/.gitkeep
+@@ -0,0 +1,6 @@
++# Placeholder so the public/ directory exists in the repo.
++# The Windows CI build copies the vendored Leaflet marker PNGs
++# (marker-icon.png, marker-icon-2x.png, marker-shadow.png) from
++# node_modules/leaflet/dist/images into this directory before `npm run build`,
++# so Vite bundles them into dist/ and mddbd.exe serves them at the web root
++# (/marker-icon.png, etc.) with no external unpkg fetch.
+diff --git a/services/mddb-panel/src/components/GeoPanel.jsx b/services/mddb-panel/src/components/GeoPanel.jsx
+index 7f76653..89d6932 100644
+--- a/services/mddb-panel/src/components/GeoPanel.jsx
++++ b/services/mddb-panel/src/components/GeoPanel.jsx
+@@ -7,13 +7,14 @@ import mddbClient from '../lib/mddb-client';
+ 
+ // Leaflet ships its marker icons as relative assets. Vite bundles them
+ // but can't auto-resolve them from Leaflet's internal paths — the idiomatic
+-// fix is to explicitly set the icon URLs up-front.
+-// Use CDN icons so we don't need to copy binary assets into our build.
++// fix is to explicitly set the icon URLs up-front. We point them at the
++// locally-vendored copies (copied into /public at build time and embedded
++// into mddbd.exe) so the map works fully offline with no unpkg fetch.
+ delete L.Icon.Default.prototype._getIconUrl;
+ L.Icon.Default.mergeOptions({
+-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
++  iconRetinaUrl: '/marker-icon-2x.png',
++  iconUrl: '/marker-icon.png',
++  shadowUrl: '/marker-shadow.png',
+ });
+ 
+ // GeoPanel provides a Leaflet-backed UI for the /v1/geo-search and
+@@ -50,10 +51,17 @@ export default function GeoPanel() {
+   useEffect(() => {
+     if (mapRef.current || !mapEl.current) return;
+     const map = L.map(mapEl.current).setView([lat, lng], 11);
+-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+-      maxZoom: 19,
+-      attribution: '&copy; OpenStreetMap contributors',
+-    }).addTo(map);
++    // Basemap tiles are OPTIONAL and OFF by default. Set VITE_MAP_TILES at
++    // build time to a tile URL (e.g. https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png)
++    // to enable them; otherwise the map renders markers on a blank canvas with
++    // no external network dependency. The marker icons above are always local.
++    const tileUrl = import.meta.env.VITE_MAP_TILES;
++    if (tileUrl) {
++      L.tileLayer(tileUrl, {
++        maxZoom: 19,
++        attribution: '&copy; OpenStreetMap contributors',
++      }).addTo(map);
++    }
+     map.on('click', (e) => {
+       setLat(e.latlng.lat);
+       setLng(e.latlng.lng);
+-- 
+2.54.0.windows.1
+

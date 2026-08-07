@@ -1,0 +1,245 @@
+From ac5ba6cfe5a627deb545fabbc86b036a8988f7bd Mon Sep 17 00:00:00 2001
+From: ci <ci@local>
+Date: Fri, 7 Aug 2026 22:18:28 +0530
+Subject: [PATCH 14/15] feat(mddbd): embed mddb-panel web UI and serve it from
+ mddbd.exe
+
+Add //go:embed of services/mddbd/webui so a single mddbd.exe serves both
+the JSON API and the React panel with zero external dependencies. A new
+UI handler wraps the API mux: API/control-plane prefixes (/v1, /graphql,
+/playground, /metrics, /health, /debug) are delegated untouched, and all
+other routes fall through to the embedded SPA (index.html) for client-side
+routing.
+
+The webui directory is populated at CI build time by copying the built
+panel dist into it; a .gitkeep placeholder keeps the package compiling when
+the panel is not built (e.g. the windows-runtime test job).
+---
+ services/mddbd/main.go            |  9 ++++
+ services/mddbd/ui_embed.go        | 16 ++++++
+ services/mddbd/ui_handler.go      | 90 +++++++++++++++++++++++++++++++
+ services/mddbd/ui_handler_test.go | 59 ++++++++++++++++++++
+ services/mddbd/webui/.gitkeep     |  5 ++
+ 5 files changed, 179 insertions(+)
+ create mode 100644 services/mddbd/ui_embed.go
+ create mode 100644 services/mddbd/ui_handler.go
+ create mode 100644 services/mddbd/ui_handler_test.go
+ create mode 100644 services/mddbd/webui/.gitkeep
+
+diff --git a/services/mddbd/main.go b/services/mddbd/main.go
+index 5449533..decbefe 100644
+--- a/services/mddbd/main.go
++++ b/services/mddbd/main.go
+@@ -1004,6 +1004,15 @@ func main() {
+ 		log.Printf("Panel mode: external (CORS disabled, panel proxies requests)")
+ 	}
+ 
++	// Serve the embedded web UI (mddb-panel) from the same origin in internal
++	// panel mode. Non-API routes fall through to the embedded SPA; API routes
++	// registered above always take precedence. The UI is embedded at build
++	// time (services/mddbd/webui), so mddbd.exe is fully self-contained.
++	if panelMode != "external" {
++		handler = withEmbeddedUI(handler)
++		log.Printf("Embedded web UI enabled at / (panel mode: %s)", panelMode)
++	}
++
+ 	// Shut down early health server before starting the main one
+ 	if earlyServer != nil {
+ 		_ = earlyServer.Close()
+diff --git a/services/mddbd/ui_embed.go b/services/mddbd/ui_embed.go
+new file mode 100644
+index 0000000..41c16fc
+--- /dev/null
++++ b/services/mddbd/ui_embed.go
+@@ -0,0 +1,16 @@
++package main
++
++import "embed"
++
++// webui holds the pre-built mddb-panel static assets, embedded into the
++// binary so a single mddbd.exe serves both the JSON API and the web UI with
++// zero external dependencies (no Node, no separate static server).
++//
++// The directory is populated at CI build time by copying
++// services/mddb-panel/dist into services/mddbd/webui. A .gitkeep is committed
++// so this package still compiles when the panel has not been built (e.g. the
++// windows-runtime test job). In that case only .gitkeep is embedded and the
++// UI handler falls through to the API handler for unknown routes.
++//
++//go:embed webui
++var webuiFS embed.FS
+diff --git a/services/mddbd/ui_handler.go b/services/mddbd/ui_handler.go
+new file mode 100644
+index 0000000..c24fea7
+--- /dev/null
++++ b/services/mddbd/ui_handler.go
+@@ -0,0 +1,90 @@
++package main
++
++import (
++	"io/fs"
++	"net/http"
++	"strings"
++)
++
++// uiAPIPrefixes are path prefixes owned by the API/control plane. They must
++// never be served from the embedded web UI — unknown API paths should reach
++// the real handlers (and ultimately 404) rather than the SPA fallback.
++var uiAPIPrefixes = []string{
++	"/health",
++	"/v1/",
++	"/graphql",
++	"/playground",
++	"/metrics",
++	"/debug/",
++}
++
++// withEmbeddedUI wraps the API handler so that non-API routes are served from
++// the embedded webui FS, with SPA fallback to index.html for client-side
++// routing. API routes always take precedence and are delegated untouched.
++//
++// If the embedded UI is not present (only .gitkeep), an unknown non-API path
++// falls through to the inner handler, which returns 404.
++func withEmbeddedUI(inner http.Handler) http.Handler {
++	sub, err := fs.Sub(webuiFS, "webui")
++	if err != nil {
++		// webui is embedded literally; this should never happen.
++		return inner
++	}
++
++	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		path := r.URL.Path
++		if isAPIPath(path) {
++			inner.ServeHTTP(w, r)
++			return
++		}
++
++		// Try the exact file first (assets, index.html, etc.).
++		rel := strings.TrimPrefix(path, "/")
++		if rel == "" {
++			rel = "index.html"
++		}
++		if f, err := sub.Open(rel); err == nil {
++			if info, err := f.Stat(); err == nil && !info.IsDir() {
++				defer f.Close()
++				serveEmbedded(w, r, sub, rel)
++				return
++			}
++			f.Close()
++		}
++
++		// SPA fallback: serve index.html for any other non-API path so deep
++		// links work. If index.html isn't embedded, fall through to the API
++		// handler (404).
++		if idx, err := sub.Open("index.html"); err == nil {
++			if info, err := idx.Stat(); err == nil && !info.IsDir() {
++				defer idx.Close()
++				w.Header().Set("Content-Type", "text/html; charset=utf-8")
++				http.ServeContent(w, r, "index.html", info.ModTime(), idx)
++				return
++			}
++			idx.Close()
++		}
++
++		inner.ServeHTTP(w, r)
++	})
++}
++
++// serveEmbedded serves a file from the embedded FS with correct content type
++// and a short cache lifetime for static assets.
++func serveEmbedded(w http.ResponseWriter, r *http.Request, sub fs.FS, name string) {
++	if strings.Contains(r.URL.Path, ".") {
++		// Has a file extension (asset, not a route) — cacheable.
++		w.Header().Set("Cache-Control", "public, max-age=3600")
++	}
++	fileServer := http.FileServer(http.FS(sub))
++	fileServer.ServeHTTP(w, r)
++}
++
++func isAPIPath(path string) bool {
++	for _, p := range uiAPIPrefixes {
++		if strings.HasPrefix(path, p) {
++			return true
++		}
++	}
++	return false
++}
+diff --git a/services/mddbd/ui_handler_test.go b/services/mddbd/ui_handler_test.go
+new file mode 100644
+index 0000000..f2c1400
+--- /dev/null
++++ b/services/mddbd/ui_handler_test.go
+@@ -0,0 +1,59 @@
++package main
++
++import (
++	"net/http"
++	"net/http/httptest"
++	"testing"
++)
++
++func TestIsAPIPath(t *testing.T) {
++	api := []string{"/health", "/v1/search", "/v1/health", "/graphql", "/playground", "/metrics", "/debug/pprof/", "/v1/mcp/config"}
++	ui := []string{"/", "/index.html", "/assets/app.js", "/marker-icon.png", "/some/spa/route"}
++
++	for _, p := range api {
++		if !isAPIPath(p) {
++			t.Errorf("isAPIPath(%q) = false, want true", p)
++		}
++	}
++	for _, p := range ui {
++		if isAPIPath(p) {
++			t.Errorf("isAPIPath(%q) = true, want false", p)
++		}
++	}
++}
++
++// TestEmbeddedUIDelegatesAPIPaths verifies that API routes are never served
++// from the embedded FS, even when the embedded UI is absent (only .gitkeep).
++func TestEmbeddedUIDelegatesAPIPaths(t *testing.T) {
++	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		w.WriteHeader(http.StatusTeapot)
++		w.Write([]byte("api:" + r.URL.Path))
++	})
++	h := withEmbeddedUI(inner)
++
++	for _, path := range []string{"/v1/search", "/graphql", "/health", "/metrics"} {
++		req := httptest.NewRequest(http.MethodGet, path, nil)
++		rec := httptest.NewRecorder()
++		h.ServeHTTP(rec, req)
++		if rec.Code != http.StatusTeapot {
++			t.Errorf("path %q: got status %d, want %d (delegated to API)", path, rec.Code, http.StatusTeapot)
++		}
++	}
++}
++
++// TestEmbeddedUIFallbackNoIndex verifies that, when the embedded UI has no
++// index.html (panel not built), unknown non-API paths fall through to the
++// inner handler rather than 500-ing.
++func TestEmbeddedUIFallbackNoIndex(t *testing.T) {
++	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		w.WriteHeader(http.StatusNotFound)
++	})
++	h := withEmbeddedUI(inner)
++
++	req := httptest.NewRequest(http.MethodGet, "/some/spa/route", nil)
++	rec := httptest.NewRecorder()
++	h.ServeHTTP(rec, req)
++	if rec.Code != http.StatusNotFound {
++		t.Errorf("got status %d, want 404 (fall through to API)", rec.Code)
++	}
++}
+diff --git a/services/mddbd/webui/.gitkeep b/services/mddbd/webui/.gitkeep
+new file mode 100644
+index 0000000..01f96a5
+--- /dev/null
++++ b/services/mddbd/webui/.gitkeep
+@@ -0,0 +1,5 @@
++# Placeholder so the embedded webui directory exists at compile time.
++# CI populates this directory by copying services/mddb-panel/dist into it
++# before building mddbd.exe. When the panel has not been built (e.g. the
++# windows-runtime test job), only this file is embedded and the UI handler
++# falls through to the API handler for unknown routes.
+-- 
+2.54.0.windows.1
+

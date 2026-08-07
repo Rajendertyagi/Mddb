@@ -49,15 +49,7 @@ jobs:
             git apply "$p"
           done
 
-      - name: Build server (mddbd.exe)
-        working-directory: services/mddbd
-        env:
-          GOOS: windows
-          GOARCH: amd64
-          CGO_ENABLED: 0
-        run: |
-          go build -ldflags="-s -w" -o mddbd.exe .
-
+      # mddb-cli has no UI dependency — build it first.
       - name: Build client (mddb-cli.exe)
         working-directory: services/mddb-cli
         env:
@@ -68,11 +60,9 @@ jobs:
           go build -ldflags="-s -w" -o mddb-cli.exe .
 
       # mddb-panel is a React/Vite web app (not a native exe). Build it on the
-      # same Linux runner and bundle ONLY the static output. The panel calls
-      # mddbd directly (VITE_SERVER_URL -> :11023) and mddbd ships wildcard
-      # CORS by default, so it runs Node-free: serve dist/panel with any static
-      # server (python -m http.server, nginx, etc.). server.js + package.json
-      # are also included for users who DO want to run the Express server.
+      # same Linux runner. The built static assets are embedded INTO mddbd.exe
+      # (see patch 0014), so the server is fully self-contained — no Node, no
+      # separate static server, and no external CDN at runtime.
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
@@ -84,18 +74,38 @@ jobs:
         working-directory: services/mddb-panel
         run: |
           npm ci
+          # Vendor Leaflet marker PNGs into public/ so Vite bundles them into
+          # dist/ and mddbd.exe serves them at the web root (/marker-icon.png,
+          # etc.) with no unpkg fetch. Basemap tiles stay optional (off by
+          # default) via VITE_MAP_TILES.
+          mkdir -p public
+          cp node_modules/leaflet/dist/images/marker-icon-2x.png public/ 2>/dev/null || true
+          cp node_modules/leaflet/dist/images/marker-icon.png public/ 2>/dev/null || true
+          cp node_modules/leaflet/dist/images/marker-shadow.png public/ 2>/dev/null || true
           npm run build
+
+      # Copy the built panel into mddbd's embedded webui directory so the Go
+      # //go:embed picks it up when we build mddbd.exe next.
+      - name: Stage panel into embedded webui
+        run: |
+          mkdir -p services/mddbd/webui
+          cp -r services/mddb-panel/dist/. services/mddbd/webui/
+
+      # Build the server LAST, after the panel assets are embedded.
+      - name: Build server (mddbd.exe)
+        working-directory: services/mddbd
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: 0
+        run: |
+          go build -ldflags="-s -w" -o mddbd.exe .
 
       - name: Stage binaries
         run: |
           mkdir -p dist
           cp services/mddbd/mddbd.exe dist/
           cp services/mddb-cli/mddb-cli.exe dist/
-          # Static web panel (Node-free): built assets + optional Express server.
-          mkdir -p dist/panel
-          cp -r services/mddb-panel/dist dist/panel/dist
-          cp services/mddb-panel/server.js dist/panel/ 2>/dev/null || true
-          cp services/mddb-panel/package.json dist/panel/ 2>/dev/null || true
           cp README.md dist/ || true
           cp LICENSE dist/ || true
 

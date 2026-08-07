@@ -32,7 +32,7 @@ Current status of the MDDB Windows port.
 
 ## Known Issues
 
-None currently open. All known Windows build/runtime/test/CI gaps are covered by patches 0001–0013.
+None currently open. All known Windows build/runtime/test/CI gaps are covered by patches 0001–0015 (0014/0015 add the self-contained embedded web UI).
 
 ## Blockers
 

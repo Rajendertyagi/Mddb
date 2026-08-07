@@ -3,7 +3,7 @@
 Ordered vendor patch series for the MDDB Windows port.
 
 **Upstream baseline:** `dbc9def` — "Add GitHub Actions workflow for MDDB Panel build"
-**Total patches:** 13
+**Total patches:** 15
 **Last updated:** 2026-08-07
 
 ---
@@ -194,3 +194,34 @@ Ordered vendor patch series for the MDDB Windows port.
   - `services/mddbd/internal/indexqueue/indexqueue_test.go` (modified)
 - **Purpose:** Same fixed-sleep flake class. Replace `time.Sleep(100ms)` + immediate check with `waitFor` polling on `processed == 1`.
 - **Dependencies:** 0011.
+
+---
+
+## 0014 — Embed mddb-panel web UI into mddbd.exe
+
+- **Commit:** `ac5ba6c`
+- **Type:** Windows packaging (self-contained delivery)
+- **Upstreamable:** No (delivery model; relevant to any embedded-UI build)
+- **Status:** Applied
+- **Files:**
+  - `services/mddbd/webui/.gitkeep` (new)
+  - `services/mddbd/ui_embed.go` (new)
+  - `services/mddbd/ui_handler.go` (new)
+  - `services/mddbd/ui_handler_test.go` (new)
+  - `services/mddbd/main.go` (modified)
+- **Purpose:** Make `mddbd.exe` fully self-contained — it serves both the JSON API and the React panel from a single binary with no Node, no separate static server, and no external CDN at runtime. A new `//go:embed webui` directive embeds the pre-built panel (CI copies `services/mddb-panel/dist` into `services/mddbd/webui` before building). `withEmbeddedUI` wraps the API mux: API/control-plane prefixes (`/v1`, `/graphql`, `/playground`, `/metrics`, `/health`, `/debug`) are delegated untouched; all other routes fall through to the embedded SPA (`index.html`) for client-side routing. The `webui` dir carries a `.gitkeep` so the package still compiles when the panel is not built (e.g. the windows-runtime `go test` job). Enabled in internal panel mode (`MDDB_PANEL_MODE`); disabled when `external`.
+- **Dependencies:** 0001 (cross-compile); pairs with 0015 (panel assets).
+
+---
+
+## 0015 — Vendor Leaflet markers locally, make tiles optional
+
+- **Commit:** `9f3a922`
+- **Type:** Windows packaging (offline / no external deps)
+- **Upstreamable:** Yes (removes unpkg CDN dependency; tiles opt-in)
+- **Status:** Applied
+- **Files:**
+  - `services/mddb-panel/src/components/GeoPanel.jsx` (modified)
+  - `services/mddb-panel/public/.gitkeep` (new)
+- **Purpose:** GeoPanel previously fetched Leaflet marker icons from `unpkg.com` and basemap tiles from `openstreetmap.org` at runtime — external network dependencies that break offline / air-gapped use. Marker icons now point at locally-vendored `/marker-icon*.png` (copied from `node_modules/leaflet/dist/images` into `public/` at CI build time and embedded into `mddbd.exe` via 0014), served from the web root. The OpenStreetMap basemap tile layer is gated behind `VITE_MAP_TILES`: unset = no tiles (markers only, fully offline); set = enable basemap.
+- **Dependencies:** 0014 (embedded web root serves the vendored PNGs).
