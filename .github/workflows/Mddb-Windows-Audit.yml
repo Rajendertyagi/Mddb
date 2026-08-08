@@ -218,14 +218,17 @@ jobs:
           
           # Run tests with output to file
           $testOutput = go test -v -timeout 10m -count=1 ./... 2>&1
+          $testExit = $LASTEXITCODE
           $testOutput | Tee-Object -FilePath test-results-server.log
-          
-          # Check for failures
-          if ($testOutput -match "FAIL") {
-            Write-Host "FAILURES DETECTED IN SERVER TESTS" -ForegroundColor Red
-            # Surface the failing package(s)/test(s) so they appear in the step
-            # tail (GitHub Actions only shows the tail by default, which hid the
-            # real failure above the wikitext package output).
+
+          # Use go test's exit code, NOT a substring scan of the verbose output.
+          # PowerShell's -match is case-insensitive and the log is full of benign
+          # "fail" substrings in subtest names (e.g. TestMatchTimestampRange/gte_fail),
+          # so a naive "-match 'FAIL'" always false-positives and fails the job.
+          if ($testExit -ne 0) {
+            Write-Host "FAILURES DETECTED IN SERVER TESTS (exit $testExit)" -ForegroundColor Red
+            # Surface the failing package(s)/test(s). These lines are captured from
+            # the full in-memory output (not the truncated step log), so they are reliable.
             $failSummary = $testOutput | Select-String '^(--- FAIL|FAIL\s+\S+)'
             if ($failSummary) {
               Write-Host "=== Failing packages/tests ===" -ForegroundColor Red
@@ -236,7 +239,7 @@ jobs:
             }
             exit 1
           }
-          
+
           Write-Host "✓ All server unit tests passed" -ForegroundColor Green
 
       - name: Run client unit tests
@@ -248,10 +251,12 @@ jobs:
           $ErrorActionPreference = "Continue"
           
           $testOutput = go test -v -timeout 5m -count=1 ./... 2>&1
+          $testExit = $LASTEXITCODE
           $testOutput | Tee-Object -FilePath test-results-cli.log
-          
-          if ($testOutput -match "FAIL") {
-            Write-Host "FAILURES DETECTED IN CLI TESTS" -ForegroundColor Red
+
+          # Use go test's exit code (see server step for why -match 'FAIL' is unsafe).
+          if ($testExit -ne 0) {
+            Write-Host "FAILURES DETECTED IN CLI TESTS (exit $testExit)" -ForegroundColor Red
             $failSummary = $testOutput | Select-String '^(--- FAIL|FAIL\s+\S+)'
             if ($failSummary) {
               Write-Host "=== Failing packages/tests ===" -ForegroundColor Red
@@ -259,7 +264,7 @@ jobs:
             }
             exit 1
           }
-          
+
           Write-Host "✓ All CLI unit tests passed" -ForegroundColor Green
 
       - name: Upload test results
@@ -545,7 +550,7 @@ jobs:
           
           # Test root path. http.FileServer issues a 3xx dir-root redirect, which
           # Invoke-WebRequest rejects by default; use curl -L to follow it and assert 200.
-          $uiCode = & curl.exe -sL -o $null -w "%{http_code}" "http://localhost:11023/"
+          $uiCode = & curl.exe -sL -o NUL -w "%{http_code}" "http://localhost:11023/"
           if ($uiCode -eq 200) {
             Write-Host "✓ Root path returns 200"
             $uiContent = & curl.exe -sL "http://localhost:11023/"
@@ -567,7 +572,7 @@ jobs:
           }
           
           # Test static assets. Follow redirects; treat absence as a non-fatal warning.
-          $assetCode = & curl.exe -sL -o $null -w "%{http_code}" "http://localhost:11023/assets/index.js"
+          $assetCode = & curl.exe -sL -o NUL -w "%{http_code}" "http://localhost:11023/assets/index.js"
           if ($assetCode -eq 200) {
             Write-Host "✓ Static assets served"
           } else {
