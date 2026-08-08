@@ -65,7 +65,7 @@ jobs:
       # (see patch 0014), so the server is fully self-contained — no Node, no
       # separate static server, and no external CDN at runtime.
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'npm'
