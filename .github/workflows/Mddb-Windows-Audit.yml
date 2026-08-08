@@ -508,8 +508,10 @@ jobs:
             Write-Host $addResult
           }
           
-          # Search command (query via -q; -f is not a search flag)
-          $searchResult = & .\dist\mddb-cli.exe search audit-test -q "CLI" 2>&1
+          # Search command: lists/filters docs via /v1/search (no free-text query;
+          # `fts` does full-text via -q but needs the FTS index initialized). `-f` is
+          # the metadata filter flag for `search`. Filter by the author doc1 was added with.
+          $searchResult = & .\dist\mddb-cli.exe search audit-test -f "author=audit-bot" 2>&1
           if ($LASTEXITCODE -eq 0) {
             Write-Host "✓ CLI search command passed"
             $searchResult | Out-File -FilePath "cli-search.log" -Encoding utf8
