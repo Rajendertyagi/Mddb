@@ -3,8 +3,8 @@
 Searchable index of the vendor patch series.
 
 **Upstream baseline:** `dbc9def`
-**Total patches:** 15
-**Last updated:** 2026-08-07
+**Total patches:** 16
+**Last updated:** 2026-08-08
 
 ## By Patch Number
 
@@ -25,6 +25,7 @@ Searchable index of the vendor patch series.
 | 0013 | `334d7b4` | Indexqueue-test: poll for processed job | tests | Yes |
 | 0014 | `7744da5` | Embed mddb-panel web UI into mddbd.exe | packaging / web | No |
 | 0015 | `4207661` | Vendor Leaflet markers, optional tiles | panel / web | Yes |
+| 0016 | `e55b6c2` | Temporal-test: poll for hot docs | tests | Yes |
 
 ## By Subsystem
 
@@ -54,6 +55,7 @@ Searchable index of the vendor patch series.
 - 0011 `d978e71` — Replace fixed sleeps with waitFor polling
 - 0012 `b6ac55b` — Temporal-test: correct HistogramBucket type
 - 0013 `334d7b4` — Indexqueue-test: poll for processed job
+- 0016 `e55b6c2` — Temporal-test: poll for hot docs instead of fixed sleep
 
 ### Packaging / Web
 - 0014 `7744da5` — Embed mddb-panel web UI into mddbd.exe
@@ -65,4 +67,4 @@ Searchable index of the vendor patch series.
 - 0001, 0002, 0003, 0004, 0009, 0010, 0014
 
 ### Cross-platform correctness (upstreamable)
-- 0005, 0006, 0007, 0008, 0011, 0012, 0013, 0015
+- 0005, 0006, 0007, 0008, 0011, 0012, 0013, 0015, 0016

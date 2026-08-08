@@ -3,8 +3,8 @@
 Ordered vendor patch series for the MDDB Windows port.
 
 **Upstream baseline:** `dbc9def` — "Add GitHub Actions workflow for MDDB Panel build"
-**Total patches:** 15
-**Last updated:** 2026-08-07
+**Total patches:** 16
+**Last updated:** 2026-08-08
 
 ---
 
@@ -225,3 +225,16 @@ Ordered vendor patch series for the MDDB Windows port.
   - `services/mddb-panel/public/.gitkeep` (new)
 - **Purpose:** GeoPanel previously fetched Leaflet marker icons from `unpkg.com` and basemap tiles from `openstreetmap.org` at runtime — external network dependencies that break offline / air-gapped use. Marker icons now point at locally-vendored `/marker-icon*.png` (copied from `node_modules/leaflet/dist/images` into `public/` at CI build time and embedded into `mddbd.exe` via 0014), served from the web root. The OpenStreetMap basemap tile layer is gated behind `VITE_MAP_TILES`: unset = no tiles (markers only, fully offline); set = enable basemap.
 - **Dependencies:** 0014 (embedded web root serves the vendored PNGs).
+
+---
+
+## 0016 — Temporal-test: poll for hot docs instead of fixed sleep
+
+- **Commit:** `e55b6c2`
+- **Type:** Cross-platform correctness
+- **Upstreamable:** Yes (removes timing flakiness on any slow/saturated CI)
+- **Status:** Applied
+- **Files:**
+  - `services/mddbd/internal/temporal/temporal_test.go` (modified)
+- **Purpose:** `TestTemporalManager_HotDocs` used a single `time.Sleep(600ms)` before reading hot docs, but the background writer flushes on a 500ms ticker; on congested CI runners (esp. Windows) the flush can land after the sleep, yielding empty results (`expected hot docs, got none`). Replace with a `GetHotDocs` poll loop (up to 5s) — the same pattern `TestTemporalManager_RecordAndQuery` already uses and which passes reliably. No production/behavior change.
+- **Dependencies:** 0011 (waitFor + async-worker test pattern).

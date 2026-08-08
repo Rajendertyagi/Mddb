@@ -1,0 +1,40 @@
+From e55b6c264c87df7aba661f1e62c611de014a795f Mon Sep 17 00:00:00 2001
+From: Rajendertyagi <86180775+Rajendertyagi@users.noreply.github.com>
+Date: Sat, 8 Aug 2026 18:58:27 +0530
+Subject: [PATCH] fix(temporal-test): poll for hot docs instead of fixed sleep
+
+TestTemporalManager_HotDocs used a single time.Sleep(600ms) before reading hot docs, but the background writer flushes on a 500ms ticker; on congested CI runners (esp. Windows) the flush can land after the sleep, yielding empty results. Poll GetHotDocs up to 5s like TestTemporalManager_RecordAndQuery already does.
+---
+ .../mddbd/internal/temporal/temporal_test.go     | 16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
+
+diff --git a/services/mddbd/internal/temporal/temporal_test.go b/services/mddbd/internal/temporal/temporal_test.go
+index 45cbf9d..c50af34 100644
+--- a/services/mddbd/internal/temporal/temporal_test.go
++++ b/services/mddbd/internal/temporal/temporal_test.go
+@@ -90,9 +90,19 @@ func TestTemporalManager_HotDocs(t *testing.T) {
+ 		tm.RecordAsync(collection, "docB", EventAccess, "u")
+ 	}
+ 
+-	time.Sleep(600 * time.Millisecond)
+-
+-	entries, err := tm.GetHotDocs(collection, 10, 0)
++	// Poll for the background writer to flush the hot-doc counters instead
++	// of sleeping once. The 500ms flush ticker can land after a fixed sleep
++	// on congested CI runners (esp. Windows), yielding empty results.
++	var entries []HotEntry
++	var err error
++	deadline := time.Now().Add(5 * time.Second)
++	for time.Now().Before(deadline) {
++		entries, err = tm.GetHotDocs(collection, 10, 0)
++		if err == nil && len(entries) > 0 {
++			break
++		}
++		time.Sleep(100 * time.Millisecond)
++	}
+ 	if err != nil {
+ 		t.Fatalf("GetHotDocs: %v", err)
+ 	}
+-- 
+2.55.0.windows.3
+
