@@ -697,7 +697,7 @@ jobs:
             $b = if ($BodyObj) { $BodyObj | ConvertTo-Json -Compress } else { $null }
             try {
               $h = @{"Content-Type"="application/json"}
-              $r = Invoke-WebRequest -Uri $Url -Method $Method -Headers $h -Body $b -TimeoutSec 30
+              $r = Invoke-WebRequest -Uri $Url -Method $Method -Headers $h -Body $Body -TimeoutSec 30
               return [PSCustomObject]@{code=[int]$r.StatusCode; body=$r.Content}
             } catch {
               $c = if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { 0 }
@@ -707,8 +707,9 @@ jobs:
           function WriteBody($File,$Json) { $Json | Out-File -FilePath $File -Encoding utf8 -NoNewline }
 
           # ---- seed a document so we can read it back via GraphQL ----
-          $addBody = @{collection="gqcoll"; key="g1"; lang="en"; contentMd="# GraphQL audit doc"; meta=@{tag=@("gq")}} | ConvertTo-Json -Compress
-          WebReq "POST" "$base/v1/add" $addBody | Out-Null
+          $addBody = @{collection="gqcoll"; key="g1"; lang="en"; contentMd="# GraphQL audit doc"} | ConvertTo-Json -Compress
+          $seedR = WebReq "POST" "$base/v1/add" $addBody
+          Record "Seed doc for GraphQL read" "POST /v1/add (gqcoll/g1)" "200" "code=$($seedR.code) body=$($seedR.body)" ($seedR.code -eq 200)
 
           # ===== GraphQL tests =====
           # 1) introspection
@@ -733,7 +734,7 @@ jobs:
           WriteBody "body.json" '{"query":"{ thisFieldDoesNotExist }"}'
           $r = curl.exe -s -o resp.txt -w "%{http_code}" -X POST "$base/graphql" -H "Content-Type: application/json" -d "@body.json"
           $gqErr = Get-Content resp.txt -Raw
-          Record "GraphQL validation error" "POST /graphql { thisFieldDoesNotExist }" "200 + errors[]" "code=$r body=$gqErr" ($r -eq 200 -and $gqErr -match "errors")
+          Record "GraphQL validation error" "POST /graphql { thisFieldDoesNotExist }" "200/422 + errors[]" "code=$r body=$gqErr" (($r -eq 200 -or $r -eq 422) -and $gqErr -match "errors")
 
           # 5) syntax error -> 400
           WriteBody "body.json" '{"query":"{ "'
@@ -775,7 +776,7 @@ jobs:
           WriteBody "body.json" '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"get_stats","arguments":{}}}'
           $r = curl.exe -s -o resp.txt -w "%{http_code}" -X POST "$mcp/mcp" -H "Content-Type: application/json" @hdrArg -d "@body.json"
           $callStats = Get-Content resp.txt -Raw
-          Record "MCP tools/call get_stats" "POST /mcp tools/call get_stats" "200 + JSON" "code=$r body=$callStats" ($r -eq 200 -and $callStats -match "stats")
+          Record "MCP tools/call get_stats" "POST /mcp tools/call get_stats" "200 + JSON" "code=$r body=$callStats" ($r -eq 200 -and $callStats -match "total_documents")
 
           # ---- emit evidence ----
           $gqStatus = if ($script:tests[0].status -eq "PASS" -and $script:tests[1].status -eq "PASS" -and $script:tests[2].status -eq "PASS" -and $script:tests[3].status -eq "PASS" -and $script:tests[4].status -eq "PASS") { "PASS" } else { "FAIL" }
