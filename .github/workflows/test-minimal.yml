@@ -1,0 +1,150 @@
+name: Build Windows
+
+# OPS-009: least privilege — CI only builds/tests, no publish/release artifacts.
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'services/mddbd/**'
+      - 'services/mddb-cli/**'
+      - 'services/mddb-panel/**'
+      - 'clients/go/mddb/**'
+      - 'go.work'
+      - '.github/workflows/build-windows.yml'
+      - 'Mddb-patches/**'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  GO_VERSION: '1.26.5'
+  # Disable Go workspace mode so each module builds independently.
+  GOWORK: "off"
+
+jobs:
+  build-windows:
+    name: Cross-compile Windows exes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: services/mddbd/go.sum
+
+      # Apply the vendor patch series (services only) so the upstream tree
+      # becomes Windows-buildable for this run. Changes are ephemeral — the
+      # runner is destroyed afterwards and upstream stays pristine in Git.
+      - name: Apply Windows vendor patches
+        shell: bash
+        run: |
+          for p in Mddb-patches/patches/*.patch; do
+            git apply "$p"
+          done
+
+      # mddb-cli has no UI dependency — build it first.
+      - name: Build client (mddb-cli.exe)
+        working-directory: services/mddb-cli
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: 0
+        run: |
+          go build -ldflags="-s -w" -o mddb-cli.exe .
+
+      # mddb-panel is a React/Vite web app (not a native exe). Build it on the
+      # same Linux runner. The built static assets are embedded INTO mddbd.exe
+      # (see patch 0014), so the server is fully self-contained — no Node, no
+      # separate static server, and no external CDN at runtime.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: services/mddb-panel/package-lock.json
+
+      - name: Build web panel (mddb-panel)
+        working-directory: services/mddb-panel
+        run: |
+          npm ci
+          # Vendor Leaflet marker PNGs into public/ so Vite bundles them into
+          # dist/ and mddbd.exe serves them at the web root (/marker-icon.png,
+          # etc.) with no unpkg fetch. Basemap tiles stay optional (off by
+          # default) via VITE_MAP_TILES.
+          mkdir -p public
+          cp node_modules/leaflet/dist/images/marker-icon-2x.png public/ 2>/dev/null || true
+          cp node_modules/leaflet/dist/images/marker-icon.png public/ 2>/dev/null || true
+          cp node_modules/leaflet/dist/images/marker-shadow.png public/ 2>/dev/null || true
+          npm run build
+
+      # Copy the built panel into mddbd's embedded webui directory so the Go
+      # //go:embed picks it up when we build mddbd.exe next.
+      - name: Stage panel into embedded webui
+        run: |
+          mkdir -p services/mddbd/webui
+          cp -r services/mddb-panel/dist/. services/mddbd/webui/
+
+      # Build the server LAST, after the panel assets are embedded.
+      - name: Build server (mddbd.exe)
+        working-directory: services/mddbd
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: 0
+        run: |
+          go build -ldflags="-s -w" -o mddbd.exe .
+
+      - name: Stage binaries
+        run: |
+          mkdir -p dist
+          cp services/mddbd/mddbd.exe dist/
+          cp services/mddb-cli/mddb-cli.exe dist/
+          cp README.md dist/ || true
+          cp LICENSE dist/ || true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: mddb-windows-amd64
+          path: dist/
+
+  windows-runtime:
+    # Windows host runs go test natively (not cross-compiled) to catch
+    # runtime gaps the cross-compile alone cannot: overwrite-rename, temp paths.
+    name: Runtime tests on Windows
+    runs-on: windows-latest
+    env:
+      GOWORK: "off"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: services/mddbd/go.sum
+
+      - name: Apply Windows vendor patches
+        shell: bash
+        run: |
+          for p in Mddb-patches/patches/*.patch; do
+            git apply "$p"
+          done
+
+      - name: Test server (mddbd)
+        working-directory: services/mddbd
+        run: go test ./...
+
+      - name: Build client (mddb-cli)
+        working-directory: services/mddb-cli
+        run: go build ./...
