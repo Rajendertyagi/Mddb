@@ -99,6 +99,7 @@ jobs:
 
       - name: Build web panel
         working-directory: services/mddb-panel
+        shell: bash
         run: |
           echo "=== Building mddb-panel ==="
           npm ci --prefer-offline
@@ -110,11 +111,12 @@ jobs:
           echo "Panel build complete."
 
       - name: Stage panel into embedded webui
+        shell: bash
         run: |
           echo "=== Staging embedded UI ==="
           mkdir -p services/mddbd/webui
-          Copy-Item -Path "services/mddb-panel/dist/*" -Destination "services/mddbd/webui/" -Recurse -Force
-          Write-Host "Panel assets staged to webui/"
+          cp -r services/mddb-panel/dist/. services/mddbd/webui/
+          echo "Panel assets staged to webui/"
 
       - name: Build server (mddbd.exe)
         working-directory: services/mddbd
@@ -161,10 +163,11 @@ jobs:
           Write-Host "  Path: $(Get-Location)\mddb-cli.exe"
 
       - name: Stage binaries
+        shell: bash
         run: |
           mkdir -p dist
-          Copy-Item -Path "services/mddbd/mddbd.exe" -Destination "dist/mddbd.exe" -Force
-          Copy-Item -Path "services/mddb-cli/mddb-cli.exe" -Destination "dist/mddb-cli.exe" -Force
+          cp services/mddbd/mddbd.exe dist/mddbd.exe
+          cp services/mddb-cli/mddb-cli.exe dist/mddb-cli.exe
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
