@@ -223,6 +223,14 @@ jobs:
           # Check for failures
           if ($testOutput -match "FAIL") {
             Write-Host "FAILURES DETECTED IN SERVER TESTS" -ForegroundColor Red
+            # Surface the failing package(s)/test(s) so they appear in the step
+            # tail (GitHub Actions only shows the tail by default, which hid the
+            # real failure above the wikitext package output).
+            $failSummary = $testOutput | Select-String '^(--- FAIL|FAIL\s+\S+)'
+            if ($failSummary) {
+              Write-Host "=== Failing packages/tests ===" -ForegroundColor Red
+              $failSummary.Line | ForEach-Object { Write-Host $_ }
+            }
             exit 1
           }
           
@@ -241,6 +249,11 @@ jobs:
           
           if ($testOutput -match "FAIL") {
             Write-Host "FAILURES DETECTED IN CLI TESTS" -ForegroundColor Red
+            $failSummary = $testOutput | Select-String '^(--- FAIL|FAIL\s+\S+)'
+            if ($failSummary) {
+              Write-Host "=== Failing packages/tests ===" -ForegroundColor Red
+              $failSummary.Line | ForEach-Object { Write-Host $_ }
+            }
             exit 1
           }
           
