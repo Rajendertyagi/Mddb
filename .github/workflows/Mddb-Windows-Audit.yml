@@ -525,17 +525,19 @@ jobs:
           $ErrorActionPreference = "Continue"
           Write-Host "=== Embedded UI Tests ==="
           
-          # Test root path
-          $uiResponse = Invoke-WebRequest -Uri "http://localhost:11023/" -TimeoutSec 10
-          if ($uiResponse.StatusCode -eq 200) {
+          # Test root path. http.FileServer issues a 3xx dir-root redirect, which
+          # Invoke-WebRequest rejects by default; use curl -L to follow it and assert 200.
+          $uiCode = & curl.exe -sL -o $null -w "%{http_code}" "http://localhost:11023/"
+          if ($uiCode -eq 200) {
             Write-Host "✓ Root path returns 200"
-            if ($uiResponse.Content -match "mddb" -or $uiResponse.Content -match "index.html") {
+            $uiContent = & curl.exe -sL "http://localhost:11023/"
+            if ($uiContent -match "mddb" -or $uiContent -match "index.html") {
               Write-Host "✓ Embedded UI detected"
             } else {
               Write-Host "⚠ Could not verify UI content"
             }
           } else {
-            Write-Error "✗ Root path returned $($uiResponse.StatusCode)"
+            Write-Error "✗ Root path returned $uiCode"
           }
           
           # Test API isolation
@@ -546,12 +548,12 @@ jobs:
             Write-Error "✗ API path returned unexpected status"
           }
           
-          # Test static assets
-          $assetResponse = Invoke-WebRequest -Uri "http://localhost:11023/assets/index.js" -TimeoutSec 5 -ErrorAction SilentlyContinue
-          if ($assetResponse.StatusCode -eq 200) {
+          # Test static assets. Follow redirects; treat absence as a non-fatal warning.
+          $assetCode = & curl.exe -sL -o $null -w "%{http_code}" "http://localhost:11023/assets/index.js"
+          if ($assetCode -eq 200) {
             Write-Host "✓ Static assets served"
           } else {
-            Write-Host "⚠ Static assets not found (may be expected)"
+            Write-Host "⚠ Static assets not found ($assetCode) (may be expected)"
           }
 
       - name: Run Windows filesystem tests
@@ -577,14 +579,18 @@ jobs:
             Write-Host "✗ Unicode filename failed"
           }
           
-          # Concurrent access test
+          # Concurrent access test.
+          # ForEach-Object -Parallel runs each block in a separate runspace. Reference
+          # the parent-scope path via $using: (NOT -ArgumentList, which is not valid
+          # with -Parallel and caused "Parameter set cannot be resolved"). Capture the
+          # pipeline item into $i before the inner loop shadows $_.
           $concurrentFile = "test-db/concurrent.txt"
-          $writers = 1..4 | ForEach-Object -Parallel {
-            param($i, $path)
+          $null = 1..4 | ForEach-Object -Parallel {
+            $i = $_
             1..100 | ForEach-Object {
-              Add-Content -Path $path -Value "line-$i-$_"
+              Add-Content -Path $using:concurrentFile -Value "line-$i-$_"
             }
-          } -ArgumentList $_, $concurrentFile
+          }
           
           Start-Sleep -Seconds 2
           $lineCount = (Get-Content $concurrentFile).Count
