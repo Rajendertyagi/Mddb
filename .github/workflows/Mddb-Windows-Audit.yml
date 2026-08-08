@@ -23,6 +23,8 @@
 #   - security-audit: Security findings
 #   - audit-report: Complete audit report
 #   - unit-test-results: Go test output
+name: Windows QA & Feature Audit
+
 on:
   workflow_dispatch:
     inputs:
@@ -42,8 +44,6 @@ on:
       - 'services/mddb-panel/**'
       - 'Mddb-patches/**'
       - '.github/workflows/Mddb-Windows-Audit.yml'
-
-name: Windows QA & Feature Audit
 
 permissions:
   contents: read
