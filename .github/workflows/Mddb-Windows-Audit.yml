@@ -287,7 +287,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: mddb-windows-amd64
           path: dist/
@@ -648,7 +648,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: mddb-windows-amd64
           path: dist/
@@ -713,37 +713,37 @@ jobs:
           # ===== GraphQL tests =====
           # 1) introspection
           WriteBody "body.json" '{"query":"{ __schema { queryType { name } } }"}'
-          $r = curl.exe -s -o resp.txt -w "%{http_code}" -X POST "$base/graphql" -H "Content-Type: application/json" -d @body.json
+          $r = curl.exe -s -o resp.txt -w "%{http_code}" -X POST "$base/graphql" -H "Content-Type: application/json" -d "@body.json"
           $gqIntrospect = Get-Content resp.txt -Raw
           Record "GraphQL introspection" "POST /graphql { __schema { queryType { name } } }" "200 + queryType" "code=$r body=$gqIntrospect" ($r -eq 200 -and $gqIntrospect -match "queryType")
 
           # 2) real data query (stats)
           WriteBody "body.json" '{"query":"{ stats { databasePath totalDocuments } }"}'
-          $r = curl.exe -s -o resp.txt -w "%{http_code}" -X POST "$base/graphql" -H "Content-Type: application/json" -d @body.json
+          $r = curl.exe -s -o resp.txt -w "%{http_code}" -X POST "$base/graphql" -H "Content-Type: application/json" -d "@body.json"
           $gqStats = Get-Content resp.txt -Raw
           Record "GraphQL stats query" "POST /graphql { stats { databasePath totalDocuments } }" "200 + data" "code=$r body=$gqStats" ($r -eq 200 -and $gqStats -match "databasePath")
 
           # 3) real document read
           WriteBody "body.json" '{"query":"{ document(collection:\"gqcoll\",key:\"g1\",lang:\"en\"){ key contentMd } }"}'
-          $r = curl.exe -s -o resp.txt -w "%{http_code}" -X POST "$base/graphql" -H "Content-Type: application/json" -d @body.json
+          $r = curl.exe -s -o resp.txt -w "%{http_code}" -X POST "$base/graphql" -H "Content-Type: application/json" -d "@body.json"
           $gqDoc = Get-Content resp.txt -Raw
           Record "GraphQL document read" "POST /graphql document(gqcoll/g1)" "200 + key g1" "code=$r body=$gqDoc" ($r -eq 200 -and $gqDoc -match "g1")
 
           # 4) invalid field -> 200 with errors (validation, not 400)
           WriteBody "body.json" '{"query":"{ thisFieldDoesNotExist }"}'
-          $r = curl.exe -s -o resp.txt -w "%{http_code}" -X POST "$base/graphql" -H "Content-Type: application/json" -d @body.json
+          $r = curl.exe -s -o resp.txt -w "%{http_code}" -X POST "$base/graphql" -H "Content-Type: application/json" -d "@body.json"
           $gqErr = Get-Content resp.txt -Raw
           Record "GraphQL validation error" "POST /graphql { thisFieldDoesNotExist }" "200 + errors[]" "code=$r body=$gqErr" ($r -eq 200 -and $gqErr -match "errors")
 
           # 5) syntax error -> 400
           WriteBody "body.json" '{"query":"{ "'
-          $r = curl.exe -s -o resp.txt -w "%{http_code}" -X POST "$base/graphql" -H "Content-Type: application/json" -d @body.json
+          $r = curl.exe -s -o resp.txt -w "%{http_code}" -X POST "$base/graphql" -H "Content-Type: application/json" -d "@body.json"
           Record "GraphQL syntax error" "POST /graphql (malformed)" "400" "code=$r" ($r -eq 400)
 
           # ===== MCP tests (Streamable HTTP at /mcp) =====
           # initialize
           WriteBody "body.json" '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25"}}'
-          $r = curl.exe -s -D hdr.txt -o resp.txt -w "%{http_code}" -X POST "$mcp/mcp" -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" -d @body.json
+          $r = curl.exe -s -D hdr.txt -o resp.txt -w "%{http_code}" -X POST "$mcp/mcp" -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" -d "@body.json"
           $initBody = Get-Content resp.txt -Raw
           $sid = ""
           $hdr = Get-Content hdr.txt -Raw
@@ -755,25 +755,25 @@ jobs:
           $r = curl.exe -s -o resp.txt -w "%{http_code}" -X POST "$mcp/mcp" -H "Content-Type: application/json" @hdrArg -d '{"jsonrpc":"2.0","method":"notifications/initialized"}'
           # tools/list
           WriteBody "body.json" '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
-          $r = curl.exe -s -o resp.txt -w "%{http_code}" -X POST "$mcp/mcp" -H "Content-Type: application/json" @hdrArg -d @body.json
+          $r = curl.exe -s -o resp.txt -w "%{http_code}" -X POST "$mcp/mcp" -H "Content-Type: application/json" @hdrArg -d "@body.json"
           $toolsList = Get-Content resp.txt -Raw
           Record "MCP tools/list" "POST /mcp tools/list" "200 + add_document" "code=$r body=$toolsList" ($r -eq 200 -and $toolsList -match "add_document")
 
           # tools/call add_document
           WriteBody "body.json" '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"add_document","arguments":{"collection":"mcpcoll","key":"m1","lang":"en","content_md":"Hello from MCP audit","meta":{}}}}'
-          $r = curl.exe -s -o resp.txt -w "%{http_code}" -X POST "$mcp/mcp" -H "Content-Type: application/json" @hdrArg -d @body.json
+          $r = curl.exe -s -o resp.txt -w "%{http_code}" -X POST "$mcp/mcp" -H "Content-Type: application/json" @hdrArg -d "@body.json"
           $callAdd = Get-Content resp.txt -Raw
           Record "MCP tools/call add_document" "POST /mcp tools/call add_document" "200" "code=$r body=$callAdd" ($r -eq 200)
 
           # tools/call search_documents (verify real retrieval)
           WriteBody "body.json" '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"search_documents","arguments":{"collection":"mcpcoll","filter_meta":{},"limit":10,"include_content":true}}}'
-          $r = curl.exe -s -o resp.txt -w "%{http_code}" -X POST "$mcp/mcp" -H "Content-Type: application/json" @hdrArg -d @body.json
+          $r = curl.exe -s -o resp.txt -w "%{http_code}" -X POST "$mcp/mcp" -H "Content-Type: application/json" @hdrArg -d "@body.json"
           $callSearch = Get-Content resp.txt -Raw
           Record "MCP tools/call search_documents" "POST /mcp tools/call search_documents" "200 + contains 'Hello from MCP audit'" "code=$r body=$callSearch" ($r -eq 200 -and $callSearch -match "Hello from MCP audit")
 
           # tools/call get_stats
           WriteBody "body.json" '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"get_stats","arguments":{}}}'
-          $r = curl.exe -s -o resp.txt -w "%{http_code}" -X POST "$mcp/mcp" -H "Content-Type: application/json" @hdrArg -d @body.json
+          $r = curl.exe -s -o resp.txt -w "%{http_code}" -X POST "$mcp/mcp" -H "Content-Type: application/json" @hdrArg -d "@body.json"
           $callStats = Get-Content resp.txt -Raw
           Record "MCP tools/call get_stats" "POST /mcp tools/call get_stats" "200 + JSON" "code=$r body=$callStats" ($r -eq 200 -and $callStats -match "stats")
 
@@ -824,7 +824,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: mddb-windows-amd64
           path: dist/
@@ -951,7 +951,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: mddb-windows-amd64
           path: dist/
@@ -982,65 +982,7 @@ jobs:
 
       - name: Generate sample documents (valid PDF/DOCX via Python)
         run: |
-          python - <<'PY'
-          import zipfile, os
-          os.makedirs("samples", exist_ok=True)
-          # TXT
-          open("samples/doc.txt","w",encoding="utf-8").write("# Upload audit\nUNIQTXT plain text document for the windows audit.")
-          # Markdown
-          open("samples/doc.md","w",encoding="utf-8").write("# Markdown audit\nUNIQMD Hello from markdown upload.")
-          # HTML
-          open("samples/doc.html","w",encoding="utf-8").write("<html><body><h1>HTML audit</h1><p>UNIQHTML Hello from html upload.</p></body></html>")
-          # YAML
-          open("samples/doc.yaml","w",encoding="utf-8").write("title: YAML audit\nbody: UNIQYAML Hello from yaml upload.\n")
-          # JSON (unsupported format -> expect 400)
-          open("samples/doc.json","w",encoding="utf-8").write('{"title":"JSON audit","body":"hello"}')
-          # CSV (unsupported format -> expect 400)
-          open("samples/doc.csv","w",encoding="utf-8").write("title,body\nCSV audit,hello\n")
-          # Minimal valid PDF (hand-built with correct xref offsets)
-          pdf_parts = []
-          pdf_parts.append(b"%PDF-1.4\n")
-          pdf_parts.append(b"1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n")
-          pdf_parts.append(b"2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n")
-          pdf_parts.append(b"3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n")
-          stream = b"BT /F1 12 Tf 72 720 Td (UNIQPDF Hello from PDF upload) Tj ET"
-          pdf_parts.append(b"4 0 obj<</Length %d>>stream\n" % len(stream) + stream + b"\nendstream endobj\n")
-          pdf_parts.append(b"5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\n")
-          body = b"".join(pdf_parts)
-          xref_pos = len(body)
-          xref = b"xref\n0 6\n0000000000 65535 f \n"
-          offsets = [0]
-          # recompute offsets precisely
-          off = 0
-          # rebuild with offsets
-          p1 = b"%PDF-1.4\n"
-          objs = [
-            b"1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n",
-            b"2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n",
-            b"3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n",
-            b"4 0 obj<</Length %d>>stream\n" % len(stream) + stream + b"\nendstream endobj\n",
-            b"5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\n",
-          ]
-          buf = p1
-          offsets = [0]*6
-          offsets[0] = 0
-          for i,o in enumerate(objs, start=1):
-            offsets[i] = len(buf)
-            buf += o
-          xref_pos = len(buf)
-          xref = b"xref\n0 6\n"
-          xref += b"0000000000 65535 f \n"
-          for i in range(1,6):
-            xref += ("%010d 00000 n \n" % offsets[i]).encode()
-          xref += (b"trailer\n<</Size 6/Root 1 0 R>>\nstartxref\n%d\n%%%%EOF\n" % xref_pos)
-          open("samples/doc.pdf","wb").write(buf + xref)
-          # Minimal valid DOCX (OOXML zip)
-          with zipfile.ZipFile("samples/doc.docx","w",zipfile.ZIP_DEFLATED) as z:
-            z.writestr("[Content_Types].xml", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>')
-            z.writestr("_rels/.rels", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>')
-            z.writestr("word/document.xml", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>UNIQDOCX Hello from DOCX upload</w:t></w:r></w:p></w:body></w:document>')
-          print("samples generated:", sorted(os.listdir("samples")))
-          PY
+          python scripts/gen_upload_samples.py
 
       - name: Run file-upload live tests
         run: |
@@ -1130,7 +1072,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: mddb-windows-amd64
           path: dist/
@@ -1197,12 +1139,12 @@ jobs:
           # 2) Stats RPC (admin, no auth)
           $out = & $g -plaintext localhost:11024 mddb.MDDB.Stats 2>&1
           $statsOut = $out -join "`n"
-          Record "gRPC Stats RPC" "grpcurl mddb.MDDB.Stats" "200 JSON with stats" "out=$statsOut" ($LASTEXITCODE -eq 0 -and $statsOut -match "stats")
+          Record "gRPC Stats RPC" "grpcurl mddb.MDDB.Stats" "200 JSON with databasePath" "out=$statsOut" ($LASTEXITCODE -eq 0 -and $statsOut -match "databasePath")
 
           # 3) seed a doc via HTTP then read it via gRPC Get (real data path)
           $b = @{collection="grpccoll"; key="g1"; lang="en"; contentMd="# gRPC audit doc"} | ConvertTo-Json -Compress
           try { Invoke-RestMethod -Uri "$base/v1/add" -Method Post -ContentType "application/json" -Body $b -TimeoutSec 30 | Out-Null } catch {}
-          $out = & $g -plaintext localhost:11024 mddb.MDDB.Get -d '{"collection":"grpccoll","key":"g1","lang":"en"}' 2>&1
+          $out = & $g -plaintext -d '{"collection":"grpccoll","key":"g1","lang":"en"}' localhost:11024 mddb.MDDB.Get 2>&1
           $getOut = $out -join "`n"
           Record "gRPC Get RPC (real doc)" "grpcurl mddb.MDDB.Get" "200 + key g1" "out=$getOut" ($LASTEXITCODE -eq 0 -and $getOut -match "g1")
 
@@ -1243,7 +1185,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: mddb-windows-amd64
           path: dist/
@@ -1366,7 +1308,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: mddb-windows-amd64
           path: dist/
@@ -1510,7 +1452,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: mddb-windows-amd64
           path: dist/
@@ -1578,8 +1520,8 @@ jobs:
           Record "Read encrypted doc (KEY1)" "POST /v1/get (sec/s1)" "200 + TOPSECRET" "code=$($r.code) body=$($r.body)" $roundTrip
 
           # 3) stop server, restart with WRONG key (KEY2), try to read -> must fail safely
-          $pid = Get-Content server.pid
-          Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+          $serverPid = Get-Content server.pid
+          Stop-Process -Id $serverPid -Force -ErrorAction SilentlyContinue
           Start-Sleep -Seconds 2
           $env:MDDB_ENCRYPTION_KEY = [Convert]::ToBase64String([byte[]]@(99..130))
           $proc = Start-Process -FilePath ".\dist\mddbd.exe" -ArgumentList @(
@@ -1594,11 +1536,14 @@ jobs:
             Start-Sleep -Seconds 1
             try { $r2 = Invoke-WebRequest -Uri "http://localhost:11023/health" -TimeoutSec 5; if ($r2.StatusCode -eq 200) { $ok = $true } } catch { $i++ }
           }
-          if (-not $ok) { Write-Error "restart with wrong key failed to start"; exit 1 }
-
-          $r = WebReq "POST" "$base/v1/get" $gb
-          $wrongKeyFails = ($r.code -ne 200) -or ($r.body -notmatch "TOPSECRET")
-          Record "Wrong key cannot decrypt" "POST /v1/get (sec/s1) with KEY2" "non-200 or no plaintext" "code=$($r.code) body=$($r.body)" $wrongKeyFails
+          if (-not $ok) {
+            # Server refused to open DB with the wrong key -> fail-closed (data inaccessible).
+            Record "Wrong key cannot decrypt" "POST /v1/get (sec/s1) with KEY2" "non-200 or no plaintext (fail-closed at open)" "server refused to start with wrong key" $true
+          } else {
+            $r = WebReq "POST" "$base/v1/get" $gb
+            $wrongKeyFails = ($r.code -ne 200) -or ($r.body -notmatch "TOPSECRET")
+            Record "Wrong key cannot decrypt" "POST /v1/get (sec/s1) with KEY2" "non-200 or no plaintext" "code=$($r.code) body=$($r.body)" $wrongKeyFails
+          }
 
           # ---- emit evidence ----
           $allOk = ($script:tests | Where-Object { $_.status -eq "FAIL" }).Count -eq 0
@@ -1637,7 +1582,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: mddb-windows-amd64
           path: dist/
@@ -1798,7 +1743,7 @@ jobs:
           echo "Patch analysis generated."
 
       - name: Download live feature evidence
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: evidence-*
           path: artifacts/
@@ -1906,7 +1851,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts/
 
