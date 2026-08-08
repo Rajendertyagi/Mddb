@@ -25,7 +25,7 @@
 #   - unit-test-results: Go test output
 name: Windows QA & Feature Audit
 
-"on":
+on:
   workflow_dispatch:
     inputs:
       verbose:
