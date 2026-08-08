@@ -23,7 +23,11 @@
 #   - security-audit: Security findings
 #   - audit-report: Complete audit report
 #   - unit-test-results: Go test output
+
 name: Windows QA & Feature Audit
+
+permissions:
+  contents: read
 
 on:
   workflow_dispatch:
@@ -44,9 +48,6 @@ on:
       - 'services/mddb-panel/**'
       - 'Mddb-patches/**'
       - '.github/workflows/Mddb-Windows-Audit.yml'
-
-permissions:
-  contents: read
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
