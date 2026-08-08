@@ -2199,7 +2199,7 @@ jobs:
                   print("skip", f, e)
 
           # order matches the 10 required feature areas
-                    order = ["GraphQL","MCP","Vector Search","Hybrid Search","File Upload", "Backup/Restore","Authentication","Encryption","gRPC","Replication", "Core CRUD & Stats","Full-Text Search","Geo Search","Aggregation & Curation", "Schema & Collection Config","Webhooks","Audit Log","System & Config", "Metrics & Observability","Document Revisions","Embedding Config"]
+          order = ["GraphQL","MCP","Vector Search","Hybrid Search","File Upload", "Backup/Restore","Authentication","Encryption","gRPC","Replication", "Core CRUD & Stats","Full-Text Search","Geo Search","Aggregation & Curation", "Schema & Collection Config","Webhooks","Audit Log","System & Config", "Metrics & Observability","Document Revisions","Embedding Config"]
           rows = []
           for feat in order:
               d = ev.get(feat)
