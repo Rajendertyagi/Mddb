@@ -230,6 +230,9 @@ jobs:
             if ($failSummary) {
               Write-Host "=== Failing packages/tests ===" -ForegroundColor Red
               $failSummary.Line | ForEach-Object { Write-Host $_ }
+              # Persist a compact, untruncated summary to a file so it survives
+              # GitHub's step-log truncation and is downloadable as an artifact.
+              $failSummary.Line | Out-File -FilePath failing-server-tests.txt -Encoding utf8
             }
             exit 1
           }
@@ -260,11 +263,13 @@ jobs:
           Write-Host "✓ All CLI unit tests passed" -ForegroundColor Green
 
       - name: Upload test results
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: unit-test-results
           path: |
             services/mddbd/test-results-server.log
+            services/mddbd/failing-server-tests.txt
             services/mddb-cli/test-results-cli.log
           retention-days: 7
           if-no-files-found: warn
