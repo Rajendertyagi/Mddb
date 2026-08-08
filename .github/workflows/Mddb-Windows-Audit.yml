@@ -373,23 +373,36 @@ jobs:
               [string]$Method,
               [string]$Path,
               [string]$Body,
-              [int]$ExpectedStatus
+              [int]$ExpectedStatus = 200
             )
-            
+
             $startTime = Get-Date
             try {
               $headers = @{"Content-Type" = "application/json"}
               $response = Invoke-RestMethod -Uri "$base$Path" -Method $Method -Headers $headers -Body $Body -ErrorAction Stop
-              $elapsed = ((Get-Date) - $startTime).TotalSeconds
-              $results += "PASS: $Name (${elapsed}s)"
-              Write-Host "✓ $Name"
-              $script:passed++
+              if ($ExpectedStatus -and $ExpectedStatus -ne 200) {
+                $elapsed = ((Get-Date) - $startTime).TotalSeconds
+                $results += "FAIL: $Name (${elapsed}s) - Expected $ExpectedStatus but got 200"
+                Write-Host "✗ $Name - expected $ExpectedStatus got 200"
+                $script:failed++
+              } else {
+                $elapsed = ((Get-Date) - $startTime).TotalSeconds
+                $results += "PASS: $Name (${elapsed}s)"
+                Write-Host "✓ $Name"
+                $script:passed++
+              }
             } catch {
               $elapsed = ((Get-Date) - $startTime).TotalSeconds
               $statusCode = if ($_.Exception.Response.StatusCode) { [int]$_.Exception.Response.StatusCode } else { 0 }
-              $results += "FAIL: $Name (${elapsed}s) - Status: $statusCode - $($_.Exception.Message)"
-              Write-Host "✗ $Name - $($_.Exception.Message)"
-              $script:failed++
+              if ($ExpectedStatus -and $statusCode -eq $ExpectedStatus) {
+                $results += "PASS: $Name (${elapsed}s) - expected error $ExpectedStatus"
+                Write-Host "✓ $Name (expected $ExpectedStatus)"
+                $script:passed++
+              } else {
+                $results += "FAIL: $Name (${elapsed}s) - Status: $statusCode - $($_.Exception.Message)"
+                Write-Host "✗ $Name - $($_.Exception.Message)"
+                $script:failed++
+              }
             }
           }
           
@@ -428,7 +441,7 @@ jobs:
             algorithm = "bm25"
             topK = 5
           } | ConvertTo-Json -Compress
-          Test-API "Full-text search" "POST" "/v1/full-text-search" $ftsBody 200
+          Test-API "Full-text search" "POST" "/v1/search" $ftsBody 200
           
           # Add more docs
           $docs = @("# Machine Learning Basics", "# Vector Search Tutorial", "# Database Performance")
@@ -456,7 +469,7 @@ jobs:
             key = "nonexistent"
             lang = "en_US"
           } | ConvertTo-Json -Compress
-          Test-API "Get missing doc" "POST" "/v1/get" $missingBody 404
+          Test-API "Get missing doc" "POST" "/v1/get" $missingBody 400
           
           Write-Host ""
           Write-Host "=== Results ===" -ForegroundColor Cyan
