@@ -1,0 +1,37 @@
+From 63fbc50c9c3cea8adf3e02beee409e09920b9bdd Mon Sep 17 00:00:00 2001
+From: Rajendertyagi <86180775+Rajendertyagi@users.noreply.github.com>
+Date: Sat, 8 Aug 2026 19:32:20 +0530
+Subject: [PATCH] fix(audit-test): poll for time-window query result instead of
+ fixed flush wait
+
+---
+ services/mddbd/audit_test.go | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/services/mddbd/audit_test.go b/services/mddbd/audit_test.go
+index b9b059f..1b18504 100644
+--- a/services/mddbd/audit_test.go
++++ b/services/mddbd/audit_test.go
+@@ -254,7 +254,18 @@ func TestAuditQueryTimeWindow(t *testing.T) {
+ 	am.Record(audit.AuditEvent{Timestamp: base, Actor: "b", Action: "x", Result: "ok"})
+ 	am.Record(audit.AuditEvent{Timestamp: base + int64(time.Hour), Actor: "c", Action: "x", Result: "ok"})
+ 	waitFlush(am)
+-	ev, _ := am.Query(audit.QueryFilter{FromNanos: base - int64(30*time.Minute), ToNanos: base + int64(30*time.Minute)})
++	// Poll for the async flush to land the windowed event. The 700ms
++	// waitFlush can be insufficient on congested CI runners (esp. Windows),
++	// yielding an empty window query.
++	var ev []audit.AuditEvent
++	deadline := time.Now().Add(5 * time.Second)
++	for time.Now().Before(deadline) {
++		ev, _ = am.Query(audit.QueryFilter{FromNanos: base - int64(30*time.Minute), ToNanos: base + int64(30*time.Minute)})
++		if len(ev) == 1 && ev[0].Actor == "b" {
++			break
++		}
++		time.Sleep(100 * time.Millisecond)
++	}
+ 	if len(ev) != 1 || ev[0].Actor != "b" {
+ 		t.Fatalf("window filter: %+v", ev)
+ 	}
+-- 
+2.55.0.windows.3
+

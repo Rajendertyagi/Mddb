@@ -3,7 +3,7 @@
 Ordered vendor patch series for the MDDB Windows port.
 
 **Upstream baseline:** `dbc9def` — "Add GitHub Actions workflow for MDDB Panel build"
-**Total patches:** 16
+**Total patches:** 18
 **Last updated:** 2026-08-08
 
 ---
@@ -237,4 +237,30 @@ Ordered vendor patch series for the MDDB Windows port.
 - **Files:**
   - `services/mddbd/internal/temporal/temporal_test.go` (modified)
 - **Purpose:** `TestTemporalManager_HotDocs` used a single `time.Sleep(600ms)` before reading hot docs, but the background writer flushes on a 500ms ticker; on congested CI runners (esp. Windows) the flush can land after the sleep, yielding empty results (`expected hot docs, got none`). Replace with a `GetHotDocs` poll loop (up to 5s) — the same pattern `TestTemporalManager_RecordAndQuery` already uses and which passes reliably. No production/behavior change.
+- **Dependencies:** 0011 (waitFor + async-worker test pattern).
+
+---
+
+## 0017 — Audit-test: poll for time-window query
+
+- **Commit:** `63fbc50`
+- **Type:** Cross-platform correctness
+- **Upstreamable:** Yes (removes timing flakiness on any slow/saturated CI)
+- **Status:** Applied
+- **Files:**
+  - `services/mddbd/audit_test.go` (modified)
+- **Purpose:** `TestAuditQueryTimeWindow` called `am.Query(...)` immediately after `waitFlush(am)` (a fixed 700ms sleep). The async audit writer flushes on its own ticker, so on congested CI runners (esp. Windows) the query could run before the event was durable, yielding `window filter: []` and a test failure. Replace the immediate query with a poll loop (up to 5s) that re-queries until exactly one event with `Actor == "b"` is visible. No production/behavior change.
+- **Dependencies:** 0011 (waitFor + async-worker test pattern).
+
+---
+
+## 0018 — Indexqueue-test: poll for meta swap
+
+- **Commit:** `1607fb0`
+- **Type:** Cross-platform correctness
+- **Upstreamable:** Yes (removes timing flakiness on any slow/saturated CI)
+- **Status:** Applied
+- **Files:**
+  - `services/mddbd/internal/indexqueue/indexqueue_test.go` (modified)
+- **Purpose:** `TestIndexQueue_ProcessJob_DeleteOldMeta` asserted old/new meta-index keys after a single fixed `time.Sleep(100ms)`. The async index writer swaps the meta key asynchronously, so on slow Windows CI the swap could land after the sleep, failing "old meta index should be deleted" / "new meta index should exist". Replace with a poll loop (up to 5s) that reads the BoltDB `idxmeta` bucket directly until the old key is gone and the new key is present. No production/behavior change.
 - **Dependencies:** 0011 (waitFor + async-worker test pattern).

@@ -1,0 +1,48 @@
+From 1607fb007545d662fd26dd0782cbfa6b958b9e75 Mon Sep 17 00:00:00 2001
+From: Rajendertyagi <86180775+Rajendertyagi@users.noreply.github.com>
+Date: Sat, 8 Aug 2026 19:32:22 +0530
+Subject: [PATCH] fix(indexqueue-test): poll for meta swap instead of fixed
+ sleep
+
+---
+ .../internal/indexqueue/indexqueue_test.go    | 24 ++++++++++++++++++-
+ 1 file changed, 23 insertions(+), 1 deletion(-)
+
+diff --git a/services/mddbd/internal/indexqueue/indexqueue_test.go b/services/mddbd/internal/indexqueue/indexqueue_test.go
+index 48bfe2a..b59444d 100644
+--- a/services/mddbd/internal/indexqueue/indexqueue_test.go
++++ b/services/mddbd/internal/indexqueue/indexqueue_test.go
+@@ -368,7 +368,29 @@ func TestIndexQueue_ProcessJob_DeleteOldMeta(t *testing.T) {
+ 		NewMeta:    map[string][]string{"cat": {"science"}},
+ 	}
+ 	_ = iq.Enqueue(job)
+-	time.Sleep(100 * time.Millisecond)
++
++	// Poll for the async worker to swap old->new meta. A fixed sleep is too
++	// short on congested CI runners (esp. Windows), so the swap may not have
++	// happened yet when we assert.
++	deadline := time.Now().Add(5 * time.Second)
++	swapped := false
++	for time.Now().Before(deadline) {
++		_ = srv.DB.View(func(tx *bolt.Tx) error {
++			bIdx := tx.Bucket([]byte("idxmeta"))
++			oldKey := storage.MetaKeyPrefix("blog", "cat", "tech")
++			oldKey = append(oldKey, []byte("d1")...)
++			newKey := storage.MetaKeyPrefix("blog", "cat", "science")
++			newKey = append(newKey, []byte("d1")...)
++			if bIdx.Get(oldKey) == nil && bIdx.Get(newKey) != nil {
++				swapped = true
++			}
++			return nil
++		})
++		if swapped {
++			break
++		}
++		time.Sleep(100 * time.Millisecond)
++	}
+ 
+ 	err = srv.DB.View(func(tx *bolt.Tx) error {
+ 		bIdx := tx.Bucket([]byte("idxmeta"))
+-- 
+2.55.0.windows.3
+
