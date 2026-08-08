@@ -548,8 +548,9 @@ jobs:
           $ErrorActionPreference = "Continue"
           Write-Host "=== Embedded UI Tests ==="
           
-          # Test root path. http.FileServer issues a 3xx dir-root redirect, which
-          # Invoke-WebRequest rejects by default; use curl -L to follow it and assert 200.
+          # Test root path. The embedded UI is served directly via http.ServeContent
+          # (no http.FileServer dir-root redirect), so it returns 200; use curl -L
+          # to stay resilient regardless.
           $uiCode = & curl.exe -sL -o NUL -w "%{http_code}" "http://localhost:11023/"
           if ($uiCode -eq 200) {
             Write-Host "✓ Root path returns 200"

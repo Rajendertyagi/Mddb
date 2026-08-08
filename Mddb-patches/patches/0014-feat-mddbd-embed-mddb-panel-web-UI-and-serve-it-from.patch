@@ -1,28 +1,16 @@
-From 7744da5190d69955185668bd9bb947674bc11ee8 Mon Sep 17 00:00:00 2001
-From: ci <ci@local>
-Date: Fri, 7 Aug 2026 22:52:53 +0530
-Subject: [PATCH 14/15] feat(mddbd): embed mddb-panel web UI and serve it from
- mddbd.exe
+From d389102aeca0f31eb6c0781a9de41a63f4fa9ab0 Mon Sep 17 00:00:00 2001
+From: Rajendertyagi <86180775+Rajendertyagi@users.noreply.github.com>
+Date: Sat, 8 Aug 2026 17:48:29 +0530
+Subject: [PATCH] feat(mddbd): embed mddb-panel web UI and serve it from
 
-Add //go:embed of services/mddbd/webui so a single mddbd.exe serves both
-the JSON API and the React panel with zero external dependencies. A new
-UI handler wraps the API mux: API/control-plane prefixes (/v1, /graphql,
-/playground, /metrics, /health, /debug) are delegated untouched, and all
-other routes fall through to the embedded SPA (index.html) for client-side
-routing.
-
-The webui directory is populated at CI build time by copying the built
-panel dist into it; a non-dotfile placeholder.txt keeps the package
-compiling when the panel is not built (e.g. the windows-runtime go test
-job). NOTE: //go:embed ignores dotfiles, so a .gitkeep would NOT be
-embeddable and the directory would appear empty - hence placeholder.txt.
+mddbd.exe
 ---
- services/mddbd/main.go               |  9 +++
- services/mddbd/ui_embed.go           | 19 ++++++
- services/mddbd/ui_handler.go         | 96 ++++++++++++++++++++++++++++
- services/mddbd/ui_handler_test.go    | 59 +++++++++++++++++
- services/mddbd/webui/placeholder.txt | 12 ++++
- 5 files changed, 195 insertions(+)
+ services/mddbd/main.go               |   9 +++
+ services/mddbd/ui_embed.go           |  19 +++++
+ services/mddbd/ui_handler.go         | 115 +++++++++++++++++++++++++++
+ services/mddbd/ui_handler_test.go    |  59 ++++++++++++++
+ services/mddbd/webui/placeholder.txt |  12 +++
+ 5 files changed, 214 insertions(+)
  create mode 100644 services/mddbd/ui_embed.go
  create mode 100644 services/mddbd/ui_handler.go
  create mode 100644 services/mddbd/ui_handler_test.go
@@ -75,15 +63,17 @@ index 0000000..e3d1222
 +var webuiFS embed.FS
 diff --git a/services/mddbd/ui_handler.go b/services/mddbd/ui_handler.go
 new file mode 100644
-index 0000000..93024e1
+index 0000000..c269dca
 --- /dev/null
 +++ b/services/mddbd/ui_handler.go
-@@ -0,0 +1,96 @@
+@@ -0,0 +1,115 @@
 +package main
 +
 +import (
 +	"io/fs"
++	"mime"
 +	"net/http"
++	"path"
 +	"strings"
 +)
 +
@@ -103,16 +93,14 @@ index 0000000..93024e1
 +// the embedded webui FS, with SPA fallback to index.html for client-side
 +// routing. API routes always take precedence and are delegated untouched.
 +//
-+// If the embedded UI is not present (only .gitkeep), an unknown non-API path
-+// falls through to the inner handler, which returns 404.
++// If the embedded UI is not present (only placeholder.txt), an unknown
++// non-API path falls through to the inner handler, which returns 404.
 +func withEmbeddedUI(inner http.Handler) http.Handler {
 +	sub, err := fs.Sub(webuiFS, "webui")
 +	if err != nil {
 +		// webui is embedded literally; this should never happen.
 +		return inner
 +	}
-+
-+	fileServer := http.FileServer(http.FS(sub))
 +
 +	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 +		path := r.URL.Path
@@ -129,7 +117,7 @@ index 0000000..93024e1
 +		if f, err := sub.Open(rel); err == nil {
 +			if info, err := f.Stat(); err == nil && !info.IsDir() {
 +				f.Close()
-+				serveEmbedded(w, r, fileServer, rel)
++				serveEmbedded(w, r, sub, rel)
 +				return
 +			}
 +			f.Close()
@@ -137,13 +125,11 @@ index 0000000..93024e1
 +
 +		// SPA fallback: serve index.html for any other non-API path so deep
 +		// links work. If index.html isn't embedded, fall through to the API
-+		// handler (404). http.FileServer resolves the seek internally, so it
-+		// works with the fs.File returned by embed.FS (which is not an
-+		// io.ReadSeeker at compile time).
++		// handler (404).
 +		if idx, err := sub.Open("index.html"); err == nil {
 +			if info, err := idx.Stat(); err == nil && !info.IsDir() {
 +				idx.Close()
-+				serveEmbedded(w, r, fileServer, "index.html")
++				serveEmbedded(w, r, sub, "index.html")
 +				return
 +			}
 +			idx.Close()
@@ -153,18 +139,39 @@ index 0000000..93024e1
 +	})
 +}
 +
-+// serveEmbedded serves name from the embedded FS via the shared fileServer,
-+// with a short cache lifetime for static assets (paths containing a dot).
-+// The request path is rewritten so "/" and SPA-fallback routes resolve to the
-+// requested file (e.g. index.html) rather than the original route.
-+func serveEmbedded(w http.ResponseWriter, r *http.Request, fileServer http.Handler, name string) {
++// serveEmbedded serves name from the embedded FS directly. We deliberately do
++// NOT use http.FileServer(http.FS(sub)) here: for embedded directory-style
++// paths it issues a 301 "Location: ./" redirect instead of serving the file.
++// Opening the file ourselves and using http.ServeContent gives deterministic
++// 200 responses (with range/304 support) and correct Content-Type.
++func serveEmbedded(w http.ResponseWriter, r *http.Request, fsys fs.FS, name string) {
 +	if strings.Contains(name, ".") {
 +		// Has a file extension (asset, not a route) — cacheable.
 +		w.Header().Set("Cache-Control", "public, max-age=3600")
 +	}
-+	r2 := r.Clone(r.Context())
-+	r2.URL.Path = "/" + strings.TrimPrefix(name, "/")
-+	fileServer.ServeHTTP(w, r2)
++	f, err := fsys.Open(name)
++	if err != nil {
++		http.Error(w, "not found", http.StatusNotFound)
++		return
++	}
++	defer f.Close()
++	info, err := f.Stat()
++	if err != nil {
++		http.Error(w, "not found", http.StatusNotFound)
++		return
++	}
++	if info.IsDir() {
++		http.Error(w, "not found", http.StatusNotFound)
++		return
++	}
++	ctype := mime.TypeByExtension(path.Ext(name))
++	if ctype == "" {
++		ctype = "application/octet-stream"
++	}
++	w.Header().Set("Content-Type", ctype)
++	// http.ServeContent requires an io.ReadSeeker; embed.FS files provide
++	// Seek, so this works for range requests and conditional 304s.
++	http.ServeContent(w, r, info.Name(), info.ModTime(), f)
 +}
 +
 +func isAPIPath(path string) bool {
