@@ -694,7 +694,7 @@ jobs:
             Write-Host ("{0} {1}" -f $(if($Ok){"✓"}else{"✗"}), $Name)
           }
           function WebReq($Method,$Url,$BodyObj) {
-            $Body = if ($BodyObj) { $BodyObj | ConvertTo-Json -Compress } else { $null }
+            $Body = if ($BodyObj -is [string]) { $BodyObj } elseif ($BodyObj) { $BodyObj | ConvertTo-Json -Compress } else { $null }
             try {
               $h = @{"Content-Type"="application/json"}
               $r = Invoke-WebRequest -Uri $Url -Method $Method -Headers $h -Body $Body -TimeoutSec 30
@@ -1755,7 +1755,7 @@ jobs:
             Write-Host ("{0} [{1}] {2}" -f $(if($Ok){"OK"}else{"XX"}), $Feature, $Name)
           }
           function WebReq($Method,$Url,$BodyObj) {
-            $Body = if ($BodyObj) { $BodyObj | ConvertTo-Json -Compress } else { $null }
+            $Body = if ($BodyObj -is [string]) { $BodyObj } elseif ($BodyObj) { $BodyObj | ConvertTo-Json -Compress } else { $null }
             try {
               $h = @{"Content-Type"="application/json"}
               $r = Invoke-WebRequest -Uri $Url -Method $Method -Headers $h -Body $Body -TimeoutSec 30
@@ -1918,6 +1918,7 @@ jobs:
       - name: Start mddbd server
         run: |
           $ErrorActionPreference = "Stop"
+          $env:MDDB_AUDIT_ENABLED = "true"
           New-Item -ItemType Directory -Force -Path "test-db" | Out-Null
           $proc = Start-Process -FilePath ".\dist\mddbd.exe" -ArgumentList @(
             "-db", "test-db/mddb.db",
@@ -1949,7 +1950,7 @@ jobs:
             Write-Host ("{0} [{1}] {2}" -f $(if($Ok){"OK"}else{"XX"}), $Feature, $Name)
           }
           function WebReq($Method,$Url,$BodyObj) {
-            $Body = if ($BodyObj) { $BodyObj | ConvertTo-Json -Compress } else { $null }
+            $Body = if ($BodyObj -is [string]) { $BodyObj } elseif ($BodyObj) { $BodyObj | ConvertTo-Json -Compress } else { $null }
             try {
               $h = @{"Content-Type"="application/json"}
               $r = Invoke-WebRequest -Uri $Url -Method $Method -Headers $h -Body $Body -TimeoutSec 30
