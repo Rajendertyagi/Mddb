@@ -1,16 +1,16 @@
-From d389102aeca0f31eb6c0781a9de41a63f4fa9ab0 Mon Sep 17 00:00:00 2001
+From afca46942683f68f87a32a432f59f121e8e82e11 Mon Sep 17 00:00:00 2001
 From: Rajendertyagi <86180775+Rajendertyagi@users.noreply.github.com>
-Date: Sat, 8 Aug 2026 17:48:29 +0530
+Date: Sat, 8 Aug 2026 18:09:34 +0530
 Subject: [PATCH] feat(mddbd): embed mddb-panel web UI and serve it from
 
-mddbd.exe
+mddb.exe
 ---
- services/mddbd/main.go               |   9 +++
+ services/mddbd/main.go               |   9 ++
  services/mddbd/ui_embed.go           |  19 +++++
- services/mddbd/ui_handler.go         | 115 +++++++++++++++++++++++++++
- services/mddbd/ui_handler_test.go    |  59 ++++++++++++++
+ services/mddbd/ui_handler.go         | 123 +++++++++++++++++++++++++++
+ services/mddbd/ui_handler_test.go    |  59 +++++++++++++
  services/mddbd/webui/placeholder.txt |  12 +++
- 5 files changed, 214 insertions(+)
+ 5 files changed, 222 insertions(+)
  create mode 100644 services/mddbd/ui_embed.go
  create mode 100644 services/mddbd/ui_handler.go
  create mode 100644 services/mddbd/ui_handler_test.go
@@ -63,13 +63,14 @@ index 0000000..e3d1222
 +var webuiFS embed.FS
 diff --git a/services/mddbd/ui_handler.go b/services/mddbd/ui_handler.go
 new file mode 100644
-index 0000000..c269dca
+index 0000000..f2fb399
 --- /dev/null
 +++ b/services/mddbd/ui_handler.go
-@@ -0,0 +1,115 @@
+@@ -0,0 +1,123 @@
 +package main
 +
 +import (
++	"io"
 +	"io/fs"
 +	"mime"
 +	"net/http"
@@ -169,9 +170,16 @@ index 0000000..c269dca
 +		ctype = "application/octet-stream"
 +	}
 +	w.Header().Set("Content-Type", ctype)
-+	// http.ServeContent requires an io.ReadSeeker; embed.FS files provide
-+	// Seek, so this works for range requests and conditional 304s.
-+	http.ServeContent(w, r, info.Name(), info.ModTime(), f)
++	// fs.File is an io.Reader but not (statically) an io.ReadSeeker. embed.FS
++	// files implement Seek, so assert to get http.ServeContent's range/304
++	// support; if that ever fails, fall back to a plain copy.
++	if rs, ok := f.(io.ReadSeeker); ok {
++		http.ServeContent(w, r, info.Name(), info.ModTime(), rs)
++		return
++	}
++	if r.Method != http.MethodHead {
++		io.Copy(w, f)
++	}
 +}
 +
 +func isAPIPath(path string) bool {
@@ -266,5 +274,5 @@ index 0000000..72928ec
 +through to the API handler for unknown routes. CI overwrites webui/ with the
 +built panel dist before cross-compiling mddbd.exe.
 -- 
-2.54.0.windows.1
+2.55.0.windows.3
 
