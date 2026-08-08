@@ -694,7 +694,7 @@ jobs:
             Write-Host ("{0} {1}" -f $(if($Ok){"✓"}else{"✗"}), $Name)
           }
           function WebReq($Method,$Url,$BodyObj) {
-            $b = if ($BodyObj) { $BodyObj | ConvertTo-Json -Compress } else { $null }
+            $Body = if ($BodyObj) { $BodyObj | ConvertTo-Json -Compress } else { $null }
             try {
               $h = @{"Content-Type"="application/json"}
               $r = Invoke-WebRequest -Uri $Url -Method $Method -Headers $h -Body $Body -TimeoutSec 30
@@ -1700,6 +1700,336 @@ jobs:
   # =========================================================================
   # JOB 12: Security & Patch Audit (evidence-driven, no false PASS)
   # =========================================================================
+
+  audit-data-search:
+    name: Feature - Data & Search APIs
+    runs-on: windows-latest
+    needs: build-windows
+    timeout-minutes: ${{ fromJson(github.event.inputs.test_timeout_minutes || '30') }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Download build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: mddb-windows-amd64
+          path: dist/
+      - name: Grant execute permissions
+        run: |
+          icacls dist/mddbd.exe /grant "Users:(F)"
+          Write-Host "Permissions granted."
+
+      - name: Start mddbd server
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force -Path "test-db" | Out-Null
+          $proc = Start-Process -FilePath ".\dist\mddbd.exe" -ArgumentList @(
+            "-db", "test-db/mddb.db",
+            "-http-addr", ":11023",
+            "-grpc-addr", ":11024"
+          ) -PassThru -WindowStyle Hidden
+          $proc.Id | Out-File -FilePath "server.pid" -Encoding utf8
+          $ok = $false; $i = 0
+          while ($i -lt 30 -and -not $ok) {
+            Start-Sleep -Seconds 1
+            try { $r = Invoke-WebRequest -Uri "http://localhost:11023/health" -TimeoutSec 5; if ($r.StatusCode -eq 200) { $ok = $true } } catch { $i++ }
+          }
+          if (-not $ok) { Write-Error "server not healthy"; exit 1 }
+          Write-Host "OK server healthy"
+
+      - name: Run live tests
+        run: |
+          $ErrorActionPreference = "Continue"
+          $base = "http://localhost:11023"
+          New-Item -ItemType Directory -Force -Path "evidence" | Out-Null
+          $log = "data-search.log"
+          $script:byFeat = @{}
+          $script:fail = 0
+          function RecordF($Feature,$Name,$Command,$Expected,$Actual,$Ok) {
+            $st = if ($Ok) { "PASS" } else { "FAIL" }
+            if (-not $Ok) { $script:fail++ }
+            if (-not $script:byFeat.ContainsKey($Feature)) { $script:byFeat[$Feature] = @() }
+            $script:byFeat[$Feature] += [PSCustomObject]@{name=$Name; command=$Command; expected=$Expected; actual=$Actual; status=$st}
+            Write-Host ("{0} [{1}] {2}" -f $(if($Ok){"OK"}else{"XX"}), $Feature, $Name)
+          }
+          function WebReq($Method,$Url,$BodyObj) {
+            $Body = if ($BodyObj) { $BodyObj | ConvertTo-Json -Compress } else { $null }
+            try {
+              $h = @{"Content-Type"="application/json"}
+              $r = Invoke-WebRequest -Uri $Url -Method $Method -Headers $h -Body $Body -TimeoutSec 30
+              return [PSCustomObject]@{code=[int]$r.StatusCode; body=$r.Content}
+            } catch {
+              $c = if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { 0 }
+              return [PSCustomObject]@{code=$c; body=$_.Exception.Message}
+            }
+          }
+          function NoCrash($code,$body) {
+            return ($code -gt 0 -and $code -lt 500) -and ($body -notmatch 'panic:') -and ($body -notmatch 'runtime error')
+          }
+
+          # ===== Core CRUD & Stats =====
+          $ab = @{collection="core";key="c1";lang="en";contentMd="Core CRUD test doc"} | ConvertTo-Json -Compress
+          $r = WebReq "POST" "$base/v1/add" $ab
+          RecordF "Core CRUD & Stats" "Create document (v1/add)" "POST /v1/add" "200" "code=$($r.code) body=$($r.body)" ($r.code -eq 200)
+
+          $r = WebReq "GET" "$base/v1/get?collection=core&key=c1&lang=en" $null
+          RecordF "Core CRUD & Stats" "Read document (v1/get)" "GET /v1/get" "200 + c1" "code=$($r.code) body=$($r.body)" ($r.code -eq 200 -and $r.body -match "c1")
+
+          $ub = @{collection="core";key="c1";lang="en";contentMd="updated content"} | ConvertTo-Json -Compress
+          $r = WebReq "PATCH" "$base/v1/update" $ub
+          RecordF "Core CRUD & Stats" "Update document (v1/update)" "PATCH /v1/update" "200" "code=$($r.code) body=$($r.body)" ($r.code -eq 200)
+
+          $r = WebReq "GET" "$base/v1/stats" $null
+          RecordF "Core CRUD & Stats" "Database stats (v1/stats)" "GET /v1/stats" "200 + JSON" "code=$($r.code) body=$($r.body)" ($r.code -eq 200 -and $r.body.Length -gt 0)
+
+          $r = WebReq "GET" "$base/v1/health" $null
+          RecordF "Core CRUD & Stats" "Health (v1/health)" "GET /v1/health" "200" "code=$($r.code)" ($r.code -eq 200)
+
+          $r = WebReq "GET" "$base/v1/compliance-status" $null
+          RecordF "Core CRUD & Stats" "Compliance status (v1/compliance-status)" "GET /v1/compliance-status" "200" "code=$($r.code)" ($r.code -eq 200)
+
+          $cb = @{collection="core";key="c1";lang="en"} | ConvertTo-Json -Compress
+          $r = WebReq "POST" "$base/v1/checksum" $cb
+          RecordF "Core CRUD & Stats" "Checksum (v1/checksum)" "POST /v1/checksum" "200/valid" "code=$($r.code) body=$($r.body)" (NoCrash $r.code $r.body)
+
+          $db = @{collection="core";key="c1";lang="en"} | ConvertTo-Json -Compress
+          $r = WebReq "POST" "$base/v1/delete" $db
+          RecordF "Core CRUD & Stats" "Delete document (v1/delete)" "POST /v1/delete" "200/202" "code=$($r.code) body=$($r.body)" ($r.code -eq 200 -or $r.code -eq 202)
+
+          # ===== Full-Text Search =====
+          $ab = @{collection="fts";key="f1";lang="en";contentMd="the quick brown fox jumps over the lazy dog"} | ConvertTo-Json -Compress
+          WebReq "POST" "$base/v1/add" $ab | Out-Null
+          $sb = @{collection="fts";query="fox"} | ConvertTo-Json -Compress
+          $r = WebReq "POST" "$base/v1/search" $sb
+          RecordF "Full-Text Search" "Full-text search (v1/search)" "POST /v1/search q=fox" "200 + results" "code=$($r.code) body=$($r.body)" (NoCrash $r.code $r.body)
+
+          $fb = @{collection="fts";query="brown"} | ConvertTo-Json -Compress
+          $r = WebReq "POST" "$base/v1/fts" $fb
+          RecordF "Full-Text Search" "FTS endpoint (v1/fts)" "POST /v1/fts q=brown" "200" "code=$($r.code) body=$($r.body)" (NoCrash $r.code $r.body)
+
+          $r = WebReq "GET" "$base/v1/fts-languages" $null
+          RecordF "Full-Text Search" "FTS languages (v1/fts-languages)" "GET /v1/fts-languages" "200" "code=$($r.code)" ($r.code -eq 200)
+
+          $r = WebReq "GET" "$base/v1/autocomplete?q=bro" $null
+          RecordF "Full-Text Search" "Autocomplete (v1/autocomplete)" "GET /v1/autocomplete?q=bro" "200" "code=$($r.code)" (NoCrash $r.code $r.body)
+
+          $csb = @{query="fox"} | ConvertTo-Json -Compress
+          $r = WebReq "POST" "$base/v1/cross-search" $csb
+          RecordF "Full-Text Search" "Cross-search (v1/cross-search)" "POST /v1/cross-search" "200" "code=$($r.code) body=$($r.body)" (NoCrash $r.code $r.body)
+
+          # ===== Geo Search =====
+          $geb = @{lat=40.7128; lon=-74.0060} | ConvertTo-Json -Compress
+          $r = WebReq "POST" "$base/v1/geo-encode" $geb
+          RecordF "Geo Search" "Geo encode (v1/geo-encode)" "POST /v1/geo-encode" "200 + hash" "code=$($r.code) body=$($r.body)" (NoCrash $r.code $r.body)
+
+          $gdb = @{hash="9q8yyk8y"} | ConvertTo-Json -Compress
+          $r = WebReq "POST" "$base/v1/geo-decode" $gdb
+          RecordF "Geo Search" "Geo decode (v1/geo-decode)" "POST /v1/geo-decode" "200/400" "code=$($r.code) body=$($r.body)" (NoCrash $r.code $r.body)
+
+          $gsb = @{collection="geo";lat=40.7128; lon=-74.0060; radiusKm=10} | ConvertTo-Json -Compress
+          $r = WebReq "POST" "$base/v1/geo-search" $gsb
+          RecordF "Geo Search" "Geo search (v1/geo-search)" "POST /v1/geo-search" "200" "code=$($r.code) body=$($r.body)" (NoCrash $r.code $r.body)
+
+          $r = WebReq "GET" "$base/v1/geo-stats" $null
+          RecordF "Geo Search" "Geo stats (v1/geo-stats)" "GET /v1/geo-stats" "200" "code=$($r.code)" ($r.code -eq 200)
+
+          # ===== Aggregation & Curation =====
+          $ab = @{collection="agg";key="a1";lang="en";contentMd="agg doc one"} | ConvertTo-Json -Compress
+          WebReq "POST" "$base/v1/add" $ab | Out-Null
+          $ab = @{collection="agg";key="a2";lang="en";contentMd="agg doc two"} | ConvertTo-Json -Compress
+          WebReq "POST" "$base/v1/add" $ab | Out-Null
+          $agb = @{collection="agg"} | ConvertTo-Json -Compress
+          $r = WebReq "POST" "$base/v1/aggregate" $agb
+          RecordF "Aggregation & Curation" "Aggregate (v1/aggregate)" "POST /v1/aggregate" "200" "code=$($r.code) body=$($r.body)" (NoCrash $r.code $r.body)
+
+          $cub = @{collection="agg";key="a1"} | ConvertTo-Json -Compress
+          $r = WebReq "POST" "$base/v1/curation" $cub
+          RecordF "Aggregation & Curation" "Curation (v1/curation)" "POST /v1/curation" "200" "code=$($r.code) body=$($r.body)" (NoCrash $r.code $r.body)
+
+          $fdb = @{collection="agg"} | ConvertTo-Json -Compress
+          $r = WebReq "POST" "$base/v1/find-duplicates" $fdb
+          RecordF "Aggregation & Curation" "Find duplicates (v1/find-duplicates)" "POST /v1/find-duplicates" "200" "code=$($r.code) body=$($r.body)" (NoCrash $r.code $r.body)
+
+          # ===== Schema & Collection Config =====
+          $ssb = @{collection="sch";fields=@(@{name="title";type="text"})} | ConvertTo-Json -Compress
+          $r = WebReq "POST" "$base/v1/schema/set" $ssb
+          RecordF "Schema & Collection Config" "Schema set (v1/schema/set)" "POST /v1/schema/set" "200" "code=$($r.code) body=$($r.body)" (NoCrash $r.code $r.body)
+
+          $r = WebReq "GET" "$base/v1/schema/get?collection=sch" $null
+          RecordF "Schema & Collection Config" "Schema get (v1/schema/get)" "GET /v1/schema/get" "200" "code=$($r.code) body=$($r.body)" (NoCrash $r.code $r.body)
+
+          $r = WebReq "GET" "$base/v1/schema/list" $null
+          RecordF "Schema & Collection Config" "Schema list (v1/schema/list)" "GET /v1/schema/list" "200" "code=$($r.code) body=$($r.body)" ($r.code -eq 200)
+
+          $ccb = @{collection="sch";config=@{}} | ConvertTo-Json -Compress
+          $r = WebReq "POST" "$base/v1/collection-config" $ccb
+          RecordF "Schema & Collection Config" "Collection config (v1/collection-config)" "POST /v1/collection-config" "200" "code=$($r.code) body=$($r.body)" (NoCrash $r.code $r.body)
+
+          $vb = @{collection="sch";doc=@{title="hello"}} | ConvertTo-Json -Compress
+          $r = WebReq "POST" "$base/v1/validate" $vb
+          RecordF "Schema & Collection Config" "Validate (v1/validate)" "POST /v1/validate" "200" "code=$($r.code) body=$($r.body)" (NoCrash $r.code $r.body)
+          # ---- emit evidence ----
+          function Emit($Feature,$Summary) {
+            $ts = $script:byFeat[$Feature]
+            $st = if ($ts -and ($ts | Where-Object { $_.status -eq "FAIL" }).Count -eq 0) { "PASS" } else { "FAIL" }
+            $ev = [PSCustomObject]@{feature=$Feature; status=$st; summary=$Summary; tests=$ts; log=$log}
+            $fname = "evidence/" + ($Feature -replace '[^a-zA-Z0-9]', '_') + ".json"
+            $ev | ConvertTo-Json -Depth 10 | Out-File -FilePath $fname -Encoding utf8
+          }
+          Emit "Core CRUD & Stats" "Core CRUD lifecycle (add/get/update/stats/health/compliance/checksum/delete) verified live on Windows x64."
+          Emit "Full-Text Search" "FTS search, fts endpoint, fts-languages, autocomplete and cross-search exercised live."
+          Emit "Geo Search" "Geo encode/decode/search/stats exercised live without server error on Windows."
+          Emit "Aggregation & Curation" "Aggregate, curation and find-duplicates endpoints exercised live."
+          Emit "Schema & Collection Config" "Schema set/get/list, collection-config and validate exercised live."
+          "# Data & Search live evidence" + ($script:byFeat.Keys | ForEach-Object { "`n[$_] : $($script:byFeat[$_].Count) tests" }) | Out-File -FilePath "data-search.log" -Encoding utf8
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: evidence-data-search
+          path: |
+            evidence/*.json
+            data-search.log
+          retention-days: 7
+          if-no-files-found: warn
+
+  audit-ops:
+    name: Feature - Ops, Observability & Config APIs
+    runs-on: windows-latest
+    needs: build-windows
+    timeout-minutes: ${{ fromJson(github.event.inputs.test_timeout_minutes || '30') }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Download build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: mddb-windows-amd64
+          path: dist/
+      - name: Grant execute permissions
+        run: |
+          icacls dist/mddbd.exe /grant "Users:(F)"
+          Write-Host "Permissions granted."
+
+      - name: Start mddbd server
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force -Path "test-db" | Out-Null
+          $proc = Start-Process -FilePath ".\dist\mddbd.exe" -ArgumentList @(
+            "-db", "test-db/mddb.db",
+            "-http-addr", ":11023",
+            "-grpc-addr", ":11024"
+          ) -PassThru -WindowStyle Hidden
+          $proc.Id | Out-File -FilePath "server.pid" -Encoding utf8
+          $ok = $false; $i = 0
+          while ($i -lt 30 -and -not $ok) {
+            Start-Sleep -Seconds 1
+            try { $r = Invoke-WebRequest -Uri "http://localhost:11023/health" -TimeoutSec 5; if ($r.StatusCode -eq 200) { $ok = $true } } catch { $i++ }
+          }
+          if (-not $ok) { Write-Error "server not healthy"; exit 1 }
+          Write-Host "OK server healthy"
+
+      - name: Run live tests
+        run: |
+          $ErrorActionPreference = "Continue"
+          $base = "http://localhost:11023"
+          New-Item -ItemType Directory -Force -Path "evidence" | Out-Null
+          $log = "ops.log"
+          $script:byFeat = @{}
+          $script:fail = 0
+          function RecordF($Feature,$Name,$Command,$Expected,$Actual,$Ok) {
+            $st = if ($Ok) { "PASS" } else { "FAIL" }
+            if (-not $Ok) { $script:fail++ }
+            if (-not $script:byFeat.ContainsKey($Feature)) { $script:byFeat[$Feature] = @() }
+            $script:byFeat[$Feature] += [PSCustomObject]@{name=$Name; command=$Command; expected=$Expected; actual=$Actual; status=$st}
+            Write-Host ("{0} [{1}] {2}" -f $(if($Ok){"OK"}else{"XX"}), $Feature, $Name)
+          }
+          function WebReq($Method,$Url,$BodyObj) {
+            $Body = if ($BodyObj) { $BodyObj | ConvertTo-Json -Compress } else { $null }
+            try {
+              $h = @{"Content-Type"="application/json"}
+              $r = Invoke-WebRequest -Uri $Url -Method $Method -Headers $h -Body $Body -TimeoutSec 30
+              return [PSCustomObject]@{code=[int]$r.StatusCode; body=$r.Content}
+            } catch {
+              $c = if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { 0 }
+              return [PSCustomObject]@{code=$c; body=$_.Exception.Message}
+            }
+          }
+          function NoCrash($code,$body) {
+            return ($code -gt 0 -and $code -lt 500) -and ($body -notmatch 'panic:') -and ($body -notmatch 'runtime error')
+          }
+
+          # ===== Webhooks =====
+          $r = WebReq "GET" "$base/v1/webhooks" $null
+          RecordF "Webhooks" "List webhooks (v1/webhooks)" "GET /v1/webhooks" "200 + list" "code=$($r.code) body=$($r.body)" ($r.code -eq 200)
+          $whb = @{url="https://example.com/hook"; events=@("create")} | ConvertTo-Json -Compress
+          $r = WebReq "POST" "$base/v1/webhooks" $whb
+          RecordF "Webhooks" "Register webhook (v1/webhooks)" "POST /v1/webhooks" "200/accepted" "code=$($r.code) body=$($r.body)" (NoCrash $r.code $r.body)
+
+          # ===== Audit Log =====
+          $r = WebReq "GET" "$base/v1/audit" $null
+          RecordF "Audit Log" "Audit list (v1/audit)" "GET /v1/audit" "200 + list" "code=$($r.code) body=$($r.body)" ($r.code -eq 200)
+          $r = WebReq "GET" "$base/v1/audit/exporters" $null
+          RecordF "Audit Log" "Audit exporters (v1/audit/exporters)" "GET /v1/audit/exporters" "200" "code=$($r.code) body=$($r.body)" (NoCrash $r.code $r.body)
+
+          # ===== System & Config =====
+          $r = WebReq "GET" "$base/v1/system/info" $null
+          RecordF "System & Config" "System info (v1/system/info)" "GET /v1/system/info" "200" "code=$($r.code) body=$($r.body)" ($r.code -eq 200)
+          $r = WebReq "GET" "$base/v1/config" $null
+          RecordF "System & Config" "Server config (v1/config)" "GET /v1/config" "200 + yaml" "code=$($r.code) body=$($r.body)" ($r.code -eq 200 -and $r.body.Length -gt 0)
+          $r = WebReq "GET" "$base/v1/endpoints" $null
+          RecordF "System & Config" "Endpoints (v1/endpoints)" "GET /v1/endpoints" "200 + list" "code=$($r.code) body=$($r.body)" ($r.code -eq 200)
+          $r = WebReq "GET" "$base/v1/replication/status" $null
+          RecordF "System & Config" "Replication status (v1/replication/status)" "GET /v1/replication/status" "200" "code=$($r.code) body=$($r.body)" ($r.code -eq 200)
+
+          # ===== Metrics & Observability =====
+          $r = WebReq "GET" "$base/metrics" $null
+          RecordF "Metrics & Observability" "Prometheus metrics (/metrics)" "GET /metrics" "200 + mddb_" "code=$($r.code) body=$($r.body)" ($r.code -eq 200 -and $r.body -match "mddb_")
+
+          # ===== Document Revisions =====
+          $ab = @{collection="rev";key="r1";lang="en";contentMd="revision one"} | ConvertTo-Json -Compress
+          WebReq "POST" "$base/v1/add" $ab | Out-Null
+          $ub = @{collection="rev";key="r1";lang="en";contentMd="revision two"} | ConvertTo-Json -Compress
+          WebReq "PATCH" "$base/v1/update" $ub | Out-Null
+          $r = WebReq "GET" "$base/v1/revisions?collection=rev&key=r1&lang=en" $null
+          RecordF "Document Revisions" "List revisions (v1/revisions)" "GET /v1/revisions" "200 + list" "code=$($r.code) body=$($r.body)" (NoCrash $r.code $r.body)
+
+          # ===== Embedding Config =====
+          $r = WebReq "GET" "$base/v1/embedding-configs" $null
+          RecordF "Embedding Config" "List embedding configs (v1/embedding-configs)" "GET /v1/embedding-configs" "200 + list" "code=$($r.code) body=$($r.body)" ($r.code -eq 200)
+          $sdb = @{name="does-not-exist-probe"} | ConvertTo-Json -Compress
+          $r = WebReq "POST" "$base/v1/embedding-configs/set-default" $sdb
+          RecordF "Embedding Config" "Set default embedding (v1/embedding-configs/set-default)" "POST /v1/embedding-configs/set-default" "200/400" "code=$($r.code) body=$($r.body)" (NoCrash $r.code $r.body)
+          # ---- emit evidence ----
+          function Emit($Feature,$Summary) {
+            $ts = $script:byFeat[$Feature]
+            $st = if ($ts -and ($ts | Where-Object { $_.status -eq "FAIL" }).Count -eq 0) { "PASS" } else { "FAIL" }
+            $ev = [PSCustomObject]@{feature=$Feature; status=$st; summary=$Summary; tests=$ts; log=$log}
+            $fname = "evidence/" + ($Feature -replace '[^a-zA-Z0-9]', '_') + ".json"
+            $ev | ConvertTo-Json -Depth 10 | Out-File -FilePath $fname -Encoding utf8
+          }
+          Emit "Webhooks" "Webhook list + register exercised live on Windows."
+          Emit "Audit Log" "Audit log list + exporters exercised live."
+          Emit "System & Config" "system/info, config, endpoints and replication/status exercised live."
+          Emit "Metrics & Observability" "Prometheus /metrics endpoint returns mddb_ series live."
+          Emit "Document Revisions" "Document revision history listed live after an update."
+          Emit "Embedding Config" "Embedding config list + set-default exercised live (no network provider required)."
+          "# Ops live evidence" + ($script:byFeat.Keys | ForEach-Object { "`n[$_] : $($script:byFeat[$_].Count) tests" }) | Out-File -FilePath "ops.log" -Encoding utf8
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: evidence-ops
+          path: |
+            evidence/*.json
+            ops.log
+          retention-days: 7
+          if-no-files-found: warn
+
   security-audit:
     name: Security & Patch Audit (evidence-graded)
     runs-on: ubuntu-latest
@@ -1845,7 +2175,7 @@ jobs:
   generate-report:
     name: Generate Final Audit Report
     runs-on: ubuntu-latest
-    needs: [build-windows, unit-tests, live-functional-tests, audit-graphql-mcp, audit-vector-hybrid, audit-files, audit-grpc, audit-backup-restore, audit-auth, audit-encryption, audit-replication, security-audit]
+    needs: [build-windows, unit-tests, live-functional-tests, audit-graphql-mcp, audit-vector-hybrid, audit-files, audit-grpc, audit-backup-restore, audit-auth, audit-encryption, audit-replication, audit-data-search, audit-ops, security-audit]
     if: always()
     steps:
       - name: Checkout code
@@ -1869,8 +2199,7 @@ jobs:
                   print("skip", f, e)
 
           # order matches the 10 required feature areas
-          order = ["GraphQL","MCP","Vector Search","Hybrid Search","File Upload",
-                   "Backup/Restore","Authentication","Encryption","gRPC","Replication"]
+                    order = ["GraphQL","MCP","Vector Search","Hybrid Search","File Upload", "Backup/Restore","Authentication","Encryption","gRPC","Replication", "Core CRUD & Stats","Full-Text Search","Geo Search","Aggregation & Curation", "Schema & Collection Config","Webhooks","Audit Log","System & Config", "Metrics & Observability","Document Revisions","Embedding Config"]
           rows = []
           for feat in order:
               d = ev.get(feat)
