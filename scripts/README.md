@@ -55,41 +55,25 @@ See [BULK-IMPORT.md](../docs/BULK-IMPORT.md) for detailed documentation.
 
 ### check-docs-links.py
 
-Fails the documentation build on defects a crawl of mddb.tradik.com would
-report. Checks every `href`, `src` and `og:image`/`twitter:image` for links
-that would return 404 **or 308**, resolving both site-relative links and
-absolute links back to the canonical domain against the build output. Also
-reports `<img>` elements with **no `alt` attribute**, and indexable pages with
-**no meta description**, **no `<title>`**, or **no inbound link** (orphans).
-Titles over 60 characters are printed as a warning without failing the build.
-External hosts are never fetched, so the check is offline and deterministic —
-it gates the `deploy-docs` workflow before the Cloudflare Pages upload.
+Fails the documentation build on internal links that resolve **only through a
+redirect**. Everything else is now validated by SSG itself — `check_links`,
+`check_images`, `check_meta` and `check_orphans` in `.ssg.yaml` cover dead
+links, images with no `alt`, indexable pages missing a title or description,
+and orphan pages.
 
-Pages marked `noindex` are exempt from the description, title and orphan
-checks: they never appear in results, so none of it buys them anything.
-`404.html` and the taxonomy pages are the cases this matters for.
+This script covers the one thing those cannot: they resolve a URL against the
+output directory, which is not how Cloudflare Pages serves it. Pages rewrites
+two shapes before answering, with a 308 each time:
 
-It also verifies `sitemap.xml` lists no URL that contradicts its own page —
-see `prune-sitemap.py` below, which removes them; this is the guard that the
-pruning actually ran.
+| link in the HTML | what Pages does |
+|---|---|
+| `/docs/api/swagger/index.html` | 308 → `/docs/api/swagger/` (strips `.html`) |
+| `/docs/config` | 308 → `/docs/config/` (appends the slash) |
 
-Orphan detection counts only `<a href>` from *other* pages. Counting every
-`href` looks equivalent and is not: `<link rel="canonical">` points each page
-at itself, so every page would appear linked and the check would never fire.
-
-On `alt`: a *missing* attribute is the defect, `alt=""` is not. An empty `alt`
-is the correct WCAG treatment for a decorative image — the site logo sits
-inside a link that already carries the text "MDDB", so describing it again
-would make a screen reader announce the same thing twice. Flagging `alt=""`
-would push authors toward exactly that.
-
-Resolution models **Cloudflare Pages routing**, not the output directory:
-Pages strips `.html` and appends a missing trailing slash on a directory,
-answering the original URL with a 308 each time. So `/docs/api/swagger` is
-valid even though the file on disk is `swagger.html`, while linking
-`/docs/api/swagger.html` or `/docs/config` is reported with the final URL to
-use instead. Redirecting links still work for visitors, but they cost a round
-trip and a hop of crawl budget, so they are treated as failures.
+Both work for a visitor, so nothing is broken — they cost a round trip and a
+hop of crawl budget. To the output directory they look valid, so only a check
+that models the deploy target sees them. One `.html` link in the shared footer
+once put all 51 pages through a redirect.
 
 **Usage:**
 ```bash
@@ -97,32 +81,10 @@ python3 scripts/check-docs-links.py [output_dir]   # default: dist
 make docs-linkcheck                                # build, then check
 ```
 
-Exit codes: `0` clean, `1` broken links found (each printed with the pages
-linking to it), `2` output directory missing.
-
-### prune-sitemap.py
-
-Keeps the generated `sitemap.xml` to canonical, indexable URLs. A sitemap entry
-asks a crawler to index that exact URL, so two kinds of page are removed:
-
-- **`noindex`** — the page declines the very thing the sitemap requests. Search
-  Console reports the pair as an error and crawl budget is spent on a page that
-  is then discarded.
-- **non-self-canonical** — the page names a different URL as canonical, so the
-  listed one is not the version to index.
-
-The SSG cannot do this itself: it writes the sitemap before the theme emits
-`robots` and `canonical`, so at that moment neither signal exists. Pruning runs
-after the build instead, and removes the sitemap entry rather than the tag —
-the tag is the deliberate signal. Reported upstream as spagu/ssg#78.
-
-**Usage:**
-```bash
-python3 scripts/prune-sitemap.py [output_dir]   # default: dist
-```
-
-Runs automatically as part of `make docs-build` and in the deploy workflow.
-`check-docs-links.py` fails the build if a contradicting entry survives.
+Exit codes: `0` clean, `1` redirecting links found, `2` output directory
+missing. External hosts are never fetched, so the check is offline and
+deterministic. Requested upstream as spagu/ssg#87; it goes away if `check_links`
+learns the deploy target.
 
 ## Using with Makefile
 

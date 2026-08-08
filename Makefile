@@ -162,14 +162,8 @@ docs-dev: ## Start SSG docs server in watch mode on :8888
 
 docs-build: ## Build static documentation site into dist/
 	@ssg --config .ssg.yaml --clean
-	@mkdir -p dist/docs/api
-	@cp services/ssg-template/swagger.html dist/docs/api/swagger.html
-	@cp services/ssg-template/404.html dist/404.html
-	@cp docs/openapi.yaml dist/docs/api/openapi.yaml
-	@cp services/ssg-template/og-image.png dist/og-image.png
-	@python3 scripts/prune-sitemap.py dist
 
-docs-linkcheck: docs-build ## Fail if the built site contains a broken internal link
+docs-linkcheck: docs-build ## Fail if any internal link would hit a redirect
 	@python3 scripts/check-docs-links.py dist
 
 # ----- Airbyte destination connector (integrations/airbyte-destination) -----
